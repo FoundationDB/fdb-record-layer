@@ -328,7 +328,7 @@ public interface Compensation {
      * @return a new compensation
      */
     @Nonnull
-    static Compensation ofChildCompensationAndPredicateMap(final boolean isImpossible,
+    static Compensation     ofChildCompensationAndPredicateMap(final boolean isImpossible,
                                                            @Nonnull final Compensation childCompensation,
                                                            @Nonnull final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
                                                            @Nonnull final Set<Quantifier> matchedQuantifiers,
@@ -729,6 +729,127 @@ public interface Compensation {
          * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
          * filters and/or transformations
          */
+        @Nonnull
+        @Override
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull RelationalExpression relationalExpression) {
+            // apply the child as needed
+            if (childCompensation.isNeeded()) {
+                relationalExpression = childCompensation.apply(memoizer, relationalExpression);
+            }
+
+            final var matchedQuantifierMap =
+                    Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
+
+            final var matchedAliases =
+                    matchedQuantifierMap.keySet();
+            Verify.verify(compensatedAliases.equals(matchedAliases));
+
+            final var matchedForEachQuantifierAliases =
+                    matchedAliases
+                            .stream()
+                            .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
+                            .collect(ImmutableSet.toImmutableSet());
+
+            Verify.verify(matchedForEachQuantifierAliases.size() <= 1);
+
+            final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
+            final var injectCompensationFunctions = predicateCompensationMap.values();
+            for (final var injectCompensationFunction : injectCompensationFunctions) {
+                compensatedPredicates.addAll(injectCompensationFunction.applyCompensationForPredicate(TranslationMap.empty()));
+            }
+
+            final var compensatedPredicatesCorrelatedTo =
+                    compensatedPredicates
+                            .stream()
+                            .flatMap(predicate -> predicate.getCorrelatedTo().stream())
+                            .collect(ImmutableSet.toImmutableSet());
+
+            final var toBePulledUpQuantifiersBuilder = ImmutableSet.<Quantifier>builder();
+
+            for (final var matchedQuantifier : matchedQuantifiers) {
+                if (matchedQuantifier instanceof Quantifier.Existential) {
+                    if (compensatedPredicatesCorrelatedTo.contains(matchedQuantifier.getAlias())) {
+                        //
+                        // This quantifier is matched but since there is a predicate referring to it which
+                        // can only be an EXISTS() and we only partially matched the EXISTS() (as it is in the
+                        // compensation map) we need to pull up the corresponding matched quantifier.
+                        //
+                        toBePulledUpQuantifiersBuilder.add(matchedQuantifier);
+                    }
+                }
+            }
+
+            for (final var unmatchedQuantifier : unmatchedQuantifiers) {
+                if (unmatchedQuantifier instanceof Quantifier.ForEach) {
+                    //
+                    // Even though the quantifier is unmatched it can still affect the cardinality of this SELECT
+                    // which means that we need to retain (pull-up) that quantifier.
+                    //
+                    toBePulledUpQuantifiersBuilder.add(unmatchedQuantifier);
+                } else {
+                    Verify.verify(unmatchedQuantifier instanceof Quantifier.Existential);
+                    //
+                    // If the unmatched quantifier is existential but there is nothing
+                    //
+                    if (compensatedPredicatesCorrelatedTo.contains(unmatchedQuantifier.getAlias())) {
+                        toBePulledUpQuantifiersBuilder.add(unmatchedQuantifier);
+                    }
+                }
+            }
+            final var toBePulledUpQuantifiers = toBePulledUpQuantifiersBuilder.build();
+
+            if (compensatedPredicates.isEmpty() && toBePulledUpQuantifiers.isEmpty()) {
+                return relationalExpression;
+            }
+
+            //
+            // At this point we definitely need a new SELECT expression.
+            //
+            final var matchedForEachQuantifierAlias =
+                    Iterables.getOnlyElement(matchedForEachQuantifierAliases);
+            final var newBaseQuantifier =
+                    Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                            matchedForEachQuantifierAlias);
+
+            //
+            // TODO In the vast majority of cases the then branch is taken where the compensation does not create
+            //      a join. If the compensation, however, has to reapply the predicate, then in addition to using
+            //      part of the predicate as a sargable we may actually enter the else branch here. This happens for the
+            //      reapplication of EXISTS(). The to-do is Try to find a solution that allows us to create a select
+            //      here without triggering a whole round of explorations for the newly-formed join. As this really
+            //      only happens for existential predicates, we could just introduce a binary join expression that does
+            //      not undergo e.g. or-to-union. Note that this is not a problem for the then case as the predicates
+            //      in the logical filter expression are left alone by other rules.
+            //
+            if (toBePulledUpQuantifiers.isEmpty()) {
+                return new LogicalFilterExpression(compensatedPredicates, newBaseQuantifier);
+            } else {
+                final var completeExpansionBuilder = GraphExpansion.builder();
+                completeExpansionBuilder.addAllQuantifiers(toBePulledUpQuantifiersBuilder.build());
+
+                // add base quantifier
+                completeExpansionBuilder.addQuantifier(newBaseQuantifier);
+                completeExpansionBuilder.addAllPredicates(compensatedPredicates);
+
+                return completeExpansionBuilder.build().buildSimpleSelectOverQuantifier(newBaseQuantifier);
+            }
+        }
+    }
+
+    /**
+     * Compensation class for group by matches that require a rollup.
+     */
+    class RollupCompensation implements Compensation {
+
+
+
+        @Nonnull
+        private final Compensation childCompensation;
+
+        public RollupCompensation(@Nonnull final Compensation childCompensation) {
+            this.childCompensation = childCompensation;
+        }
+
         @Nonnull
         @Override
         public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull RelationalExpression relationalExpression) {
