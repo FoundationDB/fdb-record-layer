@@ -88,12 +88,12 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
 
 
         final var bitmapConstructAggFunc = FunctionCatalog.getFunctionSingleton(NumericAggregationValue.BitMapConstructAggFn.class).orElseThrow();
-        final var modFunc = FunctionCatalog.getFunctionSingleton(ArithmeticValue.ModFn.class).orElseThrow();
+        final var bitmapBitPositionFunc = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitMapBitPositionFn.class).orElseThrow();
         final String sizeArgument = index.getOption(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION);
         final int entrySize = sizeArgument != null ? Integer.parseInt(sizeArgument) : BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE;
         final var entrySizeValue = LiteralValue.ofScalar(entrySize);
 
-        final var aggregateValue = (Value)bitmapConstructAggFunc.encapsulate(ImmutableList.of(modFunc.encapsulate(ImmutableList.of(argument, entrySizeValue))));
+        final var aggregateValue = (Value)bitmapConstructAggFunc.encapsulate(ImmutableList.of(bitmapBitPositionFunc.encapsulate(ImmutableList.of(argument, entrySizeValue))));
         // add an RCV column representing the grouping columns as the first result set column
         // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
 

@@ -407,7 +407,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
             final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitMapBucketOffsetFn().encapsulate(List.of(num2, bucketSizeValue));
 
-            final Value bitMapValue = (Value) new NumericAggregationValue.BitMapConstructAggFn().encapsulate(List.of(new ArithmeticValue.ModFn().encapsulate(List.of(num2, bucketSizeValue))));
+            final Value bitMapValue = (Value) new NumericAggregationValue.BitMapConstructAggFn().encapsulate(List.of(new ArithmeticValue.BitMapBitPositionFn().encapsulate(List.of(num2, bucketSizeValue))));
             final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES), Optional.of("bitmap_field")), bitMapValue);
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
