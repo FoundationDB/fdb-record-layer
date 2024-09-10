@@ -194,7 +194,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, indexScan("collated_name"));
     }
 
-    @Disabled // for now
+    @Disabled // TODO need an issue to document this: We need to be able to reapply a predicate for these cases
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void rangeScanSimpleQuery() throws Exception {
         final KeyExpression key = function(collateFunctionName, concat(NAME_FIELD, value("da_DK")));
