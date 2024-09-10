@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
@@ -189,6 +190,23 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final List<String> actual = queryNames(query, hook);
         final List<String> expected = Arrays.asList("Ørsted", "Ångström");
         assertEquals(expected, actual);
+        RecordQueryPlan plan = planQuery(query);
+        assertThat(plan, indexScan("collated_name"));
+    }
+
+    @Disabled // for now
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void rangeScanSimpleQuery() throws Exception {
+        final KeyExpression key = function(collateFunctionName, concat(NAME_FIELD, value("da_DK")));
+        final RecordMetaDataHook hook = md -> {
+            md.removeIndex("MySimpleRecord$str_value_indexed");
+            md.addIndex("MySimpleRecord", "collated_name", key);
+        };
+        loadNames(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("str_value_indexed").equalsValue("Z"))
+                .build();
         RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan("collated_name"));
     }

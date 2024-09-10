@@ -60,7 +60,7 @@ import java.util.Optional;
  * A {@link Value} that turns a string into a locale-specific sort key.
  */
 @API(API.Status.EXPERIMENTAL)
-public class CollateValue extends AbstractValue {
+public class CollateValue extends AbstractValue implements Value.InvertableValue<Value> {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Collate-Value");
 
     @Nonnull
@@ -88,12 +88,17 @@ public class CollateValue extends AbstractValue {
         return collatorRegistry;
     }
 
+    @Override
+    public Optional<Value> createInverseValueMaybe(@Nonnull final Value newChildValue) {
+        return Optional.empty();
+    }
+
     @Nullable
     @Override
-    public <M extends Message> ByteString eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> ByteString eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final String str = (String)stringChild.eval(store, context);
         final TextCollator collator = getTextCollator(store, context);
-        return collator.getKey(str);
+        return collator.getKey(str); //TODO str may be null?
     }
 
     @Nonnull
@@ -303,7 +308,7 @@ public class CollateValue extends AbstractValue {
     }
 
     @Nonnull
-    private <M extends Message> TextCollator getTextCollator(@Nonnull final FDBRecordStoreBase<M> store,
+    private <M extends Message> TextCollator getTextCollator(@Nullable final FDBRecordStoreBase<M> store,
                                                              @Nonnull final EvaluationContext context) {
         if (invariableCollator != null) {
             return invariableCollator;

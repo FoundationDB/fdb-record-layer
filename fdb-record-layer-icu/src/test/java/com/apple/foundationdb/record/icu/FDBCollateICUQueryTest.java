@@ -56,5 +56,4 @@ public class FDBCollateICUQueryTest extends FDBCollateQueryTest {
     public void sortNumbersNonNumeric() throws Exception {
         sortOnly("en@colNumeric=no", NUMBERS, "1.10.0", "1.2.3", "12.0.0");
     }
-
 }

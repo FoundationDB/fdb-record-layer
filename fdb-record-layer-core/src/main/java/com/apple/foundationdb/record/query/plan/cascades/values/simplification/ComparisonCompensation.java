@@ -105,11 +105,13 @@ public interface ComparisonCompensation {
      * Nested chaining comparison compensation.
      */
     class NestedInvertableComparisonCompensation implements ComparisonCompensation {
+        @Nonnull
         private final InvertableValue<?> otherCurrent;
+        @Nonnull
         private final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult;
 
-        public NestedInvertableComparisonCompensation(final InvertableValue<?> otherCurrent,
-                                                      final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult) {
+        public NestedInvertableComparisonCompensation(@Nonnull final InvertableValue<?> otherCurrent,
+                                                      @Nonnull final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult) {
             this.otherCurrent = otherCurrent;
             this.childResult = childResult;
         }
