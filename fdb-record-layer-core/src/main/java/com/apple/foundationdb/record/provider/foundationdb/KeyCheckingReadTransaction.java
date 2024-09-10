@@ -33,6 +33,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -47,6 +48,8 @@ public class KeyCheckingReadTransaction<T extends ReadTransaction> implements Re
     protected final T underlying;
     @Nonnull
     protected final KeyChecker keyChecker;
+    @Nullable
+    private ReadTransaction snapshot;
 
     protected KeyCheckingReadTransaction(@Nonnull final T underlying, @Nonnull KeyChecker keyChecker) {
         this.underlying = underlying;
@@ -72,7 +75,15 @@ public class KeyCheckingReadTransaction<T extends ReadTransaction> implements Re
 
     @Override
     public ReadTransaction snapshot() {
-        return new KeyCheckingReadTransaction<>(underlying.snapshot(), keyChecker);
+        if (isSnapshot()) {
+            return this;
+        }
+        synchronized (this) {
+            if (snapshot == null) {
+                snapshot = new KeyCheckingReadTransaction<>(underlying.snapshot(), keyChecker);
+            }
+            return snapshot;
+        }
     }
 
     @Override
@@ -184,6 +195,7 @@ public class KeyCheckingReadTransaction<T extends ReadTransaction> implements Re
     @Override
     public AsyncIterable<MappedKeyValue> getMappedRange(final KeySelector begin, final KeySelector end, final byte[] mapper, final int limit, final boolean reverse, final StreamingMode mode) {
         checkKeyRange(begin.getKey(), end.getKey(), false);
+        // TODO: Does the mapped range need to be checked, too?
         return underlying.getMappedRange(begin, end, mapper, limit, reverse, mode);
     }
 

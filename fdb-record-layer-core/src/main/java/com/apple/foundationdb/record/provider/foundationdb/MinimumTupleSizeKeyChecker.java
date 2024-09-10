@@ -84,24 +84,24 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
     }
 
     @Override
-    public void checkKey(final byte[] key, final boolean mutation) {
+    public void checkKey(final byte[] key, final boolean write) {
         final CheckedSubspace checkedSubspace = findCheckedSubspace(key);
         if (checkedSubspace == null) {
             return;
         }
-        if (!checkedSubspace.checkReads && !mutation) {
+        if (!checkedSubspace.checkReads && !write) {
             return;
         }
         checkKeyLength(checkedSubspace, key);
     }
 
     @Override
-    public void checkKeyRange(final byte[] keyBegin, final byte[] keyEnd, final boolean mutation) {
+    public void checkKeyRange(final byte[] keyBegin, final byte[] keyEnd, final boolean write) {
         final CheckedSubspace checkedSubspace = findCheckedSubspace(keyBegin);
         if (checkedSubspace == null) {
             return;
         }
-        if (!checkedSubspace.checkReads && !mutation) {
+        if (!checkedSubspace.checkReads && !write) {
             return;
         }
         final byte[] prefix = checkKeyLength(checkedSubspace, keyBegin);

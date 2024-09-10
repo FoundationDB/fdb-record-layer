@@ -29,20 +29,20 @@ public interface KeyChecker {
      * Check a single key.
      *
      * @param key the operation's key
-     * @param mutation whether the operation is a mutation
+     * @param write whether the operation is a mutation
      */
-    void checkKey(byte[] key, boolean mutation);
+    void checkKey(byte[] key, boolean write);
 
     /**
      * Check a key range.
      *
      * @param keyBegin the operation's key range begin
      * @param keyEnd the operation's key range end
-     * @param mutation whether the operation is a mutation
+     * @param write whether the operation is a mutation
      */
-    default void checkKeyRange(final byte[] keyBegin, final byte[] keyEnd, boolean mutation) {
-        checkKey(keyBegin, mutation);
-        checkKey(keyEnd, mutation);
+    default void checkKeyRange(final byte[] keyBegin, final byte[] keyEnd, boolean write) {
+        checkKey(keyBegin, write);
+        checkKey(keyEnd, write);
     }
 
     /**
