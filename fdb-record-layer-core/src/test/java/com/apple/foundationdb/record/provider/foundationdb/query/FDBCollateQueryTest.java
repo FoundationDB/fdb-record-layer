@@ -194,7 +194,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, indexScan("collated_name"));
     }
 
-    @Disabled // TODO need an issue to document this: We need to be able to reapply a predicate for these cases
+    @Disabled // TODO https://github.com/FoundationDB/fdb-record-layer/issues/2911
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void rangeScanSimpleQuery() throws Exception {
         final KeyExpression key = function(collateFunctionName, concat(NAME_FIELD, value("da_DK")));

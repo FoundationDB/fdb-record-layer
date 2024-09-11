@@ -50,9 +50,6 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryKeyExpression {
-    private static final ObjectPlanHash SIMPLE_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Simple-Comparison");
-    private static final ObjectPlanHash PARAMETER_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Parameter-Comparison");
-
     @Nonnull
     protected final QueryableKeyExpression keyExpression;
 
@@ -273,6 +270,7 @@ public class QueryKeyExpression {
     }
 
     private static final class ConversionSimpleComparison extends Comparisons.SimpleComparisonBase {
+        private static final ObjectPlanHash CONVERSION_SIMPLE_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Simple-Comparison");
         @Nonnull
         private final QueryableKeyExpression keyExpression;
         @Nonnull
@@ -322,7 +320,7 @@ public class QueryKeyExpression {
                 case LEGACY:
                     return super.planHash(mode) + getKeyExpression().planHash(mode);
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(mode, SIMPLE_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
+                    return PlanHashable.objectsPlanHash(mode, CONVERSION_SIMPLE_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
@@ -330,7 +328,7 @@ public class QueryKeyExpression {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, SIMPLE_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
+            return HashUtils.queryHash(hashKind, CONVERSION_SIMPLE_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
         }
 
         @Nonnull
@@ -387,6 +385,7 @@ public class QueryKeyExpression {
     }
 
     private static final class ConversionParameterComparison extends Comparisons.ParameterComparisonBase {
+        private static final ObjectPlanHash CONVERSION_PARAMETER_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Parameter-Comparison");
         @Nonnull
         private final QueryableKeyExpression keyExpression;
         @Nonnull
@@ -476,7 +475,7 @@ public class QueryKeyExpression {
                 case LEGACY:
                     return super.planHash(mode) + getKeyExpression().planHash(mode);
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(mode, PARAMETER_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
+                    return PlanHashable.objectsPlanHash(mode, CONVERSION_PARAMETER_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
@@ -484,7 +483,7 @@ public class QueryKeyExpression {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, PARAMETER_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
+            return HashUtils.queryHash(hashKind, CONVERSION_PARAMETER_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
         }
 
         @Nonnull

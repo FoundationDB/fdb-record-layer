@@ -370,18 +370,18 @@ public class CollateValue extends AbstractValue {
         final int nargs = arguments.size();
         Verify.verify(nargs >= 1 && nargs <= 3);
         final Typed stringArg = arguments.get(0);
-        SemanticException.check(stringArg.getResultType().isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
+        SemanticException.check(stringArg.getResultType().isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_COLLATE_IS_OF_COMPLEX_TYPE);
         final Typed localeArg;
         if (nargs > 1) {
             localeArg = arguments.get(1);
-            SemanticException.check(localeArg.getResultType().isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
+            SemanticException.check(localeArg.getResultType().isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_COLLATE_IS_OF_COMPLEX_TYPE);
         } else {
             localeArg = null;
         }
         final Typed strengthArg;
         if (nargs > 2) {
             strengthArg = arguments.get(2);
-            SemanticException.check(strengthArg.getResultType().isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
+            SemanticException.check(strengthArg.getResultType().isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_COLLATE_IS_OF_COMPLEX_TYPE);
         } else {
             strengthArg = null;
         }
