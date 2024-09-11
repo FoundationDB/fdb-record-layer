@@ -474,8 +474,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     if (withZeroExplicitGroups) {
                         metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", new GroupingKeyExpression(field("num_value_2"), 1), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                     } else {
-                        Index index = new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed")), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize)));
-                        System.out.println("bitmapIndex keyExpression:" + index.getRootExpression());
                         metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed")), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                     }
                 }
