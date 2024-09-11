@@ -21,23 +21,34 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * TBD.
  */
 public enum PlannerPhase {
-    CANONICALIZATION(CanonicalizationRuleSet.getDefault(), PlannerStage.CANONICAL),
-    PLANNING(PlanningRuleSet.getDefault(), PlannerStage.PHYSICAL);
+    PLANNING(PlanningRuleSet.getDefault(), PlannerStage.PHYSICAL),
+    CANONICALIZATION(CanonicalizationRuleSet.getDefault(), PlannerStage.CANONICAL, PLANNING);
 
     @Nonnull
     private final CascadesRuleSet ruleSet;
     @Nonnull
     private final PlannerStage targetStage;
+    @Nullable
+    private final PlannerPhase nextPhase;
 
     PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
                  @Nonnull final PlannerStage targetStage) {
+        this(ruleSet, targetStage, null);
+    }
+
+    PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
+                 @Nonnull final PlannerStage targetStage,
+                 @Nullable final PlannerPhase nextPhase) {
         this.ruleSet = ruleSet;
         this.targetStage = targetStage;
+        this.nextPhase = nextPhase;
     }
 
     @Nonnull
@@ -48,5 +59,14 @@ public enum PlannerPhase {
     @Nonnull
     public PlannerStage getTargetStage() {
         return targetStage;
+    }
+
+    @Nonnull
+    public PlannerPhase getNextPhase() {
+        return Objects.requireNonNull(nextPhase);
+    }
+
+    public boolean hasNextPhase() {
+        return nextPhase != null;
     }
 }

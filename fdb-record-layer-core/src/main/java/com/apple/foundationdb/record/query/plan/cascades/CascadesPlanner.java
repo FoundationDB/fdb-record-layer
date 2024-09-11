@@ -203,8 +203,6 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final RecordStoreState recordStoreState;
     @Nonnull
-    private final PlanningRuleSet ruleSet;
-    @Nonnull
     private Reference currentRoot;
     @Nonnull
     private PlanContext planContext;
@@ -219,15 +217,10 @@ public class CascadesPlanner implements QueryPlanner {
     // max size of the task queue encountered during the planning
     private int maxQueueSize;
 
-    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
-        this(metaData, recordStoreState, defaultPlannerRuleSet());
-    }
-
-    private CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlanningRuleSet ruleSet) {
+    public CascadesPlanner(@Nonnull final RecordMetaData metaData, @Nonnull final RecordStoreState recordStoreState) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
-        this.ruleSet = ruleSet;
         // Placeholders until we get a query.
         this.currentRoot = Reference.empty();
         this.planContext = PlanContext.EMPTY_CONTEXT;
@@ -438,8 +431,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     private void pushInitialTasks() {
-        taskStack.push(new OptimizeGroup(PlannerPhase.PLANNING, currentRoot));
-        taskStack.push(new ExploreGroup(PlannerPhase.PLANNING, currentRoot));
+        taskStack.push(new InitiatePlannerPhase(PlannerPhase.PLANNING));
     }
 
     private void exploreExpressionAndOptimizeInputs(@Nonnull final PlannerPhase plannerPhase,
@@ -475,6 +467,56 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Nonnull
         Debugger.Event toTaskEvent(Location location);
+    }
+
+    /**
+     * Optimize Group task.
+     * <br>
+     * Simplified push/execute overview:
+     * <br>
+     * {@link OptimizeGroup}
+     *     if (not explored)
+     *         push
+     *             this (again)
+     *             {@link ExploreExpression} for each group member
+     *         sets explored to {@code true}
+     *     else
+     *         prune to find best plan; done
+     */
+    private class InitiatePlannerPhase implements Task {
+        @Nonnull
+        private final PlannerPhase plannerPhase;
+
+        public InitiatePlannerPhase(@Nonnull final PlannerPhase plannerPhase) {
+            this.plannerPhase = plannerPhase;
+        }
+
+        @Override
+        @Nonnull
+        public PlannerPhase getPlannerPhase() {
+            return plannerPhase;
+        }
+
+        @Override
+        public void execute() {
+            if (plannerPhase.hasNextPhase()) {
+                // if there is another phase push it first so it gets executed at the very end
+                taskStack.push(new InitiatePlannerPhase(plannerPhase.getNextPhase()));
+            }
+            taskStack.push(new OptimizeGroup(plannerPhase, currentRoot));
+            taskStack.push(new ExploreGroup(plannerPhase, currentRoot));
+        }
+
+        @Override
+        @Nonnull
+        public Debugger.Event toTaskEvent(final Location location) {
+            return new Debugger.InitiatePlannerPhaseEvent(currentRoot, taskStack, plannerPhase);
+        }
+
+        @Override
+        public String toString() {
+            return "InitiatePlannerPhase(" + plannerPhase.name() + ")";
+        }
     }
 
     /**
@@ -585,7 +627,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
 
             //
-            // Target planner stage and group's stage are the same.
+            // Target planner stage and group's stage are now the same.
             //
 
             if (group.needsExploration()) {
@@ -667,6 +709,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
+            final var ruleSet = getPlannerPhase().getRuleSet();
             // Push all rules that need to run after all exploration for a (group, expression) pair is done.
             ruleSet.getMatchPartitionRules()
                     .filter(rule -> configuration.isRuleEnabled(rule))
@@ -1026,7 +1069,9 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-            ruleSet.getPartialMatchRules()
+            getPlannerPhase()
+                    .getRuleSet()
+                    .getPartialMatchRules()
                     .filter(rule -> configuration.isRuleEnabled(rule))
                     .forEach(rule -> taskStack.push(new TransformPartialMatch(getPlannerPhase(),
                             getGroup(), getExpression(), partialMatch, rule)));
@@ -1099,14 +1144,5 @@ public class CascadesPlanner implements QueryPlanner {
         public String toString() {
             return "OptimizeInputs(" + group + ")";
         }
-    }
-
-    /**
-     * Returns the default set of transformation rules.
-     * @return a {@link PlanningRuleSet} using the default set of transformation rules
-     */
-    @Nonnull
-    public static PlanningRuleSet defaultPlannerRuleSet() {
-        return PlanningRuleSet.DEFAULT;
     }
 }
