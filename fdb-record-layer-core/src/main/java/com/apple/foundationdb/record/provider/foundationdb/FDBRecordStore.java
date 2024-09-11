@@ -1520,16 +1520,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @VisibleForTesting
     CompletableFuture<Void> whenAllIndexUniquenessCommitChecks(@Nonnull Index index) {
+        return AsyncUtil.whenAll(checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().equals(index)));
+    }
+
+    private @Nonnull List<CompletableFuture<Void>> checkAllIndexUniquenessChecks(final Predicate<IndexUniquenessCommitCheck> checkPredicate) {
         List<FDBRecordContext.CommitCheckAsync> indexUniquenessChecks = getRecordContext().getCommitChecks(commitCheck -> {
             if (commitCheck instanceof IndexUniquenessCommitCheck) {
-                return ((IndexUniquenessCommitCheck)commitCheck).getIndex().equals(index);
+                return checkPredicate.test((IndexUniquenessCommitCheck)commitCheck);
             } else {
                 return false;
             }
         });
-        return AsyncUtil.whenAll(indexUniquenessChecks.stream()
+        return indexUniquenessChecks.stream()
                 .map(FDBRecordContext.CommitCheckAsync::checkAsync)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -3449,10 +3453,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
         CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture;
         if (index.isUnique()) {
+            // we wait for all the commit checks and then scan, because if the index is WriteOnly, the commit check
+            // won't throw an error, it will just record a violation.
+            // If the index is ReadableUniquePending it will throw an error here, but this would only happen if you
+            // added the violation in this transaction, and you normally aren't allowed to add violations to
+            // indexes that ReadableUniquePending
             uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
                     .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
         } else {
-            uniquenessFuture = getIndexMaintainer(index).clearUniquenessViolations()
+            uniquenessFuture = AsyncUtil.getAll(
+                    checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().getSubspaceKey().equals(index.getSubspaceKey())))
+                    // if the index is WriteOnly it will record violations, in the commit check so we need to wait
+                    // for those to complete
+                    // if the index is ReadableUniquePending, the check will throw an exception if a violation was added
+                    // during this operation.
+                    // This means that if you (in a single transaction):
+                    //   1. add a violation to a ReadableUniquePending index
+                    //   2. call checkVersion with a new metadata that changes the index to not-unique
+                    // It will fail with a uniqueness violation.
+                    .thenCompose(vignore -> getIndexMaintainer(index).clearUniquenessViolations())
                     .thenApply(vignore -> Optional.empty());
         }
         return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {

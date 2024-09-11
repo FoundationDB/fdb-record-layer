@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -344,25 +345,42 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
         dropUniquenessConstraint.addUniqueIndexViaBuild();
-        dropUniquenessConstraint.changeToNonUnique(clearViolations, false);
+        dropUniquenessConstraint.changeToNonUnique(clearViolations, false, false);
     }
 
+    /**
+     * This test covers the situation where you change the index to non-unique, and then, in the same transaction, add
+     * what would be more violations if the index were still unique.
+     * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
+     * @throws Exception if there is an issue
+     */
     @ParameterizedTest(name = "removeUniquenessConstraintDuringTransactionWithNewDuplications(addViolations={0}, allowReadableUniquePending={1})")
     @MethodSource("removeUniquenessConstraintArguments")
     void removeUniquenessConstraintDuringTransactionWithNewDuplications(boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
         dropUniquenessConstraint.addUniqueIndexViaBuild();
-        dropUniquenessConstraint.changeToNonUnique(false, true);
+        dropUniquenessConstraint.changeToNonUnique(false, false, true);
     }
 
+    /**
+     * This test covers the situation where you add some violations, and then, in the same transaction, change the index
+     * to no longer be unique.
+     * <p>
+     *     Right now this will fail {@link FDBRecordStore#checkVersion(FDBRecordStoreBase.UserVersionChecker, FDBRecordStoreBase.StoreExistenceCheck)}
+     *     and fail the commit. In theory, we could support this clearing out the index violation checks, but that
+     *     proved tricky, and this seems like pathological use case.
+     * </p>
+     * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
+     * @throws Exception if there is an issue
+     */
     @ParameterizedTest(name = "removeUniquenessConstraintDuringTransactionWithNewViolations(allowReadableUniquePending={0})")
     @BooleanSource
     void removeUniquenessConstraintDuringTransactionWithNewViolations(boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
         dropUniquenessConstraint.addUniqueIndexViaBuild();
-        dropUniquenessConstraint.changeToNonUniqueWithViolations();
+        dropUniquenessConstraint.changeToNonUnique(false, true, false);
     }
 
     private class DropUniquenessConstraint {
@@ -407,6 +425,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
                 commit(context);
             }
+        }
+
+        private void addViolation() {
+            saveRecord(3980L);
+            recordNumbers.add(3980L);
         }
 
         private void saveRecord(final Long recordNumber) {
@@ -497,6 +520,9 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
 
         private void assertOrMarkReadable() throws InterruptedException, ExecutionException {
+            // Given that transitioning indexes from Unique to non-unique is probably rare, we are opting to not have
+            // checkVersion check all WriteOnly indexes to see if they are only WriteOnly because of uniqueness violations,
+            // on an index that is no longer unique.
             if (allowReadableUniquePending) {
                 assertEquals(IndexState.READABLE, recordStore.getIndexState(nonUniqueIndex));
             } else {
@@ -521,7 +547,13 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Set.of((long) nonUniqueNumValue), indexKeys);
         }
 
-        public void changeToNonUnique(final boolean clearViolations, final boolean addViolations) throws ExecutionException, InterruptedException {
+        public void changeToNonUnique(final boolean clearViolations, final boolean addViolationsBefore,
+                                      final boolean addViolationsAfter) throws Exception {
+            // The important things are:
+            // 1. You should never have an index that is ReadableUniquePending, but not unique
+            // 2. If it is ReadableUniquePending, and you didn't add any violations in the current transaction, it should
+            //    transition to Readable during checkVersion if the index is now not unique
+            // 3. A non-unique index should not have uniquess violations on disk
             timer.reset();
             try (FDBRecordContext context = openContext()) {
                 final RecordMetaData uniqueMetadata = simpleMetaData(uniqueHook);
@@ -536,17 +568,28 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                     removeUniquenessViolations(recordStore);
                 }
 
+                if (addViolationsBefore) {
+                    addViolation();
+                }
+
                 metadataProvider.set(nonUniqueMetadata);
-                recordStore.checkVersion(storeBuilder.getUserVersionChecker(), FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
-                        .get();
+                final Callable<Void> checkVersion = () -> {
+                    recordStore.checkVersion(storeBuilder.getUserVersionChecker(), FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
+                            .get();
+                    return null;
+                };
+                if (allowReadableUniquePending && addViolationsBefore) {
+                    final ExecutionException executionException = assertThrows(ExecutionException.class, checkVersion::call);
+                    assertThat(executionException.getCause(), Matchers.instanceOf(RecordIndexUniquenessViolation.class));
+                    assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
+                    return;
+                }
+                checkVersion.call();
                 assertTrue(recordStore.isVersionChanged());
                 assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
 
-                // Note: if you add a violation before calling checkVersion, it will still fail to commit, this seems
-                // fine.
-                if (addViolations) {
-                    saveRecord(3980L);
-                    recordNumbers.add(3980L);
+                if (addViolationsAfter) {
+                    addViolation();
                 }
 
                 assertOrMarkReadable();
@@ -568,8 +611,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                 assertFalse(recordStore.isVersionChanged());
                 assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
 
-                saveRecord(3980L);
-                recordNumbers.add(3980L);
+                addViolation();
 
                 metadataProvider.set(nonUniqueMetadata);
                 recordStore.checkVersion(storeBuilder.getUserVersionChecker(), FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
@@ -582,6 +624,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
                 assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
                 assertIndexEntries();
+                // When a unique index is in WriteOnly you can add new violations, but when it is in
+                // ReadableUniquePending it will check uniqueness violations and fail.
                 if (allowReadableUniquePending) {
                     assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
                 } else {
