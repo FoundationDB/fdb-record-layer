@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
@@ -60,6 +61,9 @@ public class LuceneIndexValidator extends IndexValidator {
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION, index);
         validatePartitionOptions(index);
         validatePrimaryKeyOptions(index.getOptions());
+        if (index.getBooleanOption(IndexOptions.UNIQUE_OPTION, false)) {
+            throw new MetaDataException("Lucene does not support unique indexes");
+        }
     }
 
     private static void validatePartitionOptions(@Nonnull Index index) {
