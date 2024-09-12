@@ -222,7 +222,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col2));
 
             if (withPredicateInSelectWhere) {
-                selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
+                selectBuilder.addPredicate(new ValuePredicate(num2Value,
+                        new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
             }
 
             qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
@@ -236,7 +237,11 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
             // 2.2. construct grouping columns expression.
-            final var groupingExpr = RecordConstructorValue.ofUnnamed(ImmutableList.of(FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0), "num_value_2")));
+            final var groupingExpr =
+                    RecordConstructorValue.ofUnnamed(
+                            ImmutableList.of(
+                                    FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0), "num_value_2"),
+                                    FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0), "str_value_indexed")));
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
@@ -248,9 +253,14 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             // construct a result set that makes sense.
             final var numValue2FieldValue = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0);
             final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
+            final var strValueIndexedFieldValue = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 1);
+            final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
+
             final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 1), 0));
 
-            final var graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference));
+            final var graphBuilder = GraphExpansion.builder()
+                    .addQuantifier(qun)
+                    .addAllResultColumns(ImmutableList.of(numValue2Reference, strValueIndexedReference,  aggregateReference));
 
             if (withPredicateInSelectHaving) {
                 graphBuilder.addPredicate(new ValuePredicate(numValue2FieldValue, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 44)));
@@ -463,10 +473,14 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
+                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2",
+                            concat(field("str_value_indexed"), field("num_value_2")));
                 }
                 if (addAggregateIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
+                    metaDataBuilder.addIndex("MySimpleRecord",
+                            new Index("AggIndex",
+                                    field("num_value_3_indexed").groupBy(concat(field("str_value_indexed"),
+                                            field("num_value_2"))), IndexTypes.SUM));
                 }
                 if (addBitmapIndex) {
                     if (withZeroExplicitGroups) {
