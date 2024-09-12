@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -38,6 +39,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -842,10 +844,7 @@ public interface Compensation {
      */
     class RollupCompensation implements Compensation {
 
-        @Nonnull
-        private final Value resultValue;
-
-        @Nonnull
+        @Nullable
         private final Value groupingValue;
 
         @Nonnull
@@ -854,64 +853,36 @@ public interface Compensation {
         @Nonnull
         private final Compensation childCompensation;
 
-        public RollupCompensation(@Nonnull final Value resultValue,
-                                  @Nonnull final Value groupingValue,
+        @Nonnull
+        private final CorrelationIdentifier matchedQuantifier;
+
+        public RollupCompensation(@Nullable final Value groupingValue,
                                   @Nonnull final AggregateValue aggregateValue,
-                                  @Nonnull final Compensation childCompensation) {
-            this.resultValue = resultValue;
+                                  @Nonnull final Compensation childCompensation,
+                                  @Nonnull final CorrelationIdentifier matchedQuantifier) {
             this.groupingValue = groupingValue;
             this.aggregateValue = aggregateValue;
             this.childCompensation = childCompensation;
+            this.matchedQuantifier = matchedQuantifier;
         }
 
         @Nonnull
         @Override
         public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull RelationalExpression relationalExpression) {
-//            // apply the child as needed
-//            if (childCompensation.isNeeded()) {
-//                relationalExpression = childCompensation.apply(memoizer, relationalExpression);
-//            }
-//
-//            final var matchedForEachQuantifierAliases =
-//                    matchedAliases
-//                            .stream()
-//                            .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
-//                            .collect(ImmutableSet.toImmutableSet());
-//
-//            Verify.verify(matchedForEachQuantifierAliases.size() <= 1);
-//
-//            //
-//            // At this point we definitely need a new SELECT expression.
-//            //
-//            final var matchedForEachQuantifierAlias =
-//                    Iterables.getOnlyElement(matchedForEachQuantifierAliases);
-//            final var newBaseQuantifier =
-//                    Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
-//                            matchedForEachQuantifierAlias);
-//
-//            //
-//            // TODO In the vast majority of cases the then branch is taken where the compensation does not create
-//            //      a join. If the compensation, however, has to reapply the predicate, then in addition to using
-//            //      part of the predicate as a sargable we may actually enter the else branch here. This happens for the
-//            //      reapplication of EXISTS(). The to-do is Try to find a solution that allows us to create a select
-//            //      here without triggering a whole round of explorations for the newly-formed join. As this really
-//            //      only happens for existential predicates, we could just introduce a binary join expression that does
-//            //      not undergo e.g. or-to-union. Note that this is not a problem for the then case as the predicates
-//            //      in the logical filter expression are left alone by other rules.
-//            //
-//            if (toBePulledUpQuantifiers.isEmpty()) {
-//                return new LogicalFilterExpression(compensatedPredicates, newBaseQuantifier);
-//            } else {
-//                final var completeExpansionBuilder = GraphExpansion.builder();
-//                completeExpansionBuilder.addAllQuantifiers(toBePulledUpQuantifiersBuilder.build());
-//
-//                // add base quantifier
-//                completeExpansionBuilder.addQuantifier(newBaseQuantifier);
-//                completeExpansionBuilder.addAllPredicates(compensatedPredicates);
-//
-//                return completeExpansionBuilder.build().buildSimpleSelectOverQuantifier(newBaseQuantifier);
-//            }
-            return new LogicalFilterExpression(ImmutableList.of(), null);
+            // apply the child as needed
+            if (childCompensation.isNeeded()) {
+                relationalExpression = childCompensation.apply(memoizer, relationalExpression);
+            }
+
+            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                    matchedQuantifier);
+
+            return new GroupByExpression(groupingValue, aggregateValue, GroupByExpression::nestedResults, newBaseQuantifier);
+        }
+
+        @Override
+        public boolean isNeededForFiltering() {
+            return false;
         }
     }
 }

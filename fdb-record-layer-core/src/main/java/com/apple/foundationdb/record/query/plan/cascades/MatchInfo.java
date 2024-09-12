@@ -97,6 +97,9 @@ public class MatchInfo {
     @Nonnull
     private final QueryPlanConstraint additionalPlanConstraint;
 
+    @Nonnull
+    private final boolean isRollupRequired;
+
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMultiMap predicateMap,
@@ -104,7 +107,8 @@ public class MatchInfo {
                       @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
                       @Nonnull final Optional<Value> remainingComputationValueOptional,
                       @Nonnull final MaxMatchMap maxMatchMap,
-                      @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+                      @Nonnull final QueryPlanConstraint additionalPlanConstraint,
+                      final boolean isRollupRequired) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
         this.aliasToPartialMatchMapSupplier = Suppliers.memoize(() -> {
@@ -113,6 +117,7 @@ public class MatchInfo {
             return mapBuilder.build();
         });
         this.accumulatedPredicateMap = accumulatedPredicateMap;
+        this.isRollupRequired = isRollupRequired;
         this.constraintsSupplier = Suppliers.memoize(this::computeConstraints);
         this.predicateMap = predicateMap;
         this.accumulatedPredicateMapSupplier = Suppliers.memoize(() -> {
@@ -192,6 +197,10 @@ public class MatchInfo {
         return additionalPlanConstraint;
     }
 
+    public boolean isRollupRequired() {
+        return isRollupRequired;
+    }
+
     @Nonnull
     public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
         return new MatchInfo(parameterBindingMap,
@@ -201,7 +210,24 @@ public class MatchInfo {
                 matchedOrderingParts,
                 remainingComputationValueOptional,
                 maxMatchMap,
-                additionalPlanConstraint);
+                additionalPlanConstraint,
+                false);
+    }
+
+    @Nonnull
+    public MatchInfo withRequiredRollup(boolean requiredRollup) {
+        if (requiredRollup == this.isRollupRequired) {
+            return this;
+        }
+        return new MatchInfo(parameterBindingMap,
+                quantifierToPartialMatchMap,
+                predicateMap,
+                accumulatedPredicateMap,
+                matchedOrderingParts,
+                remainingComputationValueOptional,
+                maxMatchMap,
+                additionalPlanConstraint,
+                requiredRollup);
     }
 
     @Nonnull
@@ -272,6 +298,14 @@ public class MatchInfo {
             return Optional.empty();
         }
 
+        final var requiresRollup = regularQuantifiers.stream()
+                .map(key -> Objects.requireNonNull(partialMatchMap.getUnwrapped(key))) // always guaranteed
+                .anyMatch(partialMatch -> partialMatch.getMatchInfo().isRollupRequired());
+
+        if (requiresRollup && partialMatchMap.size() > 1) {
+            return Optional.empty();
+        }
+
         return mergedParameterBindingsOptional
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
@@ -280,7 +314,8 @@ public class MatchInfo {
                         orderingParts,
                         remainingComputationValueOptional,
                         maxMatchMap,
-                        additionalPlanConstraint));
+                        additionalPlanConstraint,
+                        requiresRollup));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {
