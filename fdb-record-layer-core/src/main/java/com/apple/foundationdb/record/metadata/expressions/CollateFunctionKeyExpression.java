@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -143,6 +144,11 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
         return locale == null ? collatorRegistry.getTextCollator(strength) : collatorRegistry.getTextCollator(locale, strength);
     }
 
+    @Nonnull
+    public TextCollatorRegistry getCollatorRegistry() {
+        return collatorRegistry;
+    }
+
     @Override
     public int getMinArguments() {
         return 1;
@@ -186,8 +192,8 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     @Nonnull
     @Override
     public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
-        // TODO support this
-        throw new UnsupportedOperationException();
+        Verify.verify(argumentValues.size() == arguments.getColumnSize());
+        return resolveAndEncapsulateFunction(getName(), argumentValues);
     }
 
     @Nullable

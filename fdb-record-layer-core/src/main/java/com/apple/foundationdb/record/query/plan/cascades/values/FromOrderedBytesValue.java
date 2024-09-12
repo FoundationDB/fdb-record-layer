@@ -50,6 +50,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A value that produces a binary encoding that is comparable according to certain modes gives by
@@ -116,8 +117,8 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
     }
 
     @Override
-    public ToOrderedBytesValue createInverseValue(@Nonnull final Value newChildValue) {
-        return new ToOrderedBytesValue(newChildValue, getDirection());
+    public Optional<ToOrderedBytesValue> createInverseValueMaybe(@Nonnull final Value newChildValue) {
+        return Optional.of(new ToOrderedBytesValue(newChildValue, getDirection()));
     }
 
     @Nonnull
