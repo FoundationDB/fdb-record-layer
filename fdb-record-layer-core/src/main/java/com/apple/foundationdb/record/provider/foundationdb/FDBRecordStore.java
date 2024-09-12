@@ -4431,17 +4431,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private void cleanuReadableUniquePending(final @Nonnull RecordMetaData metaData, final List<CompletableFuture<Void>> work) {
-        final List<Index> nonUniqueIndexes = metaData.getAllIndexes().stream()
-                .filter(index -> !index.isUnique())
-                .collect(Collectors.toList());
-        for (final Index nonUniqueIndex : nonUniqueIndexes) {
-            if (getIndexState(nonUniqueIndex) == IndexState.READABLE_UNIQUE_PENDING) {
-                work.add(markIndexReadable(nonUniqueIndex, false).thenApply(changedState -> null));
-            }
-        }
-    }
-
     private static Supplier<CompletableFuture<Long>> getAndRememberFutureLong(@Nonnull AtomicLong ref, @Nonnull Supplier<CompletableFuture<Long>> lazyFuture) {
         return Suppliers.memoize(() -> lazyFuture.get().whenComplete((val, err) -> {
             if (err == null) {
