@@ -4680,9 +4680,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         context.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
         context.clear(indexSecondarySubspace(index).range());
         IndexingRangeSet.forIndexBuild(this, index).clear();
-        if (index.isUnique()) {
-            context.clear(indexUniquenessViolationsSubspace(index).range());
-        }
+        // clear even if non-unique in case the index was previously unique
+        context.clear(indexUniquenessViolationsSubspace(index).range());
         // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
         // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
         // run online index jobs which may invoke this method. We should clear:

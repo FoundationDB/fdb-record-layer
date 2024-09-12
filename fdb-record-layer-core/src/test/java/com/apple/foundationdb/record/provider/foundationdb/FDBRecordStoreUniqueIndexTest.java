@@ -407,9 +407,9 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      * @throws Exception if there is an issue
      */
-    @ParameterizedTest(name = "bumpingVersionDoesNotUseNewMethod(allowReadableUniquePending={0})")
+    @ParameterizedTest(name = "bumpVersionWhenChangingToNonUnique(allowReadableUniquePending={0})")
     @BooleanSource
-    void bumpingVersionDoesNotUseNewMethod(boolean allowReadableUniquePending) throws Exception {
+    void bumpVersionWhenChangingToNonUnique(boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(
                 allowReadableUniquePending, NO_UNIQUE_CLEAR_INDEX_TYPE, true);
         dropUniquenessConstraint.setupStore();
@@ -563,7 +563,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                     assertOrMarkReadable();
                 }
 
-                assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
+                assertNoUniquenessViolations(context);
                 assertIndexEntries();
                 commit(context);
             }
@@ -644,10 +644,18 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
                 assertOrMarkReadable();
 
-                assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
+                assertNoUniquenessViolations(context);
                 assertIndexEntries();
                 commit(context);
             }
+        }
+
+        private void assertNoUniquenessViolations(final FDBRecordContext context)
+                throws InterruptedException, ExecutionException {
+            assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
+            assertThat(context.ensureActive().getRange(recordStore.indexUniquenessViolationsSubspace(nonUniqueIndex)
+                            .range()).asList().get(),
+                    Matchers.hasSize(0));
         }
     }
 
