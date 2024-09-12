@@ -248,6 +248,7 @@ public class PartialMatch {
                 .map(Quantifier::getAlias)
                 .forEach(compensatedAliasesBuilder::add);
 
+        // TODO This should not yield any further quantifiers. Maybe this needs to be removed.
         final var predicatesMap = matchInfo.getPredicateMap();
         for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
             final var predicateCorrelatedTo = queryPredicate.getCorrelatedTo();
