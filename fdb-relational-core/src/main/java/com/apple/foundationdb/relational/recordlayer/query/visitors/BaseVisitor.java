@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
+import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
@@ -508,13 +509,13 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Pair<Boolean, Expressions> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext ctx) {
+    public List<OrderByExpression> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext ctx) {
         return expressionVisitor.visitOrderByClause(ctx);
     }
 
     @Nonnull
     @Override
-    public Pair<Expression, Boolean> visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext ctx) {
+    public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext ctx) {
         return expressionVisitor.visitOrderByExpression(ctx);
     }
 

@@ -39,6 +39,8 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
+import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -49,7 +51,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -102,7 +103,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 null :
                 visitWhereExpr(querySpecificationContext.fromClause().whereExpr()));
         Expressions selectExpressions;
-        Optional<Pair<Boolean, Expressions>> orderByExpressions = Optional.empty();
+        List<OrderByExpression> orderBys = List.of();
         if (querySpecificationContext.groupByClause() != null || hasAggregations(querySpecificationContext.selectElements())) {
             var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
             var selectWhere = LogicalOperator.generateSelectWhere(getDelegate().getLogicalOperators(), outerCorrelations, where, getDelegate().isForDdl());
@@ -131,18 +132,20 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
             if (querySpecificationContext.orderByClause() != null) {
-                final var resolvedOrderByExpressions = visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions);
-                orderByExpressions = Optional.of(Pair.of(resolvedOrderByExpressions.getLeft(), resolvedOrderByExpressions.getRight().expanded().pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier()));
+                final var resolvedOrderBys = visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions);
+                orderBys = OrderByExpression.pullUp(resolvedOrderBys.stream(),
+                        groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), outerCorrelations, Optional.empty())
+                        .collect(ImmutableList.toImmutableList());
             }
             getDelegate().getCurrentPlanFragment().setOperator(groupBy);
         } else {
             selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
-            orderByExpressions = querySpecificationContext.orderByClause() == null ?
-                    Optional.empty() :
-                    Optional.of(visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions));
+            if (querySpecificationContext.orderByClause() != null) {
+                orderBys = visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions);
+            }
         }
         final var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
-        final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(), where, orderByExpressions,
+        final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(), where, orderBys,
                 Optional.empty(), outerCorrelations, getDelegate().isTopLevel(), getDelegate().isForDdl());
 
         getDelegate().popPlanFragment();
@@ -328,12 +331,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.RETURNING() != null) {
             final var selectExpressions = visitSelectElements(ctx.selectElements());
             final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(),
-                    Optional.empty(), Optional.empty(), Optional.empty(),
+                    Optional.empty(), List.of(), Optional.empty(),
                     getDelegate().getCurrentPlanFragment().getOuterCorrelations(), getDelegate().isTopLevel(), false);
             getDelegate().getCurrentPlanFragment().setOperator(result);
             return result;
         }
-        final var result = LogicalOperator.generateSort(resultingUpdate, Optional.empty(), ImmutableSet.of(), Optional.empty());
+        final var result = LogicalOperator.generateSort(resultingUpdate, List.of(), Set.of(), Optional.empty());
         getDelegate().popPlanFragment();
         return result;
     }
@@ -362,13 +365,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.RETURNING() != null) {
             final var selectExpressions = visitSelectElements(ctx.selectElements());
             final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(),
-                    Optional.empty(), Optional.empty(), Optional.empty(),
+                    Optional.empty(), List.of(), Optional.empty(),
                     getDelegate().getCurrentPlanFragment().getOuterCorrelations(), getDelegate().isTopLevel(), false);
             getDelegate().getCurrentPlanFragment().setOperator(result);
             return result;
         }
 
-        final var result = LogicalOperator.generateSort(resultingDelete, Optional.empty(), ImmutableSet.of(), Optional.empty());
+        final var result = LogicalOperator.generateSort(resultingDelete, List.of(), Set.of(), Optional.empty());
         getDelegate().popPlanFragment();
         return result;
     }
@@ -434,8 +437,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    public Pair<Boolean, Expressions> visitOrderByClauseForSelect(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContext,
-                                                                  @Nonnull Expressions visibleSelectAliases) {
+    public List<OrderByExpression> visitOrderByClauseForSelect(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContext,
+                                                               @Nonnull Expressions visibleSelectAliases) {
         final var validSelectAliases = Expressions.of(visibleSelectAliases.stream()
                 .filter(expr -> expr.getName().isPresent() && !expr.getName().get().isQualified())
                 .collect(ImmutableList.toImmutableList()));
@@ -445,23 +448,23 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         if (!getDelegate().isTopLevel()) {
             Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
         }
-        final ImmutableList.Builder<Pair<Expression, Boolean>> pairsBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<OrderByExpression> orderBysBuilder = ImmutableList.builder();
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         for (final var orderByExpression : orderByClauseContext.orderByExpression()) {
             final var isAliasMaybe = isAliasMaybe(orderByExpression);
             final var matchingExpressionMaybe = isAliasMaybe.flatMap(alias -> semanticAnalyzer.lookupAlias(visitFullId(alias), validSelectAliases));
             matchingExpressionMaybe.ifPresentOrElse(
                     matchingExpression -> {
-                        final var isReverse = (orderByExpression.ASC() == null) && (orderByExpression.DESC() != null);
-                        pairsBuilder.add(Pair.of(matchingExpression, isReverse));
+                        final var descending = ParseHelpers.isDescending(orderByExpression);
+                        final var nullsLast = ParseHelpers.isNullsLast(orderByExpression, descending);
+                        orderBysBuilder.add(OrderByExpression.of(matchingExpression, descending, nullsLast));
                     },
-                    () -> pairsBuilder.add(visitOrderByExpression(orderByExpression))
+                    () -> orderBysBuilder.add(visitOrderByExpression(orderByExpression))
             );
         }
-        final var pairs = pairsBuilder.build();
-        final var orderByDirection = getDelegate().getSemanticAnalyzer().validateOrderByColumns(pairs);
-        final var orderByExpressions = Expressions.of(pairs.stream().map(Pair::getLeft).collect(ImmutableList.toImmutableList()));
-        return Pair.of(orderByDirection, orderByExpressions);
+        final var orderBys = orderBysBuilder.build();
+        getDelegate().getSemanticAnalyzer().validateOrderByColumns(orderBys);
+        return orderBys;
     }
 
     private boolean hasAggregations(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {

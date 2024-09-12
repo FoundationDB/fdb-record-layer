@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -35,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.JavaCallFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
@@ -173,20 +173,9 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(unrecognizedIndexes.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index(es) %s", String.join(",", unrecognizedIndexes)));
     }
 
-    public Boolean validateOrderByColumns(@Nonnull Iterable<Pair<Expression, Boolean>> orderByColumns) {
-        Boolean orderByDirection = null;
-        for (final var pair : orderByColumns) {
-            if (orderByDirection == null) {
-                orderByDirection = pair.getRight();
-            } else {
-                Assert.thatUnchecked(pair.getRight().equals(orderByDirection),
-                        ErrorCode.UNSUPPORTED_OPERATION,
-                        "Combination of ASC and DESC directions in orderBy clauses is not supported"
-                );
-            }
-        }
-        final var duplicates = StreamSupport.stream(orderByColumns.spliterator(), false)
-                .map(Pair::getLeft)
+    public void validateOrderByColumns(@Nonnull Iterable<OrderByExpression> orderBys) {
+        final var duplicates = StreamSupport.stream(orderBys.spliterator(), false)
+                .map(OrderByExpression::getExpression)
                 .flatMap(expr -> expr.getName().stream())
                 .collect(Collectors.groupingBy(Functions.identity(), Collectors.counting()))
                 .entrySet()
@@ -197,7 +186,6 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(duplicates.isEmpty(), ErrorCode.COLUMN_ALREADY_EXISTS,
                 () -> String.format("Order by column %s is duplicated in the order by clause",
                         duplicates.stream().map(Identifier::toString).collect(Collectors.joining(","))));
-        return orderByDirection;
     }
 
     @Nonnull

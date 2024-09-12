@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
@@ -351,13 +352,13 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Pair<Boolean, Expressions> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext ctx) {
+    public List<OrderByExpression> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext ctx) {
         return getDelegate().visitOrderByClause(ctx);
     }
 
     @Nonnull
     @Override
-    public Pair<Expression, Boolean> visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext ctx) {
+    public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext ctx) {
         return getDelegate().visitOrderByExpression(ctx);
     }
 

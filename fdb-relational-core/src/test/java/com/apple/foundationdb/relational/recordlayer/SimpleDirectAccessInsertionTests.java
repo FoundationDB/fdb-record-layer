@@ -118,7 +118,6 @@ public class SimpleDirectAccessInsertionTests {
         }
     }
 
-
     @Test
     void insertNestedFields() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.NONE)) {

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+
 import com.google.protobuf.Message;
 
 import java.util.Map;

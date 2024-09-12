@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
+import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
@@ -133,23 +134,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Pair<Boolean, Expressions> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContextContext) {
+    public List<OrderByExpression> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContextContext) {
         if (!getDelegate().isTopLevel()) {
             Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
         }
-        final var pairs = orderByClauseContextContext.orderByExpression().stream().map(this::visitOrderByExpression)
+        final var orderByExpressions = orderByClauseContextContext.orderByExpression().stream().map(this::visitOrderByExpression)
                 .collect(ImmutableList.toImmutableList());
-        final var orderByDirection = getDelegate().getSemanticAnalyzer().validateOrderByColumns(pairs);
-        final var orderByExpressions = Expressions.of(pairs.stream().map(Pair::getLeft).collect(ImmutableList.toImmutableList()));
-        return Pair.of(orderByDirection, orderByExpressions);
+        getDelegate().getSemanticAnalyzer().validateOrderByColumns(orderByExpressions);
+        return orderByExpressions;
     }
 
     @Nonnull
     @Override
-    public Pair<Expression, Boolean> visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
+    public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
         final var expression = Assert.castUnchecked(orderByExpressionContext.expression().accept(this), Expression.class);
-        final var isReverse = (orderByExpressionContext.ASC() == null) && (orderByExpressionContext.DESC() != null);
-        return Pair.of(expression, isReverse);
+        final var descending = ParseHelpers.isDescending(orderByExpressionContext);
+        final var nullsLast = ParseHelpers.isNullsLast(orderByExpressionContext, descending);
+        return OrderByExpression.of(expression, descending, nullsLast);
     }
 
     @Nonnull

@@ -899,4 +899,14 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t order by t.p + 4";
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
     }
+
+    @Test
+    void createIndexWithOrderByMixedDirection() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT col1, col2, col3 FROM T1 ORDER BY col1 ASC, col2 DESC, col3 NULLS LAST";
+        indexIs(stmt,
+                concat(field("COL1"), function("order_desc_nulls_last", field("COL2")), function("order_asc_nulls_last", field("COL3"))),
+                IndexTypes.VALUE);
+    }
 }

@@ -46,8 +46,20 @@ import java.util.function.BiFunction;
  */
 public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.ResolvedAccessor, Value, FieldValueTrieNode> {
 
+    public FieldValueTrieNode(@Nonnull final Value value, @Nullable final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> childrenMap) {
+        super(value, childrenMap);
+    }
+
     public FieldValueTrieNode(@Nullable final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> childrenMap) {
-        super(EmptyValue.empty(), childrenMap);
+        this(EmptyValue.empty(), childrenMap);
+    }
+
+    public FieldValueTrieNode(@Nonnull final Value value) {
+        this(value, null);
+    }
+
+    public FieldValueTrieNode() {
+        this(EmptyValue.empty(), null);
     }
 
     @Nonnull
@@ -160,7 +172,7 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
                                                                @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
         if (orderedFieldPaths.contains(prefix)) {
             orderedFieldPathIterator.next();
-            return new FieldValueTrieNode(null);
+            return new FieldValueTrieNode();
         }
         final var childrenMapBuilder = ImmutableMap.<FieldValue.ResolvedAccessor, FieldValueTrieNode>builder();
         while (orderedFieldPathIterator.hasNext()) {
@@ -197,7 +209,7 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
             final var fieldPath = ((FieldValue) value).getFieldPath();
             if (prefix.equals(fieldPath)) {
                 orderedValueIterator.next();
-                return new FieldValueTrieNode(null);
+                return new FieldValueTrieNode(value);
             } else if (!prefix.isPrefixOf(fieldPath)) {
                 break;
             }

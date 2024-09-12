@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -52,7 +53,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -245,26 +245,25 @@ public class LogicalOperator {
     public static LogicalOperator generateSelect(@Nonnull Expressions output,
                                                  @Nonnull LogicalOperators logicalOperators,
                                                  @Nonnull Optional<Expression> predicate,
-                                                 @Nonnull Optional<Pair<Boolean, Expressions>> orderByInfoOptional,
+                                                 @Nonnull List<OrderByExpression> orderBys,
                                                  @Nonnull Optional<Identifier> alias,
                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                  boolean isTopLevel,
                                                  boolean isForDdl) {
-        if (orderByInfoOptional.isEmpty()) {
+        if (orderBys.isEmpty()) {
             if (isTopLevel) {
-                return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), Optional.empty(), outerCorrelations, alias);
+                return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), orderBys, outerCorrelations, alias);
             }
             return generateSimpleSelect(output, logicalOperators, predicate, alias, outerCorrelations, isForDdl);
         }
-        final var orderByInfo = orderByInfoOptional.get();
-        final var orderByExpressions = orderByInfo.getRight();
+        final var orderByExpressions = Expressions.of(orderBys.stream().map(OrderByExpression::getExpression).collect(ImmutableList.toImmutableList()));
         final var remainingOrderByExpressions = orderByExpressions.difference(output);
         if (remainingOrderByExpressions.isEmpty()) {
-            return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), orderByInfoOptional, outerCorrelations, alias);
+            return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), orderBys, outerCorrelations, alias);
         } else {
             final var selectWithExtraOrderByExpressions = output.concat(remainingOrderByExpressions);
             final var selectWithExtraOrderBy = generateSimpleSelect(selectWithExtraOrderByExpressions, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl);
-            final var sortOperator = generateSort(selectWithExtraOrderBy, orderByInfoOptional, outerCorrelations, Optional.empty());
+            final var sortOperator = generateSort(selectWithExtraOrderBy, orderBys, outerCorrelations, Optional.empty());
             final var pulledOutput = output.expanded().rewireQov(selectWithExtraOrderBy.getQuantifier().getFlowedObjectValue())
                     .rewireQov(sortOperator.getQuantifier().getFlowedObjectValue()).clearQualifier();
             return generateSimpleSelect(pulledOutput, LogicalOperators.ofSingle(sortOperator), Optional.empty(), alias, outerCorrelations, isForDdl);
@@ -359,25 +358,25 @@ public class LogicalOperator {
 
     @Nonnull
     public static LogicalOperator generateSort(@Nonnull LogicalOperator logicalOperator,
-                                               @Nonnull Optional<Pair<Boolean, Expressions>> orderByInfoOptional,
+                                               @Nonnull List<OrderByExpression> orderBys,
                                                @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                @Nonnull Optional<Identifier> alias) {
-        final var direction = orderByInfoOptional.map(Pair::getLeft).orElse(false);
-
-        // if we have order by columns, we pull them up through the underlying select, otherwise return all the select columns.
-        final var pulledUpOrderByExpressions = orderByInfoOptional.map(p -> {
-            final var expressions = p.getRight().expanded()
-                    .pullUp(logicalOperator.quantifier.getRangesOver().get().getResultValue(),
-                            logicalOperator.getQuantifier().getAlias(),
-                            outerCorrelations);
-            return logicalOperator.getName().map(expressions::withQualifier).orElseGet(expressions::clearQualifier);
-        }).orElse(Expressions.of(logicalOperator.getOutput()));
-        Assert.thatUnchecked(!pulledUpOrderByExpressions.isEmpty());
-
-        final List<Value> sortValues = orderByInfoOptional.isPresent() ?
-                ImmutableList.copyOf(pulledUpOrderByExpressions.underlyingRebased(logicalOperator.quantifier.getAlias(), Quantifier.current())) :
-                ImmutableList.of();
-        final var sortExpression = new LogicalSortExpression(sortValues, direction, logicalOperator.quantifier);
+        final LogicalSortExpression sortExpression;
+        if (orderBys.isEmpty()) {
+            sortExpression = LogicalSortExpression.unsorted(logicalOperator.quantifier);
+        } else {
+            final var orderingParts = OrderByExpression.toOrderingParts(
+                    OrderByExpression.pullUp(orderBys.stream(),
+                            logicalOperator.quantifier.getRangesOver().get().getResultValue(),
+                            logicalOperator.quantifier.getAlias(),
+                            outerCorrelations,
+                            logicalOperator.name),
+                    logicalOperator.quantifier.getAlias(), Quantifier.current())
+                    .collect(ImmutableList.toImmutableList());
+            sortExpression = new LogicalSortExpression(
+                    RequestedOrdering.ofPrimitiveParts(orderingParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS),
+                    logicalOperator.quantifier);
+        }
 
         final var resultingQuantifier = Quantifier.forEach(Reference.of(sortExpression));
         // the resulting sort expression has exactly the same output as the underlying expression.
@@ -396,7 +395,7 @@ public class LogicalOperator {
         final var resultingQuantifier = Quantifier.forEach(Reference.of(insertExpression));
         final var output = Expressions.fromQuantifier(resultingQuantifier);
         final var insertOperator = LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
-        return generateSort(insertOperator, Optional.empty(), ImmutableSet.of(), Optional.empty());
+        return generateSort(insertOperator, List.of(), Set.of(), Optional.empty());
     }
 
     @Nonnull

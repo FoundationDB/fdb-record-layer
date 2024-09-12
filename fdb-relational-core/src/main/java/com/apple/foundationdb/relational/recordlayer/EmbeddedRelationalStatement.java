@@ -269,7 +269,6 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         }
     }
 
-
     // TODO (yhatem) this should be refactored and cleaned up, ideally consumers should work with structured metadata API
     //               instead of this string processing since that is error-prone and somewhat very low-level.
     private String[] getSchemaAndTable(@Nonnull EmbeddedRelationalConnection connection, @Nonnull String tableName) throws RelationalException {

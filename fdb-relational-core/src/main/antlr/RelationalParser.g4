@@ -250,7 +250,7 @@ orderByClause
     ;
 
 orderByExpression
-    : expression order=(ASC | DESC)?
+    : expression order=(ASC | DESC)? (NULLS nulls=(FIRST | LAST))?
     ;
 
 tableSources // done

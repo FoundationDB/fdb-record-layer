@@ -86,6 +86,7 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -166,7 +167,8 @@ public final class IndexGenerator {
         final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
         final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof VersionValue).map(sv -> (VersionValue) sv).collect(toList());
         Assert.thatUnchecked(versionValues.size() <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Cannot have index with more than one version column");
-        final var orderByValues = getOrderByValues(relationalExpression);
+        final Map<Value, String> orderingFunctions = new IdentityHashMap<>();
+        final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
         if (aggregateValues.isEmpty()) {
             indexBuilder.setIndexType(versionValues.isEmpty() ? IndexTypes.VALUE : IndexTypes.VERSION);
             Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof VersionValue || sv instanceof ArithmeticValue), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, order by must be a subset of projection list");
@@ -174,7 +176,7 @@ public final class IndexGenerator {
                 Assert.thatUnchecked(!orderByValues.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, value indexes must have an order by clause at the top level");
             }
             final var reordered = reorderValues(fieldValues, orderByValues);
-            final var expression = generate(reordered);
+            final var expression = generate(reordered, orderingFunctions);
             final var splitPoint = orderByValues.isEmpty() ? -1 : orderByValues.size();
             if (splitPoint != -1 && splitPoint < fieldValues.size()) {
                 indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
@@ -210,7 +212,7 @@ public final class IndexGenerator {
                     Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, attempt to create a covering aggregate index");
                 }
             }
-            final Optional<KeyExpression> groupingKeyExpression = fieldValues.isEmpty() ? Optional.empty() : Optional.of(generate(fieldValues));
+            final Optional<KeyExpression> groupingKeyExpression = fieldValues.isEmpty() ? Optional.empty() : Optional.of(generate(fieldValues, orderingFunctions));
             final var indexExpressionAndType = generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
             final String indexType = Objects.requireNonNull(indexExpressionAndType.getRight());
             indexBuilder.setIndexType(indexType);
@@ -309,17 +311,50 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private List<Value> getOrderByValues(@Nonnull RelationalExpression relationalExpression) {
+    private List<Value> getOrderByValues(@Nonnull RelationalExpression relationalExpression,
+                                         @Nonnull Map<Value, String> orderingFunctions) {
         if (relationalExpression instanceof LogicalSortExpression) {
             final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
             final var reverseAliasMap = AliasMap.ofAliases(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
-            return logicalSortExpression.getOrdering().getOrderingParts()
-                    .stream()
-                    .flatMap(v -> v.getValue().getResultType().getTypeCode() == Type.TypeCode.RECORD ? Values.deconstructRecord(v.getValue()).stream() : Stream.of(v.getValue()))
-                    .map(v -> v.rebase(reverseAliasMap))
-                    .map(this::dereference)
-                    .map(v -> v.simplify(AliasMap.emptyMap(), Set.of()))
-                    .collect(ImmutableList.toImmutableList());
+            final ImmutableList.Builder<Value> values = ImmutableList.builder();
+            for (var orderingPart : logicalSortExpression.getOrdering().getOrderingParts()) {
+                final String orderingFunction;
+                switch (orderingPart.getSortOrder()) {
+                    case ASCENDING:
+                        orderingFunction = null;
+                        break;
+                    case DESCENDING:
+                        orderingFunction = "order_desc_nulls_last";
+                        break;
+                    case ASCENDING_NULLS_LAST:
+                        orderingFunction = "order_asc_nulls_last";
+                        break;
+                    case DESCENDING_NULLS_FIRST:
+                        orderingFunction = "order_desc_nulls_first";
+                        break;
+                    default:
+                        orderingFunction = null;
+                        break;
+                }
+                if (orderingPart.getValue().getResultType().getTypeCode() == Type.TypeCode.RECORD) {
+                    for (Value value : Values.deconstructRecord(orderingPart.getValue())) {
+                        final var rebased = dereference(value.rebase(reverseAliasMap))
+                                .simplify(AliasMap.emptyMap(), Set.of());
+                        values.add(rebased);
+                        if (orderingFunction != null) {
+                            orderingFunctions.put(rebased, orderingFunction);
+                        }
+                    }
+                } else {
+                    final Value rebased = dereference(orderingPart.getValue().rebase(reverseAliasMap))
+                            .simplify(AliasMap.emptyMap(), Set.of());
+                    values.add(rebased);
+                    if (orderingFunction != null) {
+                        orderingFunctions.put(rebased, orderingFunction);
+                    }
+                }
+            }
+            return values.build();
         }
         return List.of();
     }
@@ -352,7 +387,7 @@ public final class IndexGenerator {
             }
         } else {
             Assert.thatUnchecked(child instanceof FieldValue, "Unsupported index definition, expecting a column argument in aggregation function");
-            groupedValue = generate(List.of(child));
+            groupedValue = generate(List.of(child), Collections.emptyMap());
             Assert.thatUnchecked(groupedValue instanceof FieldKeyExpression || groupedValue instanceof ThenKeyExpression);
             if (maybeGroupingExpression.isPresent()) {
                 keyExpression = (groupedValue instanceof FieldKeyExpression) ?
@@ -387,11 +422,11 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression generate(@Nonnull List<Value> fields) {
+    private KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
         if (fields.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
         } else if (fields.size() == 1) {
-            return toKeyExpression(fields.get(0));
+            return toKeyExpression(fields.get(0), orderingFunctions);
         }
 
         List<FieldValueTrieNode> trieNodes = new ArrayList<>(fields.size());
@@ -399,13 +434,13 @@ public final class IndexGenerator {
         PeekingIterator<Value> valueIterator = Iterators.peekingIterator(fields.iterator());
         while (valueIterator.hasNext()) {
             if (!(valueIterator.peek() instanceof FieldValue)) {
-                components.add(toKeyExpression(valueIterator.next()));
+                components.add(toKeyExpression(valueIterator.next(), orderingFunctions));
             } else {
                 FieldValueTrieNode trieNode = FieldValueTrieNode.computeTrieForValues(FieldValue.FieldPath.empty(), valueIterator);
                 trieNode.validateNoOverlaps(trieNodes);
                 trieNodes.add(trieNode);
 
-                components.add(toKeyExpression(trieNode));
+                components.add(toKeyExpression(trieNode, orderingFunctions));
             }
         }
 
@@ -413,6 +448,16 @@ public final class IndexGenerator {
             return components.get(0);
         } else {
             return concat(components);
+        }
+    }
+
+    @Nonnull
+    private KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
+        var expr = toKeyExpression(value);
+        if (orderingFunctions.containsKey(value)) {
+            return function(orderingFunctions.get(value), expr);
+        } else {
+            return expr;
         }
     }
 
@@ -448,16 +493,19 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression toKeyExpression(@Nonnull FieldValueTrieNode trieNode) {
+    private static KeyExpression toKeyExpression(@Nonnull FieldValueTrieNode trieNode,
+                                                 @Nonnull Map<Value, String> orderingFunctions) {
         Assert.notNullUnchecked(trieNode.getChildrenMap());
         Assert.thatUnchecked(!trieNode.getChildrenMap().isEmpty());
 
         final var childrenMap = trieNode.getChildrenMap();
         final var exprConstituents = childrenMap.keySet().stream().map(key -> {
-            var expr = toKeyExpression(Objects.requireNonNull(key.getName()), key.getType());
+            final var expr = toKeyExpression(Objects.requireNonNull(key.getName()), key.getType());
             final var value = childrenMap.get(key);
             if (value.getChildrenMap() != null) {
-                return expr.nest(toKeyExpression(value));
+                return expr.nest(toKeyExpression(value, orderingFunctions));
+            } else if (orderingFunctions.containsKey(value.getValue())) {
+                return function(orderingFunctions.get(value.getValue()), expr);
             } else {
                 return expr;
             }

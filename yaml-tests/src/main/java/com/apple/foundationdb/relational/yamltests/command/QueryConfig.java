@@ -242,15 +242,12 @@ public abstract class QueryConfig {
                         }
                     } else {
                         final var diffMessage = String.format("‼️ plan mismatch at line %d:%n" +
+                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n%s" +
                                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                planDiffs +
+                                "↪ expected plan %s:%n%s%n" +
                                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                "↪ expected plan %s:%n" +
-                                getValueString() + "%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                "↩ actual plan:%n" +
-                                actualPlan,
-                                getLineNumber(), (!isExact ? "fragment" : ""));
+                                "↩ actual plan:%n%s",
+                                getLineNumber(), planDiffs, (!isExact ? "fragment" : ""), getValueString(), actualPlan);
                         reportTestFailure(diffMessage);
                     }
                 }

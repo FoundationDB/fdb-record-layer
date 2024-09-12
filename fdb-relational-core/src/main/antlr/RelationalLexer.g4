@@ -579,6 +579,7 @@ NOWAIT:                              'NOWAIT';
 NODEGROUP:                           'NODEGROUP';
 NONE:                                'NONE';
 NOCACHE:                             'NOCACHE';
+NULLS:                               'NULLS';
 ODBC:                                'ODBC';
 OFFLINE:                             'OFFLINE';
 OFFSET:                              'OFFSET';

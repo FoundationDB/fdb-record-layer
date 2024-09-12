@@ -133,4 +133,13 @@ public final class ParseHelpers {
             throw new RelationalException("Could not parse bytes literal", ErrorCode.INVALID_BINARY_REPRESENTATION, e).toUncheckedWrappedException();
         }
     }
+
+    public static boolean isDescending(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
+        return (orderByExpressionContext.ASC() == null) && (orderByExpressionContext.DESC() != null);
+    }
+
+    public static boolean isNullsLast(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext, boolean isDescending) {
+        return orderByExpressionContext.nulls == null ? isDescending :
+                (orderByExpressionContext.FIRST() == null) && (orderByExpressionContext.LAST() != null);
+    }
 }
