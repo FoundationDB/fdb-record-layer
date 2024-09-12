@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -175,7 +176,17 @@ public abstract class IndexMaintainer {
      * @return a future that will complete when the violations have been cleared
      */
     public CompletableFuture<Void> clearUniquenessViolations() {
-        throw new UnsupportedOperationException("Index maintainer does not support clearing uniqueness violations");
+        // By default we do nothing, but that is _not_ what any implementer should do.
+        // The only time this is called is when an index is being marked readable but is not unique.
+        // This could happen in proper situations if, after this new method is added, an index changes from unique to
+        // non-unique without updating the lastModifiedVersion. This doesn't require a rebuild, but there could be
+        // violations on disk. Since we don't know whether an index maintainer stored all data around uniqueness
+        // violations in state.store.indexUniquenessViolationsSubspace(state.index) and can't guarantee this doesn't
+        // we just leave that data around.
+        if (state.index.isUnique()) {
+            throw new RecordCoreException(state.index.getName() + " is unique and cannot clear uniqueness violations");
+        }
+        return AsyncUtil.DONE;
     }
 
     /**

@@ -20,11 +20,15 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
@@ -32,11 +36,20 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainer;
+import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.auto.service.AutoService;
+import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
@@ -46,7 +59,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -78,6 +93,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
+
+    private static final String NO_UNIQUE_CLEAR_INDEX_TYPE = "no_unique_clear";
 
     @Test
     public void writeUniqueByteString() throws Exception {
@@ -324,7 +341,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(false);
         dropUniquenessConstraint.setupStore();
         dropUniquenessConstraint.addUniqueIndexViaCheckVersion();
-        dropUniquenessConstraint.openWithNonUnique();
+        dropUniquenessConstraint.openWithNonUnique(false);
     }
 
     @ParameterizedTest(name = "removeUniquenessConstraintAfterBuild(withViolations={0}, allowReadableUniquePending={1})")
@@ -336,7 +353,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         if (!withViolations) {
             dropUniquenessConstraint.removeUniquenessViolations();
         }
-        dropUniquenessConstraint.openWithNonUnique();
+        dropUniquenessConstraint.openWithNonUnique(false);
     }
 
     @ParameterizedTest(name = "removeUniquenessConstraintDuringTransaction(clearViolations={0}, allowReadableUniquePending={1})")
@@ -383,6 +400,23 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         dropUniquenessConstraint.changeToNonUnique(false, true, false);
     }
 
+    /**
+     * This test is primarily here to make sure that if there is an index maintainer that doesn't implement the new
+     * {@link IndexMaintainer#clearUniquenessViolations}, the old flow of increasing the version when changing the state
+     * still works.
+     * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
+     * @throws Exception if there is an issue
+     */
+    @ParameterizedTest(name = "bumpingVersionDoesNotUseNewMethod(allowReadableUniquePending={0})")
+    @BooleanSource
+    void bumpingVersionDoesNotUseNewMethod(boolean allowReadableUniquePending) throws Exception {
+        final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(
+                allowReadableUniquePending, NO_UNIQUE_CLEAR_INDEX_TYPE, true);
+        dropUniquenessConstraint.setupStore();
+        dropUniquenessConstraint.addUniqueIndexViaBuild();
+        dropUniquenessConstraint.openWithNonUnique(true);
+    }
+
     private class DropUniquenessConstraint {
         private static final String TYPE_NAME = "MySimpleRecord";
         private static final int nonUniqueNumValue = 42;
@@ -395,19 +429,30 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         private final RecordMetaDataHook uniqueHook;
 
         private DropUniquenessConstraint(final boolean allowReadableUniquePending) {
+            this(allowReadableUniquePending, IndexTypes.VALUE, false);
+        }
+
+        private DropUniquenessConstraint(final boolean allowReadableUniquePending, final String indexType, final boolean bumpVersion) {
             this.allowReadableUniquePending = allowReadableUniquePending;
             readableUniquePendingState = allowReadableUniquePending ? IndexState.READABLE_UNIQUE_PENDING : IndexState.WRITE_ONLY;
             // Copy the first index, but drop the uniqueness constraint. This keeps the index as is, including the
             // last_modified_version, so adding it to the meta-data won't cause the index to be rebuilt during
             // check version. However, bump the meta-data version to ensure that anyone with an old meta-data version
             // (who will expect the index to be unique, if READABLE) knows to reload the meta-data.
-            uniqueIndex = new Index("initiallyUniqueIndex", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+            uniqueIndex = new Index("initiallyUniqueIndex", field("num_value_2"), indexType, IndexOptions.UNIQUE_OPTIONS);
             assertTrue(uniqueIndex.isUnique());
             nonUniqueIndex = new IndexWithOptions(uniqueIndex, IndexOptions.UNIQUE_OPTION, Boolean.FALSE.toString());
+            if (bumpVersion) {
+                // we need to ensure that this will be greater than the metadata version created with the unique index
+                nonUniqueIndex.setLastModifiedVersion(100000);
+            } else {
+                assertEquals(uniqueIndex.getLastModifiedVersion(), nonUniqueIndex.getLastModifiedVersion());
+                assertEquals(uniqueIndex.getSubspaceKey(), nonUniqueIndex.getSubspaceKey());
+            }
             assertFalse(nonUniqueIndex.isUnique());
             nonUniqueHook = metaDataBuilder -> {
                 metaDataBuilder.addIndex("MySimpleRecord", nonUniqueIndex);
-                metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
+                metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 2);
             };
             uniqueHook = metaDataBuilder -> metaDataBuilder.addIndex(TYPE_NAME, uniqueIndex);
             recordNumbers = new ArrayList<>();
@@ -505,13 +550,18 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             }
         }
 
-        public void openWithNonUnique() throws ExecutionException, InterruptedException {
+        public void openWithNonUnique(final boolean expectRebuild) throws ExecutionException, InterruptedException {
             timer.reset();
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, nonUniqueHook);
                 assertTrue(recordStore.isVersionChanged());
-                assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
-                assertOrMarkReadable();
+                if (expectRebuild) {
+                    assertEquals(1L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+                    assertEquals(IndexState.READABLE, recordStore.getIndexState(nonUniqueIndex));
+                } else {
+                    assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+                    assertOrMarkReadable();
+                }
 
                 assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
                 assertIndexEntries();
@@ -599,39 +649,139 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                 commit(context);
             }
         }
+    }
 
-        public void changeToNonUniqueWithViolations() throws ExecutionException, InterruptedException {
-            timer.reset();
-            try (FDBRecordContext context = openContext()) {
-                final RecordMetaData uniqueMetadata = simpleMetaData(uniqueHook);
-                final RecordMetaData nonUniqueMetadata = simpleMetaData(nonUniqueHook);
-                final AtomicReference<RecordMetaData> metadataProvider = new AtomicReference<>(uniqueMetadata);
-                createOrOpenRecordStore(context, metadataProvider::get);
-                final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, metadataProvider.get());
-                assertFalse(recordStore.isVersionChanged());
-                assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+    /**
+     * Factory for {@link NeverAllowClearUniquenessViolations}.
+     */
+    @AutoService(IndexMaintainerFactory.class)
+    public static class NeverAllowClearUniquenessViolationsFactory implements IndexMaintainerFactory {
 
-                addViolation();
+        @Nonnull
+        @Override
+        public Iterable<String> getIndexTypes() {
+            return Collections.singletonList(NO_UNIQUE_CLEAR_INDEX_TYPE);
+        }
 
-                metadataProvider.set(nonUniqueMetadata);
-                recordStore.checkVersion(storeBuilder.getUserVersionChecker(), FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
-                        .get();
-                assertTrue(recordStore.isVersionChanged());
-                assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+        @Nonnull
+        @Override
+        public IndexValidator getIndexValidator(Index index) {
+            return new IndexValidator(index);
+        }
 
+        @Nonnull
+        @Override
+        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+            return new NeverAllowClearUniquenessViolations(state);
+        }
+    }
 
-                assertOrMarkReadable();
+    private static class NeverAllowClearUniquenessViolations extends IndexMaintainer {
+        IndexMaintainer underlying;
 
-                assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
-                assertIndexEntries();
-                // When a unique index is in WriteOnly you can add new violations, but when it is in
-                // ReadableUniquePending it will check uniqueness violations and fail.
-                if (allowReadableUniquePending) {
-                    assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
-                } else {
-                    commit(context);
-                }
-            }
+        public NeverAllowClearUniquenessViolations(final IndexMaintainerState state) {
+            super(state);
+            underlying = new ValueIndexMaintainer(state);
+        }
+
+        @Nonnull
+        @Override
+        public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+            return underlying.scan(scanType, range, continuation, scanProperties);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+            return underlying.update(oldRecord,  newRecord);
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+            return underlying.updateWhileWriteOnly(oldRecord, newRecord);
+        }
+
+        @Nonnull
+        @Override
+        public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+            return underlying.scanUniquenessViolations(range, continuation, scanProperties);
+        }
+
+        @Override
+        public CompletableFuture<Void> clearUniquenessViolations() {
+            return super.clearUniquenessViolations();
+        }
+
+        @Nonnull
+        @Override
+        public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable final byte[] continuation, @Nullable final ScanProperties scanProperties) {
+            return underlying.validateEntries(continuation, scanProperties);
+        }
+
+        @Override
+        public boolean canEvaluateRecordFunction(@Nonnull final IndexRecordFunction<?> function) {
+            return false;
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull final FDBRecord<M> record) {
+            return underlying.evaluateIndex(record);
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
+            return underlying.filteredIndexEntries(savedRecord);
+        }
+
+        @Nonnull
+        @Override
+        public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull final EvaluationContext context, @Nonnull final IndexRecordFunction<T> function, @Nonnull final FDBRecord<M> record) {
+            return underlying.evaluateRecordFunction(context, function, record);
+        }
+
+        @Override
+        public boolean canEvaluateAggregateFunction(@Nonnull final IndexAggregateFunction function) {
+            return underlying.canEvaluateAggregateFunction(function);
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull final IndexAggregateFunction function, @Nonnull final TupleRange range, @Nonnull final IsolationLevel isolationLevel) {
+            return underlying.evaluateAggregateFunction(function, range, isolationLevel);
+        }
+
+        @Override
+        public boolean isIdempotent() {
+            return underlying.isIdempotent();
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull final Tuple primaryKey) {
+            return addedRangeWithKey(primaryKey);
+        }
+
+        @Override
+        public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+            return underlying.canDeleteWhere(matcher, evaluated);
+        }
+
+        @Override
+        public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
+            return underlying.deleteWhere(tr, prefix);
+        }
+
+        @Override
+        public CompletableFuture<IndexOperationResult> performOperation(@Nonnull final IndexOperation operation) {
+            return underlying.performOperation(operation);
+        }
+
+        @Override
+        public CompletableFuture<Void> mergeIndex() {
+            return underlying.mergeIndex();
         }
     }
 }
