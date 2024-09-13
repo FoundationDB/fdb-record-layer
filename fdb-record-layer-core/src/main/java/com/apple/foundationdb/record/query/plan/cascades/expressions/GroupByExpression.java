@@ -67,7 +67,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -330,8 +329,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                     if (groupingValue == null && otherGroupingValue == null) {
                         return BooleanWithConstraint.alwaysTrue();
                     }
-                    if (groupingValue == null || otherGroupingValue == null) {
+                    if (otherGroupingValue == null) {
                         return BooleanWithConstraint.falseValue();
+                    }
+
+                    if (groupingValue == null) {
+                        requiresRollup.setTrue();
+                        return BooleanWithConstraint.alwaysTrue();
                     }
 
                     final var sameGrouping = groupingValue.subsumedBy(otherGroupingValue, valueEquivalence);
@@ -339,17 +343,17 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                         return sameGrouping;
                     }
 
-                    final var individualGroupingColumns = Values.deconstructRecord(groupingValue);
+                    final var groupingColumns = Values.deconstructRecord(groupingValue);
                     final var otherGroupingColumns = Values.deconstructRecord(otherGroupingValue);
 
                     // this is very restrictive and should employ set semantics instead.
-                    if (individualGroupingColumns.size() > otherGroupingColumns.size()) {
+                    if (groupingColumns.size() > otherGroupingColumns.size()) {
                         return BooleanWithConstraint.falseValue();
                     }
 
                     var composedEquivalence = BooleanWithConstraint.alwaysTrue();
                     boolean foundEquivalence = false;
-                    for (final var groupingColumn : individualGroupingColumns) {
+                    for (final var groupingColumn : groupingColumns) {
                         for (final var otherGroupingColumn : otherGroupingColumns) {
                             final var equivalenceResult = groupingColumn.subsumedBy(otherGroupingColumn, valueEquivalence);
                             if (equivalenceResult.isTrue()) {
