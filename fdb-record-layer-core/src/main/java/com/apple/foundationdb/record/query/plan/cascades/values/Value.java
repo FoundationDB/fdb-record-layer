@@ -468,12 +468,24 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     /**
-     * A scalar {@link Value} that can be inverted, i.e. {@code inverse_f(f(x)) = x} for all {@code x}.
+     * A scalar {@link Value} that can be inverted, i.e. {@code inverse_f(f(x)) = x} for all {@code x}. {@link Value}s
+     * that implement this interface merely declare that an inverse exists. If an implementation of an inverse
+     * {@link Value} is available, it provides a way to inject an instance of the inverse on top of a given, compatible
+     * child value.
      * @param <V> type parameter of the kind of inverse value of this value.
      */
     @API(API.Status.EXPERIMENTAL)
     interface InvertableValue<V extends Value> extends Value {
-        V createInverseValue(@Nonnull Value newChildValue);
+        /**
+         * Create the inverse value of this value if it can be constructed. An inverse can be known to exist, i.e.
+         * by knowing that a function is bijective and surjective, but it might also be hard to efficiently compute it.
+         * Also, there might just be no implementation for it. In these cases, this method is allowed to return
+         * {@code Optional.empty()}.
+         * @param newChildValue the child value to compute the inverse over
+         * @return an optional containing the inverse value over the child value handed in, empty, if it cannot be
+         *         constructed.
+         */
+        Optional<V> createInverseValueMaybe(@Nonnull Value newChildValue);
     }
 
     /**
@@ -760,7 +772,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                 // this child is present
                                 final var childPair =
                                         Iterables.getOnlyElement(childrenResults);
-                                final var compensation = new ComparisonCompensation.NestedInvertableComparisonCompensation(otherInvertableValue, childPair);
+                                final var compensation =
+                                        new ComparisonCompensation.NestedInvertableComparisonCompensation(otherInvertableValue, childPair);
                                 return NonnullPair.of(compensation, childPair.getRight());
                             }
                             return null;
