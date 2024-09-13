@@ -43,7 +43,9 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -65,6 +67,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -257,13 +260,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         if (matchInfo.isRollupRequired()) {
-            if (groupingValue == null) {
-                return Compensation.impossibleCompensation(); // not supported yet.
-            }
             final var baseQuantifier = Iterables.getOnlyElement(getQuantifiers()).getAlias();
             final var rolledUpAggregations = getAggregateValueAsRollup(matchInfo, baseQuantifier);
             final var rolledUpGroupBy = getGroupingValueAsRollup(matchInfo, baseQuantifier);
-
             return new Compensation.RollupCompensation(rolledUpGroupBy, rolledUpAggregations, childCompensation.orElse(Compensation.noCompensation()), baseQuantifier);
         }
 
@@ -274,14 +273,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     AggregateValue getAggregateValueAsRollup(@Nonnull MatchInfo matchInfo, @Nonnull CorrelationIdentifier baseQuantifier) {
         final var maxMatchMap = matchInfo.getMaxMatchMap();
         final var candidateResult = maxMatchMap.getCandidateResultValue();
-        final var aggregations = ((RecordConstructorValue)((RecordConstructorValue)maxMatchMap.getQueryResultValue())
-                .getColumns().get(1).getValue()).getColumns().stream().map(Column::getValue).collect(ImmutableList.toImmutableList());
-        final ImmutableList.Builder<Value> rolledUpAggregations = ImmutableList.builder();
-        for (final var aggregation : aggregations) {
-            final var pulledUpAggregation = candidateResult.pullUp(ImmutableList.of(aggregation), AliasMap.emptyMap(), ImmutableSet.of(), baseQuantifier).get(aggregation);
-            rolledUpAggregations.add(aggregation.withChildren(ImmutableList.of(pulledUpAggregation)));
-        }
-        return RecordConstructorValue.ofUnnamed(rolledUpAggregations.build());
+        final var aggregations = maxMatchMap.getQueryResultValue().preOrderStream()
+                .filter(v -> v instanceof StreamableAggregateValue || v instanceof IndexableAggregateValue).collect(ImmutableList.toImmutableList());
+        // replace each aggregate value child with the underlying aggregate reference, effectively creating a higher-order aggregate.
+        final var pulledUpAggregations = candidateResult.pullUp(aggregations, AliasMap.emptyMap(), ImmutableSet.of(), baseQuantifier);
+        final var rollUps = aggregations.stream().map(aggregation -> aggregation.withChildren(ImmutableList.of(pulledUpAggregations.get(aggregation))))
+                .collect(ImmutableList.toImmutableList());
+        return RecordConstructorValue.ofUnnamed(rollUps);
     }
 
     @Nullable
@@ -291,15 +289,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
         final var maxMatchMap = matchInfo.getMaxMatchMap();
         final var candidateResult = maxMatchMap.getCandidateResultValue();
+        // this pulls all group by expressions from the max match map.
         final var groupByExpressions = ((RecordConstructorValue)((RecordConstructorValue)maxMatchMap.getQueryResultValue())
                 .getColumns().get(0).getValue()).getColumns().stream().map(Column::getValue).collect(ImmutableList.toImmutableList());
-        final ImmutableList.Builder<Value> rolledUpGroupByExpressions = ImmutableList.builder();
-        for (final var groupByExpression : groupByExpressions) {
-            // the last ordinal position is the ordinal within the aggregation list in the candidate side.
-            final var pulledUpGroupByExpression = candidateResult.pullUp(ImmutableList.of(groupByExpression), AliasMap.emptyMap(), ImmutableSet.of(), baseQuantifier).get(groupByExpression);
-            rolledUpGroupByExpressions.add(pulledUpGroupByExpression);
-        }
-        return RecordConstructorValue.ofUnnamed(rolledUpGroupByExpressions.build());
+        final var pulledUpGroupByExpressions = candidateResult.pullUp(groupByExpressions, AliasMap.emptyMap(), ImmutableSet.of(), baseQuantifier);
+        return RecordConstructorValue.ofUnnamed(groupByExpressions.stream().map(pulledUpGroupByExpressions::get).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull

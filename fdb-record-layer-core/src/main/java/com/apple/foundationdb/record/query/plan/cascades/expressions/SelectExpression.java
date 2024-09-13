@@ -568,6 +568,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return Optional.empty();
         }
 
+        // underlying is a group by that requires a rollup, bailout
+        if (childMatchInfo.isRollupRequired()) {
+            return Optional.empty();
+        }
+
         for (final var predicate : getPredicates()) {
             if (predicate instanceof Placeholder) {
                 if (!((Placeholder)predicate).getRanges().isEmpty()) {
