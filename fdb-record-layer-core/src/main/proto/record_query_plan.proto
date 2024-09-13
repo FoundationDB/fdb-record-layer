@@ -240,7 +240,7 @@ message PValue {
     PIndexEntryObjectValue index_entry_object_value = 41;
     PToOrderedBytesValue to_ordered_bytes_value = 42;
     PFromOrderedBytesValue from_ordered_bytes_value = 43;
-    PNumericAggregationValue.PBitMapConstructAgg numeric_aggregation_value_bitmap = 44;
+    PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 44;
   }
 }
 
@@ -536,7 +536,7 @@ message PNumericAggregationValue {
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;
 
-  message PBitMapConstructAgg {
+  message PBitmapConstructAgg {
     optional PNumericAggregationValue super = 1;
   }
   message PSum {

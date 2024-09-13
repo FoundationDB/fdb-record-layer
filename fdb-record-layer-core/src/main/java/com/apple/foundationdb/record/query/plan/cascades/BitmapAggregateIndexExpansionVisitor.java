@@ -82,13 +82,12 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
             }
             argument = result.get(groupedValue);
         } else {
-            throw new RecordCoreException("unable to plan group by with non-field value")
-                    .addLogInfo(LogMessageKeys.VALUE, groupedValue);
+            throw new UnsupportedOperationException("unable to plan group by with non-field value " + groupedValue);
         }
 
 
-        final var bitmapConstructAggFunc = FunctionCatalog.getFunctionSingleton(NumericAggregationValue.BitMapConstructAggFn.class).orElseThrow();
-        final var bitmapBitPositionFunc = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitMapBitPositionFn.class).orElseThrow();
+        final var bitmapConstructAggFunc = FunctionCatalog.getFunctionSingleton(NumericAggregationValue.BitmapConstructAggFn.class).orElseThrow();
+        final var bitmapBitPositionFunc = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitmapBitPositionFn.class).orElseThrow();
         final String sizeArgument = index.getOption(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION);
         final int entrySize = sizeArgument != null ? Integer.parseInt(sizeArgument) : BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE;
         final var entrySizeValue = LiteralValue.ofScalar(entrySize);
@@ -102,7 +101,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
                 .stream()
                 .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
-        final var bitmapBitPosition = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitMapBucketOffsetFn.class).orElseThrow();
+        final var bitmapBitPosition = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitmapBucketOffsetFn.class).orElseThrow();
         final var implicitGroupingValue = (Value)bitmapBitPosition.encapsulate(ImmutableList.of(argument, entrySizeValue));
         final var placeHolder = Placeholder.newInstanceWithoutRanges(implicitGroupingValue, newParameterAlias());
 

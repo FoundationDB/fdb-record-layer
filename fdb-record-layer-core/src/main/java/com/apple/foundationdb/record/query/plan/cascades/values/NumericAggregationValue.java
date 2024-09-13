@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
-import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PBitMapConstructAgg;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PBitmapConstructAgg;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMax;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMin;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PPhysicalOperator;
@@ -214,15 +214,15 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     }
 
     /**
-     * BitMap aggregation {@code Value}.
+     * Bitmap aggregation {@code Value}.
      */
-    public static class BitMapConstructAgg extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
-        public BitMapConstructAgg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+    public static class BitmapConstructAgg extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+        public BitmapConstructAgg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
         }
 
-        protected BitMapConstructAgg(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PBitMapConstructAgg bitMapProto) {
+        protected BitmapConstructAgg(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PBitmapConstructAgg bitMapProto) {
             super(serializationContext, Objects.requireNonNull(bitMapProto.getSuper()));
         }
 
@@ -236,48 +236,48 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitMapConstructAgg::new);
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitmapConstructAgg::new);
         }
 
         @Nonnull
         @Override
         public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new BitMapConstructAgg(operator, newChild);
+            return new BitmapConstructAgg(operator, newChild);
         }
 
         @Nonnull
         @Override
-        public PBitMapConstructAgg toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PBitMapConstructAgg.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        public PBitmapConstructAgg toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PBitmapConstructAgg.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
         }
 
         @Nonnull
         @Override
         public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PValue.newBuilder().setNumericAggregationValueBitmap(toProto(serializationContext)).build();
+            return PValue.newBuilder().setNumericAggregationValueBitmapConstructAgg(toProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static BitMapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBitMapConstructAgg bitMapProto) {
-            return new BitMapConstructAgg(serializationContext, bitMapProto);
+        public static BitmapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBitmapConstructAgg bitMapProto) {
+            return new BitmapConstructAgg(serializationContext, bitMapProto);
         }
 
         /**
          * Deserializer.
          */
         @AutoService(PlanDeserializer.class)
-        public static class Deserializer implements PlanDeserializer<PBitMapConstructAgg, BitMapConstructAgg> {
+        public static class Deserializer implements PlanDeserializer<PBitmapConstructAgg, BitmapConstructAgg> {
             @Nonnull
             @Override
-            public Class<PBitMapConstructAgg> getProtoMessageClass() {
-                return PBitMapConstructAgg.class;
+            public Class<PBitmapConstructAgg> getProtoMessageClass() {
+                return PBitmapConstructAgg.class;
             }
 
             @Nonnull
             @Override
-            public BitMapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PBitMapConstructAgg bitMapProto) {
-                return BitMapConstructAgg.fromProto(serializationContext, bitMapProto);
+            public BitmapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PBitmapConstructAgg bitMapProto) {
+                return BitmapConstructAgg.fromProto(serializationContext, bitMapProto);
             }
         }
     }
@@ -567,10 +567,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
      * The {@code bitmap} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class BitMapConstructAggFn extends BuiltInFunction<AggregateValue> {
-        public BitMapConstructAggFn() {
+    public static class BitmapConstructAggFn extends BuiltInFunction<AggregateValue> {
+        public BitmapConstructAggFn() {
             super("BITMAP_CONSTRUCT_AGG",
-                    ImmutableList.of(new Type.Any()), BitMapConstructAgg::encapsulate);
+                    ImmutableList.of(new Type.Any()), BitmapConstructAgg::encapsulate);
         }
     }
 

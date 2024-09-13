@@ -365,9 +365,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     }
 
     protected int getGroupingCount() {
+        final int keyExpressionGroupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
         return IndexTypes.BITMAP_VALUE.equals(index.getType())
-               ? ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount() + 1
-               : ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
+               ? keyExpressionGroupingCount + 1
+               : keyExpressionGroupingCount;
     }
 
     @Nonnull

@@ -106,16 +106,16 @@ class AggregateValueTest {
 
     @Test
     void testBitMap() {
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L}), Arrays.asList(0L, 1L, 2L), 1250); // 111
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L), 1250); // 111
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L, 10000L, 10001L, 10100L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L, 10000L, 10001L, 10100L), 1263); // 111
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(longs), Arrays.asList(longs), 1250); // 1111110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(longsWithNulls), List.of(1L, 2L, 4L, 5L, 6L), 1250); // 1110110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(longsOnlyNull), null, 1250);
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitMap(ints), Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L), 1250); // 1111110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitMap(intsWithNulls), Arrays.asList(1L, 2L, 4L, 5L, 6L), 1250); // 1110110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitMap(intsOnlyNull), null, 1250);
-        Assertions.assertThrows(RecordCoreArgumentException.class, () -> accumulateAndAssertByteArray(new NumericAggregationValue.BitMapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{250001L}), List.of(250001L), 1250)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L}), Arrays.asList(0L, 1L, 2L), 1250); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L), 1250); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L, 10000L, 10001L, 10100L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L, 10000L, 10001L, 10100L), 1263); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(longs), Arrays.asList(longs), 1250); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(longsWithNulls), List.of(1L, 2L, 4L, 5L, 6L), 1250); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(longsOnlyNull), null, 1250);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitMap(ints), Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L), 1250); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitMap(intsWithNulls), Arrays.asList(1L, 2L, 4L, 5L, 6L), 1250); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitMap(intsOnlyNull), null, 1250);
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitMap(new Object[]{250001L}), List.of(250001L), 1250)); // 111
     }
 
     @Test

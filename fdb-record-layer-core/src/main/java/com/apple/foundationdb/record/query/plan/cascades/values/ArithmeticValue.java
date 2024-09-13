@@ -294,8 +294,8 @@ public class ArithmeticValue extends AbstractValue {
      * The {@code bitmap_bit_position} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class BitMapBitPositionFn extends BuiltInFunction<Value> {
-        public BitMapBitPositionFn() {
+    public static class BitmapBitPositionFn extends BuiltInFunction<Value> {
+        public BitmapBitPositionFn() {
             super("bitmap_bit_position",
                     ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
@@ -305,8 +305,8 @@ public class ArithmeticValue extends AbstractValue {
      * The {@code bitmap_bucket_number} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class BitMapBucketNumberFn extends BuiltInFunction<Value> {
-        public BitMapBucketNumberFn() {
+    public static class BitmapBucketNumberFn extends BuiltInFunction<Value> {
+        public BitmapBucketNumberFn() {
             super("bitmap_bucket_number",
                     ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
@@ -349,8 +349,8 @@ public class ArithmeticValue extends AbstractValue {
      * The bitwise {@code bitmap_bucket_offset} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class BitMapBucketOffsetFn extends BuiltInFunction<Value> {
-        public BitMapBucketOffsetFn() {
+    public static class BitmapBucketOffsetFn extends BuiltInFunction<Value> {
+        public BitmapBucketOffsetFn() {
             super("bitmap_bucket_offset",
                     ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
