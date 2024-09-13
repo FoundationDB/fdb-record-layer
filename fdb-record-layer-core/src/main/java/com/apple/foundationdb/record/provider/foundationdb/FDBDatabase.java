@@ -763,6 +763,10 @@ public class FDBDatabase {
             transaction = new InstrumentedTransaction(timer, delayedTimer, this, listener, transaction, enableAssertions);
         }
 
+        if (config.getKeyChecker() != null) {
+            transaction = new KeyCheckingTransaction(transaction, config.getKeyChecker());
+        }
+
         return transaction;
     }
 

@@ -159,6 +159,30 @@ public class TupleHelpers {
         return true;
     }
 
+    /**
+     * Get the index of a prefix of an encoded tuple that decodes as a sub-tuple of the given size.
+     * @param bytes encoded tuple
+     * @param size size of desired subtuple
+     * @return the index into {@code bytes} that ends the sub-tuple or {@code -1} if {@code bytes} is too short or decoding fails
+     */
+    public static int prefixLengthOfSize(@Nonnull byte[] bytes, int size) {
+        TupleUtil.DecodeState state = new TupleUtil.DecodeState();
+        int pos = 0;
+        int end = bytes.length;
+        while (state.values.size() < size) {
+            if (pos >= end) {
+                return -1;      // Not long enough.
+            }
+            try {
+                TupleUtil.decode(state, bytes, pos, end);
+            } catch (IllegalArgumentException ex) {
+                return -1;
+            }
+            pos = state.end;
+        }
+        return pos;
+    }
+
     private TupleHelpers() {
     }
 }
