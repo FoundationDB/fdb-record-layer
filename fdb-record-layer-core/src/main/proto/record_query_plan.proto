@@ -240,7 +240,8 @@ message PValue {
     PIndexEntryObjectValue index_entry_object_value = 41;
     PToOrderedBytesValue to_ordered_bytes_value = 42;
     PFromOrderedBytesValue from_ordered_bytes_value = 43;
-    PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 44;
+    PCollateValue collate_value = 44;
+    PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
   }
 }
 
@@ -820,6 +821,14 @@ message PBinaryRelOpValue {
       NEQ_BYU = 200;
       NEQ_BYBY = 201;
       NEQ_UBY = 202;
+      LT_BYU = 203;
+      LT_BYBY = 204;
+      LTE_BYU = 205;
+      LTE_BYBY = 206;
+      GT_BYU = 207;
+      GT_BYBY = 208;
+      GTE_BYU = 209;
+      GTE_BYBY = 210;
 
   }
   optional PRelOpValue super = 1;
@@ -901,6 +910,13 @@ message PWindowedValue {
   repeated PValue argument_values = 2;
 }
 
+message PCollateValue {
+  optional string collator_registry = 1;
+  optional PValue string_child = 2;
+  optional PValue locale_child = 3;
+  optional PValue strength_child = 4;
+}
+
 //
 // Comparisons
 //
@@ -939,12 +955,20 @@ message PComparison {
     PMultiColumnComparison multi_column_comparison = 8;
     PInvertedFunctionComparison inverted_function_comparison = 9;
     PRecordTypeComparison record_type_comparison = 10;
+    PConversionSimpleComparison conversion_simple_comparison = 11;
+    PConversionParameterComparison conversion_parameter_comparison = 12;
   }
 }
 
 message PSimpleComparison {
   optional PComparison.PComparisonType type = 1;
   optional PComparableObject object = 2;
+}
+
+message PConversionSimpleComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional PComparableObject object = 2;
+  optional KeyExpression conversion = 3;
 }
 
 message PComparableObject {
@@ -982,6 +1006,13 @@ message PParameterComparison {
   optional PComparison.PComparisonType type = 1;
   optional string parameter = 2;
   optional PBindingKind internal = 3;
+}
+
+message PConversionParameterComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional string parameter = 2;
+  optional PParameterComparison.PBindingKind internal = 3;
+  optional KeyExpression conversion = 4;
 }
 
 message PValueComparison {
