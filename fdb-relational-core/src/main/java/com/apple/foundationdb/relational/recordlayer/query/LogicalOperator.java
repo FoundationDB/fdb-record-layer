@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -116,12 +116,31 @@ public class LogicalOperator {
         if (getName().isPresent() && getName().get().equals(name)) {
             return this;
         }
-        return LogicalOperator.newNamedOperator(name, getOutput(), getQuantifier());
+        if (getName().isEmpty()) {
+            return LogicalOperator.newNamedOperator(name, getOutput(), getQuantifier());
+        }
+        return LogicalOperator.newNamedOperator(name, getOutput().replaceQualifier(existing -> {
+            final var prefixSize = getName().get().fullyQualifiedName().size();
+            final var existingSize = existing.size();
+            if (prefixSize > existingSize) {
+                return existing;
+            }
+            final var existingList = ImmutableList.copyOf(existing);
+            if (existingList.subList(0, prefixSize).equals(getName().get().fullyQualifiedName())) {
+                return ImmutableList.<String>builder().addAll(name.fullyQualifiedName()).addAll(existingList.subList(prefixSize, existingList.size())).build();
+            }
+            return existing;
+        }), getQuantifier());
+    }
+
+    @Nonnull
+    public LogicalOperator withAdditionalOutput(@Nonnull Expressions expressions) {
+        return LogicalOperator.newOperatorWithPreservedExpressionNames(getName(), output.concat(expressions), getQuantifier());
     }
 
     @Nonnull
     public LogicalOperator withOutput(@Nonnull Expressions expressions) {
-        return LogicalOperator.newOperatorWithPreservedExpressionNames(getName(), output.concat(expressions), getQuantifier());
+        return LogicalOperator.newOperatorWithPreservedExpressionNames(getName(), expressions, getQuantifier());
     }
 
     @Nonnull
@@ -133,15 +152,27 @@ public class LogicalOperator {
     }
 
     @Nonnull
+    public LogicalOperator withNewSharedReferenceAndAlias(@Nonnull Optional<Identifier> alias) {
+        final var quantifier = Quantifier.forEach(getQuantifier().getRangesOver());
+        final var result = withOutput(getOutput().rewireQov(quantifier.getFlowedObjectValue())).withQuantifier(quantifier);
+        return alias.map(result::withName).orElse(result);
+    }
+
+    @Nonnull
     public static LogicalOperator generateAccess(@Nonnull Identifier identifier,
                                                  @Nonnull Optional<Identifier> alias,
                                                  @Nonnull Set<String> requestedIndexes,
-                                                 @Nonnull LogicalOperators logicalOperators,
-                                                 @Nonnull SemanticAnalyzer semanticAnalyzer) {
-        if (semanticAnalyzer.tableExists(identifier)) {
-            return generateTableAccess(semanticAnalyzer.getTable(identifier), alias, requestedIndexes, semanticAnalyzer);
+                                                 @Nonnull SemanticAnalyzer semanticAnalyzer,
+                                                 @Nonnull LogicalPlanFragment currentPlanFragment,
+                                                 @Nonnull LogicalOperatorCatalog logicalOperatorCatalog) {
+        // look up any localized artifacts, such as common table expressions.
+        final var cteMaybe = semanticAnalyzer.findCteMaybe(identifier, currentPlanFragment);
+        if (cteMaybe.isPresent()) {
+            return cteMaybe.get().withNewSharedReferenceAndAlias(alias);
+        } else if (semanticAnalyzer.tableExists(identifier)) {
+            return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
         } else {
-            final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, logicalOperators);
+            final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, currentPlanFragment.getLogicalOperatorsIncludingOuter());
             Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format("Can not hint indexes with correlated field access %s", identifier));
             return generateCorrelatedFieldAccess(correlatedField, alias);
         }
@@ -171,7 +202,7 @@ public class LogicalOperator {
     @Nonnull
     public static LogicalOperator newOperatorWithPreservedExpressionNames(@Nonnull Expressions output,
                                                                           @Nonnull Quantifier quantifier) {
-        return new LogicalOperator(Optional.empty(), output, quantifier);
+        return newOperatorWithPreservedExpressionNames(Optional.empty(), output, quantifier);
     }
 
     @Nonnull
@@ -182,19 +213,18 @@ public class LogicalOperator {
     }
 
     @Nonnull
-    public static LogicalOperator generateTableAccess(@Nonnull Table table,
-                                                       @Nonnull Optional<Identifier> alias,
-                                                       @Nonnull Set<String> requestedIndexes,
-                                                       @Nonnull SemanticAnalyzer semanticAnalyzer) {
+    public static LogicalOperator generateTableAccess(@Nonnull Identifier tableId,
+                                                      @Nonnull Set<AccessHint> indexAccessHints,
+                                                      @Nonnull SemanticAnalyzer semanticAnalyzer) {
         final var tableNames = semanticAnalyzer.getAllTableNames();
-        semanticAnalyzer.validateIndexes(table, requestedIndexes);
-        final var indexAccessHints = requestedIndexes.stream().map(IndexAccessHint::new).collect(ImmutableSet.toImmutableSet());
+        semanticAnalyzer.validateIndexes(tableId, indexAccessHints);
         final var scanExpression = Quantifier.forEach(Reference.of(
                 new FullUnorderedScanExpression(tableNames,
                         new Type.AnyRecord(false),
-                        new AccessHints(indexAccessHints.toArray(indexAccessHints.toArray(new IndexAccessHint[0]))))));
+                        new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
+        final var table = semanticAnalyzer.getTable(tableId);
         final var type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
-        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(table.getName()), scanExpression, type);
+        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(tableId.getName()), scanExpression, type);
         final var resultingQuantifier = Quantifier.forEach(Reference.of(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
@@ -207,9 +237,8 @@ public class LogicalOperator {
             attributesBuilder.add(new Expression(Optional.of(attributeName), attributeType, attributeExpression));
             colCount++;
         }
-        final var operatorName = alias.orElse(Identifier.of(table.getName()));
         final var attributes = Expressions.of(attributesBuilder.build());
-        return LogicalOperator.newNamedOperator(operatorName, attributes, resultingQuantifier);
+        return LogicalOperator.newNamedOperator(tableId, attributes, resultingQuantifier);
     }
 
     @Nonnull
@@ -340,10 +369,8 @@ public class LogicalOperator {
         final var expandedOutput = output.expanded();
         SelectExpression selectExpression;
 
-        final var canAvoidProjectingIndividualFields = Iterables.size(logicalOperators.forEachOnly()) == 1 &&
-                Iterables.size(output) == 1 && output.iterator().next() instanceof Star;
-        if (canAvoidProjectingIndividualFields) {
-            final var passedThroughResultValue = output.iterator().next().getUnderlying();
+        if (canAvoidProjectingIndividualFields(output, logicalOperators)) {
+            final var passedThroughResultValue = Iterables.getOnlyElement(output).getUnderlying();
             selectExpression = selectBuilder.build().buildSelectWithResultValue(passedThroughResultValue);
         } else {
             expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
@@ -354,6 +381,35 @@ public class LogicalOperator {
         var resultingExpressions = expandedOutput.rewireQov(resultingQuantifier.getFlowedObjectValue());
         resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
         return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
+    }
+
+    /**
+     * Determine whether it is possible to skip projection of individual columns of the underlying quantifier. This is
+     * to avoid unnecessary "breaking" a record constructor value unnecessarily when the user issues a query as simple
+     * as {@code SELECT * FROM T}.
+     * <br/>
+     * It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
+     * plan canonicalization phase.
+     *
+     * @param output the {@link LogicalOperator}'s output.
+     * @param logicalOperators The underlying logical operators.
+     * @return {@code true} if projecting individual columns of the underlying quantifier can be avoided, otherwise
+     * {@code false}.
+     */
+    private static boolean canAvoidProjectingIndividualFields(@Nonnull Expressions output,
+                                                              @Nonnull LogicalOperators logicalOperators) {
+        return // no joins
+                Iterables.size(logicalOperators.forEachOnly()) == 1 &&
+               // must be a Star expression
+                Iterables.size(output) == 1 &&
+                Iterables.getOnlyElement(output) instanceof Star &&
+               // special case for CTEs where it is possible that a Star is referencing aliased columns of a named query
+               // if these columns are aliased differently from the underlying query fragment, then we can only avoid
+               // projecting individual columns (and lose their aliases) if and only if their names pairwise match the
+               // underlying query fragment columns.
+                output.expanded().stream().allMatch(expression -> expression.getName().isEmpty() ||
+                        (expression.getUnderlying() instanceof FieldValue &&
+                                ((FieldValue)expression.getUnderlying()).getLastFieldName().equals(expression.getName().map(Identifier::getName))));
     }
 
     @Nonnull

@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperatorCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
@@ -72,9 +73,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     private final DdlQueryFactory ddlQueryFactory;
 
     @Nonnull
-    private final MetadataOperationsFactory metadataOperationsFactory;
-
-    @Nonnull
     private final URI dbUri;
 
     @Nonnull
@@ -101,6 +99,9 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Nonnull
     private SemanticAnalyzer semanticAnalyzer;
 
+    @Nonnull
+    private final LogicalOperatorCatalog logicalOperatorCatalog;
+
     public BaseVisitor(@Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
                        @Nonnull RecordLayerSchemaTemplate metadata,
                        @Nonnull DdlQueryFactory ddlQueryFactory,
@@ -110,7 +111,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         this.mutablePlanGenerationContext = mutablePlanGenerationContext;
         this.metadata = metadata;
         this.ddlQueryFactory = ddlQueryFactory;
-        this.metadataOperationsFactory = metadataOperationsFactory;
         this.dbUri = dbUri;
         this.currentPlanFragment = Optional.empty();
         this.caseSensitive = caseSensitive;
@@ -120,6 +120,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         this.metadataPlanVisitor = MetadataPlanVisitor.of(this);
         this.ddlVisitor = DdlVisitor.of(this, metadataOperationsFactory, dbUri);
         this.semanticAnalyzer = new SemanticAnalyzer(getCatalog(), getFunctionCatalog());
+        this.logicalOperatorCatalog = LogicalOperatorCatalog.newInstance();
     }
 
     @Nonnull
@@ -149,6 +150,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Nonnull
     public SemanticAnalyzer getSemanticAnalyzer() {
         return semanticAnalyzer;
+    }
+
+    @Nonnull
+    public LogicalOperatorCatalog getLogicalOperatorCatalog() {
+        return logicalOperatorCatalog;
     }
 
     @Nonnull
@@ -223,19 +229,13 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Object visitSqlStatements(@Nonnull RelationalParser.SqlStatementsContext ctx) {
+    public Object visitStatements(@Nonnull RelationalParser.StatementsContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitSqlStatement(@Nonnull RelationalParser.SqlStatementContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitDdlStatement(@Nonnull RelationalParser.DdlStatementContext ctx) {
+    public Object visitStatement(@Nonnull RelationalParser.StatementContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -243,6 +243,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
         return queryVisitor.visitDmlStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitDdlStatement(RelationalParser.DdlStatementContext ctx) {
+        return visitChildren(ctx);
     }
 
     @Nonnull
@@ -367,6 +373,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
+    public List<Identifier> visitFullIdList(RelationalParser.FullIdListContext ctx) {
+        return identifierVisitor.visitFullIdList(ctx);
+    }
+
+    @Nonnull
+    @Override
     public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
         return ddlVisitor.visitEnumDefinition(ctx);
     }
@@ -431,8 +443,32 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public LogicalOperator visitSelectStatementWithContinuation(@Nonnull RelationalParser.SelectStatementWithContinuationContext ctx) {
-        return queryVisitor.visitSelectStatementWithContinuation(ctx);
+    public QueryPlan.LogicalQueryPlan visitSelectStatement(RelationalParser.SelectStatementContext ctx) {
+        return queryVisitor.visitSelectStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
+        return queryVisitor.visitQuery(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperators visitCtes(RelationalParser.CtesContext ctx) {
+        return queryVisitor.visitCtes(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperator visitNamedQuery(RelationalParser.NamedQueryContext ctx) {
+        return queryVisitor.visitNamedQuery(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitContinuation(RelationalParser.ContinuationContext ctx) {
+        return expressionVisitor.visitContinuation(ctx);
     }
 
     @Nonnull
@@ -443,38 +479,14 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public LogicalOperator visitSimpleSelect(@Nonnull RelationalParser.SimpleSelectContext ctx) {
-        return queryVisitor.visitSimpleSelect(ctx);
+    public LogicalOperator visitQueryTermDefault(@Nonnull RelationalParser.QueryTermDefaultContext ctx) {
+        return Assert.castUnchecked(visitChildren(ctx), LogicalOperator.class);
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitParenthesisSelect(@Nonnull RelationalParser.ParenthesisSelectContext ctx) {
-        return visitQueryExpression(ctx.queryExpression());
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSimpleSelect(RelationalParser.UnionSimpleSelectContext ctx) {
-        return visitUnionSelectSpecification(ctx.unionSelectSpecification());
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionParenthesisSelect(@Nonnull RelationalParser.UnionParenthesisSelectContext ctx) {
-        return visitUnionSelectExpression(ctx.unionSelectExpression());
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionSimpleSelect(RelationalParser.ParenthesisUnionSimpleSelectContext ctx) {
-        return visitParenthesisUnionSelectSpecification(ctx.parenthesisUnionSelectSpecification());
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionParenthesisSelect(RelationalParser.ParenthesisUnionParenthesisSelectContext ctx) {
-        return visitParenthesisUnionSelectExpression(ctx.parenthesisUnionSelectExpression());
+    public LogicalOperator visitSetQuery(RelationalParser.SetQueryContext ctx) {
+        return queryVisitor.visitSetQuery(ctx);
     }
 
     @Nonnull
@@ -581,44 +593,14 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public LogicalOperator visitQueryExpression(@Nonnull RelationalParser.QueryExpressionContext ctx) {
-        return queryVisitor.visitQueryExpression(ctx);
+    public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext ctx) {
+        return queryVisitor.visitSimpleTable(ctx);
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitQuerySpecification(@Nonnull RelationalParser.QuerySpecificationContext ctx) {
-        return queryVisitor.visitQuerySpecification(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx) {
-        return queryVisitor.visitUnionStatement(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext ctx) {
-        return queryVisitor.visitUnionSelectSpecification(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext ctx) {
-        return queryVisitor.visitUnionSelectExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionSelectSpecification(RelationalParser.ParenthesisUnionSelectSpecificationContext ctx) {
-        return visitUnionSelectSpecification(ctx.unionSelectSpecification());
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionSelectExpression(RelationalParser.ParenthesisUnionSelectExpressionContext ctx) {
-        return visitUnionSelectExpression(ctx.unionSelectExpression());
+    public LogicalOperator visitParenthesisQuery(RelationalParser.ParenthesisQueryContext ctx) {
+        return queryVisitor.visitParenthesisQuery(ctx);
     }
 
     @Nonnull
@@ -1554,11 +1536,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Nonnull
     public DdlQueryFactory getDdlQueryFactory() {
         return ddlQueryFactory;
-    }
-
-    @Nonnull
-    public MetadataOperationsFactory getMetadataOperationsFactory() {
-        return metadataOperationsFactory;
     }
 
     @Nonnull

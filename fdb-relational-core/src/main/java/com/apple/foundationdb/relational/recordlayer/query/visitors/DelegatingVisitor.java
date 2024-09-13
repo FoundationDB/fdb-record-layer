@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
@@ -66,26 +67,26 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitSqlStatements(@Nonnull RelationalParser.SqlStatementsContext ctx) {
-        return getDelegate().visitSqlStatements(ctx);
+    public Object visitStatements(@Nonnull RelationalParser.StatementsContext ctx) {
+        return getDelegate().visitStatements(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitSqlStatement(@Nonnull RelationalParser.SqlStatementContext ctx) {
-        return getDelegate().visitSqlStatement(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitDdlStatement(@Nonnull RelationalParser.DdlStatementContext ctx) {
-        return getDelegate().visitDdlStatement(ctx);
+    public Object visitStatement(@Nonnull RelationalParser.StatementContext ctx) {
+        return getDelegate().visitStatement(ctx);
     }
 
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
         return getDelegate().visitDmlStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitDdlStatement(RelationalParser.DdlStatementContext ctx) {
+        return getDelegate().visitDdlStatement(ctx);
     }
 
     @Nonnull
@@ -210,6 +211,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public List<Identifier> visitFullIdList(@Nonnull RelationalParser.FullIdListContext ctx) {
+        return getDelegate().visitFullIdList(ctx);
+    }
+
+    @Nonnull
+    @Override
     public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
         return getDelegate().visitEnumDefinition(ctx);
     }
@@ -220,13 +227,15 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitIndexDefinition(ctx);
     }
 
+    @Nonnull
     @Override
-    public Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx) {
+    public Object visitIndexAttributes(@Nonnull RelationalParser.IndexAttributesContext ctx) {
         return getDelegate().visitIndexAttributes(ctx);
     }
 
+    @Nonnull
     @Override
-    public Object visitIndexAttribute(RelationalParser.IndexAttributeContext ctx) {
+    public Object visitIndexAttribute(@Nonnull RelationalParser.IndexAttributeContext ctx) {
         return getDelegate().visitIndexAttribute(ctx);
     }
 
@@ -274,8 +283,32 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public LogicalOperator visitSelectStatementWithContinuation(@Nonnull RelationalParser.SelectStatementWithContinuationContext ctx) {
-        return getDelegate().visitSelectStatementWithContinuation(ctx);
+    public QueryPlan.LogicalQueryPlan visitSelectStatement(@Nonnull RelationalParser.SelectStatementContext ctx) {
+        return getDelegate().visitSelectStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
+        return getDelegate().visitQuery(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+        return getDelegate().visitCtes(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperator visitNamedQuery(@Nonnull RelationalParser.NamedQueryContext ctx) {
+        return getDelegate().visitNamedQuery(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
+        return getDelegate().visitContinuation(ctx);
     }
 
     @Nonnull
@@ -286,38 +319,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public LogicalOperator visitSimpleSelect(@Nonnull RelationalParser.SimpleSelectContext ctx) {
-        return getDelegate().visitSimpleSelect(ctx);
+    public LogicalOperator visitQueryTermDefault(@Nonnull RelationalParser.QueryTermDefaultContext ctx) {
+        return getDelegate().visitQueryTermDefault(ctx);
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitParenthesisSelect(@Nonnull RelationalParser.ParenthesisSelectContext ctx) {
-        return getDelegate().visitParenthesisSelect(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSimpleSelect(RelationalParser.UnionSimpleSelectContext ctx) {
-        return getDelegate().visitUnionSimpleSelect(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionSimpleSelect(RelationalParser.ParenthesisUnionSimpleSelectContext ctx) {
-        return getDelegate().visitParenthesisUnionSimpleSelect(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionParenthesisSelect(@Nonnull RelationalParser.UnionParenthesisSelectContext ctx) {
-        return getDelegate().visitUnionParenthesisSelect(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionParenthesisSelect(RelationalParser.ParenthesisUnionParenthesisSelectContext ctx) {
-        return getDelegate().visitParenthesisUnionParenthesisSelect(ctx);
+    public LogicalOperator visitSetQuery(RelationalParser.SetQueryContext ctx) {
+        return getDelegate().visitSetQuery(ctx);
     }
 
     @Nonnull
@@ -424,44 +433,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public LogicalOperator visitQueryExpression(@Nonnull RelationalParser.QueryExpressionContext ctx) {
-        return getDelegate().visitQueryExpression(ctx);
+    public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext ctx) {
+        return getDelegate().visitSimpleTable(ctx);
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitQuerySpecification(@Nonnull RelationalParser.QuerySpecificationContext ctx) {
-        return getDelegate().visitQuerySpecification(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx) {
-        return getDelegate().visitUnionStatement(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext ctx) {
-        return getDelegate().visitUnionSelectSpecification(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext ctx) {
-        return getDelegate().visitUnionSelectExpression(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionSelectSpecification(RelationalParser.ParenthesisUnionSelectSpecificationContext ctx) {
-        return getDelegate().visitParenthesisUnionSelectSpecification(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisUnionSelectExpression(RelationalParser.ParenthesisUnionSelectExpressionContext ctx) {
-        return getDelegate().visitParenthesisUnionSelectExpression(ctx);
+    public LogicalOperator visitParenthesisQuery(RelationalParser.ParenthesisQueryContext ctx) {
+        return getDelegate().visitParenthesisQuery(ctx);
     }
 
     @Nonnull

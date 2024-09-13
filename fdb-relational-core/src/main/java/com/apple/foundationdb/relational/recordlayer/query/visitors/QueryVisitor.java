@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableList;
@@ -58,6 +59,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
+
 public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private QueryVisitor(@Nonnull BaseVisitor baseVisitor) {
@@ -71,58 +74,92 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
-        Assert.thatUnchecked(ctx.selectStatementWithContinuation() != null ||
-                ctx.insertStatement() != null ||
-                ctx.updateStatement() != null ||
-                ctx.deleteStatement() != null, ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
+    public QueryPlan.LogicalQueryPlan visitSelectStatement(@Nonnull RelationalParser.SelectStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
         return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitSelectStatementWithContinuation(@Nonnull RelationalParser.SelectStatementWithContinuationContext ctx) {
-        if (ctx.CONTINUATION() != null) {
-            final var continuationExpression = visitContinuationAtom(ctx.continuationAtom());
-            final var continuationValue = Assert.castUnchecked(continuationExpression.getUnderlying(), LiteralValue.class);
-            final var continuationBytes = Assert.castUnchecked(continuationValue.getLiteralValue(), ByteString.class);
-            getDelegate().getPlanGenerationContext().setContinuation(continuationBytes.toByteArray());
-        }
-        return Assert.castUnchecked(ctx.selectStatement().accept(this), LogicalOperator.class);
+    public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
+        final var logicalOperator = parseChild(ctx);
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitQuerySpecification(@Nonnull RelationalParser.QuerySpecificationContext querySpecificationContext) {
-        Assert.notNullUnchecked(querySpecificationContext.fromClause(), ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
-        getDelegate().pushPlanFragment();
-        querySpecificationContext.fromClause().accept(this);
+    public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
+        if (ctx.continuation() != null) {
+            final var continuationExpression = visitContinuation(ctx.continuation());
+            final var continuationValue = Assert.castUnchecked(continuationExpression.getUnderlying(), LiteralValue.class);
+            final var continuationBytes = Assert.castUnchecked(continuationValue.getLiteralValue(), ByteString.class);
+            getDelegate().getPlanGenerationContext().setContinuation(continuationBytes.toByteArray());
+        }
+        if (ctx.ctes() != null) {
+            final var currentPlanFragment = getDelegate().pushPlanFragment();
+            visitCtes(ctx.ctes()).forEach(currentPlanFragment::addOperator);
+            final var result = Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
+            getDelegate().popPlanFragment();
+            return getDelegate().isTopLevel() ? LogicalOperator.generateSort(result, ImmutableList.of(), ImmutableSet.of(), Optional.empty()) : result;
+        }
+        return Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
+    }
 
-        var where = Optional.ofNullable(querySpecificationContext.fromClause().whereExpr() == null ?
+    @Nonnull
+    @Override
+    public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+        Assert.isNullUnchecked(ctx.RECURSIVE(), ErrorCode.UNSUPPORTED_QUERY, "recursive cte is not supported");
+        return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
+    @Override
+    public LogicalOperator visitNamedQuery(@Nonnull RelationalParser.NamedQueryContext ctx) {
+        final var queryName = visitFullId(ctx.name);
+        var logicalOperator = visitQuery(ctx.query());
+        if (ctx.columnAliases != null) {
+            final var columnAliases = visitFullIdList(ctx.columnAliases);
+            SemanticAnalyzer.validateCteColumnAliases(logicalOperator, columnAliases);
+            final var expressions = logicalOperator.getOutput().expanded();
+            final var expressionsWithNewNames = Expressions.of(Streams.zip(expressions.stream(), columnAliases.stream(),
+                    Expression::withName).collect(ImmutableList.toImmutableList()));
+            logicalOperator = logicalOperator.withOutput(expressionsWithNewNames);
+        }
+        return logicalOperator.withName(queryName);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext simpleTableContext) {
+        Assert.notNullUnchecked(simpleTableContext.fromClause(), ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
+        getDelegate().pushPlanFragment();
+        simpleTableContext.fromClause().accept(this);
+
+        var where = Optional.ofNullable(simpleTableContext.fromClause().whereExpr() == null ?
                 null :
-                visitWhereExpr(querySpecificationContext.fromClause().whereExpr()));
+                visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
         Expressions selectExpressions;
         List<OrderByExpression> orderBys = List.of();
-        if (querySpecificationContext.groupByClause() != null || hasAggregations(querySpecificationContext.selectElements())) {
+        if (simpleTableContext.groupByClause() != null || hasAggregations(simpleTableContext.selectElements())) {
             var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
             var selectWhere = LogicalOperator.generateSelectWhere(getDelegate().getLogicalOperators(), outerCorrelations, where, getDelegate().isForDdl());
             getDelegate().getCurrentPlanFragment().setOperator(selectWhere);
-            final var groupByExpressions = querySpecificationContext.groupByClause() == null ?
+            final var groupByExpressions = simpleTableContext.groupByClause() == null ?
                     Expressions.empty() :
-                    visitGroupByClause(querySpecificationContext.groupByClause());
+                    visitGroupByClause(simpleTableContext.groupByClause());
 
             final List<Expression> aliasedGroupByColumns = groupByExpressions.stream().filter(expression ->
                     expression instanceof EphemeralExpression).collect(ImmutableList.toImmutableList());
             if (!aliasedGroupByColumns.isEmpty()) {
-                final var selectWhereWithExtraColumns = selectWhere.withOutput(Expressions.of(aliasedGroupByColumns));
+                final var selectWhereWithExtraColumns = selectWhere.withAdditionalOutput(Expressions.of(aliasedGroupByColumns));
                 getDelegate().getCurrentPlanFragment().setOperator(selectWhereWithExtraColumns);
-                selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
-                where = Optional.ofNullable(querySpecificationContext.havingClause() == null ? null : visitHavingClause(querySpecificationContext.havingClause()));
+                selectExpressions = visitSelectElements(simpleTableContext.selectElements());
+                where = Optional.ofNullable(simpleTableContext.havingClause() == null ? null : visitHavingClause(simpleTableContext.havingClause()));
                 getDelegate().getCurrentPlanFragment().setOperator(selectWhere);
             } else {
-                selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
-                where = Optional.ofNullable(querySpecificationContext.havingClause() == null ? null : visitHavingClause(querySpecificationContext.havingClause()));
+                selectExpressions = visitSelectElements(simpleTableContext.selectElements());
+                where = Optional.ofNullable(simpleTableContext.havingClause() == null ? null : visitHavingClause(simpleTableContext.havingClause()));
             }
             outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
             final var literals = getDelegate().getPlanGenerationContext().getLiteralsBuilder();
@@ -131,17 +168,17 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
-            if (querySpecificationContext.orderByClause() != null) {
-                final var resolvedOrderBys = visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions);
+            if (simpleTableContext.orderByClause() != null) {
+                final var resolvedOrderBys = visitOrderByClauseForSelect(simpleTableContext.orderByClause(), selectExpressions);
                 orderBys = OrderByExpression.pullUp(resolvedOrderBys.stream(),
                         groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), outerCorrelations, Optional.empty())
                         .collect(ImmutableList.toImmutableList());
             }
             getDelegate().getCurrentPlanFragment().setOperator(groupBy);
         } else {
-            selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
-            if (querySpecificationContext.orderByClause() != null) {
-                orderBys = visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions);
+            selectExpressions = visitSelectElements(simpleTableContext.selectElements());
+            if (simpleTableContext.orderByClause() != null) {
+                orderBys = visitOrderByClauseForSelect(simpleTableContext.orderByClause(), selectExpressions);
             }
         }
         final var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
@@ -150,49 +187,43 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
         getDelegate().popPlanFragment();
 
-        Assert.isNullUnchecked(querySpecificationContext.limitClause(), ErrorCode.UNSUPPORTED_QUERY, "limit not yet supported in SQL");
+        Assert.isNullUnchecked(simpleTableContext.limitClause(), ErrorCode.UNSUPPORTED_QUERY, "limit not yet supported in SQL");
 
         return result;
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext unionStatementContext) {
-        return unionStatementContext.querySpecification() != null ?
-                visitQuerySpecification(unionStatementContext.querySpecification()) :
-                visitQueryExpression(unionStatementContext.queryExpression());
+    public LogicalOperator visitParenthesisQuery(@Nonnull RelationalParser.ParenthesisQueryContext ctx) {
+        return visitQuery(ctx.query());
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitQueryExpression(@Nonnull RelationalParser.QueryExpressionContext ctx) {
-        if (ctx.queryExpression() != null) {
-            return Assert.castUnchecked(ctx.queryExpression().accept(this), LogicalOperator.class); // recursive
-        }
-        return Assert.castUnchecked(ctx.querySpecification().accept(this), LogicalOperator.class);
+    public LogicalOperator visitQueryTermDefault(@Nonnull RelationalParser.QueryTermDefaultContext queryTermDefaultContext) {
+        return parseChild(queryTermDefaultContext);
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitSimpleSelect(@Nonnull RelationalParser.SimpleSelectContext simpleSelectContext) {
-        return visitQuerySpecification(simpleSelectContext.querySpecification());
+    public LogicalOperator visitSetQuery(@Nonnull RelationalParser.SetQueryContext setQueryContext) {
+        Assert.thatUnchecked(setQueryContext.quantifier != null && setQueryContext.quantifier.getType() == ALL,
+                ErrorCode.UNSUPPORTED_QUERY, "only UNION ALL is supported");
+        final var unionLegs = ImmutableList.of(Assert.castUnchecked(visit(setQueryContext.left), LogicalOperator.class),
+                Assert.castUnchecked(visit(setQueryContext.right), LogicalOperator.class));
+        return LogicalOperator.generateUnionAll(LogicalOperators.of(unionLegs), getDelegate().getCurrentPlanFragmentMaybe()
+                .map(LogicalPlanFragment::getOuterCorrelations).orElse(ImmutableSet.of()));
     }
 
-    @Nonnull
-    @Override
-    public LogicalOperator visitParenthesisSelect(@Nonnull RelationalParser.ParenthesisSelectContext parenthesisSelectContext) {
-        return Assert.castUnchecked(parenthesisSelectContext.queryExpression().accept(this), LogicalOperator.class);
-    }
-
-    @Override
     @Nullable
+    @Override
     public Void visitFromClause(@Nonnull RelationalParser.FromClauseContext fromClauseContext) {
         fromClauseContext.tableSources().accept(this);
         return null;
     }
 
-    @Override
     @Nullable
+    @Override
     public Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx) {
         for (final var tableSource : ctx.tableSource()) {
             final var logicalOperator = Assert.castUnchecked(tableSource.accept(this), LogicalOperator.class);
@@ -217,15 +248,15 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 Assert.castUnchecked(atomTableItemContext.alias.accept(this), Identifier.class));
         final var requestedIndexes = atomTableItemContext.indexHint()
                 .stream().flatMap(indexHint -> visitIndexHint(indexHint).stream()).collect(ImmutableSet.toImmutableSet());
-        return LogicalOperator.generateAccess(tableIdentifier, tableAlias, requestedIndexes, getDelegate().getLogicalOperatorsIncludingOuter(),
-                getDelegate().getSemanticAnalyzer());
+        return LogicalOperator.generateAccess(tableIdentifier, tableAlias, requestedIndexes, getDelegate().getSemanticAnalyzer(),
+                getDelegate().getCurrentPlanFragment(), getDelegate().getLogicalOperatorCatalog());
     }
 
     @Nonnull
     @Override
     public LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext subqueryTableItemContext) {
         final var alias = Assert.castUnchecked(subqueryTableItemContext.alias.accept(this), Identifier.class);
-        final var selectOperator = Assert.castUnchecked(subqueryTableItemContext.selectStatement().accept(this), LogicalOperator.class);
+        final var selectOperator = visitQuery(subqueryTableItemContext.query());
         return selectOperator.withName(alias);
     }
 
@@ -274,7 +305,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitInsertStatementValueSelect(@Nonnull RelationalParser.InsertStatementValueSelectContext ctx) {
-        return Assert.castUnchecked(ctx.selectStatement().accept(this), LogicalOperator.class);
+        return Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
     }
 
     @Nonnull
@@ -298,7 +329,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final var table = semanticAnalyzer.getTable(tableId);
         final var tableType = Assert.castUnchecked(table, RecordLayerTable.class).getType();
-        final var tableAccess = LogicalOperator.generateTableAccess(table, Optional.empty(), ImmutableSet.of(), semanticAnalyzer);
+        final var tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
@@ -348,7 +379,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var tableId = visitFullId(ctx.tableName().fullId());
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final var table = semanticAnalyzer.getTable(tableId);
-        final var tableAccess = LogicalOperator.generateTableAccess(table, Optional.empty(), ImmutableSet.of(), semanticAnalyzer);
+        final var tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
@@ -401,34 +432,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Object visitDescribeConnection(@Nonnull RelationalParser.DescribeConnectionContext ctx) {
         throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext unionSelectContext) {
-        final var leftmostLeg = visitQuerySpecification(unionSelectContext.querySpecification());
-        return constructUnionInternal(leftmostLeg, unionSelectContext.unionStatement());
-    }
-
-    @Nonnull
-    @Override
-    public LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext unionSelectContext) {
-        final var leftmostLeg = visitQueryExpression(unionSelectContext.queryExpression());
-        return constructUnionInternal(leftmostLeg, unionSelectContext.unionStatement());
-    }
-
-    @Nonnull
-    private LogicalOperator constructUnionInternal(@Nonnull LogicalOperator leftmostLeg,
-                                                   @Nonnull Iterable<RelationalParser.UnionStatementContext> selectContexts) {
-        final ImmutableList.Builder<LogicalOperator> unionLegsBuilder = ImmutableList.builder();
-        unionLegsBuilder.add(leftmostLeg);
-        selectContexts.forEach(unionStatement -> {
-            Assert.thatUnchecked(unionStatement.ALL() != null, ErrorCode.UNSUPPORTED_QUERY, "only UNION ALL is supported");
-            unionLegsBuilder.add(visitUnionStatement(unionStatement));
-        });
-        final var unionLegs = unionLegsBuilder.build();
-        return LogicalOperator.generateUnionAll(LogicalOperators.of(unionLegs), getDelegate().getCurrentPlanFragmentMaybe()
-                .map(LogicalPlanFragment::getOuterCorrelations).orElse(ImmutableSet.of()));
     }
 
     @Nonnull

@@ -228,4 +228,9 @@ public class YamlIntegrationTests extends YamlTestBase {
     public void unionEmptyTables() throws Exception {
         doRun("union-empty-tables.yamsql");
     }
+
+    @Test
+    public void cte() throws Exception {
+        doRun("cte.yamsql");
+    }
 }

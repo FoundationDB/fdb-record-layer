@@ -163,7 +163,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitChildren(RuleNode node) {
+    public Void visitChildren(@Nonnull RuleNode node) {
         if (literalNodes.containsKey(node.getClass())) {
             final var ruleContext = (ParserRuleContext) node;
             processScalarLiteral(literalNodes.get(node.getClass()).apply(ruleContext), ruleContext.getStart().getTokenIndex());
@@ -180,7 +180,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitTerminal(TerminalNode node) {
+    public Void visitTerminal(@Nonnull TerminalNode node) {
         if (node.getSymbol().getType() != Token.EOF) {
             sqlCanonicalizer.append(node.getText()).append(" ");
         }
@@ -188,7 +188,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Value visitUid(RelationalParser.UidContext ctx) {
+    public Value visitUid(@Nonnull RelationalParser.UidContext ctx) {
         String uid = SemanticAnalyzer.normalizeString(ctx.getText(), caseSensitive);
         sqlCanonicalizer.append("\"").append(uid).append("\"").append(" ");
         return null;
@@ -225,7 +225,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitFullDescribeStatement(RelationalParser.FullDescribeStatementContext ctx) {
+    public Void visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         // (yhatem) this is probably not needed, since a cached physical plan _knows_ it is either forExplain or not.
         //          we should remove this, but ok for now.
         context.setForExplain(ctx.EXPLAIN() != null);
@@ -233,7 +233,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitLimitClause(RelationalParser.LimitClauseContext ctx) {
+    public Void visitLimitClause(@Nonnull RelationalParser.LimitClauseContext ctx) {
         if (ctx.offset != null) {
             // Owing to TODO
             Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "OFFSET clause is not supported.");
@@ -250,19 +250,27 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitSelectStatementWithContinuation(RelationalParser.SelectStatementWithContinuationContext ctx) {
+    public Object visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
         if (queryCachingFlags.isEmpty()) {
             queryCachingFlags.add(Result.QueryCachingFlags.IS_DQL_STATEMENT);
         }
-        ctx.selectStatement().accept(this);
-        if (ctx.continuationAtom() != null) {
-            ctx.continuationAtom().accept(this);
+        if (ctx.ctes() != null) {
+            visit(ctx.ctes());
+        }
+        ctx.queryExpressionBody().accept(this);
+        if (ctx.continuation() != null) {
+            ctx.continuation().accept(this);
         }
         return null;
     }
 
     @Override
-    public RelationalExpression visitQueryOptions(RelationalParser.QueryOptionsContext ctx) {
+    public Object visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
+        return ctx.continuationAtom().accept(this);
+    }
+
+    @Override
+    public RelationalExpression visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
         for (final var opt : ctx.queryOption()) {
             visit(opt);
         }
@@ -270,7 +278,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitQueryOption(RelationalParser.QueryOptionContext ctx) {
+    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
         try {
             if (ctx.NOCACHE() != null) {
                 queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
@@ -291,46 +299,31 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitDdlStatement(RelationalParser.DdlStatementContext ctx) {
+    public Object visitDdlStatement(@Nonnull RelationalParser.DdlStatementContext ctx) {
         queryCachingFlags.add(Result.QueryCachingFlags.IS_DDL_STATEMENT);
         return visitChildren(ctx);
     }
 
     @Override
-    public Object visitInsertStatement(RelationalParser.InsertStatementContext ctx) {
+    public Object visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
         queryCachingFlags.add(Result.QueryCachingFlags.IS_DML_STATEMENT);
         return visitChildren(ctx);
     }
 
     @Override
-    public Object visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_DML_STATEMENT);
-        if (ctx.continuationAtom() != null) {
-            ctx.continuationAtom().accept(this);
-        }
-        return visitChildren(ctx);
-    }
-
-    @Override
-    public Object visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_DML_STATEMENT);
-        return visitChildren(ctx);
-    }
-
-    @Override
-    public Object visitAdministrationStatement(RelationalParser.AdministrationStatementContext ctx) {
+    public Object visitAdministrationStatement(@Nonnull RelationalParser.AdministrationStatementContext ctx) {
         queryCachingFlags.add(Result.QueryCachingFlags.IS_ADMIN_STATEMENT);
         return visitChildren(ctx);
     }
 
     @Override
-    public Object visitUtilityStatement(RelationalParser.UtilityStatementContext ctx) {
+    public Object visitUtilityStatement(@Nonnull RelationalParser.UtilityStatementContext ctx) {
         queryCachingFlags.add(Result.QueryCachingFlags.IS_UTILITY_STATEMENT);
         return visitChildren(ctx);
     }
 
     @Override
-    public Void visitContinuationAtom(RelationalParser.ContinuationAtomContext ctx) {
+    public Void visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx) {
         allowLiteralAddition = false;
         allowTokenAddition = false;
         if (ctx.bytesLiteral() != null) {
@@ -350,7 +343,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitScalarFunctionCall(RelationalParser.ScalarFunctionCallContext ctx) {
+    public Void visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         final var functionName = ctx.scalarFunctionName().getText();
         boolean skipFirstFunctionArgument = "JAVA_CALL".equals(SemanticAnalyzer.normalizeString(functionName, false));
         for (int i = 0; i < ctx.getChildCount(); i++) {
@@ -374,7 +367,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
+    public Object visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
         if (ctx.QUESTION() != null) {
             final int currentUnnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
@@ -427,7 +420,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitInPredicate(RelationalParser.InPredicateContext ctx) {
+    public Object visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
         ctx.expressionAtom().accept(this);
         ctx.IN().accept(this);
 
@@ -463,7 +456,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitExecuteContinuationStatement(final RelationalParser.ExecuteContinuationStatementContext ctx) {
+    public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         queryCachingFlags.add(Result.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
         queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
         if (ctx.queryOptions() != null) {

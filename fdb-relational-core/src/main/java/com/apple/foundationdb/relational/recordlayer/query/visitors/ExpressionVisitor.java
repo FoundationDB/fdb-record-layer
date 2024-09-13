@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
-import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
@@ -74,6 +73,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     public static ExpressionVisitor of(@Nonnull BaseVisitor baseVisitor) {
         return new ExpressionVisitor(baseVisitor);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
+        return visitContinuationAtom(ctx.continuationAtom());
     }
 
     @Nonnull
@@ -333,7 +338,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
          * - Thirdly, Expression-visitor wraps the subquery in Exists predicate and returns
          *   it to LogicalOperator-visitor.
          */
-        final var selectOperator = Assert.castUnchecked(ctx.selectStatement().accept(this), LogicalOperator.class);
+        final var selectOperator = visitQuery(ctx.query());
         final var asExistential = selectOperator.withQuantifier(Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
         final var underlyingValue = new ExistsValue(asExistential.getQuantifier().getAlias());
         getDelegate().getCurrentPlanFragment().addOperator(asExistential);
@@ -402,7 +407,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
-        Assert.thatUnchecked(ctx.inList().selectStatement() == null, ErrorCode.UNSUPPORTED_QUERY,
+        Assert.thatUnchecked(ctx.inList().queryExpressionBody() == null, ErrorCode.UNSUPPORTED_QUERY,
                 "IN predicate does not support nested SELECT");
         final var left = Assert.castUnchecked(ctx.expressionAtom().accept(this), Expression.class);
         final var right = visitInList(ctx.inList());
@@ -642,15 +647,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 return expression.withUnderlying(resultValue);
             } else {
                 final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
-                final var starUnderlyingType = star.getUnderlying();
-                final var resultValue = starUnderlyingType;
+                final var resultValue = star.getUnderlying();
                 return Expression.ofUnnamed(resultValue);
             }
         }
         if (ctx.STAR() != null) {
             final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
-            final var starUnderlyingType = star.getUnderlying();
-            final var resultValue = starUnderlyingType;
+            final var resultValue = star.getUnderlying();
             return Expression.ofUnnamed(resultValue);
         }
         final var expressions = (ctx.expressionWithName() != null) ?

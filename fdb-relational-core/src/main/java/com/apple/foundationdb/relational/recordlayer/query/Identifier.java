@@ -26,6 +26,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class Identifier {
     @Nonnull
@@ -77,6 +78,15 @@ public class Identifier {
         newQualifierBuilder.addAll(qualifier);
         newQualifierBuilder.addAll(getQualifier());
         return new Identifier(name, newQualifierBuilder.build());
+    }
+
+    @Nonnull
+    public Identifier replaceQualifier(@Nonnull Function<Collection<String>, Collection<String>> replaceFunc) {
+        final var replacingQualifier = replaceFunc.apply(qualifier);
+        if (replacingQualifier.equals(qualifier)) {
+            return this;
+        }
+        return new Identifier(name, replacingQualifier);
     }
 
     @Nonnull

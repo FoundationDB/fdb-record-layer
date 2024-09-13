@@ -1213,6 +1213,64 @@ public class StandardQueryTests {
     }
 
     @Test
+    void cteWorksCorrectly() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101), (44, 101, 501, 102)");
+                //Assertions.assertTrue(statement.execute("with C1 (X, Y, Z) as (SELECT a, b, c from T1) select Y, Z from C1"));
+                Assertions.assertTrue(statement.execute("with C1 as (SELECT a, b, c from T1) select b, c from C1"));
+                //Assertions.assertTrue(statement.execute("select b, c from (select a, b, c from t1) as x "));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(500L, 101L)
+                            .hasNextRow()
+                            .isRowExactly(501L, 102L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void cteWorksCorrectly2() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101), (44, 101, 501, 102)");
+                //Assertions.assertTrue(statement.execute("with C1 (X, Y, Z) as (SELECT a, b, c from T1) select Y, Z from C1"));
+                Assertions.assertTrue(statement.execute("with C1 as (SELECT a, b, c from T1) select b, c from C1"));
+                //Assertions.assertTrue(statement.execute("select b, c from (select a, b, c from t1) as x "));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(500L, 101L)
+                            .hasNextRow()
+                            .isRowExactly(501L, 102L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void cteWithColumnAliasesWorksCorrectly() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101), (44, 101, 501, 102)");
+                Assertions.assertTrue(statement.execute("with C1 (X, Y, Z) as (SELECT a, b, c from T1) select Y, Z from C1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(500L, 101L)
+                            .hasNextRow()
+                            .isRowExactly(501L, 102L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void unionParenthesisIsNotSupported() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))";
 
@@ -1222,6 +1280,28 @@ public class StandardQueryTests {
                         ((EmbeddedRelationalStatement) statement)
                                 .executeInternal("(select * from t1) union (select * from t1)"))
                         .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
+            }
+        }
+    }
+
+    @Test
+    void selfJoinTest() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20)");
+                Assertions.assertTrue(statement.execute("select * from t1 as x, t1 as y"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(1L, 10L, 1L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(1L, 10L, 2L, 20L)
+                            .hasNextRow()
+                            .isRowExactly(2L, 20L, 1L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(2L, 20L, 2L, 20L)
+                            .hasNoNextRow();
+                }
             }
         }
     }

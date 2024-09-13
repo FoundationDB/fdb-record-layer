@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -122,6 +124,21 @@ public class SemanticAnalyzer {
         return str.startsWith(quotationMark) && str.endsWith(quotationMark);
     }
 
+    public Optional<LogicalOperator> findCteMaybe(@Nonnull Identifier identifier, @Nonnull LogicalPlanFragment logicalPlanFragment) {
+        var currentFragment = Optional.of(logicalPlanFragment);
+        while (currentFragment.isPresent()) {
+            final var logicalOperators = currentFragment.get().getLogicalOperators();
+            final var matches = logicalOperators.stream().filter(logicalOperator -> logicalOperator.getName().isPresent()
+                    && logicalOperator.getName().get().equals(identifier)).collect(ImmutableList.toImmutableList());
+            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS, () -> String.format("found '%s' more than once", identifier.getName()));
+            if (!matches.isEmpty()) {
+                return Optional.of(matches.get(0));
+            }
+            currentFragment = currentFragment.get().getParentMaybe();
+        }
+        return Optional.empty();
+    }
+
     public boolean tableExists(@Nonnull Identifier tableIdentifier) {
         if (tableIdentifier.getQualifier().size() > 1) {
             return false;
@@ -159,17 +176,20 @@ public class SemanticAnalyzer {
         }
     }
 
-    public void validateIndexes(@Nonnull Identifier tableIdentifier, @Nonnull Set<String> requestedIndexes) {
+    public void validateIndexes(@Nonnull Identifier tableIdentifier, @Nonnull Set<AccessHint> requestedIndexes) {
         final var table = getTable(tableIdentifier);
         validateIndexes(table, requestedIndexes);
     }
 
-    public void validateIndexes(@Nonnull Table table, @Nonnull Set<String> requestedIndexes) {
+    public void validateIndexes(@Nonnull Table table, @Nonnull Set<AccessHint> requestedIndexes) {
         if (requestedIndexes.isEmpty()) {
             return;
         }
+        final var nonIndexAccessHints = requestedIndexes.stream().filter(accessHint -> !(accessHint instanceof IndexAccessHint))
+                .map(Object::getClass).map(Class::toString).collect(ImmutableSet.toImmutableSet());
+        Assert.thatUnchecked(nonIndexAccessHints.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index hint(s) %s", String.join(",", nonIndexAccessHints)));
         final var tableIndexes = table.getIndexes().stream().map(Metadata::getName).collect(ImmutableSet.toImmutableSet());
-        final var unrecognizedIndexes = Sets.difference(requestedIndexes, tableIndexes);
+        final var unrecognizedIndexes = Sets.difference(requestedIndexes.stream().map(IndexAccessHint.class::cast).map(IndexAccessHint::getIndexName).collect(ImmutableSet.toImmutableSet()), tableIndexes);
         Assert.thatUnchecked(unrecognizedIndexes.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index(es) %s", String.join(",", unrecognizedIndexes)));
     }
 
@@ -657,6 +677,12 @@ public class SemanticAnalyzer {
     public static void validateDatabaseUri(@Nonnull Identifier path) {
         Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
                 ErrorCode.INVALID_PATH, () -> String.format("invalid database path '%s'", path));
+    }
+
+    public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
+        final var expressions = logicalOperator.getOutput().expanded();
+        Assert.thatUnchecked(expressions.size() == columnAliases.size(), ErrorCode.INVALID_COLUMN_REFERENCE,
+                () -> String.format("cte query has %d column(s), however %s aliases defined", expressions.size(), columnAliases.size()));
     }
 
     @Nonnull

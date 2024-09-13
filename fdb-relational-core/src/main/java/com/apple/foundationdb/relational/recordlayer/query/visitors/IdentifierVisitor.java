@@ -61,6 +61,12 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
         return Identifier.of(name, qualifierBuilder.build());
     }
 
+    @Override
+    @Nonnull
+    public List<Identifier> visitFullIdList(@Nonnull RelationalParser.FullIdListContext fullIdListContext) {
+        return fullIdListContext.fullId().stream().map(this::visitFullId).collect(ImmutableList.toImmutableList());
+    }
+
     @Nonnull
     @Override
     public Identifier visitUid(@Nonnull RelationalParser.UidContext uidContext) {

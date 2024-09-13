@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
@@ -126,12 +127,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx) {
         final var tableId = visitUid(ctx.uid());
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
-        final var primaryKeyParts = ctx.primaryKeyDefinition().fullId().stream().map(this::visitFullId)
-                .map(Identifier::fullyQualifiedName).collect(ImmutableList.toImmutableList());
         final var tableBuilder = RecordLayerTable.newBuilder(metadataBuilder.isIntermingleTables())
                 .setName(tableId.getName())
                 .addColumns(columns);
-        primaryKeyParts.forEach(tableBuilder::addPrimaryKeyPart);
+        if (ctx.primaryKeyDefinition().fullIdList() != null) {
+            visitFullIdList(ctx.primaryKeyDefinition().fullIdList())
+                    .stream()
+                    .map(Identifier::fullyQualifiedName)
+                    .forEach(tableBuilder::addPrimaryKeyPart);
+        }
         return tableBuilder.build();
     }
 
@@ -155,7 +159,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // parse the index SQL query using the newly constructed metadata.
         getDelegate().replaceCatalog(ddlCatalog);
         final var viewPlan = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                visitQuerySpecification(ctx.querySpecification()).getQuantifier().getRangesOver().get());
+                Assert.castUnchecked(ctx.queryTerm().accept(this), LogicalOperator.class).getQuantifier().getRangesOver().get());
 
         final var useLegacyBasedExtremumEver = ctx.indexAttributes() != null && ctx.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
         final var isUnique = ctx.UNIQUE() != null;

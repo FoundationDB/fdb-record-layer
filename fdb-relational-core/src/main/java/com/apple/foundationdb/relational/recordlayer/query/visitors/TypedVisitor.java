@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
@@ -58,19 +59,19 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitSqlStatements(@Nonnull RelationalParser.SqlStatementsContext ctx);
+    Object visitStatements(@Nonnull RelationalParser.StatementsContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
-    Object visitSqlStatement(@Nonnull RelationalParser.SqlStatementContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitDdlStatement(@Nonnull RelationalParser.DdlStatementContext ctx);
+    Object visitStatement(@Nonnull RelationalParser.StatementContext ctx);
 
     @Nonnull
     @Override
     QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitDdlStatement(RelationalParser.DdlStatementContext ctx);
 
     @Nonnull
     @Override
@@ -152,6 +153,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitPrimaryKeyDefinition(@Nonnull RelationalParser.PrimaryKeyDefinitionContext ctx);
 
+    @Override
+    @Nonnull
+    List<Identifier> visitFullIdList(RelationalParser.FullIdListContext ctx);
+
     @Nonnull
     @Override
     DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx);
@@ -196,7 +201,23 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    LogicalOperator visitSelectStatementWithContinuation(@Nonnull RelationalParser.SelectStatementWithContinuationContext ctx);
+    QueryPlan.LogicalQueryPlan visitSelectStatement(RelationalParser.SelectStatementContext ctx);
+
+    @Nonnull
+    @Override
+    LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx);
+
+    @Nonnull
+    @Override
+    LogicalOperators visitCtes(RelationalParser.CtesContext ctx);
+
+    @Nonnull
+    @Override
+    LogicalOperator visitNamedQuery(RelationalParser.NamedQueryContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitContinuation(RelationalParser.ContinuationContext ctx);
 
     @Nonnull
     @Override
@@ -204,27 +225,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    LogicalOperator visitSimpleSelect(@Nonnull RelationalParser.SimpleSelectContext ctx);
+    LogicalOperator visitQueryTermDefault(@Nonnull RelationalParser.QueryTermDefaultContext ctx);
 
     @Nonnull
     @Override
-    LogicalOperator visitParenthesisSelect(@Nonnull RelationalParser.ParenthesisSelectContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitUnionSimpleSelect(RelationalParser.UnionSimpleSelectContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitParenthesisUnionSimpleSelect(RelationalParser.ParenthesisUnionSimpleSelectContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitParenthesisUnionParenthesisSelect(RelationalParser.ParenthesisUnionParenthesisSelectContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitUnionParenthesisSelect(@Nonnull RelationalParser.UnionParenthesisSelectContext ctx);
+    LogicalOperator visitSetQuery(RelationalParser.SetQueryContext ctx);
 
     @Nonnull
     @Override
@@ -296,31 +301,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    LogicalOperator visitQueryExpression(@Nonnull RelationalParser.QueryExpressionContext ctx);
+    LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext ctx);
 
     @Nonnull
     @Override
-    LogicalOperator visitQuerySpecification(@Nonnull RelationalParser.QuerySpecificationContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitParenthesisUnionSelectSpecification(RelationalParser.ParenthesisUnionSelectSpecificationContext ctx);
-
-    @Nonnull
-    @Override
-    LogicalOperator visitParenthesisUnionSelectExpression(RelationalParser.ParenthesisUnionSelectExpressionContext ctx);
+    LogicalOperator visitParenthesisQuery(RelationalParser.ParenthesisQueryContext ctx);
 
     @Nonnull
     @Override

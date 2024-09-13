@@ -169,6 +169,7 @@ PURGE:                               'PURGE';
 RANGE:                               'RANGE';
 READ:                                'READ';
 READS:                               'READS';
+RECURSIVE:                           'RECURSIVE';
 REFERENCES:                          'REFERENCES';
 REGEXP:                              'REGEXP';
 RELEASE:                             'RELEASE';

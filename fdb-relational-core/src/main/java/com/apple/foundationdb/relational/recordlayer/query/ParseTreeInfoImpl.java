@@ -58,7 +58,7 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
         }
 
         @Override
-        public QueryType visitSelectStatementWithContinuation(RelationalParser.SelectStatementWithContinuationContext ctx) {
+        public QueryType visitQuery(RelationalParser.QueryContext ctx) {
             return QueryType.SELECT;
         }
 

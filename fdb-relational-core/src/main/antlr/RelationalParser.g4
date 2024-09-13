@@ -31,27 +31,32 @@ options { tokenVocab=RelationalLexer; }
 // Top Level Description
 
 root
-    : sqlStatements? (MINUS MINUS)? EOF
+    : statements? (MINUS MINUS)? EOF
     ;
 
-sqlStatements
-    : sqlStatement (SEMI sqlStatement)* SEMI?
+statements
+    : statement (SEMI statement)* SEMI?
     ;
 
-sqlStatement
-    : ddlStatement | dmlStatement | transactionStatement
+statement
+    : selectStatement
+    | ddlStatement
+    | dmlStatement
+    | transactionStatement
     | preparedStatement
-    | administrationStatement | utilityStatement
+    | administrationStatement
+    | utilityStatement
+    ;
+
+dmlStatement
+    : insertStatement
+    | updateStatement
+    | deleteStatement
     ;
 
 ddlStatement
     : createStatement
     | dropStatement
-    ;
-
-dmlStatement
-    : selectStatementWithContinuation | insertStatement | updateStatement
-    | deleteStatement
     ;
 
 transactionStatement
@@ -133,8 +138,12 @@ columnConstraint
     ;
 
 primaryKeyDefinition
-    : PRIMARY KEY '(' fullId (COMMA fullId)* ')'
+    : PRIMARY KEY fullIdList
     | SINGLE ROW ONLY
+    ;
+
+fullIdList
+    : '(' fullId (COMMA fullId)* ')'
     ;
 
 enumDefinition
@@ -142,7 +151,7 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS querySpecification indexAttributes?
+    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?
     ;
 
 indexAttributes
@@ -196,32 +205,43 @@ insertStatement
       queryOptions?
     ;
 
-selectStatementWithContinuation
-    : selectStatement (WITH CONTINUATION continuationAtom)?
-    ;
-
 continuationAtom
     : bytesLiteral
     | preparedStatementParameter
     ;
 
-// done
 selectStatement
-    : querySpecification                   #simpleSelect // done
-    | queryExpression                      #parenthesisSelect // done
-    | unionSelectSpecification             #unionSimpleSelect // done
-    | unionSelectExpression                #unionParenthesisSelect// done
-    | parenthesisUnionSelectSpecification  #parenthesisUnionSimpleSelect // done (unsupported)
-    | parenthesisUnionSelectExpression     #parenthesisUnionParenthesisSelect // done (unsupported)
+    : query
+    ;
+
+query
+    : ctes? queryExpressionBody continuation?
+    ;
+
+ctes
+    : WITH (RECURSIVE)? namedQuery (COMMA namedQuery)*
+    ;
+
+namedQuery
+    : name=fullId (columnAliases=fullIdList)? AS? '(' query ')'
+    ;
+
+continuation
+    : WITH CONTINUATION continuationAtom
+    ;
+
+// done
+queryExpressionBody
+    : queryTerm                                                                                             #queryTermDefault // done
+    | left=queryExpressionBody operator=UNION quantifier=(ALL | DISTINCT)? right=queryExpressionBody         #setQuery // done (TODO add more operations)
     ;
 
 // details
 
 insertStatementValue
-    : selectStatement                                               #insertStatementValueSelect
+    : queryExpressionBody                                               #insertStatementValueSelect
     | insertFormat=(VALUES | VALUE)
-      recordConstructorForInsert
-        (',' recordConstructorForInsert )*                        #insertStatementValueValues
+      recordConstructorForInsert (',' recordConstructorForInsert )*     #insertStatementValueValues
     ;
 
 updatedElement
@@ -262,10 +282,8 @@ tableSource // done
     ;
 
 tableSourceItem // done
-    : tableName (AS? alias=uid)?
-      (indexHint (',' indexHint)* )?                                #atomTableItem // done
-    |
-      selectStatement AS? alias=uid                                 #subqueryTableItem // done
+    : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?    #atomTableItem // done
+    | query AS? alias=uid                                          #subqueryTableItem // done
     ;
 
 indexHint
@@ -296,34 +314,17 @@ joinPart
 //    Select Statement's Details
 
 // done
-queryExpression
-    : LEFT_ROUND_BRACKET (querySpecification | queryExpression) RIGHT_ROUND_BRACKET
-    ;
-
-// done
-querySpecification
-    : SELECT DISTINCT? selectElements fromClause? groupByClause? havingClause? /*windowClause?*/ orderByClause? limitClause? queryOptions?
-    ;
-
-unionStatement
-    : UNION unionType=(ALL | DISTINCT)?
-      (querySpecification | queryExpression)
-    ;
-
-unionSelectSpecification
-    : querySpecification unionStatement+ orderByClause? limitClause?
-    ;
-
-unionSelectExpression
-    : queryExpression unionStatement+ orderByClause? limitClause?
-    ;
-
-parenthesisUnionSelectSpecification
-    : LEFT_ROUND_BRACKET unionSelectSpecification RIGHT_ROUND_BRACKET
-    ;
-
-parenthesisUnionSelectExpression
-    : LEFT_ROUND_BRACKET unionSelectExpression RIGHT_ROUND_BRACKET
+queryTerm
+    : SELECT DISTINCT?
+    selectElements
+    fromClause?
+    groupByClause?
+    havingClause?
+    /*windowClause?*/
+    orderByClause?
+    limitClause?
+    queryOptions?                                                  #simpleTable
+    | '(' query ')'                                                #parenthesisQuery
     ;
 
 // details
@@ -424,7 +425,7 @@ transactionLevel
 
 prepareStatement
     : PREPARE uid FROM
-      (query=STRING_LITERAL | variable=LOCAL_ID)
+      (queryString=STRING_LITERAL | variable=LOCAL_ID)
     ;
 
 executeStatement
@@ -516,7 +517,7 @@ helpStatement
 
 describeObjectClause
     : (
-        selectStatementWithContinuation | deleteStatement | insertStatement
+        query | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
@@ -1002,7 +1003,7 @@ predicate
     ;
 
 inList
-    : '(' (selectStatement | expressions) ')'
+    : '(' (queryExpressionBody | expressions) ')'
     | preparedStatementParameter
     ;
 
@@ -1014,8 +1015,8 @@ expressionAtom
     | preparedStatementParameter                                    #preparedStatementParameterAtom // done
     | recordConstructor                                             #recordConstructorExpressionAtom // done
     | arrayConstructor                                              #arrayConstructorExpressionAtom // done
-    | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done
-    | '(' selectStatement ')'                                       #subqueryExpressionAtom // done (unsupported)
+    | EXISTS '(' query ')'                                          #existsExpressionAtom // done
+    | '(' queryExpressionBody ')'                                   #subqueryExpressionAtom // done (unsupported)
     | INTERVAL expression intervalType                              #intervalExpressionAtom // done (unsupported)
     | left=expressionAtom bitOperator right=expressionAtom          #bitExpressionAtom // done
     | left=expressionAtom mathOperator right=expressionAtom         #mathExpressionAtom // done

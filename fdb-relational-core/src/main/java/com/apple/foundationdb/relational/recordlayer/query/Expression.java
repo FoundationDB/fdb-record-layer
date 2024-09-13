@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -130,20 +131,20 @@ public class Expression {
 
     @Nonnull
     public Expression withQualifier(@Nonnull final Collection<String> qualifier) {
+        return replaceQualifier(ignored -> qualifier);
+    }
+
+    @Nonnull
+    public Expression replaceQualifier(@Nonnull Function<Collection<String>, Collection<String>> replaceFunc) {
         if (getName().isEmpty()) {
             return this;
         }
         final var name = getName().get();
-        final var newNameMaybe = name.withQualifier(qualifier);
+        final var newNameMaybe = name.replaceQualifier(replaceFunc);
         if (newNameMaybe.equals(name)) {
             return this;
         }
         return new Expression(Optional.of(newNameMaybe), getDataType(), getUnderlying());
-    }
-
-    @Nonnull
-    public Expression withQualifier(@Nonnull final String qualifier) {
-        return withQualifier(ImmutableList.of(qualifier));
     }
 
     @Nonnull

@@ -40,6 +40,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -169,14 +170,8 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
-    public Expressions withQualifier(@Nonnull final Collection<String> qualifier) {
-        return Expressions.of(underlying.stream().map(expression -> expression.withQualifier(qualifier))
-                .collect(ImmutableList.toImmutableList()));
-    }
-
-    @Nonnull
-    public Expressions withQualifier(@Nonnull final String qualifier) {
-        return Expressions.of(underlying.stream().map(expression -> expression.withQualifier(qualifier))
+    public Expressions replaceQualifier(@Nonnull Function<Collection<String>, Collection<String>> replaceFunc) {
+        return Expressions.of(underlying.stream().map(expression -> expression.replaceQualifier(replaceFunc))
                 .collect(ImmutableList.toImmutableList()));
     }
 
