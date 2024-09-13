@@ -46,6 +46,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -89,7 +91,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.streamingAggregationPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.arithmeticValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.bitmapConstructAggValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
 
@@ -261,10 +265,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Disabled // -> Pengpeng, please adapt the expected results according to bitBucketSize.
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testBitMapWithStreamAggregation() {
-        int bitBucketSize = BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE;
+        int bitBucketSize = 4;
         RecordMetaDataHook hook = setupHookAndAddData(true, false, false, true, bitBucketSize, false);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
@@ -282,7 +285,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                         indexPlan()
 
                                 )).where(aggregations(recordConstructorValue(exactly(bitmapConstructAggValue(anyValue()))))
-                                .and(groupings(ValueMatchers.anyValue())))));
+                                .and(groupings(recordConstructorValue(exactly(anyValue(), anyValue())))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -332,6 +333,11 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
 
     @Nullable
     public Value getGroupingValue() {
+        System.out.println("groupingValue:" + groupingKeyValue + " class:" + groupingKeyValue.getClass());
+        var columnValues = ((RecordConstructorValue) groupingKeyValue).getColumns();
+        for (var v: columnValues) {
+            System.out.println("child v:" + v.getValue() + " class:" + v.getClass());
+        }
         return groupingKeyValue;
     }
 
