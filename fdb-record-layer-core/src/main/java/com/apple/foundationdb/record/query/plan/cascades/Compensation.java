@@ -331,7 +331,7 @@ public interface Compensation {
      * @return a new compensation
      */
     @Nonnull
-    static Compensation     ofChildCompensationAndPredicateMap(final boolean isImpossible,
+    static Compensation ofChildCompensationAndPredicateMap(final boolean isImpossible,
                                                            @Nonnull final Compensation childCompensation,
                                                            @Nonnull final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
                                                            @Nonnull final Set<Quantifier> matchedQuantifiers,
