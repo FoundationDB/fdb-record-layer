@@ -87,6 +87,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.streamingAggregationPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.arithmeticValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.bitmapConstructAggValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
@@ -277,9 +278,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                         streamingAggregationPlan(
                                 mapPlan(
                                         indexPlan()
-
-                                )).where(aggregations(recordConstructorValue(exactly(bitmapConstructAggValue(anyValue()))))
-                                .and(groupings(recordConstructorValue(exactly(anyValue(), anyValue())))))));
+                                ))
+                                .where(aggregations(recordConstructorValue(exactly(bitmapConstructAggValue(anyValue()))))
+                                .and(groupings(recordConstructorValue(exactly(anyValue(), arithmeticValue(exactly(anyValue(), anyValue())))))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
