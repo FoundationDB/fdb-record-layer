@@ -324,6 +324,7 @@ public interface MatchCandidate {
             case IndexTypes.MAX_EVER_TUPLE: // fallthrough
             case IndexTypes.MAX_EVER_LONG: // fallthrough
             case IndexTypes.MIN_EVER_LONG: // fallthrough
+            case IndexTypes.BITMAP_VALUE: // fallthrough
             case IndexTypes.SUM: // fallthrough
             case IndexTypes.COUNT: // fallthrough
             case IndexTypes.COUNT_NOT_NULL:
@@ -388,6 +389,9 @@ public interface MatchCandidate {
                                                                                @Nonnull final Set<String> queriedRecordTypeNames,
                                                                                @Nonnull final Collection<RecordType> queriedRecordTypes,
                                                                                final boolean isReverse) {
+        final var aggregateIndexExpansionVisitor = IndexTypes.BITMAP_VALUE.equals(index.getType())
+                ? new BitmapAggregateIndexExpansionVisitor(index, queriedRecordTypes)
+                : new AggregateIndexExpansionVisitor(index, queriedRecordTypes);
         return expandIndexMatchCandidate(index,
                 availableRecordTypeNames,
                 availableRecordTypes,
@@ -395,7 +399,7 @@ public interface MatchCandidate {
                 queriedRecordTypes,
                 isReverse,
                 null,
-                new AggregateIndexExpansionVisitor(index, queriedRecordTypes)
+                aggregateIndexExpansionVisitor
         );
     }
 

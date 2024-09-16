@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -35,7 +36,10 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue.ofScalar;
@@ -98,6 +102,20 @@ class AggregateValueTest {
         accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_L, ofScalar(1L)), longsOnlyNull, (Object)null);
         accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
         accumulateAndAssert(new NumericAggregationValue.Sum(PhysicalOperator.SUM_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
+    }
+
+    @Test
+    void testBitmap() {
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitmap(new Object[]{0L, 1L, 2L, 0L}), Arrays.asList(0L, 1L, 2L), 1250); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitmap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L), 1250); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitmap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L, 10000L, 10001L, 10100L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L, 10000L, 10001L, 10100L), 1263); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitmap(longs), Arrays.asList(longs), 1250); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitmap(longsWithNulls), List.of(1L, 2L, 4L, 5L, 6L), 1250); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitmap(longsOnlyNull), null, 1250);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitmap(ints), Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L), 1250); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitmap(intsWithNulls), Arrays.asList(1L, 2L, 4L, 5L, 6L), 1250); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, ofScalar(1)), bitsetForBitmap(intsOnlyNull), null, 1250);
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> accumulateAndAssertByteArray(new NumericAggregationValue.BitmapConstructAgg(PhysicalOperator.BITMAP_CONSTRUCT_AGG_L, ofScalar(1)), bitsetForBitmap(new Object[]{250001L}), List.of(250001L), 1250)); // 111
     }
 
     @Test
@@ -172,9 +190,28 @@ class AggregateValueTest {
         accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesOnlyNull), (Object)null);
     }
 
-    private Object[] pairsForAvg(Object[] objects) {
+    @Nonnull
+    private Object[] pairsForAvg(@Nonnull Object[] objects) {
         return Arrays.stream(objects)
                 .map(object -> object == null ? null : Pair.of(object, 1L)) // left for the sum, right for the count
+                .toArray();
+    }
+
+    @Nonnull
+    private Object[] bitsetForBitmap(@Nonnull Object[] objects) {
+        return Arrays.stream(objects)
+                .map(object -> {
+                    if (object == null) {
+                        return null;
+                    }
+                    final var result = new BitSet();
+                    if (object instanceof Integer) {
+                        result.set((int)object);
+                    } else {
+                        result.set(((Long)object).intValue());
+                    }
+                    return result;
+                })
                 .toArray();
     }
 
@@ -200,6 +237,29 @@ class AggregateValueTest {
             Assertions.assertEquals(21, sum);
             Assertions.assertEquals(6L, count);
         });
+    }
+
+    @Nullable
+    public static List<Long> collectOnBits(@Nullable byte[] bitmap, int expectedArrayLength) {
+        if (bitmap == null) {
+            return null;
+        }
+        Assertions.assertEquals(expectedArrayLength, bitmap.length);
+        final List<Long> result = new ArrayList<>();
+        for (int i = 0; i < bitmap.length; i++) {
+            if (bitmap[i] != 0) {
+                for (int j = 0; j < 8; j++) {
+                    if ((bitmap[i] & (1 << j)) != 0) {
+                        result.add(i * 8L + j);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    private void accumulateAndAssertByteArray(final AggregateValue aggregateValue, final Object[] items, @Nullable final Object expected, final int expectedArrayLength) {
+        accumulateAndAssert(aggregateValue, items, actual -> Assertions.assertEquals(expected, collectOnBits((byte[])actual, expectedArrayLength)));
     }
 
     private void accumulateAndAssert(final AggregateValue aggregateValue, final Object[] items, @Nullable final Object expected) {
