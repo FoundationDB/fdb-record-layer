@@ -230,10 +230,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
     }
 
-    public boolean equalsValueOnly(@Nonnull final QueryPredicate other) {
-        return (other instanceof PredicateWithValueAndRanges) && value.equals(((PredicateWithValueAndRanges)other).value);
-    }
-
     @Nonnull
     public static PredicateWithValueAndRanges sargable(@Nonnull Value value, @Nonnull final RangeConstraints range) {
         return new PredicateWithValueAndRanges(value, ImmutableSet.of(range));
@@ -288,6 +284,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * </ul>
      *
      * @param valueEquivalence the current value equivalence
+     * @param originalQueryPredicate the original (untranslated) predicate on the query side
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
@@ -296,9 +293,10 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      */
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
-                                                                @Nonnull final QueryPredicate candidatePredicate,
-                                                                @Nonnull final EvaluationContext evaluationContext) {
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final QueryPredicate candidatePredicate,
+                                                                     @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate.isContradiction()) {
             return Optional.empty();
         }
@@ -329,7 +327,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 if (candidatePredicateWithValuesAndRanges instanceof WithAlias) {
                     final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
                     final var predicateMappingBuilder =
-                            PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                                     .setCompensatePredicateFunction((ignore, boundParameterPrefixMap) -> {
                                         if (boundParameterPrefixMap.containsKey(alias)) {
                                             return Optional.empty();
@@ -337,8 +335,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                                         return injectCompensationFunctionMaybe();
                                     })
                                     .setParameterAlias(alias)
-                                    .setConstraint(constraint)
-                                    .setTranslatedQueryPredicateOptional(Optional.empty()); // TODO: provide a translated predicate value here.
+                                    .setConstraint(constraint);
 
                     Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
                     if (compensatedQueryPredicate.isSargable()) {
@@ -361,15 +358,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 if (candidatePredicateWithValuesAndRanges instanceof WithAlias) {
                     final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
                     final var predicateMappingBuilder =
-                            PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                                     .setCompensatePredicateFunction((ignore, boundParameterPrefixMap) -> {
                                         if (boundParameterPrefixMap.containsKey(alias)) {
                                             return Optional.empty();
                                         }
                                         return injectCompensationFunctionMaybe();
                                     })
-                                    .setConstraint(constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges)))
-                                    .setTranslatedQueryPredicateOptional(Optional.empty()); // TODO: provide a translated predicate value here.
+                                    .setConstraint(constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges)));
                     Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
                     if (compensatedQueryPredicate.isSargable()) {
                         predicateMappingBuilder.setParameterAlias(alias);
@@ -380,7 +376,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     return Optional.of(predicateMappingBuilder.build());
                 } else {
                     return Optional.of(
-                            PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                                     .setCompensatePredicateFunction((ignore, alsoIgnore) -> {
                                         // no need for compensation if range boundaries match between candidate constraint and query sargable
                                         if (candidateRanges.stream()
@@ -401,7 +397,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                                         return injectCompensationFunctionMaybe();
                                     })
                                     .setConstraint(constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges)))
-                                    .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                                     .build());
                 }
             }
@@ -409,9 +404,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
         if (candidatePredicate.isTautology()) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                             .setCompensatePredicateFunction((ignore, alsoIgnore) -> injectCompensationFunctionMaybe())
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                             .build());
         }
 
@@ -428,9 +422,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         // Note that we never have to reapply the predicate as both sides are always semantically
         // equivalent.
         return Optional.of(
-                PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                         .setConstraint(semanticEquals.getConstraint())
-                        .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                         .build());
     }
 

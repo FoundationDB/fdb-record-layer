@@ -105,8 +105,7 @@ public class PredicateMultiMap {
         @Nonnull
         private final QueryPlanConstraint constraint;
         @Nonnull
-        private final Optional<QueryPredicate> translatedQueryPredicateOptional;
-
+        private final QueryPredicate translatedQueryPredicate;
 
         private PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                  @Nonnull final QueryPredicate candidatePredicate,
@@ -115,13 +114,13 @@ public class PredicateMultiMap {
                                  @Nonnull final Optional<CorrelationIdentifier> parameterAlias,
                                  @Nonnull final Optional<ComparisonRange> comparisonRangeOptional,
                                  @Nonnull final QueryPlanConstraint constraint,
-                                 @Nonnull final Optional<QueryPredicate> translatedQueryPredicateOptional) {
+                                 @Nonnull final QueryPredicate translatedQueryPredicate) {
             this.mappingKey = new MappingKey(queryPredicate, candidatePredicate, mappingKind);
             this.compensatePredicateFunction = compensatePredicateFunction;
             this.parameterAliasOptional = parameterAlias;
             this.comparisonRangeOptional = comparisonRangeOptional;
             this.constraint = constraint;
-            this.translatedQueryPredicateOptional = translatedQueryPredicateOptional;
+            this.translatedQueryPredicate = translatedQueryPredicate;
         }
 
         @Nonnull
@@ -165,34 +164,38 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public Optional<QueryPredicate> getTranslatedQueryPredicateOptional() {
-            return translatedQueryPredicateOptional;
+        public QueryPredicate getTranslatedQueryPredicate() {
+            return translatedQueryPredicate;
         }
 
         @Nonnull
-        public PredicateMapping withTranslatedQueryPredicate(@Nonnull final Optional<QueryPredicate> translatedCandidatePredicate) {
-            return toBuilder().setTranslatedQueryPredicateOptional(translatedCandidatePredicate).build();
+        public PredicateMapping withTranslatedQueryPredicate(@Nonnull final QueryPredicate translatedQueryPredicate) {
+            return toBuilder().setTranslatedQueryPredicate(translatedQueryPredicate).build();
         }
 
         @Nonnull
         public Builder toBuilder() {
-            return new Builder(getQueryPredicate(), getCandidatePredicate(), getMappingKind())
+            return new Builder(getQueryPredicate(), getTranslatedQueryPredicate(), getCandidatePredicate(), getMappingKind())
                     .setCompensatePredicateFunction(getCompensatePredicateFunction())
                     .setParameterAliasOptional(getParameterAliasOptional())
                     .setConstraint(getConstraint())
-                    .setTranslatedQueryPredicateOptional(getTranslatedQueryPredicateOptional());
+                    .setTranslatedQueryPredicate(getTranslatedQueryPredicate());
         }
 
         @Nonnull
         public static PredicateMapping.Builder regularMappingBuilder(@Nonnull final QueryPredicate queryPredicate,
+                                                                     @Nonnull final QueryPredicate translatedQueryPredicate,
                                                                      @Nonnull final QueryPredicate candidatePredicate) {
-            return new Builder(queryPredicate, candidatePredicate, MappingKind.REGULAR_IMPLIES_CANDIDATE);
+            return new Builder(queryPredicate, translatedQueryPredicate, candidatePredicate,
+                    MappingKind.REGULAR_IMPLIES_CANDIDATE);
         }
 
         @Nonnull
         public static PredicateMapping.Builder orTermMappingBuilder(@Nonnull final QueryPredicate queryPredicate,
+                                                                    @Nonnull final QueryPredicate translatedQueryPredicate,
                                                                     @Nonnull final QueryPredicate candidatePredicate) {
-            return new Builder(queryPredicate, candidatePredicate, MappingKind.OR_TERM_IMPLIES_CANDIDATE);
+            return new Builder(queryPredicate, translatedQueryPredicate, candidatePredicate,
+                    MappingKind.OR_TERM_IMPLIES_CANDIDATE);
         }
 
         /**
@@ -266,19 +269,20 @@ public class PredicateMultiMap {
             @Nonnull
             private QueryPlanConstraint constraint;
             @Nonnull
-            private Optional<QueryPredicate> translatedQueryPredicateOptional;
+            private QueryPredicate translatedQueryPredicate;
 
             public Builder(@Nonnull final QueryPredicate queryPredicate,
+                           @Nonnull final QueryPredicate translatedQueryPredicate,
                            @Nonnull final QueryPredicate candidatePredicate,
                            @Nonnull final MappingKind mappingKind) {
                 this.queryPredicate = queryPredicate;
+                this.translatedQueryPredicate = translatedQueryPredicate;
                 this.candidatePredicate = candidatePredicate;
                 this.mappingKind = mappingKind;
                 this.compensatePredicateFunction = CompensatePredicateFunction.noCompensationNeeded();
                 this.parameterAliasOptional = Optional.empty();
                 this.comparisonRangeOptional = Optional.empty();
                 this.constraint = QueryPlanConstraint.tautology();
-                this.translatedQueryPredicateOptional = Optional.empty();
             }
 
             @Nonnull
@@ -324,21 +328,15 @@ public class PredicateMultiMap {
 
             @Nonnull
             public Builder setTranslatedQueryPredicate(@Nonnull final QueryPredicate translatedQueryPredicate) {
-                this.translatedQueryPredicateOptional = Optional.of(translatedQueryPredicate);
-                return this;
-            }
-
-            @Nonnull
-            public Builder setTranslatedQueryPredicateOptional(@Nonnull final Optional<QueryPredicate> translatedQueryPredicateOptional) {
-                this.translatedQueryPredicateOptional = translatedQueryPredicateOptional;
+                this.translatedQueryPredicate = translatedQueryPredicate;
                 return this;
             }
 
             @Nonnull
             public PredicateMapping build() {
-                return new PredicateMapping(queryPredicate,  candidatePredicate, mappingKind,
+                return new PredicateMapping(queryPredicate, candidatePredicate, mappingKind,
                         compensatePredicateFunction, parameterAliasOptional, comparisonRangeOptional, constraint,
-                        translatedQueryPredicateOptional);
+                        translatedQueryPredicate);
             }
         }
     }
