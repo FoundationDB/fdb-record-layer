@@ -734,6 +734,13 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<RecordQueryAggregateIndexPlan> aggregateIndexPlanOf(@Nonnull BindingMatcher<? extends RecordQueryPlanWithIndex> downstream) {
+        return typedWithDownstream(RecordQueryAggregateIndexPlan.class,
+                Extractor.of(RecordQueryAggregateIndexPlan::getIndexPlan, name -> "indexPlanOf(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
     public static BindingMatcher<ComposedBitmapIndexQueryPlan> composedBitmapPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
         return typedWithDownstream(ComposedBitmapIndexQueryPlan.class, Extractor.of(ComposedBitmapIndexQueryPlan::getIndexPlans, name -> "indexPlans(" + name + ")"), downstream);
     }

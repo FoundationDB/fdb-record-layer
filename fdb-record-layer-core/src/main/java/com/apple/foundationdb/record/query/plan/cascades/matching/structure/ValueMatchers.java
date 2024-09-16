@@ -101,6 +101,26 @@ public class ValueMatchers {
     }
 
     @Nonnull
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithLastFieldName(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                           @Nonnull final BindingMatcher<String> downstreamFieldNameMatcher) {
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValue);
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(fieldValue -> {
+                            final var fieldPathNames = fieldValue.getFieldPathNames();
+                            return fieldPathNames.get(fieldPathNames.size() - 1);
+                        }, name -> "fieldPathNames(" + name + ")"),
+                        downstreamFieldNameMatcher);
+
+        return typedWithDownstream(FieldValue.class,
+                Extractor.identity(),
+                matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
+    }
+
+    @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldPath(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                        @Nonnull final CollectionMatcher<Integer> downstreamFieldPathOrdinals,
                                                                                        @Nonnull final CollectionMatcher<Type> downstreamFieldPathTypes) {

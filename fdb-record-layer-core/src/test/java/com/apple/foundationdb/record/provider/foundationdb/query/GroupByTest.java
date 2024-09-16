@@ -38,13 +38,14 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -80,8 +81,10 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregateIndexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregateIndexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregations;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.groupings;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
@@ -89,11 +92,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.arithmeticValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.bitmapConstructAggValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithLastFieldName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * test suite for {@code GROUP BY} expression planning and execution.
@@ -261,61 +263,58 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testBitMapWithStreamAggregation() {
+    void testBitmapWithStreamAggregation() {
         int bitBucketSize = 4;
         RecordMetaDataHook hook = setupHookAndAddData(true, false, false, true, bitBucketSize, false);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructBitMapGroupByPlan(bitBucketSize, false),
+                () -> constructBitmapGroupByPlan(bitBucketSize, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
 
-        assertBitMapResult(hook, plan, 1250);
+        assertBitmapResult(hook, plan, 1250);
         assertMatchesExactly(plan,
                 mapPlan(
                         streamingAggregationPlan(
-                                mapPlan(
-                                        indexPlan()
-                                ))
+                                mapPlan(indexPlan().where(indexName("MySimpleRecord$bit_bucket"))))
                                 .where(aggregations(recordConstructorValue(exactly(bitmapConstructAggValue(anyValue()))))
-                                .and(groupings(recordConstructorValue(exactly(anyValue(), arithmeticValue(exactly(anyValue(), anyValue())))))))));
+                                .and(groupings(recordConstructorValue(exactly(
+                                        fieldValueWithLastFieldName(anyValue(), PrimitiveMatchers.equalsObject("str_value_indexed")),
+                                        arithmeticValue(exactly(anyValue(), anyValue())))))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testBitMapWithBitMapIndex() {
+    void testBitmapWithBitmapIndex() {
         int bitBucketSize = 4;
         RecordMetaDataHook hook = setupHookAndAddData(true, true, true, false, bitBucketSize, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructBitMapGroupByPlan(bitBucketSize, false),
+                () -> constructBitmapGroupByPlan(bitBucketSize, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
-        assertBitMapResult(hook, plan, 1);
-        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
-        assertEquals(1, plan.getUsedIndexes().size());
-        assertTrue(plan.getUsedIndexes().contains("BitMapIndex"));
+        assertBitmapResult(hook, plan, 1);
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(aggregateIndexPlanOf(indexName("BitmapIndex")))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testBitMapWithBitMapIndexWithEmptyGroup() {
+    void testBitmapWithBitmapIndexWithEmptyGroup() {
         int bitBucketSize = 4;
         RecordMetaDataHook hook = setupHookAndAddData(true, true, true, false, bitBucketSize, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructBitMapGroupByPlan(bitBucketSize, true),
+                () -> constructBitmapGroupByPlan(bitBucketSize, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
-        assertBitMapResultWithZeroExplicitGroups(hook, plan, 1);
-        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
-        assertEquals(1, plan.getUsedIndexes().size());
-        assertTrue(plan.getUsedIndexes().contains("BitMapIndex"));
+        assertBitmapResultWithZeroExplicitGroups(hook, plan, 1);
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(aggregateIndexPlanOf(indexName("BitmapIndex")))));
     }
 
-    private void assertBitMapResultWithZeroExplicitGroups(RecordMetaDataHook hook, RecordQueryPlan plan, int expectedByteArrayLength) {
+    @SuppressWarnings("SameParameterValue")
+    private void assertBitmapResultWithZeroExplicitGroups(RecordMetaDataHook hook, RecordQueryPlan plan, int expectedByteArrayLength) {
         final Map<Integer, List<Long>> expectedResult = new HashMap<>();
         expectedResult.put(0, List.of(1L, 2L, 3L)); // num_value_2 = 1, 2, 3
         expectedResult.put(4, List.of(0L, 1L, 2L, 3L)); // num_value_2 = 3, 4, 5, 6
@@ -338,7 +337,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         assertEquals(expectedResult, bitMapGroupByStrValue);
     }
 
-    private void assertBitMapResult(RecordMetaDataHook hook, RecordQueryPlan plan, int expectedByteArrayLength) {
+    private void assertBitmapResult(RecordMetaDataHook hook, RecordQueryPlan plan, int expectedByteArrayLength) {
         final Map<Pair<String, Integer>, List<Long>> expectedResult = new HashMap<>();
         expectedResult.put(Pair.of("1", 0), List.of(1L)); // str_value_indexed = "1", num_value_2 = 1 and 7
         expectedResult.put(Pair.of("1", 4), List.of(3L)); // 7 mod 4 = 3
@@ -375,7 +374,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private Reference constructBitMapGroupByPlan(int bucketSize, boolean zeroGroup) {
+    private Reference constructBitmapGroupByPlan(int bucketSize, boolean zeroGroup) {
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
                 Quantifier.forEach(Reference.of(
@@ -453,11 +452,12 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     protected RecordMetaDataHook setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex) {
         return setupHookAndAddData(addIndex, addAggregateIndex, false, false, 0, false);
     }
 
-    protected RecordMetaDataHook setupHookAndAddData(boolean addIndex, boolean addAggregateIndex, boolean addBitMapIndex,
+    protected RecordMetaDataHook setupHookAndAddData(boolean addIndex, boolean addAggregateIndex, boolean addBitmapIndex,
                                                      boolean addBitBucketFunctionIndex, int bucketSize, boolean withZeroExplicitGroups) {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataHook hook = (metaDataBuilder) -> {
@@ -468,11 +468,11 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 if (addAggregateIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
                 }
-                if (addBitMapIndex) {
+                if (addBitmapIndex) {
                     if (withZeroExplicitGroups) {
-                        metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", new GroupingKeyExpression(field("num_value_2"), 1), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
+                        metaDataBuilder.addIndex("MySimpleRecord", new Index("BitmapIndex", new GroupingKeyExpression(field("num_value_2"), 1), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                     } else {
-                        metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed")), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
+                        metaDataBuilder.addIndex("MySimpleRecord", new Index("BitmapIndex", field("num_value_2").groupBy(field("str_value_indexed")), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                     }
                 }
                 if (addBitBucketFunctionIndex) {
