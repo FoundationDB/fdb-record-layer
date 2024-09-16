@@ -121,4 +121,8 @@ public final class LuceneRecordContextProperties {
      * Lucene block cache maximum size. At most these many blocks will be stored in cache.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_BLOCK_CACHE_MAXIMUM_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.block.cache.size", FDBDirectory.DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE);
+    /**
+     * Lucene async to sync behavior: Whether to use the legacy async to sync calls or the non-exception-mapping behavior.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_USE_LEGACY_ASYNC_TO_SYNC = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.exception.mapping.enabled", true);
 }

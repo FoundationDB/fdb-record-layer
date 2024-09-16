@@ -1410,6 +1410,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.hookForAsyncToSync = hook;
     }
 
+    @Nullable
+    public Consumer<FDBStoreTimer.Wait> getHookForAsyncToSync() {
+        return hookForAsyncToSync;
+    }
+
     public boolean hasHookForAsyncToSync() {
         return hookForAsyncToSync != null;
     }
