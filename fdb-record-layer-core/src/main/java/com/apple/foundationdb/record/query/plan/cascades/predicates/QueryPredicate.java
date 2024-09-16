@@ -154,6 +154,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * also represents a tautology.
      *
      * @param valueEquivalence the current value equivalence
+     * @param originalQueryPredicate original predicate on the query side
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
@@ -165,25 +166,26 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      */
     @Nonnull
     @SuppressWarnings("unused")
-    default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
-                                                                 @Nonnull final QueryPredicate candidatePredicate,
-                                                                 @Nonnull final EvaluationContext evaluationContext) {
+    default Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                      @Nonnull final QueryPredicate candidatePredicate,
+                                                                      @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate instanceof Placeholder) {
             return Optional.empty();
         }
 
         if (candidatePredicate.isTautology()) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, originalQueryPredicate, candidatePredicate)
                             .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                             .build());
         }
 
         final var semanticEquals = this.semanticEquals(candidatePredicate, valueEquivalence);
         return semanticEquals
                 .mapToOptional(queryPlanConstraint ->
-                        PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                        PredicateMapping.regularMappingBuilder(this, originalQueryPredicate,
+                                        candidatePredicate)
                                 .setConstraint(queryPlanConstraint)
                                 .build());
     }
@@ -226,27 +228,30 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Method to find all mappings of this predicate in an {@link Iterable} of candidate predicates. If no mapping can
-     * be found at all, this method will then call {@link #impliesCandidatePredicate(ValueEquivalence, QueryPredicate, EvaluationContext)} using
+     * be found at all, this method will then call
+     * {@link #impliesCandidatePredicateMaybe(ValueEquivalence, QueryPredicate, QueryPredicate, EvaluationContext)} using
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
      * @param valueEquivalence the current alias map together with some other known equalities
      * @param candidatePredicates an {@link Iterable} of candiate predicates
      * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty collection of {@link PredicateMapping}s
      */
-    default Collection<PredicateMapping> findImpliedMappings(@NonNull ValueEquivalence valueEquivalence,
-                                                             @Nonnull Iterable<? extends QueryPredicate> candidatePredicates,
+    default Collection<PredicateMapping> findImpliedMappings(@NonNull final ValueEquivalence valueEquivalence,
+                                                             @Nonnull final QueryPredicate originalQueryPredicate,
+                                                             @Nonnull final Iterable<? extends QueryPredicate> candidatePredicates,
                                                              @Nonnull final EvaluationContext evaluationContext) {
         final Set<PredicateMapping.MappingKey> mappingKeys = Sets.newHashSet();
         final ImmutableList.Builder<PredicateMapping> mappingBuilder = ImmutableList.builder();
 
         for (final QueryPredicate candidatePredicate : candidatePredicates) {
-            final Optional<PredicateMapping> impliedByQueryPredicateOptional =
-                    impliesCandidatePredicate(valueEquivalence, candidatePredicate, evaluationContext);
-            impliedByQueryPredicateOptional.ifPresent(impliedByPredicate -> {
-                final var mappingKey = impliedByPredicate.getMappingKey();
+            final Optional<PredicateMapping> predicateMappingOptional =
+                    impliesCandidatePredicateMaybe(valueEquivalence, originalQueryPredicate, candidatePredicate,
+                            evaluationContext);
+            predicateMappingOptional.ifPresent(predicateMapping -> {
+                final var mappingKey = predicateMapping.getMappingKey();
                 if (!mappingKeys.contains(mappingKey)) {
                     mappingKeys.add(mappingKey);
-                    mappingBuilder.add(impliedByPredicate);
+                    mappingBuilder.add(predicateMapping);
                 }
             });
         }
@@ -258,7 +263,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             // constant predicate here.
             //
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
-            return impliesCandidatePredicate(valueEquivalence, tautologyPredicate, evaluationContext)
+            return impliesCandidatePredicateMaybe(valueEquivalence, originalQueryPredicate, tautologyPredicate,
+                    evaluationContext)
                     .map(ImmutableSet::of)
                     .orElseThrow(() -> new RecordCoreException("should have found at least one mapping"));
         }

@@ -173,9 +173,10 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
-                                                                @Nonnull final QueryPredicate candidatePredicate,
-                                                                @Nonnull final EvaluationContext evaluationContext) {
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final QueryPredicate candidatePredicate,
+                                                                     @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate instanceof Placeholder) {
             return Optional.empty();
         } else if (candidatePredicate instanceof ExistsPredicate) {
@@ -186,16 +187,14 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                 return Optional.empty();
             }
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                             .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
                             .setConstraint(aliasEquals.getConstraint())
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                             .build());
         } else if (candidatePredicate.isTautology()) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                             .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                             .build());
         }
         return Optional.empty();

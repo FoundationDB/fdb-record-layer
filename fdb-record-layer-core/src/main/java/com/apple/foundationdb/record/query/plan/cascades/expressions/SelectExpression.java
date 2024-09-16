@@ -476,9 +476,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 }
             }
 
+            final var translatedPredicate = predicate.translateCorrelations(translationMap);
             final Iterable<PredicateMapping> impliedMappingsForPredicate =
-                    predicate.findImpliedMappings(bindingValueEquivalence, candidateSelectExpression.getPredicates(),
-                            evaluationContext);
+                    translatedPredicate.findImpliedMappings(bindingValueEquivalence, predicate,
+                            candidateSelectExpression.getPredicates(), evaluationContext);
 
             for (final PredicateMapping predicateMapping : impliedMappingsForPredicate) {
                 var currentPredicateMappings =
