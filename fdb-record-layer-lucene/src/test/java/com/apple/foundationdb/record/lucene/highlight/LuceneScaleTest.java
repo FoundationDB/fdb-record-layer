@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneFunctionNames;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
@@ -517,8 +518,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         private void disableIndex() {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                maxDocId = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
-                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount());
+                maxDocId = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context);
                 continuing = maxDocId > 0;
                 logger.info("Disabling index");
                 store.markIndexDisabled(INDEX.getName());
@@ -530,8 +531,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             OnlineIndexer.Builder indexBuilder = null;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                maxDocId = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
-                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount());
+                maxDocId = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context);
                 continuing = maxDocId > 0;
                 if (!store.isIndexReadable(INDEX.getName())) {
                     indexBuilder = OnlineIndexer.newBuilder()

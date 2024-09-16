@@ -25,11 +25,13 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -160,9 +162,8 @@ public interface AgilityContext {
     }
 
     @Nullable
-    default <T> T asyncToSync(StoreTimer.Wait event,
-                              @Nonnull CompletableFuture<T> async) {
-        return getCallerContext().asyncToSync(event, async);
+    default <T> T asyncToSync(StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+        return LuceneConcurrency.asyncToSync(event, async, getCallerContext());
     }
 
     @Nullable
@@ -308,7 +309,8 @@ public interface AgilityContext {
                     final long stamp = lock.writeLock();
 
                     try (FDBRecordContext commitContext = currentContext) {
-                        commitContext.commit();
+                        // TODO: Call LuceneSync.commit()
+                        LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, commitContext.commitAsync(), commitContext);
                     } catch (RuntimeException ex) {
                         closed = true;
                         reportFdbException(ex);
@@ -373,7 +375,7 @@ public interface AgilityContext {
                 future = function.apply(recoveryContext)
                         .whenComplete((result, ex) -> {
                             if (ex == null) {
-                                recoveryContext.commit();
+                                LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, recoveryContext.commitAsync(), recoveryContext);
                             }
                             recoveryContext.close();
                         });

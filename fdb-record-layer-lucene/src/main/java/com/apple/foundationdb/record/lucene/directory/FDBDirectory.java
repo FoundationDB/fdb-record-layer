@@ -524,6 +524,7 @@ public class FDBDirectory extends Directory  {
             ));
         } catch (ExecutionException e) {
             // This would happen when the cache.get() fails to execute the lambda (not when the block's future is joined)
+            // TODO: Add the execution exception as suppressed?
             throw new RecordCoreException(e.getCause());
         }
     }
@@ -994,8 +995,7 @@ public class FDBDirectory extends Directory  {
     }
 
     @Nullable
-    public <T> T asyncToSync(StoreTimer.Wait event,
-                             @Nonnull CompletableFuture<T> async ) {
+    public <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
         return agilityContext.asyncToSync(event, async);
     }
 
