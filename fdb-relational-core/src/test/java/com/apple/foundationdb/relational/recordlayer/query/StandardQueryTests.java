@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -48,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -869,6 +871,147 @@ public class StandardQueryTests {
                             .hasNextRow()
                             .hasColumn("FOO", 43L)
                             .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testBitmap() throws Exception {
+        final String query = "SELECT bitmap_construct_agg(bitmap_bit_position(uid)) as bitmap, category, bitmap_bucket_offset(uid) as offset FROM T1\n" +
+                "GROUP BY category, bitmap_bucket_offset(uid)\n";
+        final String schemaTemplate = "CREATE TABLE T1(uid bigint, category string, PRIMARY KEY(uid))\n" +
+                "create index bitmapIndex as\n" +
+                query;
+
+        testBitmapResult(schemaTemplate, query);
+    }
+
+    @Test
+    void testBitmapWrongGroupByOrder() {
+        final String query = "SELECT bitmap_construct_agg(bitmap_bit_position(uid)) as bitmap, bitmap_bucket_offset(uid) as offset, category FROM T1\n" +
+                "GROUP BY bitmap_bucket_offset(uid), category\n";
+        final String schemaTemplate = "CREATE TABLE T1(uid bigint, category string, PRIMARY KEY(uid))\n" +
+                "create index bitmapIndex as\n" +
+                query;
+        org.junit.Assert.assertThrows(ContextualSQLException.class, () -> testBitmapResult(schemaTemplate, query));
+    }
+
+    @Test
+    void testBitmapWithEmptyGroup() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(uid bigint, category string, PRIMARY KEY(uid))\n" +
+                "create index bitmapIndex as\n" +
+                "select bitmap_construct_agg(bitmap_bit_position(uid)), bitmap_bucket_offset(uid)\n" +
+                "from T1\n" +
+                "group by bitmap_bucket_offset(uid)";
+        testBitmapResultWithEmptyGroup(schemaTemplate);
+    }
+
+    @Test
+    void testBitmapNoBitmapIndex() throws Exception {
+        final String query = "SELECT bitmap_construct_agg(bitmap_bit_position(uid)) as bitmap, category, bitmap_bucket_offset(uid) as offset FROM T1\n" +
+                "GROUP BY category, bitmap_bucket_offset(uid)\n";
+        final String schemaTemplate = "CREATE TABLE T1(uid bigint, category string, PRIMARY KEY(uid))\n" +
+                "create index category_index as\n" +
+                "select category, bitmap_bucket_offset(uid) from T1 order by category, bitmap_bucket_offset(uid)";
+        testBitmapResult(schemaTemplate, query);
+    }
+
+    private void testBitmapResult(String schemaTemplate, String query) throws Exception {
+        int expectedByteArrayLength = 1250;
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 'world')");
+                statement.executeUpdate("insert into t1 values (2, 'world')");
+                statement.executeUpdate("insert into t1 values (19999, 'world')");
+                statement.executeUpdate("insert into t1 values (30, 'hello')");
+                statement.executeUpdate("insert into t1 values (1, 'hello')");
+                statement.executeUpdate("insert into t1 values (20030, 'hello')");
+
+                Assertions.assertTrue(statement.execute(query), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(resultSet.next());
+                    byte[] bytes1 = resultSet.getBytes("BITMAP");
+                    Assertions.assertEquals(List.of(1L, 30L), collectOnBits(bytes1, expectedByteArrayLength));
+                    Assertions.assertEquals("hello", resultSet.getString("CATEGORY"));
+                    Assertions.assertEquals(0, resultSet.getLong("OFFSET"));
+
+                    Assert.that(resultSet.next());
+                    byte[] bytes2 = resultSet.getBytes("BITMAP");
+                    // 20030 -> [0, 0, 0, 01000000, ...]
+                    Assertions.assertEquals(List.of(30L), collectOnBits(bytes2, expectedByteArrayLength));
+                    Assertions.assertEquals("hello", resultSet.getString("CATEGORY"));
+                    Assertions.assertEquals(20000, resultSet.getLong("OFFSET"));
+
+                    Assert.that(resultSet.next());
+                    byte[] bytes3 = resultSet.getBytes("BITMAP");
+                    // 2, 42 -> [00000100, 0, 0, 0, 0, 00000100, 0...]
+                    Assertions.assertEquals(List.of(2L, 42L), collectOnBits(bytes3, expectedByteArrayLength));
+                    Assertions.assertEquals("world", resultSet.getString("CATEGORY"));
+                    Assertions.assertEquals(0, resultSet.getLong("OFFSET"));
+
+                    Assert.that(resultSet.next());
+                    byte[] bytes4 = resultSet.getBytes("BITMAP");
+                    Assertions.assertEquals(List.of(9999L), collectOnBits(bytes4, expectedByteArrayLength));
+                    Assertions.assertEquals("world", resultSet.getString("CATEGORY"));
+                    Assertions.assertEquals(10000, resultSet.getLong("OFFSET"));
+
+                    Assert.that(!resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Nullable
+    private static List<Long> collectOnBits(@Nullable byte[] bitmap, int expectedArrayLength) {
+        if (bitmap == null) {
+            return null;
+        }
+        Assertions.assertEquals(expectedArrayLength, bitmap.length);
+        final List<Long> result = new ArrayList<>();
+        for (int i = 0; i < bitmap.length; i++) {
+            if (bitmap[i] != 0) {
+                for (int j = 0; j < 8; j++) {
+                    if ((bitmap[i] & (1 << j)) != 0) {
+                        result.add(i * 8L + j);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    private void testBitmapResultWithEmptyGroup(String schemaTemplate) throws Exception {
+        int expectedByteArrayLength = 1250;
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 'world')");
+                statement.executeUpdate("insert into t1 values (2, 'world')");
+                statement.executeUpdate("insert into t1 values (19999, 'world')");
+                statement.executeUpdate("insert into t1 values (30, 'hello')");
+                statement.executeUpdate("insert into t1 values (1, 'hello')");
+                statement.executeUpdate("insert into t1 values (20030, 'hello')");
+
+                String query = "SELECT bitmap_construct_agg(bitmap_bit_position(uid)), bitmap_bucket_offset(uid) FROM T1\n" +
+                        "GROUP BY bitmap_bucket_offset(uid)\n";
+                Assertions.assertTrue(statement.execute(query), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(resultSet.next());
+                    byte[] bytes1 = resultSet.getBytes(1);
+                    Assertions.assertEquals(List.of(1L, 2L, 30L, 42L), collectOnBits(bytes1, expectedByteArrayLength));
+                    Assertions.assertEquals(0, resultSet.getLong(2));
+
+                    Assert.that(resultSet.next());
+                    byte[] bytes2 = resultSet.getBytes(1);
+                    Assertions.assertEquals(List.of(9999L), collectOnBits(bytes2, expectedByteArrayLength));
+                    Assertions.assertEquals(10000L, resultSet.getLong(2));
+
+                    Assert.that(resultSet.next());
+                    byte[] bytes3 = resultSet.getBytes(1);
+                    Assertions.assertEquals(List.of(30L), collectOnBits(bytes3, expectedByteArrayLength));
+                    Assertions.assertEquals(20000L, resultSet.getLong(2));
+
+                    Assert.that(!resultSet.next());
                 }
             }
         }

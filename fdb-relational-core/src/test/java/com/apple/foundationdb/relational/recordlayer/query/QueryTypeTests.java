@@ -71,9 +71,9 @@ public class QueryTypeTests {
     @Test
     public void createBitmapIndexParsesCorrectly() throws Exception {
         var parseInfo = QueryParser.parse("CREATE SCHEMA TEMPLATE blahblah " +
-                "CREATE INDEX all_seen_uids_bitmap AS SELECT BITMAP(uid) FROM msgstate GROUP BY mboxRef, isSeen");
+                "CREATE INDEX all_seen_uids_bitmap AS SELECT bitmap_construct_agg(bitmap_bit_position(uid)) FROM msgstate GROUP BY mboxRef, isSeen");
         Assertions.assertEquals(ParseTreeInfo.QueryType.CREATE, parseInfo.getQueryType());
-        parseInfo = QueryParser.parse("SELECT BITMAP(uid) FROM msgstate WHERE mboxRef=\"INBOX\" AND isSeen=0");
+        parseInfo = QueryParser.parse("SELECT bitmap_construct_agg(bitmap_bit_position(uid)) FROM msgstate WHERE mboxRef=\"INBOX\" AND isSeen=0");
         Assertions.assertEquals(ParseTreeInfo.QueryType.SELECT, parseInfo.getQueryType());
     }
 }

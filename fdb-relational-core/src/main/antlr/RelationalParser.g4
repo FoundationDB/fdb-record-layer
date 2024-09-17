@@ -901,7 +901,7 @@ levelInWeightListElement
 aggregateWindowedFunction
     : functionName=(AVG | MAX | MIN | SUM | MAX_EVER | MIN_EVER )
       '(' aggregator=(ALL | DISTINCT)? functionArg ')' overClause?
-    | functionName=BITMAP '(' functionArg ')'
+    | functionName=BITMAP_CONSTRUCT_AGG '(' functionArg ')'
     | functionName=COUNT '(' (starArg='*' | aggregator=ALL? functionArg | aggregator=DISTINCT functionArgs) ')' overClause?
     | functionName=(
         BIT_AND | BIT_OR | BIT_XOR | STD | STDDEV | STDDEV_POP
@@ -1141,7 +1141,7 @@ functionNameBase
     | AREA | ASBINARY | ASIN | ASTEXT | ASWKB | ASWKT
     | ASYMMETRIC_DECRYPT | ASYMMETRIC_DERIVE
     | ASYMMETRIC_ENCRYPT | ASYMMETRIC_SIGN | ASYMMETRIC_VERIFY
-    | ATAN | ATAN2 | BENCHMARK | BIN | BIT_COUNT | BIT_LENGTH
+    | ATAN | ATAN2 | BENCHMARK | BIN | BIT_COUNT | BIT_LENGTH | BITMAP_BIT_POSITION | BITMAP_BUCKET_OFFSET | BITMAP_BUCKET_NUMBER
     | BUFFER | CEIL | CEILING | CENTROID | CHARACTER_LENGTH
     | CHARSET | CHAR_LENGTH | COERCIBILITY | COLLATION
     | COMPRESS | COALESCE | CONCAT | CONCAT_WS | CONNECTION_ID | CONV

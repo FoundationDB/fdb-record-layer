@@ -624,6 +624,15 @@ public class Matchers {
         if (expected instanceof String && actual instanceof byte[]) {
             if (Objects.equals(expected, new String((byte[]) actual, StandardCharsets.UTF_8))) {
                 return ResultSetMatchResult.success();
+            } else if (((String) expected).toLowerCase(Locale.ROOT).startsWith("xstartswith_") && ((String) expected).endsWith("'")) {
+                byte[] parsedByteArray = ParseHelpers.parseBytes((String) expected);
+                byte[] actualByteArray = (byte[]) actual;
+                int index1 = ((String) expected).indexOf("_");
+                int index2 = ((String) expected).indexOf("'");
+                int expectedByteArrayLength = Integer.parseInt(((String) expected).substring(index1 + 1, index2));
+                if (actualByteArray.length == expectedByteArrayLength && parsedByteArray.length <= actualByteArray.length && Arrays.equals(Arrays.copyOf(parsedByteArray, actualByteArray.length), actualByteArray)) {
+                    return ResultSetMatchResult.success();
+                }
             } else if (((String) expected).toLowerCase(Locale.ROOT).startsWith("x'") && ((String) expected).endsWith("'") &&
                     Arrays.equals(ParseHelpers.parseBytes((String) expected), (byte[]) actual)) {
                 return ResultSetMatchResult.success();

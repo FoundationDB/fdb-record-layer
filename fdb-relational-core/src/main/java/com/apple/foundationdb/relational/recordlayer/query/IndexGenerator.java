@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
@@ -106,6 +108,9 @@ import static java.util.stream.Collectors.toList;
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "OptionalUsedAsFieldOrParameterType"})
 public final class IndexGenerator {
+
+    private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
+    private static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";
 
     /**
      * Map from each correlation in the query plan to its list of results.
@@ -385,6 +390,26 @@ public final class IndexGenerator {
             } else {
                 keyExpression = new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0);
             }
+        } else if (aggregateValue instanceof NumericAggregationValue.BitmapConstructAgg && indexTypeName.equals(IndexTypes.BITMAP_VALUE)) {
+            Assert.thatUnchecked(child instanceof FieldValue || child instanceof ArithmeticValue, "Unsupported index definition, expecting a column argument in aggregation function");
+            groupedValue = generate(List.of(child), Collections.emptyMap());
+            // only support bitmap_construct_agg(bitmap_bit_position(column))
+            // doesn't support bitmap_construct_agg(column)
+            Assert.thatUnchecked(groupedValue instanceof FunctionKeyExpression, "Unsupported index definition, expecting a bitmap_bit_position function in bitmap_construct_agg function");
+            final FunctionKeyExpression functionGroupedValue = (FunctionKeyExpression) groupedValue;
+            Assert.thatUnchecked(BITMAP_BIT_POSITION.equals(functionGroupedValue.getName()), "Unsupported index definition, expecting a bitmap_bit_position function in bitmap_construct_agg function");
+            final var groupedColumnValue = ((ThenKeyExpression) ((FunctionKeyExpression) groupedValue).getArguments()).getChildren().get(0);
+
+            if (maybeGroupingExpression.isPresent()) {
+                final var afterRemove = removeBitmapBucketOffset(maybeGroupingExpression.get());
+                if (afterRemove == null) {
+                    keyExpression = ((FieldKeyExpression) groupedColumnValue).ungrouped();
+                } else {
+                    keyExpression = ((FieldKeyExpression) groupedColumnValue).groupBy(afterRemove);
+                }
+            } else {
+                throw Assert.failUnchecked("Unsupported index definition, unexpected grouping expression " + groupedValue);
+            }
         } else {
             Assert.thatUnchecked(child instanceof FieldValue, "Unsupported index definition, expecting a column argument in aggregation function");
             groupedValue = generate(List.of(child), Collections.emptyMap());
@@ -419,6 +444,33 @@ public final class IndexGenerator {
             }
         }
         return Pair.of(keyExpression, indexTypeName);
+    }
+
+    /*
+    remove bitmap_bucket_offset(col) from groupingExpression if it exists
+    return null if groupingExpression only contains bitmap_bucket_offset(col)
+     */
+    @Nullable
+    private KeyExpression removeBitmapBucketOffset(@Nonnull KeyExpression groupingExpression) {
+        // groupingExpression looks like [*, bitmap_bucket_offset(C)+], so it is either a ThenKeyExpression or a FunctionKeyExpression
+        Assert.thatUnchecked(groupingExpression instanceof ThenKeyExpression || groupingExpression instanceof FunctionKeyExpression, "Unsupported index definition, expecting column or function arguments in group by");
+        if (groupingExpression instanceof ThenKeyExpression) {
+            List<KeyExpression> groupingChildren = ((ThenKeyExpression) groupingExpression).getChildren();
+            // check if the last one is bitmap_bucket_offset function, otherwise throws exception
+            Assert.thatUnchecked(groupingChildren.get(groupingChildren.size() - 1) instanceof FunctionKeyExpression && BITMAP_BUCKET_OFFSET.equals(((FunctionKeyExpression) groupingChildren.get(groupingChildren.size() - 1)).getName()), "Unsupported index definition, expecting the last element in group by to be a bitmap_bucket_offset function");
+            // a ThenKeyExpression has at least 2 children
+            if (groupingChildren.size() >= 3) {
+                return new ThenKeyExpression(groupingChildren, 0, groupingChildren.size() - 1);
+            } else {
+                return groupingChildren.get(0);
+            }
+        } else {
+            if (BITMAP_BUCKET_OFFSET.equals(((FunctionKeyExpression) groupingExpression).getName())) {
+                return null;
+            } else {
+                return groupingExpression;
+            }
+        }
     }
 
     @Nonnull
@@ -537,7 +589,7 @@ public final class IndexGenerator {
 
         final var allSimpleValues = expressions.stream()
                 .filter(r -> r.getResultType().getInnerType() instanceof Type.Record)
-                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue));
+                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue || v instanceof LiteralValue));
         Assert.thatUnchecked(allSimpleValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
     }
 
@@ -665,6 +717,12 @@ public final class IndexGenerator {
             return valueWithChild.withNewChild(dereference(valueWithChild.getChild()));
         } else if (value instanceof QuantifiedObjectValue) {
             return dereference(correlatedKeyExpressions.get(value.getCorrelatedTo().stream().findFirst().orElseThrow()));
+        } else if (value instanceof ArithmeticValue) {
+            final List<Value> newChildren = new ArrayList<>();
+            for (Value v:value.getChildren()) {
+                newChildren.add(dereference(v));
+            }
+            return ((ArithmeticValue) value).withChildren(newChildren);
         } else {
             return value;
         }

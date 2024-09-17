@@ -120,7 +120,11 @@ public final class ParseHelpers {
     @Nonnull
     public static byte[] parseBytes(String text) {
         try {
-            if (text.toLowerCase(Locale.ROOT).startsWith("x'") && text.endsWith("'")) {
+            if (text.toLowerCase(Locale.ROOT).startsWith("xstartswith_") && text.endsWith("'")) {
+                String input = text.substring(text.indexOf("'") + 1, text.length() - 1);
+                // pad a zero in the end if input has odd number of characters
+                return input.length() % 2 == 0 ? Hex.decodeHex(input) : Hex.decodeHex(input + "0"); // of the form: XSTARTSWITH'CAFE'
+            } else if (text.toLowerCase(Locale.ROOT).startsWith("x'") && text.endsWith("'")) {
                 return Hex.decodeHex(text.substring(2, text.length() - 1)); // of the form: X'CAFE'
             } else if (text.toLowerCase(Locale.ROOT).startsWith("b64'") && text.endsWith("'")) {
                 return Base64.getDecoder().decode(text.substring(4, text.length() - 1)); // of the form: B64'yv4='

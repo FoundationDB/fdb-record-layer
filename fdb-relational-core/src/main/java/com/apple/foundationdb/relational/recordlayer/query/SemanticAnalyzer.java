@@ -65,7 +65,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -81,6 +81,7 @@ import java.util.stream.StreamSupport;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class SemanticAnalyzer {
 
+    private static final int BITMAP_DEFAULT_ENTRY_SIZE = 10_000;
     @Nonnull
     private final SchemaTemplate metadataCatalog;
 
@@ -731,7 +732,12 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format("Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookUpFunction(functionName);
-        final List<? extends Typed> valueArgs = Arrays.stream(arguments).map(Expression::getUnderlying)
+        List<Expression> argumentList = new ArrayList<>();
+        argumentList.addAll(List.of(arguments));
+        if ("bitmap_bucket_offset".equals(functionName) || "bitmap_bit_position".equals(functionName)) {
+            argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
+        }
+        final List<? extends Typed> valueArgs = argumentList.stream().map(Expression::getUnderlying)
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);

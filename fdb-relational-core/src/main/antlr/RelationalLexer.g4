@@ -333,9 +333,12 @@ JSON_OBJECTAGG:                      'JSON_OBJECTAGG';
 
 AVG:                                 'AVG';
 BIT_AND:                             'BIT_AND';
+BITMAP_BIT_POSITION:                 'BITMAP_BIT_POSITION';
+BITMAP_BUCKET_OFFSET:                'BITMAP_BUCKET_OFFSET';
+BITMAP_BUCKET_NUMBER:                'BITMAP_BUCKET_NUMBER';
+BITMAP_CONSTRUCT_AGG:                'BITMAP_CONSTRUCT_AGG';
 BIT_OR:                              'BIT_OR';
 BIT_XOR:                             'BIT_XOR';
-BITMAP:                              'BITMAP';
 COUNT:                               'COUNT';
 CUME_DIST:                           'CUME_DIST';
 DENSE_RANK:                          'DENSE_RANK';

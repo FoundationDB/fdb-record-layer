@@ -233,4 +233,9 @@ public class YamlIntegrationTests extends YamlTestBase {
     public void cte() throws Exception {
         doRun("cte.yamsql");
     }
+
+    @Test
+    public void bitmap() throws Exception {
+        doRun("bitmap-aggregate-index.yamsql");
+    }
 }
