@@ -1150,7 +1150,11 @@ public class OnlineIndexer implements AutoCloseable {
              * Allow a single target indexing continuation when the index was partly built as mutual indexing (either single or multi target).
              */
             MUTUAL_TO_SINGLE,
-            // TODO:  TO_MUTUAL - either single or multi target to mutual indexing
+            /**
+             * Allow converting (single or multi target) by-records to mutual.
+             * Note that single-target-mutual is a private case of multi-target-mutual. The non-mutual distinction is used for backward compatibility.
+             */
+            BY_RECORDS_TO_MUTUAL,
         }
 
         /**
@@ -1338,22 +1342,29 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp.Method newMethod,
                                                          IndexBuildProto.IndexBuildIndexingStamp.Method oldMethod) {
-            if (allowedTakeoverSet != null) {
-                if (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
-                    if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
-                        return allowedTakeoverSet.contains(TakeoverTypes.MULTI_TARGET_TO_SINGLE);
-                    }
-                    if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS) {
-                        return allowedTakeoverSet.contains(TakeoverTypes.MUTUAL_TO_SINGLE);
-                    }
+            if (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
+                if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
+                    return isTypeConversionAllowed(TakeoverTypes.MULTI_TARGET_TO_SINGLE);
                 }
-                return false;
+                if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS) {
+                    return isTypeConversionAllowed(TakeoverTypes.MUTUAL_TO_SINGLE);
+                }
             }
-            return allowTakeoverContinue &&
-                   // Takeover is allowed only in certain cases
-                   (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
-                    (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS ||
-                     oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS));
+            if (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS) {
+                if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS ||
+                        oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
+                    // Note that single-target-mutual is a private case of multi-target-mutual
+                    return isTypeConversionAllowed(TakeoverTypes.BY_RECORDS_TO_MUTUAL);
+                }
+            }
+            return false;
+        }
+
+        private boolean isTypeConversionAllowed(TakeoverTypes takeoverType) {
+            return
+                    allowedTakeoverSet == null ?
+                    allowTakeoverContinue :
+                    allowedTakeoverSet.contains(takeoverType);
         }
 
 

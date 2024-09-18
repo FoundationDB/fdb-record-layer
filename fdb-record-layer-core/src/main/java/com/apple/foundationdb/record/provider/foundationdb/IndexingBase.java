@@ -1226,7 +1226,7 @@ public abstract class IndexingBase {
      * thrown when partly built by another method.
      */
     @SuppressWarnings("serial")
-    public static class  PartlyBuiltException extends RecordCoreException {
+    public static class PartlyBuiltException extends RecordCoreException {
         final IndexBuildProto.IndexBuildIndexingStamp savedStamp;
         final IndexBuildProto.IndexBuildIndexingStamp expectedStamp;
         final String indexName;

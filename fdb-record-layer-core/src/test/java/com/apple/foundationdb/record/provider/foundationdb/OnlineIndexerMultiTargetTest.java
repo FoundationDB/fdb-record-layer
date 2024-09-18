@@ -948,4 +948,61 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // happy indexes assertion
         assertReadable(indexes);
     }
+
+    @Test
+    void testForbidConversionOfActiveMultiTargetToMutual() throws InterruptedException {
+        // Do not let a conversion of few indexes of an active multi-target session
+        final int numRecords = 19;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        Thread t1 = new Thread(() -> {
+            // build index and pause halfway, allowing an active session test
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setLimit(4)
+                    .setConfigLoader(old -> {
+                        try {
+                            startBuildingSemaphore.release();
+                            pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        pauseMutualBuildSemaphore.release();
+                        return old;
+                    })
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        t1.start();
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+        // Try as mutual and fail
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexing(true))
+                .build()) {
+            assertThrows(IndexingBase.PartlyBuiltException.class, indexBuilder::buildIndex);
+        }
+        // let the other thread finish indexing
+        pauseMutualBuildSemaphore.release();
+        t1.join();
+        // happy indexes assertion
+        assertReadable(indexes);
+    }
 }

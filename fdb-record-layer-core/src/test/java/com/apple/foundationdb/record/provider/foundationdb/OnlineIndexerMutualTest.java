@@ -403,11 +403,15 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertAllValidated(indexes);
     }
 
-    OnlineIndexer.IndexingPolicy.Builder mutualTakeOverIndexingPolicy(boolean explicit) {
+    OnlineIndexer.IndexingPolicy.Builder mutualTakeOverIndexingPolicy(boolean explicit, boolean mutual) {
         final OnlineIndexer.IndexingPolicy.Builder builder = OnlineIndexer.IndexingPolicy.newBuilder();
+        final List<OnlineIndexer.IndexingPolicy.TakeoverTypes> convertionSet =
+                mutual ?
+                List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.BY_RECORDS_TO_MUTUAL) :
+                List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MUTUAL_TO_SINGLE);
+
         return explicit ?
-               builder.allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MUTUAL_TO_SINGLE))
-                        :
+               builder.allowTakeoverContinue(convertionSet) :
                builder.allowTakeoverContinue();
     }
 
@@ -440,7 +444,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
-                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit))
+                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, false))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -449,6 +453,132 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         // validate
         assertReadable(indexes);
         assertAllValidated(indexes);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testMultiTargetContinueAsMutual(boolean explicit) {
+        // Start building with multi target, stop, continue as mutual
+        // Make sure that the mutual indexing is unblocked
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        int numRecords = 32;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // Build as mutual, crash half way
+        final String testThrowMsg = "Intentionally crash during test";
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setLimit(10)
+                .setConfigLoader(old -> {
+                    throw new RecordCoreException(testThrowMsg);
+                })
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains(testThrowMsg));
+        }
+
+        // Continue as mutual
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, true)
+                        .setMutualIndexing())
+                .build()) {
+            indexBuilder.buildIndex(true);
+        }
+
+        // validate
+        assertReadable(indexes);
+        assertAllValidated(indexes);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testSingleTargetContinueAsMutual(boolean explicit) {
+        // Start building with a single target, stop, continue as mutual
+        // Make sure that the mutual indexing is unblocked
+        // Note that a single target session produces a different indexing type stamp than a multi target session
+        final Index index = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        List<Index> indexes = List.of(index);
+
+        int numRecords = 32;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // Build as mutual, crash half way
+        final String testThrowMsg = "Intentionally crash during test";
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setLimit(5)
+                .setConfigLoader(old -> {
+                    throw new RecordCoreException(testThrowMsg);
+                })
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains(testThrowMsg));
+        }
+
+        // Continue as mutual
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, true)
+                        .setMutualIndexing())
+                .build()) {
+            indexBuilder.buildIndex(true);
+        }
+
+        // validate
+        assertReadable(indexes);
+        assertAllValidated(indexes);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testMultiTargetForbidContinueAsMutual() {
+        // Start building with multi target, stop, fail to continue as mutual because takeover is not allowed
+        // Make sure that the mutual indexing is unblocked
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        int numRecords = 32;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // Build as mutual, crash half way
+        final String testThrowMsg = "Intentionally crash during test";
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setLimit(10)
+                .setConfigLoader(old -> {
+                    throw new RecordCoreException(testThrowMsg);
+                })
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains(testThrowMsg));
+        }
+
+        // Continue as mutual
+
+        final List<Tuple> boundaries = getBoundariesList(numRecords, 11);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundaries))
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+        }
     }
 
     @Test
@@ -787,7 +917,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexes));
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
-                .setIndexingPolicy(mutualTakeOverIndexingPolicy(true)
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(true, false)
                         .allowUniquePendingState(allowUniquePending))
                 .build()) {
             indexBuilder.buildIndex();
@@ -930,7 +1060,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexesHook));
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
-                .setIndexingPolicy(mutualTakeOverIndexingPolicy(true)
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(true, false)
                         .setMutualIndexingBoundaries(boundaries))
                 .setLimit(1)
                 .setConfigLoader(old -> {
