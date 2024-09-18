@@ -1503,8 +1503,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @API(API.Status.INTERNAL)
-    public void addIndexUniquenessCommitCheck(@Nonnull Index index, @Nonnull CompletableFuture<Void> check) {
-        IndexUniquenessCommitCheck commitCheck = new IndexUniquenessCommitCheck(index, check);
+    public void addIndexUniquenessCommitCheck(@Nonnull Index index, @Nonnull Subspace indexSubspace,
+                                              @Nonnull CompletableFuture<Void> check) {
+        IndexUniquenessCommitCheck commitCheck = new IndexUniquenessCommitCheck(index, indexSubspace, check);
         getRecordContext().addCommitCheck(commitCheck);
     }
 
@@ -1520,9 +1521,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @VisibleForTesting
     CompletableFuture<Void> whenAllIndexUniquenessCommitChecks(@Nonnull Index index) {
+        // we need to check based on the index subspace instead of the index, in case there are two stores open in
+        // the same context, and one has uniqueness violations, and the other does not
+        final Subspace indexSubspace = indexSubspace(index);
         List<FDBRecordContext.CommitCheckAsync> indexUniquenessChecks = getRecordContext().getCommitChecks(commitCheck -> {
             if (commitCheck instanceof IndexUniquenessCommitCheck) {
-                return ((IndexUniquenessCommitCheck)commitCheck).getIndex().equals(index);
+                return ((IndexUniquenessCommitCheck)commitCheck).getIndexSubspace().equals(indexSubspace);
             } else {
                 return false;
             }
