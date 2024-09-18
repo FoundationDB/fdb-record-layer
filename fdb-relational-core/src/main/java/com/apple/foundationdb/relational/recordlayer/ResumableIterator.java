@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -65,6 +66,8 @@ public interface ResumableIterator<T> extends Iterator<T>, AutoCloseable {
      * method to retrieve a {@code Continuation} object that can be used to resume the iteration.
      */
     boolean terminatedEarly();
+
+    RecordCursor.NoNextReason getNoNextReason();
 
     boolean isClosed();
 }

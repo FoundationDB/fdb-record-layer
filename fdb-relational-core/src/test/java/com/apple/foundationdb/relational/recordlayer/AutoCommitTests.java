@@ -617,6 +617,7 @@ public class AutoCommitTests {
 
             // since the resultSet is still open, transaction should be opened.
             Assertions.assertTrue(conn.inActiveTransaction());
+            ResultSetAssert.assertThat(rs).hasNextRow();
         }
         // since the resultSet remains open, transaction is still open.
         Assertions.assertFalse(rs.isClosed());

@@ -212,7 +212,7 @@ public class ExplainTests {
                 resultSet.next();
             }
             Assertions.assertThat(resultSet.next()).isFalse();
-            org.junit.jupiter.api.Assertions.assertSame(RelationalResultSet.NoNextRowReason.NO_MORE_ROWS, resultSet.noNextRowReason());
+            org.junit.jupiter.api.Assertions.assertSame(Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED, resultSet.getContinuation().getReason());
             continuation = resultSet.getContinuation();
         }
         return continuation;

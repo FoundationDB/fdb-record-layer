@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -81,22 +82,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         return currentRow;
     }
 
-    @Nullable
-    @Override
-    public NoNextRowReason noNextRowReason() {
-        if (currentRow != null) {
-            return null;
-        }
-        if (currentCursor.hasNext()) {
-            return null;
-        }
-        if (currentCursor.terminatedEarly()) {
-            return NoNextRowReason.EXEC_LIMIT_REACHED;
-        } else {
-            return NoNextRowReason.NO_MORE_ROWS;
-        }
-    }
-
     @Override
     public void close() throws SQLException {
         try {
@@ -119,19 +104,35 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Override
     public Continuation getContinuation() throws SQLException {
         try {
-            return enrichContinuationFunction.apply(currentCursor.getContinuation());
+            return enrichContinuationFunction.apply(currentCursor.getContinuation(), continuationReason());
         } catch (RelationalException e) {
             throw e.toSqlException();
+        }
+    }
+
+    private Continuation.Reason continuationReason() {
+        if (currentRow != null) {
+            return Continuation.Reason.USER_REQUESTED_CONTINUATION;
+        }
+        if (currentCursor.hasNext()) {
+            return Continuation.Reason.USER_REQUESTED_CONTINUATION;
+        }
+        if (currentCursor.terminatedEarly()) {
+            return Continuation.Reason.TRANSACTION_LIMIT_REACHED;
+        } else if (currentCursor.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
+            return Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED;
+        } else {
+            return Continuation.Reason.CURSOR_AFTER_LAST;
         }
     }
 
     @FunctionalInterface
     public interface EnrichContinuationFunction {
         @Nonnull
-        Continuation apply(@Nonnull Continuation continuation) throws RelationalException;
+        Continuation apply(@Nonnull Continuation continuation, Continuation.Reason reason) throws RelationalException;
 
         static EnrichContinuationFunction identity() {
-            return continuation -> continuation;
+            return (continuation, reason) -> continuation;
         }
     }
 }

@@ -323,8 +323,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(metaData, iterator, connection,
-                        continuation -> enrichContinuation(continuation, fdbRecordStore.getRecordMetaData(),
-                                currentPlanHashMode, getContinuationsContainsCompiledStatements(options)));
+                        (continuation, reason) -> enrichContinuation(continuation, fdbRecordStore.getRecordMetaData(),
+                                currentPlanHashMode, reason, getContinuationsContainsCompiledStatements(options)));
             });
         }
 
@@ -332,10 +332,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private Continuation enrichContinuation(@Nonnull final Continuation continuation,
                                                 @Nonnull final RecordMetaData recordMetaData,
                                                 @Nonnull final PlanHashMode currentPlanHashMode,
+                                                @Nonnull final Continuation.Reason reason,
                                                 final boolean serializeCompiledStatement) throws RelationalException {
             final var continuationBuilder =  ContinuationImpl.copyOf(continuation).asBuilder()
                     .withBindingHash(queryExecutionParameters.getParameterHash())
-                    .withPlanHash(planHashSupplier.get());
+                    .withPlanHash(planHashSupplier.get())
+                    .withReason(reason);
             // Do not send the serialized plan unless we can continue with this continuation.
             if (serializeCompiledStatement && !continuation.atEnd()) {
                 //

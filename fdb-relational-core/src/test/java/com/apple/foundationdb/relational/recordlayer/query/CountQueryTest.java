@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.RelationalStatementRule;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -78,7 +78,7 @@ public class CountQueryTest {
                     .hasNextRow()
                     .hasColumn("c", 2L)
                     .hasNoNextRow()
-                    .hasNoNextRowReasonAsNoMoreRows();
+                    .continuationReasonIs(Continuation.Reason.CURSOR_AFTER_LAST);
         }
     }
 
@@ -89,7 +89,7 @@ public class CountQueryTest {
                     .hasNextRow()
                     .hasColumn("C", 2L)
                     .hasNoNextRow()
-                    .hasNoNextRowReasonAsNoMoreRows();
+                    .continuationReasonIs(Continuation.Reason.CURSOR_AFTER_LAST);
         }
     }
 
@@ -110,7 +110,7 @@ public class CountQueryTest {
                     .hasColumn("B", 400L)
                     .hasColumn("A", 1L)
                     .hasNoNextRow()
-                    .hasNoNextRowReasonAsNoMoreRows();
+                    .continuationReasonIs(Continuation.Reason.CURSOR_AFTER_LAST);
         }
     }
 }

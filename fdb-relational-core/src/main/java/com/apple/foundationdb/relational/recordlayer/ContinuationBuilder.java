@@ -69,6 +69,12 @@ public class ContinuationBuilder {
         return this;
     }
 
+    @Nonnull
+    public ContinuationBuilder withReason(@Nonnull final Continuation.Reason reason) {
+        proto.setReason(ContinuationProto.Reason.valueOf(reason.name()));
+        return this;
+    }
+
     public Continuation build() {
         return new ContinuationImpl(proto.build());
     }

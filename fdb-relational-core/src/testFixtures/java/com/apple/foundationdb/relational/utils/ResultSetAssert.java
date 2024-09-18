@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.MutableRowStruct;
 import com.apple.foundationdb.relational.api.Row;
@@ -104,20 +105,20 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         return this;
     }
 
-    public ResultSetAssert hasNoNextRowReasonAsNoMoreRows() {
+    public ResultSetAssert hasNoNextRowReasonAsCursorAfterLast() {
         isNotNull();
         try {
-            Assertions.assertThat(actual.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.NO_MORE_ROWS);
+            Assertions.assertThat(actual.getContinuation().getReason()).isEqualTo(Continuation.Reason.CURSOR_AFTER_LAST);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
         return this;
     }
 
-    public ResultSetAssert hasNoNextRowReasonAsExecLimit() {
+    public ResultSetAssert continuationReasonIs(Continuation.Reason reason) {
         isNotNull();
         try {
-            Assertions.assertThat(actual.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
+            Assertions.assertThat(actual.getContinuation().getReason()).isEqualTo(reason);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

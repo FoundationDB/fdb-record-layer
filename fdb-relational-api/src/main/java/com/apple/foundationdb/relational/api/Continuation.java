@@ -25,6 +25,28 @@ import javax.annotation.Nullable;
 public interface Continuation {
 
     /**
+     * Reason why the continuation was generated in the first place.
+     */
+    enum Reason {
+        /**
+         * The continuation was generated as a result of a call to getContinuation but the ResultSet was not exhausted.
+         */
+        USER_REQUESTED_CONTINUATION,
+        /**
+         * Reached a transaction limit, such as byte scan limit, row scan limit or time limit.
+         */
+        TRANSACTION_LIMIT_REACHED,
+        /**
+         * Reached a query execution limit, such as the maximum number of rows allowed in a result set.
+         */
+        QUERY_EXECUTION_LIMIT_REACHED,
+        /**
+         * All rows were returned.
+         */
+        CURSOR_AFTER_LAST,
+    }
+
+    /**
      * Serialize the continuation (such that it can be transferred across the wire).
      * This will create a serialized version of the continuation's entire state, that can be later restored.
      *
@@ -49,4 +71,10 @@ public interface Continuation {
         byte[] bytes = getExecutionState();
         return bytes != null && bytes.length == 0;
     }
+
+    /**
+     * Returns the reason why the continuation was generated in the first place.
+     * @return the reason
+     */
+    Reason getReason();
 }

@@ -173,7 +173,7 @@ public class CursorTest {
                     for (int i = 0; i < 5; i++) {
                         resultSetAssert.hasNextRow();
                     }
-                    resultSetAssert.hasNoNextRow().hasNoNextRowReasonAsNoMoreRows();
+                    resultSetAssert.hasNoNextRow().continuationReasonIs(Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED);
                     continuation = resultSet.getContinuation();
                 }
             } catch (SQLException e) {
@@ -187,7 +187,8 @@ public class CursorTest {
                     for (int i = 0; i < 5; i++) {
                         resultSetAssert.hasNextRow();
                     }
-                    resultSetAssert.hasNoNextRow().hasNoNextRowReasonAsNoMoreRows();
+                    resultSetAssert.hasNoNextRow();
+                    Assertions.assertEquals(Continuation.Reason.CURSOR_AFTER_LAST, resultSet.getContinuation().getReason());
                 }
             } catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -209,8 +210,8 @@ public class CursorTest {
                     if (resultSet.next()) {
                         numRowsReturned++;
                     } else {
-                        Assertions.assertEquals(resultSet.noNextRowReason(), RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
                         continuation = resultSet.getContinuation();
+                        Assertions.assertEquals(Continuation.Reason.TRANSACTION_LIMIT_REACHED, continuation.getReason());
                         break;
                     }
                 }
@@ -227,8 +228,8 @@ public class CursorTest {
                         if (resultSet.next()) {
                             numRowsReturned++;
                         } else {
-                            Assertions.assertEquals(resultSet.noNextRowReason(), RelationalResultSet.NoNextRowReason.NO_MORE_ROWS);
                             Assertions.assertEquals(10, numRowsReturned);
+                            Assertions.assertEquals(Continuation.Reason.CURSOR_AFTER_LAST, resultSet.getContinuation().getReason());
                             break;
                         }
                     }

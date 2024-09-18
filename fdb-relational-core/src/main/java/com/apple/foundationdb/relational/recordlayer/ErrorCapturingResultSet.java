@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 
 @ExcludeFromJacocoGeneratedReport //there's nothing to test, just exception translation
@@ -265,11 +264,5 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
-    }
-
-    @Override
-    @Nullable
-    public NoNextRowReason noNextRowReason() throws SQLException {
-        return delegate.noNextRowReason();
     }
 }

@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
@@ -266,17 +265,6 @@ class RelationalResultSetFacade implements RelationalResultSet {
     public Continuation getContinuation() throws SQLException {
         // Not implemented. Not throwing an exception though because usually null continuation is right answer. TODO.
         return null;
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    @Nullable
-    public NoNextRowReason noNextRowReason() throws SQLException {
-        if (rowIndex < rows) {
-            return null;
-        }
-        // Not implemented. Not throwing an exception though because usually having no more rows is the right answer. TODO.
-        return NoNextRowReason.NO_MORE_ROWS;
     }
 
     @Override

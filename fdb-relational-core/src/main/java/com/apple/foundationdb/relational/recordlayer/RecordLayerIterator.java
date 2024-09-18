@@ -122,6 +122,11 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
                 noNextReason != RecordCursor.NoNextReason.RETURN_LIMIT_REACHED;
     }
 
+    @Override
+    public RecordCursor.NoNextReason getNoNextReason() {
+        return noNextReason;
+    }
+
     @Nullable
     private String terminatedEarlyReason() {
         if (!terminatedEarly()) {

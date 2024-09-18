@@ -28,6 +28,12 @@ option java_package = "com.apple.foundationdb.relational.continuation";
 option java_outer_classname = "ContinuationOuter";
 
 message ContinuationProto {
+  enum Reason {
+    USER_REQUESTED_CONTINUATION = 0;
+    TRANSACTION_LIMIT_REACHED = 1;
+    QUERY_EXECUTION_LIMIT_REACHED = 2;
+    CURSOR_AFTER_LAST = 3;
+  }
 
   optional int32 version = 1;
   // The underlying (cursor) execution state
@@ -38,6 +44,7 @@ message ContinuationProto {
   optional int32 plan_hash = 4;
   // The serialized package
   optional CompiledStatement compiled_statement = 5;
+  optional Reason reason = 6;
 }
 
 message TypedQueryArgument {

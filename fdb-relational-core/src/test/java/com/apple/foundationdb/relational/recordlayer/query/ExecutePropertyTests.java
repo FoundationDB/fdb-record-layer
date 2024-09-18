@@ -149,8 +149,8 @@ public class ExecutePropertyTests {
                     Assertions.assertThat(rs2.next()).isTrue();
                     Assertions.assertThat(rs2.next()).isTrue();
                     Assertions.assertThat(rs2.next()).isFalse();
-                    Assertions.assertThat(rs1.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
-                    Assertions.assertThat(rs2.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
+                    Assertions.assertThat(rs1.getContinuation().getReason()).isEqualTo(Continuation.Reason.TRANSACTION_LIMIT_REACHED);
+                    Assertions.assertThat(rs2.getContinuation().getReason()).isEqualTo(Continuation.Reason.TRANSACTION_LIMIT_REACHED);
                 }
             }
         }
@@ -176,7 +176,7 @@ public class ExecutePropertyTests {
                     Assertions.assertThat(rs.next()).isTrue();
                     Assertions.assertThat(rs.next()).isTrue();
                     Assertions.assertThat(rs.next()).isFalse();
-                    Assertions.assertThat(rs.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
+                    Assertions.assertThat(rs.getContinuation().getReason()).isEqualTo(Continuation.Reason.TRANSACTION_LIMIT_REACHED);
                 }
             }
         }
@@ -197,7 +197,7 @@ public class ExecutePropertyTests {
                     Assertions.assertThat(rs.next()).isTrue();
                     Assertions.assertThat(rs.next()).isTrue();
                     Assertions.assertThat(rs.next()).isFalse();
-                    Assertions.assertThat(rs.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
+                    Assertions.assertThat(rs.getContinuation().getReason()).isEqualTo(Continuation.Reason.TRANSACTION_LIMIT_REACHED);
                 }
             }
         }

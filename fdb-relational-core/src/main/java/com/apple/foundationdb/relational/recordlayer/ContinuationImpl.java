@@ -77,6 +77,14 @@ public final class ContinuationImpl implements Continuation {
         }
     }
 
+    @Override
+    public Reason getReason() {
+        if (proto.hasReason()) {
+            return Reason.valueOf(proto.getReason().name());
+        }
+        return null;
+    }
+
     public boolean hasCompiledStatement() {
         return proto.hasCompiledStatement();
     }
