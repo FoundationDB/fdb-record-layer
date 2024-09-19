@@ -682,10 +682,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Factory for {@link NeverAllowClearUniquenessViolations}.
+     * Factory for {@link DefaultClearUniquenessViolations}.
      */
     @AutoService(IndexMaintainerFactory.class)
-    public static class NeverAllowClearUniquenessViolationsFactory implements IndexMaintainerFactory {
+    public static class DefaultClearUniquenessViolationsFactory implements IndexMaintainerFactory {
 
         @Nonnull
         @Override
@@ -702,14 +702,25 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         @Nonnull
         @Override
         public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-            return new NeverAllowClearUniquenessViolations(state);
+            return new DefaultClearUniquenessViolations(state);
         }
     }
 
-    private static class NeverAllowClearUniquenessViolations extends IndexMaintainer {
+    /**
+     * An index maintainer that is exactly the same as {@link ValueIndexMaintainer} except it uses the default
+     * implementation of {@link IndexMaintainer#clearUniquenessViolations()}, to simulate an index that didn't implement
+     * {@code clearUniquenessViolations}.
+     * <p>
+     *     It does this by creating a {@link ValueIndexMaintainer}, but extending {@link IndexMaintainer} and delegating
+     *     every method to the underlying {@code ValueIndexMaintainer}, except
+     *     {@link IndexMaintainer#clearUniquenessViolations()}, for which it calls
+     *     {@code super.clearUniquenessViolations()}.
+     * </p>
+     */
+    private static class DefaultClearUniquenessViolations extends IndexMaintainer {
         IndexMaintainer underlying;
 
-        public NeverAllowClearUniquenessViolations(final IndexMaintainerState state) {
+        public DefaultClearUniquenessViolations(final IndexMaintainerState state) {
             super(state);
             underlying = new ValueIndexMaintainer(state);
         }
