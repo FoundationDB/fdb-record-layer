@@ -3461,18 +3461,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
                     .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
         } else {
-            uniquenessFuture = AsyncUtil.getAll(
-                    checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().getSubspaceKey().equals(index.getSubspaceKey())))
-                    // if the index is WriteOnly it will record violations, in the commit check so we need to wait
-                    // for those to complete
-                    // if the index is ReadableUniquePending, the check will throw an exception if a violation was added
-                    // during this operation.
-                    // This means that if you (in a single transaction):
-                    //   1. add a violation to a ReadableUniquePending index
-                    //   2. call checkVersion with a new metadata that changes the index to not-unique
-                    // It will fail with a uniqueness violation.
-                    .thenCompose(vignore -> getIndexMaintainer(index).clearUniquenessViolations())
-                    .thenApply(vignore -> Optional.empty());
+            uniquenessFuture = CompletableFuture.completedFuture(Optional.empty());
         }
         return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
             Optional<Range> firstUnbuilt = context.join(builtFuture);
@@ -4377,13 +4366,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
         final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
-        for (Index index : metaData.getAllIndexes()) {
-            if (!indexes.containsKey(index) &&
-                    !index.isUnique() &&
-                    getIndexState(index) == IndexState.READABLE_UNIQUE_PENDING) {
-                work.add(markIndexReadable(index, false).thenApply(vignore -> null));
-            }
-        }
+        handleNoLongerUniqueIndex(metaData, work, indexes);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
             RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
@@ -4428,6 +4411,49 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             });
         } else {
             return work.isEmpty() ? AsyncUtil.DONE : AsyncUtil.whenAll(work);
+        }
+    }
+
+    /**
+     * It is legal to remove a uniqueness constraint from an index without changing the {@code lastModifiedVersion},
+     * if this is done this method will clear any violations, and transition {@link IndexState#READABLE_UNIQUE_PENDING}
+     * to {@link IndexState#READABLE}.
+     * @param metaData the current metadata
+     * @param work work to be done as part of {@code checkVersion}
+     * @param indexesToBuildSince the list of indexes whose {@code lastModifiedVersion} has changed since we last did
+     * {@code checkVersion}
+     */
+    private void handleNoLongerUniqueIndex(@Nonnull final RecordMetaData metaData,
+                                           @Nonnull final List<CompletableFuture<Void>> work,
+                                           @Nonnull final Map<Index, List<RecordType>> indexesToBuildSince) {
+        for (Index index : metaData.getAllIndexes()) {
+            if (!indexesToBuildSince.containsKey(index) &&
+                    !index.isUnique()) {
+                final IndexState indexState = getIndexState(index);
+                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
+                    // TODO make this not fail if there are uniqueness violations
+                    // TODO remove the checks
+                    // TODO compare via the whole subspace once PR #2920 is in
+                    final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(
+                                    checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().getSubspaceKey().equals(index.getSubspaceKey())))
+                            // if the index is WriteOnly it will record violations, in the commit check so we need to wait
+                            // for those to complete
+                            // if the index is ReadableUniquePending, the check will throw an exception if a violation was added
+                            // during this operation.
+                            // This means that if you (in a single transaction):
+                            //   1. add a violation to a ReadableUniquePending index
+                            //   2. call checkVersion with a new metadata that changes the index to not-unique
+                            // It will fail with a uniqueness violation.
+                            .thenCompose(vignore -> getIndexMaintainer(index).clearUniquenessViolations());
+                    if (indexState == IndexState.READABLE_UNIQUE_PENDING) {
+                        work.add(uniquenessFuture
+                                .thenCompose(vignore -> markIndexReadable(index, false))
+                                .thenApply(vignore2 -> null));
+                    } else {
+                        work.add(uniquenessFuture);
+                    }
+                }
+            }
         }
     }
 
