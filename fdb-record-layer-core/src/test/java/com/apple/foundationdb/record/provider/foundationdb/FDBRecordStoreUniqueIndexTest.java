@@ -667,11 +667,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
                 assertUniquenessViolations(context, Matchers.hasSize(0));
                 assertIndexEntries();
-                if (allowReadableUniquePending && addViolationsBefore) {
-                    assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
-                } else {
-                    commit(context);
-                }
+                commit(context);
             }
         }
 

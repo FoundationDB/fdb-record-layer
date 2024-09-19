@@ -1520,20 +1520,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @VisibleForTesting
     CompletableFuture<Void> whenAllIndexUniquenessCommitChecks(@Nonnull Index index) {
-        return AsyncUtil.whenAll(checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().equals(index)));
-    }
-
-    private @Nonnull List<CompletableFuture<Void>> checkAllIndexUniquenessChecks(final Predicate<IndexUniquenessCommitCheck> checkPredicate) {
-        List<FDBRecordContext.CommitCheckAsync> indexUniquenessChecks = getRecordContext().getCommitChecks(commitCheck -> {
-            if (commitCheck instanceof IndexUniquenessCommitCheck) {
-                return checkPredicate.test((IndexUniquenessCommitCheck)commitCheck);
+        List<FDBRecordContext.CommitCheckAsync> indexUniquenessChecks = getRecordContext().getCommitChecks(commitCheck1 -> {
+            if (commitCheck1 instanceof IndexUniquenessCommitCheck) {
+                return ((IndexUniquenessCommitCheck)commitCheck1).getIndex().equals(index);
             } else {
                 return false;
             }
         });
-        return indexUniquenessChecks.stream()
+        return AsyncUtil.whenAll(indexUniquenessChecks.stream()
                 .map(FDBRecordContext.CommitCheckAsync::checkAsync)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
     }
 
     @Override
@@ -4431,21 +4427,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
                 if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
-                    // TODO remove the checks
                     // TODO compare via the whole subspace once PR #2920 is in
-                    final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(
-                                    checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().getSubspaceKey().equals(index.getSubspaceKey()))
-                                            .stream().map(check ->
-                                                    MoreAsyncUtil.swallowException(check, err -> err instanceof RecordIndexUniquenessViolation))
-                                            .collect(Collectors.toList()))
-                            // if the index is WriteOnly it will record violations, in the commit check so we need to wait
-                            // for those to complete
-                            // if the index is ReadableUniquePending, the check will throw an exception if a violation was added
-                            // during this operation.
-                            // This means that if you (in a single transaction):
-                            //   1. add a violation to a ReadableUniquePending index
-                            //   2. call checkVersion with a new metadata that changes the index to not-unique
-                            // It will fail with a uniqueness violation.
+                    final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
+                            commitCheck -> {
+                                if (commitCheck instanceof IndexUniquenessCommitCheck) {
+                                    return ((IndexUniquenessCommitCheck)commitCheck).getIndex().getSubspaceKey().equals(index.getSubspaceKey());
+                                } else {
+                                    return false;
+                                }
+                            },
+                            // swallow any uniqueness violations, which may happen if the index was READABLE_UNIQUE_PENDING
+                            err -> err instanceof RecordIndexUniquenessViolation))
+                            // Regardless, we want to clear any existing uniqueness violations on disk
                             .thenCompose(vignore -> getIndexMaintainer(index).clearUniquenessViolations());
                     if (indexState == IndexState.READABLE_UNIQUE_PENDING) {
                         work.add(uniquenessFuture
