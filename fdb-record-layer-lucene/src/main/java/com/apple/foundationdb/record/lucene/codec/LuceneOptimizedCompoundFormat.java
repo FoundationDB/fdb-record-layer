@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FieldInfosStorage;
@@ -61,21 +62,25 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
 
     @Override
     public void write(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
-        // Make sure all fetches are initiated in advance of the compoundFormat sequentially stepping through them.
-        for (String s : si.files()) {
-            dir.openInput(s, IOContext.READONCE)
-                    // even though we're not interacting with them, make sure we close the file
-                    .close();
+        try {
+            // Make sure all fetches are initiated in advance of the compoundFormat sequentially stepping through them.
+            for (String s : si.files()) {
+                dir.openInput(s, IOContext.READONCE)
+                        // even though we're not interacting with them, make sure we close the file
+                        .close();
+            }
+            final Set<String> filesForAfter = Set.copyOf(si.files());
+            // We filter out the FieldInfos and the StoredFields files before passing to underlying compoundFormat.write, because that expects
+            // everything to be a "proper" index format (e.g. have a header), but these meta files are empty.
+            Set<String> filteredFiles = filterMarkerFiles(si.files());
+            si.setFiles(filteredFiles);
+            underlying.write(dir, si, context);
+            si.setFiles(filesForAfter);
+            final String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+            copyFieldInfosId(dir, filesForAfter, entriesFile);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-        final Set<String> filesForAfter = Set.copyOf(si.files());
-        // We filter out the FieldInfos and the StoredFields files before passing to underlying compoundFormat.write, because that expects
-        // everything to be a "proper" index format (e.g. have a header), but these meta files are empty.
-        Set<String> filteredFiles = filterMarkerFiles(si.files());
-        si.setFiles(filteredFiles);
-        underlying.write(dir, si, context);
-        si.setFiles(filesForAfter);
-        final String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
-        copyFieldInfosId(dir, filesForAfter, entriesFile);
     }
 
     protected void copyFieldInfosId(final Directory dir, final Set<String> filesForAfter, final String entriesFile) throws IOException {
@@ -103,6 +108,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     }
 
     protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields) {
+        // TODO: Should this be converted to IOException?
         if (fieldInfos != 1) {
             throw new RecordCoreException("Segment has wrong number of FieldInfos")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);

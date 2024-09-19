@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.directory.FDBIndexInput;
 import org.apache.lucene.store.BufferedChecksumIndexInput;
 import org.apache.lucene.store.IndexInput;
@@ -97,14 +99,22 @@ public class PrefetchableBufferedChecksumIndexInput extends BufferedChecksumInde
 
     @Override
     public byte readByte() throws IOException {
-        checkBuffer(1L);
-        return super.readByte();
+        try {
+            checkBuffer(1L);
+            return super.readByte();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @Override
     public void readBytes(final byte[] b, final int offset, final int len) throws IOException {
-        checkBuffer(len);
-        super.readBytes(b, offset, len);
+        try {
+            checkBuffer(len);
+            super.readBytes(b, offset, len);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
 }

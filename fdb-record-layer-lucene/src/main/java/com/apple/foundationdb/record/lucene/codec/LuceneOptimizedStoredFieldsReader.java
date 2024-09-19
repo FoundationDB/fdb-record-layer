@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -62,47 +64,55 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
     }
 
     public static List<byte[]> getPrimaryKeys(final String segmentName, final FDBDirectory directory) throws IOException {
-        final List<KeyValue> rawStoredFields = directory.readAllStoredFields(segmentName);
-        List<byte[]> primaryKeys = new ArrayList<>();
-        for (final KeyValue rawStoredField : rawStoredFields) {
-            final var storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredField.getValue());
-            primaryKeys.add(storedFields.getPrimaryKey().toByteArray());
+        try {
+            final List<KeyValue> rawStoredFields = directory.readAllStoredFields(segmentName);
+            List<byte[]> primaryKeys = new ArrayList<>();
+            for (final KeyValue rawStoredField : rawStoredFields) {
+                final var storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredField.getValue());
+                primaryKeys.add(storedFields.getPrimaryKey().toByteArray());
+            }
+            return primaryKeys;
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-        return primaryKeys;
     }
 
     @Override
     public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
-        final byte[] rawStoredFields = directory.readStoredFields(segmentName, docID);
-        List<LuceneStoredFieldsProto.StoredField> storedFieldList =
-                LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredFields).getStoredFieldsList();
-        for (LuceneStoredFieldsProto.StoredField storedField: storedFieldList) {
-            FieldInfo info = fieldInfos.fieldInfo(storedField.getFieldNumber());
-            switch (visitor.needsField(info)) {
-                case YES:
-                    if (storedField.hasBytesValue()) {
-                        visitor.binaryField(info, storedField.getBytesValue().toByteArray());
-                    } else if (storedField.hasStringValue()) {
-                        visitor.stringField(info, storedField.getStringValueBytes().toByteArray());
-                    } else if (storedField.hasIntValue()) {
-                        visitor.intField(info, storedField.getIntValue());
-                    } else if (storedField.hasFloatValue()) {
-                        visitor.floatField(info, storedField.getFloatValue());
-                    } else if (storedField.hasLongValue()) {
-                        visitor.longField(info, storedField.getLongValue());
-                    } else if (storedField.hasDoubleValue()) {
-                        visitor.doubleField(info, storedField.getDoubleValue());
-                    } else {
-                        throw new IOException("empty stored field, not supported: " + storedField);
-                    }
-                    break;
-                case NO:
-                    break;
-                case STOP:
-                    return;
-                default:
-                    throw new IllegalStateException("Unexpected value: " + visitor.needsField(info));
+        try {
+            final byte[] rawStoredFields = directory.readStoredFields(segmentName, docID);
+            List<LuceneStoredFieldsProto.StoredField> storedFieldList =
+                    LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredFields).getStoredFieldsList();
+            for (LuceneStoredFieldsProto.StoredField storedField: storedFieldList) {
+                FieldInfo info = fieldInfos.fieldInfo(storedField.getFieldNumber());
+                switch (visitor.needsField(info)) {
+                    case YES:
+                        if (storedField.hasBytesValue()) {
+                            visitor.binaryField(info, storedField.getBytesValue().toByteArray());
+                        } else if (storedField.hasStringValue()) {
+                            visitor.stringField(info, storedField.getStringValueBytes().toByteArray());
+                        } else if (storedField.hasIntValue()) {
+                            visitor.intField(info, storedField.getIntValue());
+                        } else if (storedField.hasFloatValue()) {
+                            visitor.floatField(info, storedField.getFloatValue());
+                        } else if (storedField.hasLongValue()) {
+                            visitor.longField(info, storedField.getLongValue());
+                        } else if (storedField.hasDoubleValue()) {
+                            visitor.doubleField(info, storedField.getDoubleValue());
+                        } else {
+                            throw new IOException("empty stored field, not supported: " + storedField);
+                        }
+                        break;
+                    case NO:
+                        break;
+                    case STOP:
+                        return;
+                    default:
+                        throw new IllegalStateException("Unexpected value: " + visitor.needsField(info));
+                }
             }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 

@@ -40,7 +40,7 @@ public interface LucenePrimaryKeySegmentIndex {
     List<List<Object>> readAllEntries();
 
     @SuppressWarnings("PMD.CloseResource")
-    List<String> findSegments(@Nonnull Tuple primaryKey);
+    List<String> findSegments(@Nonnull Tuple primaryKey) throws IOException;
 
     /**
      * Find document in index for direct delete.
@@ -53,7 +53,7 @@ public interface LucenePrimaryKeySegmentIndex {
      * @see IndexWriter#tryDeleteDocument
      */
     @Nullable
-    DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey);
+    DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException;
 
     /**
      * Add or delete the primary key/segment/docId from the index.

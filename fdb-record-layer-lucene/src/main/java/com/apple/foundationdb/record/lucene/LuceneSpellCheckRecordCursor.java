@@ -114,6 +114,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
                 try {
                     spellcheck();
                 } catch (IOException e) {
+                    // TODO toRecordCoreException
                     throw new RecordCoreException("Spellcheck suggestions lookup failure", e);
                 }
             }

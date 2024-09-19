@@ -720,7 +720,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                             new LuceneMetadataInfo.LuceneInfo(
                                     indexReader.numDocs(),
                                     fileList, fieldInfosCount));
-        } catch (IOException e) {
+        } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
     }

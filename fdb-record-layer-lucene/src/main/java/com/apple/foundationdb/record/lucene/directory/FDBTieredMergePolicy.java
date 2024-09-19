@@ -76,6 +76,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     @Override
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
+        // TODO: Looks like no exception mapping needed in this method
         if (mergeControl == null) {
             final MergeSpecification merges = super.findMerges(mergeTrigger, infos, mergeContext);
             MergeUtils.logFoundMerges(LOGGER, "Found Merges without mergeControl", context, indexSubspace, key, mergeTrigger, merges, exceptionAtCreation);

@@ -66,6 +66,7 @@ public class LuceneConcurrency {
     @Nullable
     @API(API.Status.INTERNAL)
     public static <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async, @Nonnull FDBRecordContext recordContext) {
+        // TODO: call check blocking async?? It's mostly disabled.
         if (recordContext.getPropertyStorage().getPropertyValue(LUCENE_USE_LEGACY_ASYNC_TO_SYNC)) {
             return recordContext.asyncToSync(event, async);
         }

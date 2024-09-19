@@ -179,6 +179,10 @@ public interface AgilityContext {
      */
     void setCommitCheck(Function<FDBRecordContext, CompletableFuture<Void>> commitCheck);
 
+    default void commit(@Nonnull FDBRecordContext context) {
+        LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, context.commitAsync(), context);
+    }
+
     /**
      * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
      */
@@ -309,8 +313,7 @@ public interface AgilityContext {
                     final long stamp = lock.writeLock();
 
                     try (FDBRecordContext commitContext = currentContext) {
-                        // TODO: Call LuceneSync.commit()
-                        LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, commitContext.commitAsync(), commitContext);
+                        commit(commitContext);
                     } catch (RuntimeException ex) {
                         closed = true;
                         reportFdbException(ex);
@@ -375,7 +378,7 @@ public interface AgilityContext {
                 future = function.apply(recoveryContext)
                         .whenComplete((result, ex) -> {
                             if (ex == null) {
-                                LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, recoveryContext.commitAsync(), recoveryContext);
+                                commit(recoveryContext);
                             }
                             recoveryContext.close();
                         });

@@ -48,7 +48,9 @@ public class LuceneExceptions {
             Throwable cause = ex.getCause();
             // Normally that would wrap the actual transaction-too-long from FDB
             if (cause instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
-                return (FDBExceptions.FDBStoreTransactionIsTooOldException)cause;
+                FDBExceptions.FDBStoreTransactionIsTooOldException transactionIsTooOldException = (FDBExceptions.FDBStoreTransactionIsTooOldException)cause;
+                transactionIsTooOldException.addSuppressed(ex);
+                return transactionIsTooOldException;
             } else {
                 // This should not happen - LuceneTransactionTooOldException should have FDBStoreTransactionIsTooOldException as cause
                 RecordCoreException result = new FDBExceptions.FDBStoreTransactionIsTooOldException(message + ": " + ex.getMessage(), null)
@@ -56,6 +58,12 @@ public class LuceneExceptions {
                 result.addSuppressed(ex);
                 return result;
             }
+        }
+        // See if this is a generic IOException wrapping a RecordCoreException
+        if (ex.getCause() instanceof RecordCoreException) {
+            RecordCoreException recordCoreException = (RecordCoreException)ex.getCause();
+            recordCoreException.addSuppressed(ex);
+            return recordCoreException;
         }
 
         return new RecordCoreException(message + ": " + ex.getMessage(), ex)

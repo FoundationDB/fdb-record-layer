@@ -35,6 +35,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +67,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testGetIncrement() {
+    public void testGetIncrement() throws IOException {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, 2);
@@ -79,11 +80,17 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testConcurrentGetIncrement() {
+    public void testConcurrentGetIncrement() throws IOException {
         final int threads = 50;
         List<CompletableFuture<Long>> futures = new ArrayList<>(threads);
         for (int i = 0; i < threads; i++) {
-            futures.add(CompletableFuture.supplyAsync(directory::getIncrement, directory.getCallerContext().getExecutor()));
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    return directory.getIncrement();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, directory.getCallerContext().getExecutor()));
         }
         List<Long> values = AsyncUtil.getAll(futures).join();
         assertThat(values, containsInAnyOrder(LongStream.range(1, threads + 1).mapToObj(Matchers::equalTo).collect(Collectors.toList())));
@@ -153,7 +160,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testListAll() {
+    public void testListAll() throws IOException {
         assertEquals(directory.listAll().length, 0);
         directory.writeFDBLuceneFileReference("test1", new FDBLuceneFileReference(1, 1, 1, 1));
         directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1, 1));

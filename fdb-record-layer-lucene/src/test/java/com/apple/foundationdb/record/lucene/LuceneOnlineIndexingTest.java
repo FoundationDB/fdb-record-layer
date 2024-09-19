@@ -132,7 +132,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void luceneOnlineIndexingTestSimple() {
+    void luceneOnlineIndexingTestSimple() throws IOException {
         Index index = SIMPLE_TEXT_SUFFIXES;
         disableIndex(index, SIMPLE_DOC);
         try (final FDBRecordContext context = openContext()) {
@@ -431,32 +431,32 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void luceneOnlineIndexingTest1() {
+    void luceneOnlineIndexingTest1() throws IOException {
         luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, COMPLEX_DOC, 17, 7, 0, 20);
     }
 
     @Test
-    void luceneOnlineIndexingTest2() {
+    void luceneOnlineIndexingTest2() throws IOException {
         luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, SIMPLE_DOC, 15, 100, 300, 4);
     }
 
     @Test
-    void luceneOnlineIndexingTest3() {
+    void luceneOnlineIndexingTest3() throws IOException {
         luceneOnlineIndexingTestAny(NGRAM_LUCENE_INDEX, SIMPLE_DOC, 44, 7, 2, 34);
     }
 
     @Test
-    void luceneOnlineIndexingTest4() {
+    void luceneOnlineIndexingTest4() throws IOException {
         luceneOnlineIndexingTestAny(TEXT_AND_STORED, COMPLEX_DOC, 8, 100, 1, 4);
     }
 
     @Test
-    void luceneOnlineIndexingTest5() {
+    void luceneOnlineIndexingTest5() throws IOException {
         luceneOnlineIndexingTestAny(LuceneIndexTestUtils.COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2, 20);
     }
 
     @Test
-    void luceneOnlineIndexingTest6() {
+    void luceneOnlineIndexingTest6() throws IOException {
         luceneOnlineIndexingTestAny(LuceneIndexTestUtils.COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0, 20);
     }
 
@@ -475,7 +475,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
 
-    void luceneOnlineIndexingTestAny(Index index, String document, int numRecords, int transactionLimit, int mergesLimit, final int expectedFileCount) {
+    void luceneOnlineIndexingTestAny(Index index, String document, int numRecords, int transactionLimit, int mergesLimit, final int expectedFileCount) throws IOException {
         assertTrue(numRecords > 3);
         final Random rn = new Random();
         rn.nextInt();
@@ -547,7 +547,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
-    void luceneOnlineIndexingTestMulti() {
+    void luceneOnlineIndexingTestMulti() throws IOException {
         int numRecords = 47;
         int transactionLimit = 10;
         int groupingCount = 1;
@@ -707,7 +707,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
-    void luceneOnlineIndexingTestGroupingKeysBackgroundMerge(int groupingCount) {
+    void luceneOnlineIndexingTestGroupingKeysBackgroundMerge(int groupingCount) throws IOException {
         final int groupedCount = 4 - groupingCount;
         Index index = new Index(
                 "Map_with_auto_complete$entry-value",
@@ -777,7 +777,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     }
 
-    private String[] listFiles(Index index) {
+    private String[] listFiles(Index index) throws IOException {
         try (FDBRecordContext context = openContext()) {
             if (index.getRootExpression() instanceof GroupingKeyExpression) {
                 List<String> files = new ArrayList<>();
@@ -795,7 +795,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private String[] listFiles(Index index, Tuple tuple, int groupingCount) {
+    private String[] listFiles(Index index, Tuple tuple, int groupingCount) throws IOException {
         try (FDBRecordContext context = openContext()) {
             final Subspace subspace = recordStore.indexSubspace(index);
             final FDBDirectory directory = new FDBDirectory(subspace.subspace(Tuple.fromItems(tuple.getItems().subList(0, groupingCount))), context, index.getOptions());
@@ -805,7 +805,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
-    void testRecordUpdateBackgroundMerge() {
+    void testRecordUpdateBackgroundMerge() throws IOException {
         boolean needMerge = false;
         Index index = SIMPLE_TEXT_SUFFIXES;
         // Need to reach 10 files to trigger a real merge
@@ -870,7 +870,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
-    void testRecordUpdateBackgroundMerge2() {
+    void testRecordUpdateBackgroundMerge2() throws IOException {
         Index index = SIMPLE_TEXT_SUFFIXES;
         boolean needMerge = populateDataSplitSegments(index, 20, 5);
         assertTrue(needMerge);
@@ -893,7 +893,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
-    void testRecordUpdateMergeByAnotherRecordUpdate() {
+    void testRecordUpdateMergeByAnotherRecordUpdate() throws IOException {
         Index index = SIMPLE_TEXT_SUFFIXES;
         // update records while skipping merge
         boolean needMerge = populateDataSplitSegments(index, 20, 5);
@@ -919,7 +919,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testRecordUpdateReducedMerge() {
+    void testRecordUpdateReducedMerge() throws IOException {
         // emulate repeating merge until until unchanged.
         Index index = SIMPLE_TEXT_SUFFIXES;
         boolean needMerge = populateDataSplitSegments(index, 40, 7);
@@ -946,7 +946,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2, 3, 400})
-    void luceneOnlineIndexingTestMergesLimit(int mergesLimit) {
+    void luceneOnlineIndexingTestMergesLimit(int mergesLimit) throws IOException {
         // emulate repeating merge until until unchanged with different merges limits
         Index index = SIMPLE_TEXT_SUFFIXES;
         boolean needMerge = populateDataSplitSegments(index, 40, 7);
@@ -1122,7 +1122,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void testRecordUpdateReducedMergeForcingAgileSizeQuota(boolean disableAgilityContext) {
+    void testRecordUpdateReducedMergeForcingAgileSizeQuota(boolean disableAgilityContext) throws IOException {
         // emulate repeating merge until until unchanged, with a tiny size quota
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, 100)
@@ -1171,7 +1171,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testRecordUpdateReducedMergeForcingAgileTimeQuota() {
+    void testRecordUpdateReducedMergeForcingAgileTimeQuota() throws IOException {
         // emulate repeating merge until until unchanged, with a tiny size quota
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, 1);

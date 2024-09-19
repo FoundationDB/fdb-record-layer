@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import org.apache.lucene.store.IndexInput;
 import org.slf4j.Logger;
@@ -114,6 +115,7 @@ public class FDBIndexInput extends IndexInput {
 
     @Nonnull
     private FDBLuceneFileReference getFileReference() {
+        // TODO: Map exceptions?
         if (actualReference == null) {
             actualReference = fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
             if (actualReference == null) {
@@ -257,6 +259,8 @@ public class FDBIndexInput extends IndexInput {
             byte[] data = getCurrentData();
             verify(data != null, "current Data is null: " + fileName + " " + fileReference.getId());
             return data[probe];
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         } finally {
             if (absolutePosition() % fileReference.getBlockSize() == 0) {
                 currentBlock++;
@@ -277,33 +281,36 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) throws IOException {
-        int bytesRead = 0;
-        final FDBLuceneFileReference fileReference = getFileReference();
-        if (position + length > fileReference.getSize()) {
-            throw new EOFException("read past EOF: " + this);
-        }
-        long blockSize = fileReference.getBlockSize();
-        while (bytesRead < length) {
-            long inBlockPosition = (absolutePosition() % blockSize);
-            int toRead = (int) (length - bytesRead + inBlockPosition > blockSize ? blockSize - inBlockPosition : length - bytesRead);
-            System.arraycopy(getCurrentData(), (int)inBlockPosition, bytes, bytesRead + offset, toRead);
-            bytesRead += toRead;
-            position += toRead;
-            if (absolutePosition() % blockSize == 0) {
-                currentBlock++;
-                numberOfSeeks++;
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace(getLogMessage("hard seek",
-                            LuceneLogMessageKeys.CURRENT_BLOCK, currentBlock,
-                            LuceneLogMessageKeys.OFFSET, offset,
-                            LuceneLogMessageKeys.LENGTH, length,
-                            LuceneLogMessageKeys.POSITION, position,
-                            LuceneLogMessageKeys.INITIAL_OFFSET, initialOffset));
-                }
-                readBlock();
+        try {
+            int bytesRead = 0;
+            final FDBLuceneFileReference fileReference = getFileReference();
+            if (position + length > fileReference.getSize()) {
+                throw new EOFException("read past EOF: " + this);
             }
+            long blockSize = fileReference.getBlockSize();
+            while (bytesRead < length) {
+                long inBlockPosition = (absolutePosition() % blockSize);
+                int toRead = (int)(length - bytesRead + inBlockPosition > blockSize ? blockSize - inBlockPosition : length - bytesRead);
+                System.arraycopy(getCurrentData(), (int)inBlockPosition, bytes, bytesRead + offset, toRead);
+                bytesRead += toRead;
+                position += toRead;
+                if (absolutePosition() % blockSize == 0) {
+                    currentBlock++;
+                    numberOfSeeks++;
+                    if (LOGGER.isTraceEnabled()) {
+                        LOGGER.trace(getLogMessage("hard seek",
+                                LuceneLogMessageKeys.CURRENT_BLOCK, currentBlock,
+                                LuceneLogMessageKeys.OFFSET, offset,
+                                LuceneLogMessageKeys.LENGTH, length,
+                                LuceneLogMessageKeys.POSITION, position,
+                                LuceneLogMessageKeys.INITIAL_OFFSET, initialOffset));
+                    }
+                    readBlock();
+                }
+            }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-
     }
 
     /**
@@ -334,6 +341,7 @@ public class FDBIndexInput extends IndexInput {
      */
     public int prefetch(int beginBlock, int length) {
         for (int i = 0; i < length; i++) {
+            // TODO: What does this do with the future? It is never realized?
             fdbDirectory.readBlock(this, fileName, reference, beginBlock + i);
         }
         return length;

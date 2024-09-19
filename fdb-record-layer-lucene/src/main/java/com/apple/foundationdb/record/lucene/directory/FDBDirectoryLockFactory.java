@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -62,7 +63,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         // dir is ignored
         try {
             return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
-        } catch (FDBDirectoryLockException ex) {
+        } catch (RecordCoreException ex) {
             // Wrap in a Lucene-compatible exception (that extends IOException)
             throw LuceneExceptions.toIoException(ex, null);
         }
