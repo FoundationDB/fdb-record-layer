@@ -27,15 +27,18 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PBitmapConstructAgg;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMax;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMin;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PSum;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -57,6 +60,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -206,6 +211,75 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             mapBuilder.put(Pair.of(operator.getLogicalOperator(), operator.getArgType()), operator);
         }
         return mapBuilder.build();
+    }
+
+    /**
+     * Bitmap aggregation {@code Value}.
+     */
+    public static class BitmapConstructAgg extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+        public BitmapConstructAgg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected BitmapConstructAgg(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PBitmapConstructAgg bitMapProto) {
+            super(serializationContext, Objects.requireNonNull(bitMapProto.getSuper()));
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.BITMAP_VALUE;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitmapConstructAgg::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new BitmapConstructAgg(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PBitmapConstructAgg toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PBitmapConstructAgg.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setNumericAggregationValueBitmapConstructAgg(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static BitmapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBitmapConstructAgg bitMapProto) {
+            return new BitmapConstructAgg(serializationContext, bitMapProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PBitmapConstructAgg, BitmapConstructAgg> {
+            @Nonnull
+            @Override
+            public Class<PBitmapConstructAgg> getProtoMessageClass() {
+                return PBitmapConstructAgg.class;
+            }
+
+            @Nonnull
+            @Override
+            public BitmapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PBitmapConstructAgg bitMapProto) {
+                return BitmapConstructAgg.fromProto(serializationContext, bitMapProto);
+            }
+        }
     }
 
     /**
@@ -490,6 +564,17 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     }
 
     /**
+     * The {@code bitmap} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitmapConstructAggFn extends BuiltInFunction<AggregateValue> {
+        public BitmapConstructAggFn() {
+            super("BITMAP_CONSTRUCT_AGG",
+                    ImmutableList.of(new Type.Any()), BitmapConstructAgg::encapsulate);
+        }
+    }
+
+    /**
      * The {@code avg} function.
      */
     @AutoService(BuiltInFunction.class)
@@ -526,7 +611,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         SUM,
         AVG,
         MIN,
-        MAX
+        MAX,
+        BITMAP_CONSTRUCT_AGG
     }
 
     /**
@@ -591,7 +677,53 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_I(LogicalOperator.MAX, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.max((int)s, (int)v), identity()),
         MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.max((long)s, (long)v), identity()),
         MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> Math.max((float)s, (float)v), identity()),
-        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity());
+        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity()),
+        BITMAP_CONSTRUCT_AGG_L(LogicalOperator.BITMAP_CONSTRUCT_AGG, TypeCode.LONG, TypeCode.BYTES,
+                s -> {
+                    BitSet sset = new BitSet();
+                    sset.set(((Long)s).intValue());
+                    return sset;
+                },
+                (s, v) -> {
+                    BitSet sset = (BitSet)s;
+                    sset.or((BitSet)v);
+                    return sset;
+                },
+                s -> {
+                    int fixedResultArraySize = BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE / 8;
+                    byte[] res = ((BitSet)s).toByteArray();
+                    if (res.length > BitmapValueIndexMaintainer.MAX_ENTRY_SIZE / 8) {
+                        throw new RecordCoreArgumentException("entry size option is too large")
+                                .addLogInfo("entrySize", res.length * 8, "maxEntrySize", BitmapValueIndexMaintainer.MAX_ENTRY_SIZE);
+                    } else if (res.length > fixedResultArraySize) {
+                        return res;
+                    } else {
+                        return Arrays.copyOf(res, fixedResultArraySize);
+                    }
+                }),
+        BITMAP_CONSTRUCT_AGG_I(LogicalOperator.BITMAP_CONSTRUCT_AGG, TypeCode.INT, TypeCode.BYTES,
+                s -> {
+                    BitSet sset = new BitSet();
+                    sset.set((int)s);
+                    return sset;
+                },
+                (s, v) -> {
+                    BitSet sset = (BitSet)s;
+                    sset.or((BitSet)v);
+                    return sset;
+                },
+                s -> {
+                    int fixedResultArraySize = BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE / 8;
+                    byte[] res = ((BitSet)s).toByteArray();
+                    if (res.length > BitmapValueIndexMaintainer.MAX_ENTRY_SIZE / 8) {
+                        throw new RecordCoreArgumentException("entry size option is too large")
+                                .addLogInfo("entrySize", res.length * 8, "maxEntrySize", BitmapValueIndexMaintainer.MAX_ENTRY_SIZE);
+                    } else if (res.length > fixedResultArraySize) {
+                        return res;
+                    } else {
+                        return Arrays.copyOf(res, fixedResultArraySize);
+                    }
+                });
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =

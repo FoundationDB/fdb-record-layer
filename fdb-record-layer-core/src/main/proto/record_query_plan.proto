@@ -241,6 +241,7 @@ message PValue {
     PToOrderedBytesValue to_ordered_bytes_value = 42;
     PFromOrderedBytesValue from_ordered_bytes_value = 43;
     PCollateValue collate_value = 44;
+    PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
   }
 }
 
@@ -374,6 +375,13 @@ message PArithmeticValue {
       BITXOR_IL = 99;
       BITXOR_LI = 100;
       BITXOR_LL = 101;
+
+      BITMAP_BUCKET_OFFSET_LI = 102;
+      BITMAP_BUCKET_OFFSET_II = 103;
+      BITMAP_BUCKET_NUMBER_LI = 104;
+      BITMAP_BUCKET_NUMBER_II = 105;
+      BITMAP_BIT_POSITION_LI = 106;
+      BITMAP_BIT_POSITION_II = 107;
   }
 
   optional PPhysicalOperator operator = 1;
@@ -522,10 +530,16 @@ message PNumericAggregationValue {
       MAX_L = 14;
       MAX_F = 15;
       MAX_D = 16;
+
+      BITMAP_CONSTRUCT_AGG_L = 17;
+      BITMAP_CONSTRUCT_AGG_I = 18;
   }
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;
 
+  message PBitmapConstructAgg {
+    optional PNumericAggregationValue super = 1;
+  }
   message PSum {
     optional PNumericAggregationValue super = 1;
   }

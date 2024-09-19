@@ -53,9 +53,17 @@ class ArithmeticValueTest {
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no"))))), "rec_no");
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
+    private static final LiteralValue<Integer> INT_5 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 5);
+    private static final LiteralValue<Integer> INT_minus_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), -1);
+    private static final LiteralValue<Integer> INT_10000 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 10000);
+
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
     private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
     private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L);
+    private static final LiteralValue<Long> LONG_minus_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), -1L);
+    private static final LiteralValue<Long> LONG_10000 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 10000L);
+
+
     private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
     private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 2.0F);
     private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
@@ -76,12 +84,29 @@ class ArithmeticValueTest {
                     Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.MulFn(), 4, false),
                     Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.DivFn(), 1, false),
                     Arguments.of(List.of(INT_2, INT_1), new ArithmeticValue.ModFn(), 0, false),
+                    Arguments.of(List.of(INT_5, INT_2), new ArithmeticValue.BitmapBucketOffsetFn(), 4, false),
+                    Arguments.of(List.of(INT_1, INT_2), new ArithmeticValue.BitmapBucketOffsetFn(), 0, false),
+                    Arguments.of(List.of(INT_1, INT_10000), new ArithmeticValue.BitmapBucketOffsetFn(), 0, false),
+                    Arguments.of(List.of(INT_10000, INT_10000), new ArithmeticValue.BitmapBucketOffsetFn(), 10000, false),
+                    Arguments.of(List.of(INT_minus_1, INT_10000), new ArithmeticValue.BitmapBucketOffsetFn(), -10000, false),
+                    Arguments.of(List.of(INT_5, INT_2), new ArithmeticValue.BitmapBucketNumberFn(), 2, false),
+                    Arguments.of(List.of(INT_1, INT_2), new ArithmeticValue.BitmapBucketNumberFn(), 0, false),
+                    Arguments.of(List.of(INT_1, INT_10000), new ArithmeticValue.BitmapBucketNumberFn(), 0, false),
+                    Arguments.of(List.of(INT_10000, INT_10000), new ArithmeticValue.BitmapBucketNumberFn(), 1, false),
+                    Arguments.of(List.of(INT_minus_1, INT_10000), new ArithmeticValue.BitmapBucketNumberFn(), -1, false),
+                    Arguments.of(List.of(INT_1, INT_2), new ArithmeticValue.BitmapBitPositionFn(), 1, false),
+                    Arguments.of(List.of(INT_1, INT_10000), new ArithmeticValue.BitmapBitPositionFn(), 1, false),
+                    Arguments.of(List.of(INT_10000, INT_10000), new ArithmeticValue.BitmapBitPositionFn(), 0, false),
+                    Arguments.of(List.of(INT_minus_1, INT_10000), new ArithmeticValue.BitmapBitPositionFn(), 9999, false),
 
                     Arguments.of(List.of(LONG_1, LONG_1), new ArithmeticValue.AddFn(), 2L, false),
                     Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.SubFn(), -1L, false),
                     Arguments.of(List.of(LONG_2, LONG_2), new ArithmeticValue.MulFn(), 4L, false),
                     Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.DivFn(), 0L, false),
                     Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.ModFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, LONG_10000), new ArithmeticValue.ModFn(), 1L, false),
+                    Arguments.of(List.of(LONG_10000, LONG_10000), new ArithmeticValue.ModFn(), 0L, false),
+                    Arguments.of(List.of(LONG_minus_1, LONG_10000), new ArithmeticValue.ModFn(), -1L, false),
 
                     Arguments.of(List.of(FLOAT_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F, false),
                     Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F, false),
@@ -110,6 +135,18 @@ class ArithmeticValueTest {
                     Arguments.of(List.of(LONG_1, INT_1), new ArithmeticValue.MulFn(), 1L, false),
                     Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.DivFn(), 0L, false),
                     Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.ModFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.BitmapBucketOffsetFn(), 0L, false),
+                    Arguments.of(List.of(LONG_1, INT_10000), new ArithmeticValue.BitmapBucketOffsetFn(), 0L, false),
+                    Arguments.of(List.of(LONG_10000, INT_10000), new ArithmeticValue.BitmapBucketOffsetFn(), 10000L, false),
+                    Arguments.of(List.of(LONG_minus_1, INT_10000), new ArithmeticValue.BitmapBucketOffsetFn(), -10000L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.BitmapBucketNumberFn(), 0L, false),
+                    Arguments.of(List.of(LONG_1, INT_10000), new ArithmeticValue.BitmapBucketNumberFn(), 0L, false),
+                    Arguments.of(List.of(LONG_10000, INT_10000), new ArithmeticValue.BitmapBucketNumberFn(), 1L, false),
+                    Arguments.of(List.of(LONG_minus_1, INT_10000), new ArithmeticValue.BitmapBucketNumberFn(), -1L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.BitmapBitPositionFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, INT_10000), new ArithmeticValue.BitmapBitPositionFn(), 1L, false),
+                    Arguments.of(List.of(LONG_10000, INT_10000), new ArithmeticValue.BitmapBitPositionFn(), 0L, false),
+                    Arguments.of(List.of(LONG_minus_1, INT_10000), new ArithmeticValue.BitmapBitPositionFn(), 9999L, false),
 
                     Arguments.of(List.of(INT_1, LONG_1), new ArithmeticValue.AddFn(), 2L, false),
                     Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.SubFn(), -1L, false),
@@ -182,16 +219,25 @@ class ArithmeticValueTest {
                     Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.MulFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.DivFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.BitmapBucketOffsetFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.BitmapBucketNumberFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.BitmapBitPositionFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.AddFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.SubFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.MulFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.DivFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.BitmapBucketOffsetFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.BitmapBucketNumberFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.BitmapBitPositionFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.AddFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.SubFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.MulFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.DivFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.BitmapBucketOffsetFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.BitmapBucketNumberFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.BitmapBitPositionFn(), null, false),
 
                     /* evaluation of ArithmeticValue having a FieldValue */
                     Arguments.of(List.of(F, INT_1), new ArithmeticValue.AddFn(), 5L, false),

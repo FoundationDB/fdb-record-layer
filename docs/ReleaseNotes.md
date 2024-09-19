@@ -41,6 +41,17 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.545.0
+
+* **Bug fix** The new `TupleHelpers.prefixLengthOfSize` must catch more errors. [(Issue #2921)](https://github.com/FoundationDB/fdb-record-layer/issues/2921)
+
+### 3.4.544.0
+
+* **Feature** Feature 1 [(Issue #2904)](https://github.com/FoundationDB/fdb-record-layer/issues/2904)
+
+### 3.4.543.0
+
+
 ### 3.4.542.0
 
 
