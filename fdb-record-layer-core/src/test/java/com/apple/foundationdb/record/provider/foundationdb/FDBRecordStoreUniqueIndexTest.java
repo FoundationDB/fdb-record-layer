@@ -655,12 +655,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                             .get();
                     return null;
                 };
-                if (allowReadableUniquePending && addViolationsBefore) {
-                    final ExecutionException executionException = assertThrows(ExecutionException.class, checkVersion::call);
-                    assertThat(executionException.getCause(), Matchers.instanceOf(RecordIndexUniquenessViolation.class));
-                    assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
-                    return;
-                }
                 checkVersion.call();
                 assertTrue(recordStore.isVersionChanged());
                 assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
@@ -673,7 +667,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
                 assertUniquenessViolations(context, Matchers.hasSize(0));
                 assertIndexEntries();
-                commit(context);
+                if (allowReadableUniquePending && addViolationsBefore) {
+                    assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
+                } else {
+                    commit(context);
+                }
             }
         }
 

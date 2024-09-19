@@ -4431,11 +4431,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
                 if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
-                    // TODO make this not fail if there are uniqueness violations
                     // TODO remove the checks
                     // TODO compare via the whole subspace once PR #2920 is in
                     final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(
-                                    checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().getSubspaceKey().equals(index.getSubspaceKey())))
+                                    checkAllIndexUniquenessChecks(commitCheck -> commitCheck.getIndex().getSubspaceKey().equals(index.getSubspaceKey()))
+                                            .stream().map(check ->
+                                                    MoreAsyncUtil.swallowException(check, err -> err instanceof RecordIndexUniquenessViolation))
+                                            .collect(Collectors.toList()))
                             // if the index is WriteOnly it will record violations, in the commit check so we need to wait
                             // for those to complete
                             // if the index is ReadableUniquePending, the check will throw an exception if a violation was added
