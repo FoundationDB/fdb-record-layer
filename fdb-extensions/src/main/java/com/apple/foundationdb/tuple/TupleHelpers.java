@@ -175,7 +175,7 @@ public class TupleHelpers {
             }
             try {
                 TupleUtil.decode(state, bytes, pos, end);
-            } catch (IllegalArgumentException ex) {
+            } catch (Exception ex) {
                 return -1;
             }
             pos = state.end;
