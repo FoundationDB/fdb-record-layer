@@ -1238,7 +1238,8 @@ public class FDBDatabase {
         return latencyInjector.apply(fdbLatencySource);
     }
 
-    private void checkIfBlockingInFuture(CompletableFuture<?> future) {
+    @API(API.Status.INTERNAL)
+    public void checkIfBlockingInFuture(CompletableFuture<?> future) {
         BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
         if (behavior == BlockingInAsyncDetection.DISABLED) {
             return;

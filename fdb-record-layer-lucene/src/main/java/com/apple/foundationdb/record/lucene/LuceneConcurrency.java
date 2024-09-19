@@ -47,9 +47,8 @@ public class LuceneConcurrency {
 
     /**
      * An implementation of {@code asyncToSync} that is isolated from external exception injections.
-     * This implementation does NOT perform exception mapping, nor does it check whether the calls have
-     * "async" in the stack trace (as the original {@link FDBRecordContext#asyncToSync} does).
-     * This method is meant to be used internally in places where obtaining and using the result pf asynchronous
+     * This implementation does NOT perform exception mapping (as the original {@link FDBRecordContext#asyncToSync} does).
+     * This method is meant to be used internally in places where obtaining and using the result of asynchronous
      * operation is required.
      * This method uses the {@link FDBDatabase#getAsyncToSyncTimeout} to find the period to use for the timeout.
      * This method will throw the runtime exception that was thrown by the Future's realization in case such error
@@ -73,6 +72,9 @@ public class LuceneConcurrency {
         if (recordContext.hasHookForAsyncToSync() && !MoreAsyncUtil.isCompletedNormally(async)) {
             recordContext.getHookForAsyncToSync().accept(event);
         }
+
+        recordContext.getDatabase().checkIfBlockingInFuture(async);
+
         if (async.isDone()) {
             try {
                 return async.get();
@@ -80,7 +82,6 @@ public class LuceneConcurrency {
                 throw FDBExceptions.wrapException(ex);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                // TODO: The original mapping for InterruptedException would be INTERNAL_ERROR, now it will be RecordCoreInterruptedException
                 throw FDBExceptions.wrapException(ex);
             }
         } else {
@@ -104,7 +105,6 @@ public class LuceneConcurrency {
                 throw FDBExceptions.wrapException(ex);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                // TODO: The original mapping for InterruptedException would be INTERNAL_ERROR, now it will be RecordCoreInterruptedException
                 throw FDBExceptions.wrapException(ex);
             } finally {
                 if (timer != null) {
