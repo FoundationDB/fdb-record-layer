@@ -443,8 +443,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         private final Index nonUniqueIndex;
         private final boolean allowReadableUniquePending;
         private final IndexState readableUniquePendingState;
-        private final RecordMetaDataHook nonUniqueHook;
-        private final RecordMetaDataHook uniqueHook;
+        private final RecordMetaData uniqueMetadata;
+        private final RecordMetaData nonUniqueMetadata;
 
         private DropUniquenessConstraint(final boolean allowReadableUniquePending) {
             this(allowReadableUniquePending, IndexTypes.VALUE, false);
@@ -453,26 +453,29 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         private DropUniquenessConstraint(final boolean allowReadableUniquePending, final String indexType, final boolean bumpVersion) {
             this.allowReadableUniquePending = allowReadableUniquePending;
             readableUniquePendingState = allowReadableUniquePending ? IndexState.READABLE_UNIQUE_PENDING : IndexState.WRITE_ONLY;
+            uniqueIndex = new Index("initiallyUniqueIndex", field("num_value_2"), indexType, IndexOptions.UNIQUE_OPTIONS);
+            assertTrue(uniqueIndex.isUnique());
+            uniqueMetadata = simpleMetaData(metaDataBuilder ->
+                    metaDataBuilder.addIndex(TYPE_NAME, uniqueIndex));
+
             // Copy the first index, but drop the uniqueness constraint. This keeps the index as is, including the
             // last_modified_version, so adding it to the meta-data won't cause the index to be rebuilt during
             // check version. However, bump the meta-data version to ensure that anyone with an old meta-data version
             // (who will expect the index to be unique, if READABLE) knows to reload the meta-data.
-            uniqueIndex = new Index("initiallyUniqueIndex", field("num_value_2"), indexType, IndexOptions.UNIQUE_OPTIONS);
-            assertTrue(uniqueIndex.isUnique());
             nonUniqueIndex = new IndexWithOptions(uniqueIndex, IndexOptions.UNIQUE_OPTION, Boolean.FALSE.toString());
             if (bumpVersion) {
                 // we need to ensure that this will be greater than the metadata version created with the unique index
-                nonUniqueIndex.setLastModifiedVersion(100000);
+                nonUniqueIndex.setLastModifiedVersion(uniqueMetadata.getVersion() + 1);
             } else {
                 assertEquals(uniqueIndex.getLastModifiedVersion(), nonUniqueIndex.getLastModifiedVersion());
                 assertEquals(uniqueIndex.getSubspaceKey(), nonUniqueIndex.getSubspaceKey());
             }
+
             assertFalse(nonUniqueIndex.isUnique());
-            nonUniqueHook = metaDataBuilder -> {
+            nonUniqueMetadata = simpleMetaData(metaDataBuilder -> {
                 metaDataBuilder.addIndex("MySimpleRecord", nonUniqueIndex);
                 metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 2);
-            };
-            uniqueHook = metaDataBuilder -> metaDataBuilder.addIndex(TYPE_NAME, uniqueIndex);
+            });
             recordNumbers = new ArrayList<>();
             recordNumbers.add(1066L);
             recordNumbers.add(1415L);
@@ -505,7 +508,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         public void addUniqueIndexViaCheckVersion() throws ExecutionException, InterruptedException {
             timer.reset();
             try (FDBRecordContext context = openContext()) {
-                openSimpleRecordStore(context, uniqueHook);
+                createOrOpenRecordStore(context, uniqueMetadata);
                 assertTrue(recordStore.isVersionChanged());
                 assertEquals(1L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
                 assertThat(recordStore.getIndexState(uniqueIndex), either(equalTo(IndexState.WRITE_ONLY)).or(equalTo(IndexState.READABLE_UNIQUE_PENDING)));
@@ -525,7 +528,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         public void addUniqueIndexViaBuild() {
             try (FDBRecordContext context = openContext()) {
-                openSimpleRecordStore(context, uniqueHook);
+                createOrOpenRecordStore(context, uniqueMetadata);
                 final OnlineIndexer.IndexingPolicy.Builder indexingPolicy = OnlineIndexer.IndexingPolicy.newBuilder();
                 if (allowReadableUniquePending) {
                     indexingPolicy.allowUniquePendingState();
@@ -546,12 +549,12 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         public void removeUniquenessViolations() throws Exception {
             try (FDBRecordContext context = openContext()) {
-                openSimpleRecordStore(context, uniqueHook);
+                createOrOpenRecordStore(context, uniqueMetadata);
                 removeUniquenessViolations(recordStore);
                 commit(context);
             }
             try (FDBRecordContext context = openContext()) {
-                openSimpleRecordStore(context, uniqueHook);
+                createOrOpenRecordStore(context, uniqueMetadata);
 
                 assertEquals(readableUniquePendingState, recordStore.getIndexState(uniqueIndex.getName()),
                         "Index should still be " + readableUniquePendingState.getLogName());
@@ -578,7 +581,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                 violationMatcher = Matchers.hasSize(Matchers.greaterThan(0));
             }
             try (FDBRecordContext context = openContext()) {
-                openSimpleRecordStore(context, nonUniqueHook);
+                createOrOpenRecordStore(context, nonUniqueMetadata);
                 assertTrue(recordStore.isVersionChanged());
                 assertUniquenessViolations(context, violationMatcher);
                 if (expectRebuild) {
@@ -632,8 +635,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             // 3. A non-unique index should not have uniquess violations on disk
             timer.reset();
             try (FDBRecordContext context = openContext()) {
-                final RecordMetaData uniqueMetadata = simpleMetaData(uniqueHook);
-                final RecordMetaData nonUniqueMetadata = simpleMetaData(nonUniqueHook);
                 final AtomicReference<RecordMetaData> metadataProvider = new AtomicReference<>(uniqueMetadata);
                 createOrOpenRecordStore(context, metadataProvider::get);
                 final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, metadataProvider.get());
