@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -61,6 +62,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -341,7 +343,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(false);
         dropUniquenessConstraint.setupStore();
         dropUniquenessConstraint.addUniqueIndexViaCheckVersion();
-        dropUniquenessConstraint.openWithNonUnique(false);
+        dropUniquenessConstraint.openWithNonUnique(false, true);
     }
 
     @ParameterizedTest(name = "removeUniquenessConstraintAfterBuild(withViolations={0}, allowReadableUniquePending={1})")
@@ -353,7 +355,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         if (!withViolations) {
             dropUniquenessConstraint.removeUniquenessViolations();
         }
-        dropUniquenessConstraint.openWithNonUnique(false);
+        dropUniquenessConstraint.openWithNonUnique(false, true);
     }
 
     @ParameterizedTest(name = "removeUniquenessConstraintDuringTransaction(clearViolations={0}, allowReadableUniquePending={1})")
@@ -405,7 +407,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * {@link IndexMaintainer#clearUniquenessViolations}, the old flow of increasing the version when changing the state
      * still works.
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
-     * @throws Exception if there is an issue
      */
     @ParameterizedTest(name = "bumpVersionWhenChangingToNonUnique(allowReadableUniquePending={0})")
     @BooleanSource
@@ -414,7 +415,24 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                 allowReadableUniquePending, NO_UNIQUE_CLEAR_INDEX_TYPE, true);
         dropUniquenessConstraint.setupStore();
         dropUniquenessConstraint.addUniqueIndexViaBuild();
-        dropUniquenessConstraint.openWithNonUnique(true);
+        dropUniquenessConstraint.openWithNonUnique(true, true);
+    }
+
+    /**
+     * Test to show what happens if you drop the uniqueness constraint on an index that doesn't implement the new
+     * {@link IndexMaintainer#clearUniquenessViolations} without bumping {@code lastModifiedVersion}, despite the
+     * instructions on {@link IndexOptions#UNIQUE_OPTION}.
+     * @param allowReadableUniquePending whether to test with allowing {@link IndexState#READABLE_UNIQUE_PENDING}
+     */
+    @ParameterizedTest(name = "unsupportedChangeToNonUniqueWithoutBumpingVersion(allowReadableUniquePending={0})")
+    @BooleanSource
+    void unsupportedChangeToNonUniqueWithoutBumpingVersion(boolean allowReadableUniquePending) throws Exception {
+        // this won't fail, it will just leave the violations sitting around, but as per the
+        final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(
+                allowReadableUniquePending, NO_UNIQUE_CLEAR_INDEX_TYPE, false);
+        dropUniquenessConstraint.setupStore();
+        dropUniquenessConstraint.addUniqueIndexViaBuild();
+        dropUniquenessConstraint.openWithNonUnique(false, false);
     }
 
     private class DropUniquenessConstraint {
@@ -550,11 +568,19 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             }
         }
 
-        public void openWithNonUnique(final boolean expectRebuild) throws ExecutionException, InterruptedException {
+        public void openWithNonUnique(final boolean expectRebuild, final boolean shouldClearViolations)
+                throws ExecutionException, InterruptedException {
             timer.reset();
+            final Matcher<Collection<? extends KeyValue>> violationMatcher;
+            if (shouldClearViolations) {
+                violationMatcher = Matchers.hasSize(0);
+            } else {
+                violationMatcher = Matchers.hasSize(Matchers.greaterThan(0));
+            }
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, nonUniqueHook);
                 assertTrue(recordStore.isVersionChanged());
+                assertUniquenessViolations(context, violationMatcher);
                 if (expectRebuild) {
                     assertEquals(1L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
                     assertEquals(IndexState.READABLE, recordStore.getIndexState(nonUniqueIndex));
@@ -563,7 +589,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                     assertOrMarkReadable();
                 }
 
-                assertNoUniquenessViolations(context);
+                assertUniquenessViolations(context, violationMatcher);
                 assertIndexEntries();
                 commit(context);
             }
@@ -644,18 +670,19 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
                 assertOrMarkReadable();
 
-                assertNoUniquenessViolations(context);
+                assertUniquenessViolations(context, Matchers.hasSize(0));
                 assertIndexEntries();
                 commit(context);
             }
         }
 
-        private void assertNoUniquenessViolations(final FDBRecordContext context)
+        private void assertUniquenessViolations(final FDBRecordContext context,
+                                                final Matcher<Collection<? extends KeyValue>> matcher)
                 throws InterruptedException, ExecutionException {
             assertThat(recordStore.scanUniquenessViolations(nonUniqueIndex).asList().get(), empty());
             assertThat(context.ensureActive().getRange(recordStore.indexUniquenessViolationsSubspace(nonUniqueIndex)
                             .range()).asList().get(),
-                    Matchers.hasSize(0));
+                    matcher);
         }
     }
 
