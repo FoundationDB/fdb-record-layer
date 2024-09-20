@@ -136,10 +136,14 @@ public final class FDBIndexOutput extends IndexOutput {
 
     @Override
     public void writeByte(final byte b) throws IOException {
-        buffer.put(b);
-        crc.update(b);
-        currentSize++;
-        flushIfFullBuffer();
+        try {
+            buffer.put(b);
+            crc.update(b);
+            currentSize++;
+            flushIfFullBuffer();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     /**
@@ -185,17 +189,21 @@ public final class FDBIndexOutput extends IndexOutput {
                     LuceneLogMessageKeys.OFFSET, offset,
                     LuceneLogMessageKeys.LENGTH, length));
         }
-        crc.update(bytes, offset, length);
-        int bytesWritten = 0;
-        while (bytesWritten < length) {
-            int toWrite = Math.min(
-                    length - bytesWritten, // the total leftover bytes to write
-                    (blockSize - buffer.position()) // the free space in this buffer
-            );
-            buffer.put(bytes, bytesWritten + offset, toWrite);
-            bytesWritten += toWrite;
-            currentSize += toWrite;
-            flushIfFullBuffer();
+        try {
+            crc.update(bytes, offset, length);
+            int bytesWritten = 0;
+            while (bytesWritten < length) {
+                int toWrite = Math.min(
+                        length - bytesWritten, // the total leftover bytes to write
+                        (blockSize - buffer.position()) // the free space in this buffer
+                );
+                buffer.put(bytes, bytesWritten + offset, toWrite);
+                bytesWritten += toWrite;
+                currentSize += toWrite;
+                flushIfFullBuffer();
+            }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 
@@ -204,17 +212,13 @@ public final class FDBIndexOutput extends IndexOutput {
             LOGGER.trace(getLogMessage("flush()",
                     LuceneLogMessageKeys.FILE_ID, id));
         }
-        try {
-            if (buffer.position() > 0) {
-                buffer.flip();
-                byte[] arr = new byte[buffer.remaining()];
-                buffer.get(arr);
-                actualSize += fdbDirectory.writeData(id, ((currentSize - 1) / blockSize), arr);
-            }
-            buffer.clear();
-        } catch (RecordCoreException ex) {
-            throw LuceneExceptions.toIoException(ex, null);
+        if (buffer.position() > 0) {
+            buffer.flip();
+            byte[] arr = new byte[buffer.remaining()];
+            buffer.get(arr);
+            actualSize += fdbDirectory.writeData(id, ((currentSize - 1) / blockSize), arr);
         }
+        buffer.clear();
     }
 
     private void flushIfFullBuffer() throws IOException {

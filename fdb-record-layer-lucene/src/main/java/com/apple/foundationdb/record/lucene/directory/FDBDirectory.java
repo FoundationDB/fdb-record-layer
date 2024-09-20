@@ -974,15 +974,16 @@ public class FDBDirectory extends Directory  {
         try {
             clearLockIfLocked();     // no-op if already closed. This call may or may not be called in a recovery path.
             agilityContext.flush();  // no-op if already flushed or closed.
+        } catch (RecordCoreException ex) {
+            // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
+            agilityContext.abortAndClose();
+            clearLockIfLocked();     // after closing, this call will be performed in a recovery path
+            throw LuceneExceptions.toIoException(ex, null);
         } catch (RuntimeException ex) {
             // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
             agilityContext.abortAndClose();
             clearLockIfLocked();     // after closing, this call will be performed in a recovery path
-            if (ex instanceof RecordCoreException) {
-                throw LuceneExceptions.toIoException(ex, null);
-            } else {
-                throw ex;
-            }
+            throw ex;
         }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(fileListLog("Closed FDBDirectory", Objects.requireNonNullElse(fileReferenceCache.get(), Map.of()))

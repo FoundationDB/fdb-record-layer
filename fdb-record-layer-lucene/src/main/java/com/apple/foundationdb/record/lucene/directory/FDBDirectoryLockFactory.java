@@ -108,7 +108,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         @Override
-        public void ensureValid() {
+        public void ensureValid() throws IOException {
             // ... and implement heartbeat
             if (closed) {
                 throw new AlreadyClosedException("Lock instance already released. This=" + this);
@@ -117,7 +117,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (now > timeStampMillis + timeWindowMilliseconds) {
                 throw new AlreadyClosedException("Lock is too old. This=" + this + " now=" + now);
             }
-            fileLockSet(true);
+            try {
+                fileLockSet(true);
+            } catch (RecordCoreException ex) {
+                throw LuceneExceptions.toIoException(ex, null);
+            }
         }
 
 
@@ -249,11 +253,15 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         @Override
-        public void close() {
+        public void close() throws IOException {
             if (closed) {
                 throw new AlreadyClosedException("Lock file is already closed. This=" + this);
             }
-            fileLockClearFlushAndClose(false);
+            try {
+                fileLockClearFlushAndClose(false);
+            } catch (RecordCoreException ex) {
+                throw LuceneExceptions.toIoException(ex, null);
+            }
         }
 
         @Override

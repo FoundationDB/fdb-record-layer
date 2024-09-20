@@ -115,7 +115,6 @@ public class FDBIndexInput extends IndexInput {
 
     @Nonnull
     private FDBLuceneFileReference getFileReference() {
-        // TODO: Map exceptions?
         if (actualReference == null) {
             actualReference = fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
             if (actualReference == null) {
@@ -176,17 +175,21 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public void seek(final long offset) throws IOException {
-        if (currentBlock != getBlock(offset)) {
-            this.position = offset;
-            this.currentBlock = getBlock(position);
-            numberOfSeeks++;
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(getLogMessage("actual seek",
-                        LuceneLogMessageKeys.OFFSET, offset));
+        try {
+            if (currentBlock != getBlock(offset)) {
+                this.position = offset;
+                this.currentBlock = getBlock(position);
+                numberOfSeeks++;
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace(getLogMessage("actual seek",
+                            LuceneLogMessageKeys.OFFSET, offset));
+                }
+                readBlock(); // Physical Seek
+            } else {
+                this.position = offset;     // Logical Seek
             }
-            readBlock(); // Physical Seek
-        } else {
-            this.position = offset;     // Logical Seek
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 
@@ -222,10 +225,14 @@ public class FDBIndexInput extends IndexInput {
         }
         // Good Place to perform stack dumps if you want to know who is performing a read...
         //Thread.dumpStack();
-        final FDBLuceneFileReference fileReference = getFileReference();
-        return new FDBIndexInput(getFullSliceDescription(sliceDescription), fileName, fdbDirectory, CompletableFuture.completedFuture(
-                new FDBLuceneFileReference(fileReference.getId(), length, length, fileReference.getBlockSize())),
-                offset + initialOffset, 0L, currentBlock, currentData);
+        try {
+            final FDBLuceneFileReference fileReference = getFileReference();
+            return new FDBIndexInput(getFullSliceDescription(sliceDescription), fileName, fdbDirectory, CompletableFuture.completedFuture(
+                    new FDBLuceneFileReference(fileReference.getId(), length, length, fileReference.getBlockSize())),
+                    offset + initialOffset, 0L, currentBlock, currentData);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     /**
@@ -249,7 +256,13 @@ public class FDBIndexInput extends IndexInput {
      */
     @Override
     public byte readByte() throws IOException {
-        final FDBLuceneFileReference fileReference = getFileReference();
+        FDBLuceneFileReference fileReference;
+        try {
+            fileReference = getFileReference();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
+
         if (position >= fileReference.getSize()) {
             throw new EOFException("read past EOF: " + this);
         }
