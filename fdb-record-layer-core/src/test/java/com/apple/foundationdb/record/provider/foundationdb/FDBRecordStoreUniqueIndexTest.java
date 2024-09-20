@@ -33,6 +33,10 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -189,12 +193,12 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             AtomicBoolean check1Run = new AtomicBoolean(false);
             CompletableFuture<Void> check1 = MoreAsyncUtil.delayedFuture(1L, TimeUnit.MILLISECONDS)
                     .thenRun(() -> check1Run.set(true));
-            recordStore.addIndexUniquenessCommitCheck(index1, check1);
+            recordStore.addIndexUniquenessCommitCheck(index1, recordStore.indexSubspace(index1), check1);
 
             CompletableFuture<Void> check2 = new CompletableFuture<>();
             RecordCoreException err = new RecordCoreException("unable to run check");
             check2.completeExceptionally(err);
-            recordStore.addIndexUniquenessCommitCheck(index2, check2);
+            recordStore.addIndexUniquenessCommitCheck(index2, recordStore.indexSubspace(index2), check2);
 
             // Checks For index 1 should complete successfully and mark the "check1Run" boolean as completed. It
             // should not throw an error from check 2 completing exceptionally.
@@ -208,6 +212,99 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             // The error from the "uniqueness check" should block the transaction from committing
             RecordCoreException thrownRecordCoreException = assertThrows(RecordCoreException.class, context::commit);
             assertSame(err, thrownRecordCoreException);
+        }
+    }
+
+    @Test
+    public void uniquenessChecksShouldBeStoreScoped() throws Exception {
+        final KeySpacePath otherPath = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore firstStore = createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), path).getLeft();
+            final FDBRecordStore otherStore = createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), otherPath).getLeft();
+            Index index = firstStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+
+            AtomicBoolean check1Run = new AtomicBoolean(false);
+            CompletableFuture<Void> check1 = MoreAsyncUtil.delayedFuture(1L, TimeUnit.MILLISECONDS)
+                    .thenRun(() -> check1Run.set(true));
+            firstStore.addIndexUniquenessCommitCheck(index, firstStore.indexSubspace(index), check1);
+
+            CompletableFuture<Void> check2 = new CompletableFuture<>();
+            RecordCoreException err = new RecordCoreException("unable to run check");
+            check2.completeExceptionally(err);
+            otherStore.addIndexUniquenessCommitCheck(index, otherStore.indexSubspace(index), check2);
+
+            // Checks For index 1 should complete successfully and mark the "check1Run" boolean as completed. It
+            // should not throw an error from check 2 completing exceptionally.
+            firstStore.whenAllIndexUniquenessCommitChecks(index).get();
+            assertTrue(check1Run.get(), "check1 should have marked check1Run as having completed");
+
+            // For index 2, the error should be caught when the uniqueness checks are waited on
+            ExecutionException thrownExecutionException = assertThrows(ExecutionException.class, () -> otherStore.whenAllIndexUniquenessCommitChecks(index).get());
+            assertSame(err, thrownExecutionException.getCause());
+
+            // The error from the "uniqueness check" should block the transaction from committing
+            RecordCoreException thrownRecordCoreException = assertThrows(RecordCoreException.class, context::commit);
+            assertSame(err, thrownRecordCoreException);
+        }
+    }
+
+    @Test
+    void multipleStores() throws Exception {
+        final KeySpacePath otherPath = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        for (final KeySpacePath keySpacePath : List.of(path, otherPath)) {
+            try (FDBRecordContext context = openContext()) {
+                Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), keySpacePath);
+                recordStore = recordStoreQueryPlannerPair.getLeft();
+                planner = recordStoreQueryPlannerPair.getRight();
+
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1066L)
+                        .setNumValue2(42)
+                        .build());
+                commit(context);
+            }
+        }
+
+        final Index uniqueIndex = new Index("uniqueIndex", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        assertTrue(uniqueIndex.isUnique());
+        final RecordMetaDataHook uniqueHook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", uniqueIndex);
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), path).getLeft();
+            commit(context);
+
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setTargetIndexes(List.of(uniqueIndex))
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .allowUniquePendingState(true))
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore otherStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), otherPath).getLeft();
+            otherStore.markIndexWriteOnly(uniqueIndex).get();
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), path).getLeft();
+            final FDBRecordStore otherStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), otherPath).getLeft();
+
+            assertEquals(IndexState.READABLE, recordStore.getIndexState(uniqueIndex));
+            assertEquals(IndexState.WRITE_ONLY, otherStore.getIndexState(uniqueIndex));
+            // add a violation to one
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1415L)
+                    .setNumValue2(42)
+                    .build());
+            // mark the other as readable
+            // this should not fail, because this store does not have violations
+            otherStore.markIndexReadable(uniqueIndex).get();
+
+            assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
         }
     }
 
