@@ -499,7 +499,7 @@ public abstract class IndexingBase {
     }
 
     private boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        return policy.shouldAllowTypeConversionContinue(newStamp.getMethod(), savedStamp.getMethod());
+        return policy.shouldAllowTypeConversionContinue(newStamp, savedStamp);
     }
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {

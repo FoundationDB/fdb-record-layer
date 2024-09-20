@@ -403,10 +403,10 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertAllValidated(indexes);
     }
 
-    OnlineIndexer.IndexingPolicy.Builder mutualTakeOverIndexingPolicy(boolean explicit, boolean mutual) {
+    OnlineIndexer.IndexingPolicy.Builder mutualTakeOverIndexingPolicy(boolean explicit, boolean toMutual) {
         final OnlineIndexer.IndexingPolicy.Builder builder = OnlineIndexer.IndexingPolicy.newBuilder();
         final List<OnlineIndexer.IndexingPolicy.TakeoverTypes> conversionSet =
-                mutual ?
+                toMutual ?
                 List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.BY_RECORDS_TO_MUTUAL) :
                 List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MUTUAL_TO_SINGLE);
 
