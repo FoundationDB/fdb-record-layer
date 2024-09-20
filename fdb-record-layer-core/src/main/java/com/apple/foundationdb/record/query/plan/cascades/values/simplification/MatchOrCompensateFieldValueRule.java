@@ -42,7 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, FieldValue> {
+public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, FieldValue> {
     @Nonnull
     private static final CollectionMatcher<Integer> fieldPathOrdinalsMatcher = all(anyObject());
 
@@ -58,7 +58,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, PullUpCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var fieldValue = bindings.get(rootMatcher);
 
@@ -67,7 +67,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
         final var matchedValuesMap =
                 resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, PullUpCompensation>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (toBePulledUpValue instanceof FieldValue) {
@@ -83,7 +83,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                         final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFieldPath(), fieldValue.getFieldPath());
                         pathSuffixOptional.ifPresent(pathSuffix -> {
                             if (pathSuffix.isEmpty()) {
-                                newMatchedValuesMap.put(toBePulledUpValue, PullUpCompensation.noCompensation());
+                                newMatchedValuesMap.put(toBePulledUpValue, ValueCompensation.noCompensation());
                             } else {
                                 newMatchedValuesMap.put(toBePulledUpValue, new FieldValueCompensation(pathSuffix));
                             }

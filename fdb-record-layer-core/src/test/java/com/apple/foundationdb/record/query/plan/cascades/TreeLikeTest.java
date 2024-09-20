@@ -41,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link TreeLike}.
  */
-@SuppressWarnings("deprecation") // this is due to testing the deprecated {@code TreeLike#inPreOrder} for correctness.
 public class TreeLikeTest {
 
     @Test
@@ -452,6 +451,39 @@ public class TreeLikeTest {
         final var otherG = Iterators.get(otherC.children.iterator(), 1);
         Assertions.assertNotSame(f, Q);
         Assertions.assertSame(g, otherG);
+    }
+
+    @Test
+    void avoidInfiniteRecursionWhenReplacingLeaves() {
+        /*
+         * the stateless leaf replacement predicate wants to replace [c] with [d] -> [c] (where [c] appears _again_) leading to
+         * infinite recursion
+         * ideally, the consumer should care about avoiding infinite recursion,
+         * nevertheless, TreeLike::replaceLeavesMaybe adds a protection mechanism against this, such that it guarantees
+         * that newly-added leaves are _not_ passed to the replacement predicate.
+         *            a                                 a
+         *        /      \                 ->         /  \
+         *       b        c                          b    d
+         *                                                 \
+         *                                                  c
+         */
+        TreeNode t =
+                node("a",
+                        node("b"),
+                        node("c"));
+        Optional<TreeNode> replacedMaybe = t.replaceLeavesMaybe(n -> {
+            if (n.contents.equals("c")) {
+                return node("d", node("c"));
+            }
+            return n;
+        }, false);
+        assertTrue(replacedMaybe.isPresent());
+        assertEquals(
+                node("a",
+                        node("b"),
+                        node("d",
+                                node("c"))),
+                replacedMaybe.get());
     }
 
     private static class TreeNode implements TreeLike<TreeNode> {

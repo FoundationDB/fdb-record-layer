@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -187,24 +188,23 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                                 providedOrdering.isDistinct());
 
                 for (final var satisfyingComparisonKeyValues : inUnionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering)) {
-                    final var directionalOrderingParts =
+                    var comparisonOrderingParts =
                             inUnionOrdering.directionalOrderingParts(satisfyingComparisonKeyValues,
                                     valueRequestedSortOrderMap, OrderingPart.ProvidedSortOrder.FIXED);
-                    final var comparisonDirectionOptional = Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
+                    final var comparisonIsReverse = RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
+                    comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
 
-                    if (comparisonDirectionOptional.isPresent()) {
-                        //
-                        // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
-                        //
-                        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
-                        call.yieldExpression(
-                                RecordQueryInUnionPlan.from(newInnerQuantifier,
-                                        inSources,
-                                        ImmutableList.copyOf(satisfyingComparisonKeyValues),
-                                        comparisonDirectionOptional.get(),
-                                        attemptFailedInJoinAsUnionMaxSize,
-                                        CORRELATION));
-                    }
+                    //
+                    // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
+                    //
+                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
+                    call.yieldExpression(
+                            RecordQueryInUnionPlan.from(newInnerQuantifier,
+                                    inSources,
+                                    comparisonOrderingParts,
+                                    comparisonIsReverse,
+                                    attemptFailedInJoinAsUnionMaxSize,
+                                    CORRELATION));
                 }
             }
         }

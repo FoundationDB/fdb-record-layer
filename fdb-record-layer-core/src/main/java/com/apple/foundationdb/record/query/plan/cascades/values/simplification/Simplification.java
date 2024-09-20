@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateComputationRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -76,6 +77,13 @@ public class Simplification {
         // Use mapMaybe() to apply a lambda in post-fix bottom up fashion.
         //
         return root.<Value>mapMaybe((current, mappedChildren) -> {
+
+            //
+            // During this mapping call we may need to recreate the current which incidentally might also be the root.
+            // We need to keep track if the current was the root.
+            //
+            final boolean isRoot = current == root;
+
             //
             // If any of the children have changed as compared to the actual children of current, we need to recreate
             // current. We call computeCurrent() to do that.
@@ -85,7 +93,7 @@ public class Simplification {
             //
             // Run the entire given rule set for current.
             //
-            final var executionResult = executeRuleSet(root,
+            final var executionResult = executeRuleSet(isRoot ? current : root,
                     current,
                     ruleSet,
                     (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, aliasMap, constantAliases),
@@ -111,11 +119,11 @@ public class Simplification {
      *         {@code root}.
      */
     @Nullable
-    public static <ARGUMENT, RESULT> Pair<Value, RESULT> compute(@Nonnull final Value root,
-                                                                 @Nonnull final ARGUMENT argument,
-                                                                 @Nonnull final AliasMap aliasMap,
-                                                                 @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                                 @Nonnull final ValueComputationRuleSet<ARGUMENT, RESULT> ruleSet) {
+    public static <ARGUMENT, RESULT> NonnullPair<Value, RESULT> compute(@Nonnull final Value root,
+                                                                        @Nonnull final ARGUMENT argument,
+                                                                        @Nonnull final AliasMap aliasMap,
+                                                                        @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                                        @Nonnull final ValueComputationRuleSet<ARGUMENT, RESULT> ruleSet) {
         //
         // The general strategy is to invoke the rule engine bottom up in post-fix order of the values in the value tree.
         // For each node, all rules are exhaustively applied until no rules can make progress anymore. We avoid creating
@@ -126,8 +134,14 @@ public class Simplification {
         // Computation results are returned by individual rules and kept in a results map. This map is heavily modified
         // by rules matching and executing on a given Value for that value.
         //
-        final var resultsMap = new LinkedIdentityMap<Value, Pair<Value, RESULT>>();
+        final var resultsMap = new LinkedIdentityMap<Value, NonnullPair<Value, RESULT>>();
         final var newRoot = root.<Value>mapMaybe((current, mappedChildren) -> {
+            //
+            // During this mapping call we may need to recreate the current which incidentally might also be the root.
+            // We need to keep track if the current was the root.
+            //
+            final boolean isRoot = current == root;
+
             //
             // If any of the children have changed as compared to the actual children of current, we need to recreate
             // current. We call computeCurrent() to do that.
@@ -137,11 +151,14 @@ public class Simplification {
             //
             // Run the entire given rule set for current.
             //
-            final var executionResult = Simplification.executeRuleSet(root,
-                    current,
-                    ruleSet,
-                    (rule, r, c, plannerBindings) -> new ValueComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get),
-                    results -> onResultsFunction(resultsMap, results));
+            final var executionResult =
+                    Simplification.executeRuleSet(isRoot ? current : root,
+                            current,
+                            ruleSet,
+                            (rule, r, c, plannerBindings) ->
+                                    new ValueComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap,
+                                            constantAliases, resultsMap::get),
+                            results -> onResultsFunction(resultsMap, results));
             Verify.verify(!executionResult.shouldReExplore());
             return executionResult.getBase();
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
@@ -179,7 +196,7 @@ public class Simplification {
     }
 
     @Nonnull
-    private static <BASE, ELEMENT> List<ELEMENT> collectChildrenElements(@Nonnull final Map<BASE, Pair<BASE, List<ELEMENT>>> resultsMap,
+    private static <BASE, ELEMENT> List<ELEMENT> collectChildrenElements(@Nonnull final Map<BASE, NonnullPair<BASE, List<ELEMENT>>> resultsMap,
                                                                          @Nonnull final List<BASE> children) {
         final var result = Lists.<ELEMENT>newArrayList();
         for (final var child : children) {
@@ -192,8 +209,8 @@ public class Simplification {
     }
 
     @Nonnull
-    private static <BASE, R> BASE onResultsFunction(@Nonnull final Map<BASE, Pair<BASE, R>> resultsMap,
-                                                    @Nonnull final Collection<Pair<BASE, R>> results) {
+    private static <BASE, R> BASE onResultsFunction(@Nonnull final Map<BASE, NonnullPair<BASE, R>> resultsMap,
+                                                    @Nonnull final Collection<NonnullPair<BASE, R>> results) {
         Verify.verify(results.size() <= 1);
 
         final var resultPair = Iterables.getOnlyElement(results);
@@ -241,7 +258,9 @@ public class Simplification {
                 final var rule = ruleIterator.next();
                 final BindingMatcher<? extends BASE> matcher = rule.getMatcher();
 
-                final var matchIterator = matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), current).iterator();
+                final var matchIterator =
+                        matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), current)
+                                .iterator();
 
                 while (matchIterator.hasNext()) {
                     final var plannerBindings = matchIterator.next();
@@ -297,12 +316,12 @@ public class Simplification {
      *         {@code root}.
      */
     @Nonnull
-    public static <ARGUMENT> Pair<QueryPredicate, List<QueryPlanConstraint>> optimize(@Nonnull final QueryPredicate root,
-                                                                                      @Nonnull final ARGUMENT argument,
-                                                                                      @Nonnull final AliasMap aliasMap,
-                                                                                      @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                                                      @Nonnull final QueryPredicateComputationRuleSet<ARGUMENT, List<QueryPlanConstraint>> ruleSet) {
-        final var resultsMap = new LinkedIdentityMap<QueryPredicate, Pair<QueryPredicate, List<QueryPlanConstraint>>>();
+    public static <ARGUMENT> NonnullPair<QueryPredicate, List<QueryPlanConstraint>> optimize(@Nonnull final QueryPredicate root,
+                                                                                             @Nonnull final ARGUMENT argument,
+                                                                                             @Nonnull final AliasMap aliasMap,
+                                                                                             @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                                                             @Nonnull final QueryPredicateComputationRuleSet<ARGUMENT, List<QueryPlanConstraint>> ruleSet) {
+        final var resultsMap = new LinkedIdentityMap<QueryPredicate, NonnullPair<QueryPredicate, List<QueryPlanConstraint>>>();
         final var simplifiedPredicate =
                 simplifyWithReExploration(root,
                         root,
@@ -310,7 +329,7 @@ public class Simplification {
                         ruleSet,
                         (rule, r, c, plannerBindings) -> new QueryPredicateComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get));
         return simplifiedPredicate == root
-               ? Pair.of(root, ImmutableList.of(QueryPlanConstraint.tautology()))
+               ? NonnullPair.of(root, ImmutableList.of(QueryPlanConstraint.tautology()))
                : Verify.verifyNotNull(resultsMap.get(simplifiedPredicate));
     }
 
@@ -328,11 +347,11 @@ public class Simplification {
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static <ELEMENT, CALL extends AbstractRuleCall<Pair<BASE, List<ELEMENT>>, CALL, BASE>, BASE extends TreeLike<BASE>> BASE simplifyWithReExploration(@Nonnull final BASE root,
-                                                                                                                                                               @Nonnull BASE current,
-                                                                                                                                                               @Nonnull final Map<BASE, Pair<BASE, List<ELEMENT>>> resultsMap,
-                                                                                                                                                               @Nonnull final AbstractRuleSet<Pair<BASE, List<ELEMENT>>, CALL, BASE> ruleSet,
-                                                                                                                                                               @Nonnull final RuleCallCreator<Pair<BASE, List<ELEMENT>>, CALL, BASE> ruleCallCreator) {
+    private static <ELEMENT, CALL extends AbstractRuleCall<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE>, BASE extends TreeLike<BASE>> BASE simplifyWithReExploration(@Nonnull final BASE root,
+                                                                                                                                                                      @Nonnull BASE current,
+                                                                                                                                                                      @Nonnull final Map<BASE, NonnullPair<BASE, List<ELEMENT>>> resultsMap,
+                                                                                                                                                                      @Nonnull final AbstractRuleSet<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE> ruleSet,
+                                                                                                                                                                      @Nonnull final RuleCallCreator<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE> ruleCallCreator) {
         final var isRoot = root == current;
         ExecutionResult<BASE> executionResult;
         do {
@@ -344,10 +363,10 @@ public class Simplification {
             final var computedCurrent = computeCurrent(current, simplifiedChildren);
             if (computedCurrent != current) {
                 if (resultsMap.containsKey(current)) {
-                    resultsMap.put(computedCurrent, Pair.of(computedCurrent, resultsMap.get(current).getRight()));
+                    resultsMap.put(computedCurrent, NonnullPair.of(computedCurrent, resultsMap.get(current).getRight()));
                 } else {
                     final var computedCurrentElements = collectChildrenElements(resultsMap, simplifiedChildren);
-                    final var computedCurrentPair = Pair.of(computedCurrent, computedCurrentElements);
+                    final var computedCurrentPair = NonnullPair.of(computedCurrent, computedCurrentElements);
                     resultsMap.put(computedCurrent, computedCurrentPair);
                 }
             }
@@ -371,9 +390,10 @@ public class Simplification {
                     final var currentResults = currentResultsPair.getRight();
                     @Nullable final var newCurrentResultsPair = resultsMap.get(newCurrent);
                     if (newCurrentResultsPair == null) {
-                        resultsMap.put(newCurrent, Pair.of(newCurrent, currentResults));
+                        resultsMap.put(newCurrent, NonnullPair.of(newCurrent, currentResults));
                     } else {
-                        resultsMap.put(newCurrent, Pair.of(newCurrent, Lists.newArrayList(Iterables.concat(currentResults, newCurrentResultsPair.getRight()))));
+                        resultsMap.put(newCurrent, NonnullPair.of(newCurrent,
+                                Lists.newArrayList(Iterables.concat(currentResults, newCurrentResultsPair.getRight()))));
                     }
                 }
                 current = newCurrent;

@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
@@ -619,10 +620,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     final var requestedSortOrder = requestedOrderingPart.getSortOrder();
                     if (requestedSortOrder != OrderingPart.RequestedSortOrder.ANY) {
                         final var matchedSortOrder = orderingPart.getSortOrder();
-
-                        // TODO: Will matchedSortOrder have counterflow nulls?
-
-                        if (matchedSortOrder.isReverse() == requestedSortOrder.isReverse()) {
+                        if (matchedSortOrder.isCounterflowNulls() != requestedSortOrder.isCounterflowNulls()) {
+                            return Optional.empty();
+                        }
+                        if (matchedSortOrder.isAnyDescending() == requestedSortOrder.isAnyDescending()) {
                             scanDirectionForPart = ScanDirection.FORWARD;
                         } else {
                             scanDirectionForPart = ScanDirection.REVERSE;
@@ -780,30 +781,29 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                 .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
 
                 if (!compensation.isImpossible()) {
-                    final var directionalOrderingParts =
+                    var comparisonOrderingParts =
                             intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
                                     OrderingPart.ProvidedSortOrder.FIXED);
-                    final var comparisonDirectionOptional =
-                            Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
+                    final var comparisonIsReverse =
+                            RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
+                    comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
 
-                    if (comparisonDirectionOptional.isPresent()) {
-                        final var newQuantifiers =
-                                partition
-                                        .stream()
-                                        .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
-                                        .map(memoizer::memoizePlans)
-                                        .map(Quantifier::physical)
-                                        .collect(ImmutableList.toImmutableList());
+                    final var newQuantifiers =
+                            partition
+                                    .stream()
+                                    .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
+                                    .map(memoizer::memoizePlans)
+                                    .map(Quantifier::physical)
+                                    .collect(ImmutableList.toImmutableList());
 
-                        final var intersectionPlan =
-                                RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
-                                        ImmutableList.copyOf(comparisonKeyValues), comparisonDirectionOptional.get());
-                        final var compensatedIntersection =
-                                compensation.isNeeded()
-                                ? compensation.apply(memoizer, intersectionPlan)
-                                : intersectionPlan;
-                        expressionsBuilder.add(compensatedIntersection);
-                    }
+                    final var intersectionPlan =
+                            RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
+                                    comparisonOrderingParts, comparisonIsReverse);
+                    final var compensatedIntersection =
+                            compensation.isNeeded()
+                            ? compensation.apply(memoizer, intersectionPlan)
+                            : intersectionPlan;
+                    expressionsBuilder.add(compensatedIntersection);
                 }
             }
         }

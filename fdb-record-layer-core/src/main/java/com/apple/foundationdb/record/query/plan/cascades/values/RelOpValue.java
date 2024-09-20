@@ -189,7 +189,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         rightChild = PromoteValue.inject(rightChild, maxtype);
 
         if (typeRepository != null) {
-            final Object comparand = rightChild.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
+            final Object comparand = rightChild.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
             return comparand == null
                    ? Optional.of(new ConstantPredicate(false))
                    : Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
@@ -211,7 +211,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     @Nonnull
     @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull TypeRepository typeRepository) {
-        final Object constantValue = compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
+        final Object constantValue = evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
             if ((boolean)constantValue) {
                 return Optional.of(ConstantPredicate.TRUE);
@@ -654,6 +654,14 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         NEQ_BYU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_BYBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, r)),
         NEQ_UBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BYTES, (l, r) -> null),
+        LT_BYU(Comparisons.Type.LESS_THAN, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LT_BYBY(Comparisons.Type.LESS_THAN, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN, l, r)),
+        LTE_BYU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LTE_BYBY(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, l, r)),
+        GT_BYU(Comparisons.Type.GREATER_THAN, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GT_BYBY(Comparisons.Type.GREATER_THAN, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, l, r)),
+        GTE_BYU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GTE_BYBY(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, l, r)),
         ;
 
         @Nonnull
@@ -844,7 +852,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             final var evaluatedChildrenIterator =
                     Streams.stream(getChildren())
                             .map(child -> child.eval(store, context))
@@ -954,7 +962,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             final var evaluatedChildrenIterator =
                     Streams.stream(getChildren())
                             .map(child -> child.eval(store, context))

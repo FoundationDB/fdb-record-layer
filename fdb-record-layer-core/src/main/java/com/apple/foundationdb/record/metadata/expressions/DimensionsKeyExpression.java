@@ -55,7 +55,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     private final int prefixSize;
     private final int dimensionsSize;
 
-    public DimensionsKeyExpression(@Nonnull final KeyExpression wholeKey,
+    private DimensionsKeyExpression(@Nonnull final KeyExpression wholeKey,
                                    final int prefixSize,
                                    final int dimensionsSize) {
         this.wholeKey = wholeKey;
@@ -63,7 +63,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         this.dimensionsSize = dimensionsSize;
     }
 
-    public DimensionsKeyExpression(@Nonnull RecordMetaDataProto.Dimensions dimensions) throws DeserializationException {
+    DimensionsKeyExpression(@Nonnull final RecordMetaDataProto.Dimensions dimensions) throws DeserializationException {
         this(KeyExpression.fromProto(dimensions.getWholeKey()), dimensions.getPrefixSize(), dimensions.getDimensionsSize());
     }
 
@@ -192,8 +192,9 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Override
     public String toString() {
+        final int restSize = getColumnSize() - prefixSize - dimensionsSize;
         return getWholeKey() +
-               " dimensions(" + prefixSize + ", " + dimensionsSize + ")" + prefixSize;
+               " dimensions(" + prefixSize + ", " + dimensionsSize + (restSize > 0 ? ", " + restSize : "") + ")";
     }
 
     @Override

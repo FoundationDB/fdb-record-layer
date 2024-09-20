@@ -287,7 +287,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         };
     }
 
-    protected void openHierarchicalRecordStore(FDBRecordContext context) throws Exception {
+    protected void openHierarchicalRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords3Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.getRecordType("MyHierarchicalRecord").setPrimaryKey(
@@ -295,15 +295,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
-    protected void openNestedRecordStore(FDBRecordContext context) throws Exception {
+    protected void openNestedRecordStore(FDBRecordContext context) {
         openNestedRecordStore(context, null);
     }
 
-    protected void openNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
+    protected void openNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) {
         createOrOpenRecordStore(context, nestedMetaData(hook));
     }
 
-    protected void openNestedWrappedArrayRecordStore(@Nonnull FDBRecordContext context) throws Exception {
+    protected void openNestedWrappedArrayRecordStore(@Nonnull FDBRecordContext context, @Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4WrapperProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));
@@ -313,6 +313,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         metaDataBuilder.addIndex("RestaurantRecord", "customers-name", concat(field("customer", FanType.None).nest(field("values", FanType.FanOut)), field("name")));
         metaDataBuilder.addIndex("RestaurantReviewer", "stats$school", field("stats").nest(field("start_date")));
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+        if (hook != null) {
+            hook.apply(metaDataBuilder);
+        }
     }
 
     protected RecordMetaData nestedMetaData(@Nullable RecordMetaDataHook hook) {
@@ -330,7 +333,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return metaDataBuilder.getRecordMetaData();
     }
 
-    protected void nestedWithAndSetup(@Nullable RecordMetaDataHook hook) throws Exception {
+    protected void nestedWithAndSetup(@Nullable RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context, hook);
 
@@ -414,7 +417,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
-                                        TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
+                                            TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
         final var usedTypes = UsedTypesProperty.evaluate(plan);
         List<T> result = new ArrayList<>();
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
@@ -504,7 +507,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         };
     }
 
-    protected void openEnumRecordStore(FDBRecordContext context, RecordMetaDataHook hook) throws Exception {
+    protected void openEnumRecordStore(FDBRecordContext context, RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsEnumProto.getDescriptor());
         if (hook != null) {
             hook.apply(metaData);
@@ -512,7 +515,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         createOrOpenRecordStore(context, metaData.getRecordMetaData());
     }
 
-    protected void setupEnumShapes(RecordMetaDataHook hook) throws Exception {
+    protected void setupEnumShapes(RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
             int n = 0;

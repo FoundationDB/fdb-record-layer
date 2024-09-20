@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -290,10 +291,10 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
 
     @Nonnull
     public static RecordQueryIntersectionOnValuesPlan fromQuantifiers(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                      @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                                      @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                                       final boolean isReverse) {
         return RecordQueryIntersectionOnValuesPlan.intersection(quantifiers,
-                comparisonKeyValues,
+                comparisonKeyOrderingParts,
                 isReverse);
     }
 

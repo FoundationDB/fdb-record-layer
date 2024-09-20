@@ -916,7 +916,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         assertThrows(RecordQueryPlanComplexityException.class, () -> planQuery(query));
     }
 
-    @DualPlannerTest
+    @Test
     void uuidPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final List<UUID> uuids = setupTupleFields(context);
@@ -937,7 +937,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @DualPlannerTest
+    @Test
     void nullableInt32() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final List<UUID> uuids = setupTupleFields(context);

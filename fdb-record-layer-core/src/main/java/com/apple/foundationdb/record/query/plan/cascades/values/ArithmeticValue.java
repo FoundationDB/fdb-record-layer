@@ -101,7 +101,7 @@ public class ArithmeticValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return operator.eval(leftChild.eval(store, context),
                 rightChild.eval(store, context));
     }
@@ -290,6 +290,28 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     /**
+     * The {@code bitmap_bit_position} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitmapBitPositionFn extends BuiltInFunction<Value> {
+        public BitmapBitPositionFn() {
+            super("bitmap_bit_position",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
+     * The {@code bitmap_bucket_number} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitmapBucketNumberFn extends BuiltInFunction<Value> {
+        public BitmapBucketNumberFn() {
+            super("bitmap_bucket_number",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
      * The bitwise {@code or} function.
      */
     @AutoService(BuiltInFunction.class)
@@ -323,6 +345,17 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     /**
+     * The bitwise {@code bitmap_bucket_offset} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitmapBucketOffsetFn extends BuiltInFunction<Value> {
+        public BitmapBucketOffsetFn() {
+            super("bitmap_bucket_offset",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
      * Logical operator.
      */
     public enum LogicalOperator {
@@ -334,6 +367,9 @@ public class ArithmeticValue extends AbstractValue {
         BITOR("|"),
         BITAND("&"),
         BITXOR("^"),
+        BITMAP_BUCKET_NUMBER("bitmap_bucket_number"),
+        BITMAP_BUCKET_OFFSET("bitmap_bucket_offset"),
+        BITMAP_BIT_POSITION("bitmap_bit_position")
         ;
 
         @Nonnull
@@ -462,6 +498,15 @@ public class ArithmeticValue extends AbstractValue {
         BITXOR_IL(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l ^ (long)r),
         BITXOR_LI(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l ^ (int)r),
         BITXOR_LL(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l ^ (long)r),
+
+        BITMAP_BUCKET_OFFSET_LI(LogicalOperator.BITMAP_BUCKET_OFFSET, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r)),
+        BITMAP_BUCKET_OFFSET_II(LogicalOperator.BITMAP_BUCKET_OFFSET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
+
+        BITMAP_BUCKET_NUMBER_LI(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.floorDiv((long)l, (int)r)),
+        BITMAP_BUCKET_NUMBER_II(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.floorDiv((int)l, (int)r)),
+
+        BITMAP_BIT_POSITION_LI(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.subtractExact((long)l, Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r))),
+        BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r))),
         ;
 
         @Nonnull

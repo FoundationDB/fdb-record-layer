@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -81,6 +82,15 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      */
     @Nonnull
     R visitExpression(@Nonnull KeyExpressionWithValue keyExpressionWithValue);
+
+    /**
+     * Specific method that is called on {@link FunctionKeyExpression}s.
+     *
+     * @param functionKeyExpression {@link FunctionKeyExpression} to visit
+     * @return a new expression of type {@code R}
+     */
+    @Nonnull
+    R visitExpression(@Nonnull FunctionKeyExpression functionKeyExpression);
 
     /**
      * Specific method that is called on {@link KeyWithValueExpression}s.

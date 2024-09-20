@@ -122,7 +122,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         baseQuantifier,
                         ImmutableList.of(),
                         keyValueSplitPoint,
-                        0);
+                        0,
+                        false,
+                        true);
 
         final var keyValueExpansion =
                 pop(rootExpression.expand(push(initialState)));
@@ -170,7 +172,9 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                                 baseQuantifier,
                                 ImmutableList.of(),
                                 -1,
-                                keySize + i);
+                                keySize + i,
+                                false,
+                                true);
                 final var primaryKeyPartExpansion =
                         pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
                 allExpansionsBuilder

@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregati
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
+import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -52,6 +54,18 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<Value> anyValue() {
         return typed(Value.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<FieldValue> anyFieldValue() {
+        return typed(FieldValue.class);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValueMatcher) {
+        return typedWithDownstream(FieldValue.class,
+                Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValueMatcher);
     }
 
     @Nonnull
@@ -86,7 +100,26 @@ public class ValueMatchers {
                 matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithLastFieldName(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                           @Nonnull final BindingMatcher<String> downstreamFieldNameMatcher) {
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValue);
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(fieldValue -> {
+                            final var fieldPathNames = fieldValue.getFieldPathNames();
+                            return fieldPathNames.get(fieldPathNames.size() - 1);
+                        }, name -> "fieldPathNames(" + name + ")"),
+                        downstreamFieldNameMatcher);
+
+        return typedWithDownstream(FieldValue.class,
+                Extractor.identity(),
+                matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
+    }
+
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldPath(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                        @Nonnull final CollectionMatcher<Integer> downstreamFieldPathOrdinals,
@@ -109,7 +142,7 @@ public class ValueMatchers {
                 matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathOrdinalsMatcher, downstreamFieldPathTypesMatcher)));
     }
 
-    public static <V extends Value> BindingMatcher<NumericAggregationValue.Sum> sumAggregationValue() {
+    public static BindingMatcher<NumericAggregationValue.Sum> sumAggregationValue() {
         return sumAggregationValue(anyValue());
     }
 
@@ -119,6 +152,14 @@ public class ValueMatchers {
                 Extractor.of(NumericAggregationValue.Sum::getChild, name -> "child(" + name + ")"),
                 downstream);
     }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<NumericAggregationValue.BitmapConstructAgg> bitmapConstructAggValue(@Nonnull final BindingMatcher<V> downstream) {
+        return typedWithDownstream(NumericAggregationValue.BitmapConstructAgg.class,
+                Extractor.of(NumericAggregationValue.BitmapConstructAgg::getChild, name -> "child(" + name + ")"),
+                downstream);
+    }
+
 
     @Nonnull
     @SafeVarargs
@@ -161,5 +202,36 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<QuantifiedObjectValue> quantifiedObjectValue() {
         return typed(QuantifiedObjectValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
+        return typedWithDownstream(ToOrderedBytesValue.class,
+                Extractor.of(ToOrderedBytesValue::getChildren, name -> "children(" + name + ")"),
+                downstreamValues);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final BindingMatcher<V> downstreamValueMatcher) {
+        return typedWithDownstream(ToOrderedBytesValue.class,
+                Extractor.of(ToOrderedBytesValue::getChild, name -> "child(" + name + ")"),
+                downstreamValueMatcher);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                            @Nonnull final TupleOrdering.Direction direction) {
+        final TypedMatcherWithExtractAndDownstream<ToOrderedBytesValue> downstreamValueMatcher =
+                typedWithDownstream(ToOrderedBytesValue.class,
+                        Extractor.of(ToOrderedBytesValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValue);
+        final TypedMatcherWithExtractAndDownstream<ToOrderedBytesValue> downstreamDirectionMatcher =
+                typedWithDownstream(ToOrderedBytesValue.class,
+                        Extractor.of(ToOrderedBytesValue::getDirection, name -> "direction(" + name + ")"),
+                        PrimitiveMatchers.equalsObject(direction));
+
+        return typedWithDownstream(ToOrderedBytesValue.class,
+                Extractor.identity(),
+                matchingAllOf(ToOrderedBytesValue.class, ImmutableList.of(downstreamValueMatcher, downstreamDirectionMatcher)));
     }
 }

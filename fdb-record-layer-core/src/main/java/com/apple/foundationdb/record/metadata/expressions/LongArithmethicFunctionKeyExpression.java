@@ -22,24 +22,18 @@ package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BinaryOperator;
@@ -129,15 +123,9 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType, @Nonnull final List<String> fieldNamePrefix) {
-        ScalarTranslationVisitor scalarTranslationVisitor = new ScalarTranslationVisitor(arguments);
-        scalarTranslationVisitor.push(ScalarTranslationVisitor.ScalarVisitorState.of(baseAlias, baseType, fieldNamePrefix));
-        List<Value> argumentValues = new ArrayList<>(arguments.getColumnSize());
-        for (KeyExpression expression : arguments.normalizeKeyForPositions()) {
-            argumentValues.add(expression.expand(scalarTranslationVisitor));
-        }
-        BuiltInFunction<?> builtInFunction = FunctionCatalog.resolve(valueFunctionName, arguments.getColumnSize()).orElseThrow(() -> new RecordCoreArgumentException("unknown function", LogMessageKeys.FUNCTION, getName()));
-        return (Value) builtInFunction.encapsulate(argumentValues);
+    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        Verify.verify(argumentValues.size() == arguments.getColumnSize());
+        return resolveAndEncapsulateFunction(valueFunctionName, argumentValues);
     }
 
     /**
@@ -272,6 +260,8 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
                 .add(Builder.binaryFunction(FunctionNames.BITAND, (l, r) -> l & r))
                 .add(Builder.binaryFunction(FunctionNames.BITXOR, (l, r) -> l ^ r))
                 .add(Builder.unaryFunction(FunctionNames.BITNOT, x -> ~x))
+                .add(Builder.binaryFunction(FunctionNames.BITMAP_BIT_POSITION, (l, r) -> Math.subtractExact(l, Math.multiplyExact(Math.floorDiv(l, r), r))))
+                .add(Builder.binaryFunction(FunctionNames.BITMAP_BUCKET_OFFSET, (l, r) -> Math.multiplyExact(Math.floorDiv(l, r), r)))
                 .build();
 
         @Nonnull

@@ -20,30 +20,26 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -52,25 +48,21 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObje
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -78,8 +70,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.sortExpression;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyValueComparison;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.equalities;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -88,7 +86,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.firstOrDefaultPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inParameterJoinPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
@@ -101,10 +103,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests of query planning and execution for queries that use a query graph to define a query instead of
@@ -112,85 +114,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
-    @Nonnull
-    static Quantifier fullScan(@Nonnull RecordMetaData metaData, AccessHints hints) {
-        Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
-        return Quantifier.forEach(Reference.of(
-                new FullUnorderedScanExpression(allRecordTypes,
-                        new Type.AnyRecord(false),
-                        hints)));
-    }
-
-    @Nonnull
-    static Quantifier fullScan(@Nonnull RecordMetaData metaData) {
-        return fullScan(metaData, new AccessHints());
-    }
-
-    @Nonnull
-    static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Quantifier fullScanQun) {
-        return Quantifier.forEach(Reference.of(
-                new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
-                        fullScanQun,
-                        Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor()))));
-    }
-
-    @Nonnull
-    static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
-        return fullTypeScan(metaData, typeName, fullScan(metaData));
-    }
-
-    @Nonnull
-    static Column<FieldValue> projectColumn(@Nonnull Quantifier qun, @Nonnull String columnName) {
-        return projectColumn(qun.getFlowedObjectValue(), columnName);
-    }
-
-    @Nonnull
-    static Column<FieldValue> projectColumn(@Nonnull Value value, @Nonnull String columnName) {
-        return Column.of(Optional.of(columnName), FieldValue.ofFieldNameAndFuseIfPossible(value, columnName));
-    }
-
-    @Nonnull
-    static <V extends Value> Column<V> resultColumn(@Nonnull V value, @Nullable String name) {
-        return Column.of(Optional.ofNullable(name), value);
-    }
-
-    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
-        return executeCascades(store, plan, Bindings.EMPTY_BINDINGS);
-    }
-
-    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan, Bindings bindings) {
-        Set<Type> usedTypes = UsedTypesProperty.evaluate(plan);
-        TypeRepository typeRepository = TypeRepository.newBuilder()
-                .addAllTypes(usedTypes)
-                .build();
-        EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository);
-        return plan.executePlan(store, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
-    }
-
-    static <T> T getField(QueryResult result, Class<T> type, String... path) {
-        Message message = result.getMessage();
-        for (int i = 0; i < path.length; i++) {
-            String fieldName = path[i];
-            Descriptors.Descriptor messageDescriptor = message.getDescriptorForType();
-            Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(fieldName);
-            assertNotNull(fieldDescriptor, () -> "expected to find field " + fieldName + " in descriptor: " + messageDescriptor);
-            Object field = message.getField(fieldDescriptor);
-            if (i < path.length - 1) {
-                assertThat(field, Matchers.instanceOf(Message.class));
-                message = (Message) field;
-            } else {
-                if (field == null) {
-                    return null;
-                }
-                assertThat(field, Matchers.instanceOf(type));
-                return type.cast(field);
-            }
-        }
-        return null;
-    }
-
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testSimplePlanGraph() throws Exception {
+    void testSimplePlanGraph() {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
         final var plan = planGraph(
@@ -221,7 +146,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testSimplePlanGraphReversed() throws Exception {
+    void testSimplePlanGraphReversed() {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
         final var plan = planGraph(
@@ -242,7 +167,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
                     final var aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                     final var orderByValues = List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap));
-                    return Reference.of(new LogicalSortExpression(orderByValues, true, qun));
+                    return Reference.of(sortExpression(orderByValues, true, qun));
                 });
 
         assertMatchesExactly(plan,
@@ -255,7 +180,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testSimplePlanGraphWithNullableArray() throws Exception {
+    void testSimplePlanGraphWithNullableArray() {
         CascadesPlanner cascadesPlanner = setUpWithNullableArray();
         // no index hints, plan a query
         final var plan = planGraph(
@@ -283,8 +208,157 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("name"), fieldValueWithFieldNames("rest_no"))))));
     }
 
+    /**
+     * Test a query running a simple existential query against a FanOut index on the relevant field. This test
+     * is actually designed to exercise a code path that was hit by
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2881">Issue #2881</a>. This makes the
+     * test somewhat brittle in the sense that if the planner changes in a way that means that it no longer needs
+     * to construct certain kinds {@link com.apple.foundationdb.record.query.plan.cascades.Compensation}s to make the
+     * plan work, then we may lose coverage (absent other changes to our testing strategy).
+     *
+     * <p>
+     * There are several elements of this test that are necessary at time of writing to make it hit the code
+     * path under test:
+     * </p>
+     * <ol>
+     *     <li>A nested existential query on a single field</li>
+     *     <li>The inner query has an IN predicate on that field</li>
+     *     <li>The inner query projects the column (even though the result value is effectively erased by the existential quantifier)</li>
+     *     <li>An index that contains that precisely that field</li>
+     * </ol>
+     *
+     * @param inComparison whether the inner existential predicate should be an IN or EQUALS predicate
+     */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testFailWithBadIndexHintGraph() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    void testSimpleExistentialPredicateOnSimpleIndex(boolean inComparison) {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final Index index = new Index("Restaurant$tag.value", Key.Expressions.field("tags").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("value")));
+        CascadesPlanner cascadesPlanner = setUpWithNullableArray(metaDataBuilder -> metaDataBuilder.addIndex("RestaurantRecord", index));
+        final var tagValueParam = "t";
+        final var plan = planGraph(
+                () -> {
+                    // Equivalent to something like:
+                    //   SELECT R.name FROM RestaurantRecord AS R WHERE EXISTS (SELECT t.value FROM R.tags AS t WHERE t.value = $t)
+                    // Or, for the IN case
+                    //   SELECT R.name FROM RestaurantRecord AS R WHERE EXISTS (SELECT t.value FROM R.tags AS t WHERE t.value IN $t)
+
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+
+                    final var explodeTagsQun = Quantifier.forEach(Reference.of(new ExplodeExpression(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "tags"))));
+                    final var existentialQun = Quantifier.existential(Reference.of(GraphExpansion.builder()
+                            .addQuantifier(explodeTagsQun)
+                            .addResultColumn(projectColumn(explodeTagsQun.getFlowedObjectValue(), "value"))
+                            .addPredicate(new ValuePredicate(FieldValue.ofFieldName(explodeTagsQun.getFlowedObjectValue(), "value"),
+                                    new Comparisons.ParameterComparison(inComparison ? Comparisons.Type.IN : Comparisons.Type.EQUALS, tagValueParam)))
+                            .build()
+                            .buildSelect()));
+
+                    qun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                            .addQuantifier(qun)
+                            .addQuantifier(existentialQun)
+                            .addPredicate(new ExistsPredicate(existentialQun.getAlias()))
+                            .addResultColumn(projectColumn(qun.getFlowedObjectValue(), "name"))
+                            .build()
+                            .buildSelect()));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                });
+
+        if (inComparison) {
+            // IN-comparison is done via a complete scan followed by executing a full scan and then compensating
+            //    flatMap(Scan(<,>) | [RestaurantRecord], map(firstOrDefault(flatMap(explode([$t]), explode([$q2.tags]) | $q4.value EQUALS $q83) || null) | $q6 NOT_NULL[(1 as _0)]))
+            assertMatchesExactly(plan,
+                    flatMapPlan(
+                            typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
+                                    .where(recordTypes(containsAll(ImmutableSet.of("RestaurantRecord")))),
+                            mapPlan(
+                                    predicatesFilterPlan(firstOrDefaultPlan(
+                                            flatMapPlan(explodePlan(), predicatesFilterPlan(explodePlan()))
+                                    )).where(predicates(valuePredicate(anyValue(), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))))
+                            )
+                    )
+            );
+            assertEquals(-1234573276, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1638799997, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
+            // Simple existential query with equality predicate done via a simple index scan:
+            //   map(Index(Restaurant$tag.value [EQUALS $t])[($q2.name as name)])
+            assertMatchesExactly(plan,
+                    mapPlan(indexPlan()
+                            .where(indexName(index.getName()))
+                            .and(scanComparisons(range("[EQUALS $" + tagValueParam + "]")))
+                    ));
+            assertEquals(-1069846275, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2087732874, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testEqualityAndSimpleExistentialPredicate() {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final Index index = new Index("Restaurant$name-tagValue", Key.Expressions.concat(
+                Key.Expressions.field("name"),
+                Key.Expressions.field("tags").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("value"))
+        ));
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("RestaurantRecord", index);
+        CascadesPlanner cascadesPlanner = setUpWithNullableArray(hook);
+
+        final var nameValueParam = "name";
+        final var tagValueParam = "t";
+        final var plan = planGraph(
+                () -> {
+                    // Equivalent to something like:
+                    //   SELECT R.rest_no FROM RestaurantRecord AS R WHERE R.name IN $name AND EXISTS (SELECT tag.value FROM R.tags WHERE tag.value IN $t)
+                    // There's a related query where the inner IN is replaced with an equals. That query currently runs into trouble
+                    // during planning while trying to calculate its ordering properties.
+                    // See: https://github.com/FoundationDB/fdb-record-layer/issues/2883
+
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+
+                    final var explodeTagsQun = Quantifier.forEach(Reference.of(new ExplodeExpression(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "tags"))));
+                    final var existentialQun = Quantifier.existential(Reference.of(GraphExpansion.builder()
+                            .addQuantifier(explodeTagsQun)
+                            .addResultColumn(projectColumn(explodeTagsQun.getFlowedObjectValue(), "value"))
+                            .addPredicate(new ValuePredicate(FieldValue.ofFieldName(explodeTagsQun.getFlowedObjectValue(), "value"),
+                                    new Comparisons.ParameterComparison(Comparisons.Type.IN, tagValueParam)))
+                            .build()
+                            .buildSelect()));
+
+                    qun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                            .addQuantifier(qun)
+                            .addQuantifier(existentialQun)
+                            .addPredicate(new ValuePredicate(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name"), new Comparisons.ParameterComparison(Comparisons.Type.IN, nameValueParam)))
+                            .addPredicate(new ExistsPredicate(existentialQun.getAlias()))
+                            .addResultColumn(projectColumn(qun.getFlowedObjectValue(), "rest_no"))
+                            .build()
+                            .buildSelect()));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                });
+
+        // IN-comparison is done via a complete scan followed by executing a full scan and then compensating
+        //   flatMap(Fetch(Covering(Index(RestaurantRecord$name [EQUALS $q133]) -> [name: KEY[0], rest_no: KEY[1]]) WHERE __corr_q133 IN $name), map(firstOrDefault(flatMap(explode([$t]), explode([$q2.tags]) | $q4.value EQUALS $q83) || null) | $q6 NOT_NULL[(1 as _0)]))
+        assertMatchesExactly(plan,
+                flatMapPlan(
+                        fetchFromPartialRecordPlan(
+                                inParameterJoinPlan(
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(equalities(exactly(anyValueComparison()))))))
+                                )
+                        ),
+                        mapPlan(
+                                predicatesFilterPlan(firstOrDefaultPlan(
+                                        flatMapPlan(explodePlan(), predicatesFilterPlan(explodePlan()))
+                                )).where(predicates(valuePredicate(anyValue(), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))))
+                        )
+                )
+        );
+        assertEquals(-547779922, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(-2058055083, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testFailWithBadIndexHintGraph() {
         CascadesPlanner cascadesPlanner = setUp();
 
         final Optional<Collection<String>> allowedIndexesOptional = Optional.empty();
@@ -316,7 +390,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testPlanDifferentWithIndexHintGraph() throws Exception {
+    void testPlanDifferentWithIndexHintGraph() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
@@ -350,7 +424,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testPlanCrossProductJoin() throws Exception {
+    void testPlanCrossProductJoin() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
@@ -412,7 +486,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testSimpleJoin() throws Exception {
+    void testSimpleJoin() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
@@ -434,7 +508,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * Tests incompatible type evolution, in particular an accessed field was shifted.
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testMediumJoinDatabaseObjectDependencies() throws Exception {
+    void testMediumJoinDatabaseObjectDependencies() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -495,7 +569,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testMediumJoin() throws Exception {
+    void testMediumJoin() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -507,7 +581,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testMediumJoinTypeEvolutionIdentical() throws Exception {
+    void testMediumJoinTypeEvolutionIdentical() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -628,7 +702,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testMediumJoinTypeEvolutionCompatible() throws Exception {
+    void testMediumJoinTypeEvolutionCompatible() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -715,7 +789,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * Tests incompatible type evolution, in particular, an accessed field now has a different type.
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testMediumJoinTypeEvolutionIncompatible1() throws Exception {
+    void testMediumJoinTypeEvolutionIncompatible1() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -796,7 +870,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * Tests incompatible type evolution, in particular an accessed field was shifted.
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testMediumJoinTypeEvolutionIncompatible2() throws Exception {
+    void testMediumJoinTypeEvolutionIncompatible2() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -963,7 +1037,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testPlanFiveWayJoin() throws Exception {
+    void testPlanFiveWayJoin() {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -1037,7 +1111,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testSimplePlanWithConstantPredicateGraph() throws Exception {
+    void testSimplePlanWithConstantPredicateGraph() {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
         final var plan = planGraph(
@@ -1062,13 +1136,13 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         assertMatchesExactly(plan,
                 mapPlan(typeFilterPlan(
-                                scanPlan()
-                                        .where(scanComparisons(range("([1],>")))))
+                        scanPlan()
+                                .where(scanComparisons(range("([1],>")))))
                         .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
     }
 
     @Nonnull
-    private CascadesPlanner setUp() throws Exception {
+    private CascadesPlanner setUp() {
         final CascadesPlanner cascadesPlanner;
 
         try (FDBRecordContext context = openContext()) {
@@ -1162,11 +1236,16 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private CascadesPlanner setUpWithNullableArray() throws Exception {
+    private CascadesPlanner setUpWithNullableArray() {
+        return setUpWithNullableArray(null);
+    }
+
+    @Nonnull
+    private CascadesPlanner setUpWithNullableArray(@Nullable RecordMetaDataHook hook) {
         final CascadesPlanner cascadesPlanner;
 
         try (FDBRecordContext context = openContext()) {
-            openNestedWrappedArrayRecordStore(context);
+            openNestedWrappedArrayRecordStore(context, hook);
 
             cascadesPlanner = (CascadesPlanner)planner;
 

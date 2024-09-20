@@ -71,6 +71,8 @@ public class FunctionNames {
     public static final String BITOR = "bitor";
     public static final String BITXOR = "bitxor";
     public static final String BITNOT = "bitnot";
+    public static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
+    public static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";
 
     private FunctionNames() {
     }

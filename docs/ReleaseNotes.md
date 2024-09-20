@@ -17,17 +17,17 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Expose `Tuple`-based `MIN_EVER` and `MAX_EVER` indexes to Cascades [(Issue #2874)](https://github.com/FoundationDB/fdb-record-layer/issues/2874)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Scope the IndexUniquenessCommitCheck by subspace [(Issue #2919)](https://github.com/FoundationDB/fdb-record-layer/issues/2919)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Log Repartitioned records after writing them [(Issue #2867)](https://github.com/FoundationDB/fdb-record-layer/issues/2867)
-* **Bug fix** Lucene merges: false no merges found [(Issue #2864)](https://github.com/FoundationDB/fdb-record-layer/issues/2864)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Deprecate special IndexingByRecords functions [(Issue #2259)](https://github.com/FoundationDB/fdb-record-layer/issues/2259) 
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,54 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.545.0
+
+* **Bug fix** The new `TupleHelpers.prefixLengthOfSize` must catch more errors. [(Issue #2921)](https://github.com/FoundationDB/fdb-record-layer/issues/2921)
+
+### 3.4.544.0
+
+* **Feature** Feature 1 [(Issue #2904)](https://github.com/FoundationDB/fdb-record-layer/issues/2904)
+
+### 3.4.543.0
+
+
+### 3.4.542.0
+
+
+### 3.4.541.0
+
+* **Bug fix** In-union plans should now do a better job of not incorrectly de-duping groups in the presence of repeated fields [(Issue #2901)](https://github.com/FoundationDB/fdb-record-layer/issues/2901)
+* **Bug fix** Infinite recursion in `TreeLike#replaceLeavesMaybe` [(Issue #2884)](https://github.com/FoundationDB/fdb-record-layer/issues/2884)
+
+### 3.4.540.0
+
+* **Bug fix** TransformedRecordSerializer fails to compress when serialized record is very very small. [(Issue #2896)](https://github.com/FoundationDB/fdb-record-layer/issues/2896)
+
+### 3.4.539.0
+
+* **Bug fix** DimensionsKeyExpression not handled enough by QueryToKeyMatcher [(Issue #2846)](https://github.com/FoundationDB/fdb-record-layer/issues/2846)
+
+### 3.4.537.0
+
+* **Feature** MultidimensionalIndex update operation is not thread safe [(Issue #2849)](https://github.com/FoundationDB/fdb-record-layer/issues/2849)
+
+### 3.4.536.0
+
+* **Performance** Add timing breakdown to Repartitioned records log [(Issue #2886)](https://github.com/FoundationDB/fdb-record-layer/issues/2886)
+
+### 3.4.533.0
+
+* **Bug fix** Remove uncommitted version mutations during `deleteRecordsWhere` to avoid corrupting record stores if there are outstanding record saves when `deleteRecordsWhere` is called  [(Issue #2275)](https://github.com/FoundationDB/fdb-record-layer/issues/2275)
+* **Bug fix** ensure that all compensations get planned with their necessary quantifiers [(Issue #2881)](https://github.com/FoundationDB/fdb-record-layer/issues/2881)
+* **Performance** Lucene partition balancing: reduce the number of retries [(Issue #2878)](https://github.com/FoundationDB/fdb-record-layer/issues/2878)
+
+### 3.4.532.0
+
+* **Bug fix** Expose `Tuple`-based `MIN_EVER` and `MAX_EVER` indexes to Cascades [(Issue #2874)](https://github.com/FoundationDB/fdb-record-layer/issues/2874)
+* **Bug fix** Log Repartitioned records after writing them [(Issue #2867)](https://github.com/FoundationDB/fdb-record-layer/issues/2867)
+* **Bug fix** Lucene merges: false no merges found [(Issue #2864)](https://github.com/FoundationDB/fdb-record-layer/issues/2864)
+* **Feature** Deprecate special IndexingByRecords functions [(Issue #2259)](https://github.com/FoundationDB/fdb-record-layer/issues/2259) 
 
 ### 3.4.531.0
 

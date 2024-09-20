@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -108,7 +109,6 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
     }
 
-
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
@@ -137,9 +137,20 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Override
     public Value visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         final ScalarVisitorState state = getCurrentState();
-        return keyExpressionWithValue.toValue(state.getBaseAlias(), state.inputType, state.getFieldNamePrefix());
+        return keyExpressionWithValue.toValue(state.getBaseAlias(), state.inputType);
     }
-    
+
+    @Nonnull
+    @Override
+    public Value visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
+        final var argumentValuesBuilder = ImmutableList.<Value>builder();
+        final var arguments = functionKeyExpression.getArguments();
+        for (KeyExpression expression : arguments.normalizeKeyForPositions()) {
+            argumentValuesBuilder.add(expression.expand(this));
+        }
+        return functionKeyExpression.toValue(argumentValuesBuilder.build());
+    }
+
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
@@ -187,7 +198,13 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
 
     @Nonnull
     public Value toResultValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
-        return pop(keyExpression.expand(push(ScalarVisitorState.of(alias, inputType, ImmutableList.of()))));
+        return toResultValue(alias, inputType, ImmutableList.of());
+    }
+
+    @Nonnull
+    public Value toResultValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType,
+                               @Nonnull final List<String> fieldNamePrefix) {
+        return pop(keyExpression.expand(push(ScalarVisitorState.of(alias, inputType, fieldNamePrefix))));
     }
 
     @Nonnull

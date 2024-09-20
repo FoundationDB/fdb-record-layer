@@ -534,7 +534,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                     }
                 }, getExecutor()));
         // Add a pre-commit check to prevent accidentally committing and getting into an invalid state.
-        state.store.addIndexUniquenessCommitCheck(state.index, checker);
+        state.store.addIndexUniquenessCommitCheck(state.index, state.indexSubspace, checker);
     }
 
     private boolean isWriteOnlyOrUniquePending() {
@@ -583,7 +583,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 .build();
         return uniquenessViolationEntries.getCount().thenAccept(count -> {
             if (count == 1) {
-                state.transaction.clear(Range.startsWith(uniqueValueSubspace.pack()));
+                state.context.clear(Range.startsWith(uniqueValueSubspace.pack()));
             }
         });
     }
@@ -801,7 +801,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
         // store data at the prefix key itself.
         final byte[] key = state.indexSubspace.pack(prefix);
-        tr.clear(key, ByteArrayUtil.strinc(key));
+        Range indexRange = new Range(key, ByteArrayUtil.strinc(key));
+        state.context.clear(indexRange);
         return AsyncUtil.DONE;
     }
 

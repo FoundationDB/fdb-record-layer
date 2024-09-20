@@ -30,7 +30,6 @@ import java.util.List;
  * @param <T> The resulting type which carries the operation at runtime.
  */
 public interface EncapsulationFunction<T extends Typed> {
-
     /**
      * Produces a {@link Typed} object that is able to carry out a computation against a list of arguments.
      *

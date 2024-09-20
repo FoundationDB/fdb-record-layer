@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -111,7 +112,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                                             .filter(matchedAlias -> Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
                                             .collect(ImmutableSet.toImmutableSet());
                             if (matchedForEachAliases.size() == 1) {
-                                return Stream.of(Pair.of(Iterables.getOnlyElement(matchedForEachAliases), match));
+                                return Stream.of(NonnullPair.of(Iterables.getOnlyElement(matchedForEachAliases), match));
                             }
                             return Stream.empty();
                         })

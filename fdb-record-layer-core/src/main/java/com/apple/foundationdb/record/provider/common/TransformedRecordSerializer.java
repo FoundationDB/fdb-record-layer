@@ -161,32 +161,38 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
 
         increment(timer, Counts.RECORD_BYTES_BEFORE_COMPRESSION, state.length);
 
-        byte[] compressed = new byte[state.length];
+        // compressed data stores 5 bytes of header info. Hence, it is only fruitful to compress if the uncompressed data
+        // has more than 5 bytes otherwise the compressed data will always be more than the original.
+        if (state.length > 5) {
+            // Compressed bytes have 5 bytes of prefixed information about the compression state.
+            byte[] compressed = new byte[state.length];
 
-        // Write compression version number and uncompressed size as these
-        // meta-data are needed when decompressing.
-        compressed[0] = (byte) MAX_COMPRESSION_VERSION;
-        ByteBuffer.wrap(compressed, 1, 4).order(ByteOrder.BIG_ENDIAN).putInt(state.length);
-
-        // Actually compress. If we end up filling the buffer, then just
-        // return the uncompressed value because it's pointless to compress
-        // if we actually increase the amount of data.
-        Deflater compressor = new Deflater(compressionLevel);
-        int compressedLength;
-        try {
-            compressor.setInput(state.data, state.offset, state.length);
-            compressor.finish(); // necessary to include checksum
-            compressedLength = compressor.deflate(compressed, 5, compressed.length - 5, Deflater.FULL_FLUSH);
-        } finally {
-            compressor.end();
-        }
-        if (compressedLength == compressed.length - 5) {
-            increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.length);
-            state.compressed = false;
+            // Actually compress. If we end up filling the buffer, then just
+            // return the uncompressed value because it's pointless to compress
+            // if we actually increase the amount of data.
+            Deflater compressor = new Deflater(compressionLevel);
+            int compressedLength;
+            try {
+                compressor.setInput(state.data, state.offset, state.length);
+                compressor.finish(); // necessary to include checksum
+                compressedLength = compressor.deflate(compressed, 5, compressed.length - 5, Deflater.FULL_FLUSH);
+            } finally {
+                compressor.end();
+            }
+            if (compressedLength == compressed.length - 5) {
+                increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.length);
+                state.compressed = false;
+            } else {
+                // Write compression version number and uncompressed size as these
+                // meta-data are needed when decompressing.
+                compressed[0] = (byte)MAX_COMPRESSION_VERSION;
+                ByteBuffer.wrap(compressed, 1, 4).order(ByteOrder.BIG_ENDIAN).putInt(state.length);
+                state.compressed = true;
+                increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, compressedLength + 5);
+                state.setDataArray(compressed, 0, compressedLength + 5);
+            }
         } else {
-            state.compressed = true;
-            increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, compressedLength + 5);
-            state.setDataArray(compressed, 0, compressedLength + 5);
+            increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.length);
         }
 
         if (timer != null) {

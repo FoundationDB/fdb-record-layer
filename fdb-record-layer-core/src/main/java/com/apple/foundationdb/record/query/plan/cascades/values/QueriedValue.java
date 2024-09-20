@@ -44,7 +44,7 @@ import java.util.Objects;
  * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueriedValue extends AbstractValue implements LeafValue, Value.CompileTimeValue {
+public class QueriedValue extends AbstractValue implements LeafValue, Value.NonEvaluableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
     @Nonnull

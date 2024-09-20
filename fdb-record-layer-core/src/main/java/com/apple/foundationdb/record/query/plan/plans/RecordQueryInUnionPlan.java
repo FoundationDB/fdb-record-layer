@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -388,7 +389,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      *
      * @param inner the input/inner plan to this in-union
      * @param inSources a list of outer in-sources
-     * @param comparisonKeyValues values by which the results of both plans are ordered
+     * @param comparisonKeyOrderingParts ordering parts by which the results of both plans are ordered
      * @param isReverse indicator if {@code comparisonKeyValues} should be considered reversed (inverted).
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
      * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
@@ -397,13 +398,13 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     @Nonnull
     public static RecordQueryInUnionOnValuesPlan from(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final List<? extends InSource> inSources,
-                                                      @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                      @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                       final boolean isReverse,
                                                       final int maxNumberOfValuesAllowed,
                                                       @Nonnull final Bindings.Internal internal) {
         return RecordQueryInUnionOnValuesPlan.inUnion(inner,
                 inSources,
-                comparisonKeyValues,
+                comparisonKeyOrderingParts,
                 isReverse,
                 maxNumberOfValuesAllowed,
                 internal);

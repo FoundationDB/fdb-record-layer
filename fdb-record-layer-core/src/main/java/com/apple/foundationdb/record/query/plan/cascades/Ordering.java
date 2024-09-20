@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOr
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
@@ -52,7 +51,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
@@ -284,7 +282,7 @@ public class Ordering {
 
         final var satisfyingEnumeratedOrderings = enumerateCompatibleRequestedOrderings(requestedOrdering);
         return Streams.stream(satisfyingEnumeratedOrderings)
-                .map(keyParts -> new RequestedOrdering(keyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS))
+                .map(keyParts -> RequestedOrdering.ofPrimitiveParts(keyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS))
                 .collect(ImmutableSet.toImmutableSet());
     }
 
@@ -292,6 +290,31 @@ public class Ordering {
         return !Iterables.isEmpty(enumerateCompatibleRequestedOrderings(requestedOrdering));
     }
 
+    /**
+     * Method to, given a constraining {@link RequestedOrdering}, enumerates all ordering sequences supported by this
+     * ordering that are compatible with the given {@link RequestedOrdering}. This functionality is needed when a
+     * provided order is used to again drive requested orderings for another quantifier participating in e.g. a set
+     * operation or similar.
+     * Example:
+     * <pre>
+     *     {@code
+     *     requested ordering a↑, b↓, c↑
+     *     this ordering:
+     *         partially ordered set:
+     *             members: a, b, x, c, d, e
+     *             dependencies: a ← b ← c ← e
+     *         bindings a↑, b=, x=, c↑, d↑, e↑
+     *
+     *     enumerated requested orderings (among others):
+     *         a↑, b↓, c↑
+     *         a↑, x↕, b↓, c↑
+     *         a↑, x↕, b↓, c↑, d↕, e↕
+     *         a↑, x↕, b↓, c↑, e↕, d↕
+     *     }
+     * </pre>
+     * @param requestedOrdering the {@link RequestedOrdering} this ordering needs to be compatible with
+     * @return an iterable of all compatible {@link RequestedOrdering}s
+     */
     @Nonnull
     public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
@@ -457,10 +480,10 @@ public class Ordering {
         return builder.build();
     }
 
-    public boolean isSingularDirectionalValue(@Nonnull final Value value) {
+    public boolean isSingularNonFixedValue(@Nonnull final Value value) {
         Verify.verify(bindingMap.containsKey(value));
         final var bindings = bindingMap.get(value);
-        if (isSingularDirectionalBinding(bindings)) {
+        if (isSingularNonFixedBinding(bindings)) {
             return true;
         }
         Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindingMap.get(value))));
@@ -573,7 +596,7 @@ public class Ordering {
         for (final Value value : bindingMap.keySet()) {
             final boolean isFixed = areAllBindingsFixed(bindingMap.get(value));
             final var bindings = bindingMap.get(value);
-            SortOrder seenSortOrder = null;
+            ProvidedSortOrder seenSortOrder = null;
             for (final Binding binding : bindings) {
                 if (seenSortOrder != null) {
                     switch (binding.getSortOrder()) {
@@ -692,10 +715,22 @@ public class Ordering {
         return Iterables.getOnlyElement(bindings);
     }
 
-    public static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
+    public static boolean isSingularBinding(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
-        if (bindings.size() == 1) {
+        return bindings.size() == 1;
+    }
+
+    public static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
+        if (isSingularBinding(bindings)) {
             return Iterables.getOnlyElement(bindings).getSortOrder().isDirectional();
+        }
+        return false;
+    }
+
+    public static boolean isSingularNonFixedBinding(@Nonnull final Collection<Binding> bindings) {
+        if (isSingularBinding(bindings)) {
+            final var sortOrder = Iterables.getOnlyElement(bindings).getSortOrder();
+            return sortOrder.isDirectional() || sortOrder == ProvidedSortOrder.CHOOSE;
         }
         return false;
     }
@@ -703,7 +738,7 @@ public class Ordering {
     public static ProvidedSortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
 
-        if (isSingularDirectionalBinding(bindings)) {
+        if (isSingularNonFixedBinding(bindings)) {
             return Iterables.getOnlyElement(bindings).getSortOrder();
         }
 
@@ -798,7 +833,7 @@ public class Ordering {
      * {@link SetOperationsOrdering} defines methods that can only be applied to orderings that are produced by a
      * merge operation. For most of these methods, the caller needs to pass in a {@link RequestedOrdering} in order
      * to fix the ambiguities of the {@link SetOperationsOrdering} at hand. Most prominently,
-     * {@link SetOperationsOrdering#applyComparisonKey(List, SetMultimap)} can take a {@link SetOperationsOrdering},
+     * {@link SetOperationsOrdering#applyComparisonKey(List)} can take a {@link SetOperationsOrdering},
      * and by means of a {@link RequestedOrdering} can create a regular {@link Ordering} by promoting multiple fixed
      * bindings into directional ones.
      *
@@ -1091,7 +1126,7 @@ public class Ordering {
                                                @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
         for (final var valueBindingsEntry : bindingMap.asMap().entrySet()) {
             final var bindings = valueBindingsEntry.getValue();
-            if (isSingularDirectionalBinding(bindings)) {
+            if (isSingularBinding(bindings)) {
                 Verify.verify(sortOrder(bindings) != ProvidedSortOrder.CHOOSE);
             }
         }
@@ -1110,50 +1145,6 @@ public class Ordering {
                                               @Nonnull final List<? extends Value> orderingAsList,
                                               final boolean isDistinct) {
         return ofOrderingSet(bindingMap, computeFromOrderingSequence(bindingMap, orderingAsList), isDistinct);
-    }
-
-    /**
-     * Helper to attempt to resolve a comparison direction. This is needed for distinct set operations that use
-     * comparison keys. In the future there won't be a common direction but each comparison value will encode that
-     * information separately. Note that this method is probably going to be deprecated once we have comparison keys
-     * that use an independent comparison direction per ordering part.
-     * @param providedOrderingParts an iterable of {@link ProvidedOrderingPart}s
-     * @return {@code Optional.empty()} if individual orderings are mixed (i.e. some are ascending, others are
-     *         descending); {@code Optional.of(false)} if all directional sort orders are not descending;
-     *         {@code Optional.of(true)} if all directional sort orders are descending
-     */
-    @Nonnull
-    public static Optional<Boolean> resolveComparisonDirectionMaybe(@Nonnull final Iterable<ProvidedOrderingPart> providedOrderingParts) {
-        boolean seenAscending = false;
-        boolean seenDescending = false;
-
-        for (final var providedOrderingPart : providedOrderingParts) {
-            final var sortOrder = providedOrderingPart.getSortOrder();
-            switch (sortOrder) {
-                case ASCENDING:
-                    seenAscending = true;
-                    break;
-                case DESCENDING:
-                    seenDescending = true;
-                    break;
-                case FIXED:
-                case CHOOSE:
-                    break;
-                default:
-                    throw new RecordCoreException("unexpected sort order");
-            }
-        }
-        if (seenAscending && seenDescending) {
-            // shrug
-            return Optional.empty();
-        }
-
-        if (!seenAscending && !seenDescending) {
-            // in the absence of anything we return forward by default
-            return Optional.of(false);
-        }
-
-        return seenAscending ? Optional.of(false) : Optional.of(true);
     }
 
     /**
@@ -1228,7 +1219,7 @@ public class Ordering {
 
         @Nonnull
         public static Binding choose() {
-            return sorted(ProvidedSortOrder.CHOOSE);
+            return new Binding(ProvidedSortOrder.CHOOSE, null);
         }
 
         @Nonnull
@@ -1303,7 +1294,7 @@ public class Ordering {
             final var filteredOrderingSet =
                     getOrderingSet().filterElements(value -> {
                         final var bindings = bindingMap.get(value);
-                        return isSingularDirectionalValue(value) ||
+                        return isSingularNonFixedValue(value) ||
                                 //
                                 // This commented line changes the behavior in a way that values that have multiple
                                 // fixed bindings but no requested sort order do not get a comparison key part and
@@ -1324,8 +1315,12 @@ public class Ordering {
         protected abstract boolean promoteToDirectional();
 
         @Nonnull
-        public Ordering applyComparisonKey(@Nonnull final List<? extends Value> comparisonKeyValues,
-                                           @Nonnull final SetMultimap<Value, Binding> comparisonKeyBindingMap) {
+        public Ordering applyComparisonKey(@Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts) {
+            final var comparisonKeyOrderingPartMap = OrderingPart.toOrderingPartMap(comparisonKeyOrderingParts);
+            final var comparisonKeyValues =
+                    comparisonKeyOrderingParts.stream()
+                            .map(OrderingPart::getValue)
+                            .collect(ImmutableList.toImmutableList());
             final var orderingSet = getOrderingSet();
             final var comparisonKeyOrderingSet =
                     PartiallyOrderedSet.<Value>builder()
@@ -1339,7 +1334,7 @@ public class Ordering {
                 final var value = entry.getKey();
                 final var bindings = entry.getValue();
 
-                if (!comparisonKeyBindingMap.containsKey(value)) {
+                if (!comparisonKeyOrderingPartMap.containsKey(value)) {
                     if (areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings)) {
                         // there is only one fixed binding
                         resultBindingMapBuilder.putAll(value, bindings);
@@ -1349,9 +1344,10 @@ public class Ordering {
                     // binding that is not part of the comparison key
                     //
                 } else {
-                    final var comparisonKeyBindings = comparisonKeyBindingMap.get(value);
-                    Verify.verify(comparisonKeyBindings.stream().noneMatch(Binding::isFixed));
-                    resultBindingMapBuilder.put(value, Iterables.getOnlyElement(comparisonKeyBindings));
+                    final var providedOrderingPart = Objects.requireNonNull(comparisonKeyOrderingPartMap.get(value));
+                    final var sortOrder = providedOrderingPart.getSortOrder();
+                    Verify.verify(sortOrder.isDirectional());
+                    resultBindingMapBuilder.put(value, Binding.sorted(sortOrder));
                 }
             }
 
@@ -1417,6 +1413,8 @@ public class Ordering {
                         switch (requestedSortOrder) {
                             case ASCENDING:
                             case DESCENDING:
+                            case ASCENDING_NULLS_LAST:
+                            case DESCENDING_NULLS_FIRST:
                                 resultBuilder.add(new ProvidedOrderingPart(comparisonKeyValue, requestedSortOrder.toProvidedSortOrder()));
                                 break;
                             case ANY:
@@ -1477,6 +1475,64 @@ public class Ordering {
 
         default O createFromOrdering(@Nonnull final Ordering ordering) {
             return createOrdering(ordering.getBindingMap(), ordering.getOrderingSet(), ordering.isDistinct());
+        }
+    }
+
+    /**
+     * Enum to differentiate the different kinds of preserving order.
+     * <ul>
+     *     <li>
+     *         direct order: {@code for all x1, x2 with x1 <= x2 holds f(x1) <= f(x2)},
+     *     </li>
+     *     <li>
+     *         inverse order: {@code for all x1, x2 with x1 <= x2 holds f(x1) >= f(x2)},
+     *     </li>* </ul>
+     */
+    public enum OrderPreservingKind {
+        NOT_ORDER_PRESERVING,
+        DIRECT_ORDER_PRESERVING,
+        INVERSE_ORDER_PRESERVING
+    }
+
+    /**
+     * Interface that declares that this {@link Value} preserves the order of the input value in some way.
+     */
+    public interface OrderPreservingValue extends Value {
+        @Nonnull
+        OrderPreservingKind getOrderPreservingKind();
+    }
+
+    /**
+     * Interface that declares that <em>all</em> instances of the implementing class are directly order-preserving.
+     */
+    public interface DirectOrderPreservingValue extends OrderPreservingValue {
+        @Nonnull
+        @Override
+        default OrderPreservingKind getOrderPreservingKind() {
+            return OrderPreservingKind.DIRECT_ORDER_PRESERVING;
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        default <T extends DirectOrderPreservingValue> OrderPreservingKind getOrderPreservingKindExclusive() {
+            return getOrderPreservingKind();
+        }
+    }
+
+    /**
+     * Interface that declares that <em>all</em> instances of the implementing class are inverse order-preserving.
+     */
+    public interface InverseOrderPreservingValue extends OrderPreservingValue {
+        @Nonnull
+        @Override
+        default OrderPreservingKind getOrderPreservingKind() {
+            return OrderPreservingKind.INVERSE_ORDER_PRESERVING;
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        default <T extends InverseOrderPreservingValue> OrderPreservingKind getOrderPreservingKindExclusive() {
+            return getOrderPreservingKind();
         }
     }
 }

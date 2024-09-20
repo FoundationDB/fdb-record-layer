@@ -49,7 +49,7 @@ import java.util.Set;
 /**
  * Represents a constant value that references a constant in __CONST__ binding of {@link EvaluationContext}.
  */
-public class ConstantObjectValue extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
+public class ConstantObjectValue extends AbstractValue implements LeafValue, Value.RangeMatchableValue, CreatesDynamicTypesValue {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Object-Value");
@@ -130,7 +130,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var obj = context.dereferenceConstant(alias, constantId);
         if (obj == null) {
             Verify.verify(getResultType().isNullable());

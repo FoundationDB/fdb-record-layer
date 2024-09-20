@@ -60,13 +60,14 @@ public class RecordTypeValue extends AbstractValue {
     @SuppressWarnings("unchecked")
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var inRecord = in.eval(store, context);
         if (!(inRecord instanceof Message)) {
             return null;
         }
 
-        return store.getRecordMetaData().getRecordType(((M)inRecord).getDescriptorForType().getName()).getRecordTypeKey();
+        return Objects.requireNonNull(store).getRecordMetaData()
+                .getRecordType(((M)inRecord).getDescriptorForType().getName()).getRecordTypeKey();
     }
 
     @Nonnull

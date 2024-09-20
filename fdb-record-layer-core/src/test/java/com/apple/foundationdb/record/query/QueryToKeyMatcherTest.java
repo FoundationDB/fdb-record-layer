@@ -35,8 +35,7 @@ import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
@@ -793,8 +792,14 @@ public class QueryToKeyMatcherTest {
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType, @Nonnull final List<String> fieldNamePrefix) {
-            throw new UnsupportedOperationException("not supported");
+        public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+            return visitor.visitExpression(this);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
 
         @Override
