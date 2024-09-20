@@ -4431,11 +4431,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
                 if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
-                    // TODO compare via the whole subspace once PR #2920 is in
                     final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
                             commitCheck -> {
                                 if (commitCheck instanceof IndexUniquenessCommitCheck) {
-                                    return ((IndexUniquenessCommitCheck)commitCheck).getIndex().getSubspaceKey().equals(index.getSubspaceKey());
+                                    return ((IndexUniquenessCommitCheck)commitCheck).getIndexSubspace().equals(indexSubspace(index));
                                 } else {
                                     return false;
                                 }
