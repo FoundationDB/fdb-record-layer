@@ -523,6 +523,11 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Nonnull
+    public static BindingMatcher<Comparisons.SimpleComparison> anySimpleComparison() {
+        return typed(Comparisons.SimpleComparison.class);
+    }
+
+    @Nonnull
     public static BindingMatcher<Comparisons.ParameterComparison> anyParameterComparison() {
         return typed(Comparisons.ParameterComparison.class);
     }

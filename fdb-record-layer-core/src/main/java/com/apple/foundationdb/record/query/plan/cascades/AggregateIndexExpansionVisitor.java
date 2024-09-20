@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -70,16 +71,16 @@ import java.util.stream.Stream;
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                             implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
-    private static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
+    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
 
     @Nonnull
-    private final Index index;
+    protected final Index index;
 
     @Nonnull
     private final Collection<RecordType> recordTypes;
 
     @Nonnull
-    private final GroupingKeyExpression groupingKeyExpression;
+    protected final GroupingKeyExpression groupingKeyExpression;
 
     private final int columnPermutations;
 
@@ -90,7 +91,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param recordTypes The indexed record types.
      */
     public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(aggregateMap.get().containsKey(index.getType()));
+        Preconditions.checkArgument(IndexTypes.BITMAP_VALUE.equals(index.getType()) || aggregateMap.get().containsKey(index.getType()));
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());
@@ -125,12 +126,19 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 1. create a SELECT-WHERE expression.
         final var selectWhereQunAndPlaceholders = constructSelectWhereAndPlaceholders(baseQuantifier, baseExpansion);
+        final var selectWhereQun = selectWhereQunAndPlaceholders.getLeft();
+        final var selectWherePlaceholders = selectWhereQunAndPlaceholders.getRight();
 
         // 2. create a GROUP-BY expression on top.
-        final var groupByQun = constructGroupBy(selectWhereQunAndPlaceholders.getLeft(), baseExpansion);
+        final var groupByQunAndPlaceholders = constructGroupBy(selectWhereQun, baseExpansion);
+        final var groupByQun = groupByQunAndPlaceholders.getLeft();
+        final var groupByPlaceholders = groupByQunAndPlaceholders.getRight();
+
+        final var placeholders = ImmutableList.<Placeholder>builder().addAll(selectWherePlaceholders)
+                .addAll(groupByPlaceholders).build();
 
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, selectWhereQunAndPlaceholders.getRight());
+        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, placeholders);
         final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
         final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
 
@@ -151,7 +159,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
     @Nonnull
     private GraphExpansion constructBaseExpansion(@Nonnull final Quantifier.ForEach baseQuantifier) {
-        final var state = VisitorState.of(Lists.newArrayList(), Lists.newArrayList(), baseQuantifier, ImmutableList.of(), groupingKeyExpression.getGroupingCount(), 0);
+        final var state = VisitorState.of(Lists.newArrayList(), Lists.newArrayList(),
+                baseQuantifier, ImmutableList.of(), groupingKeyExpression.getGroupingCount(),
+                0, false, false);
         return pop(groupingKeyExpression.getWholeKey().expand(push(state)));
     }
 
@@ -207,7 +217,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private Quantifier constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
+    protected NonnullPair<Quantifier, List<Placeholder>> constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() > 1) {
             throw new UnsupportedOperationException("aggregate index is expected to contain exactly one aggregation, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }
@@ -219,7 +229,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final Value argument;
         if (groupedValue instanceof EmptyValue) {
             argument = RecordConstructorValue.ofColumns(ImmutableList.of());
-        } else if (groupedValue instanceof FieldValue) {
+        } else if (groupedValue instanceof FieldValue || groupedValue instanceof ArithmeticValue) {
             final var aliasMap = AliasMap.identitiesFor(Sets.union(selectWhereQun.getCorrelatedTo(),
                     groupedValue.getCorrelatedTo()));
             final var result = selectWhereQun.getRangesOver().get().getResultValue()
@@ -234,7 +244,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                     .addLogInfo(LogMessageKeys.VALUE, groupedValue);
         }
         final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(argument));
-
         // add an RCV column representing the grouping columns as the first result set column
         // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
 
@@ -253,16 +262,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             return pulledUpGroupingValuesMap.get(groupingValue);
         }).collect(ImmutableList.toImmutableList());
 
-        // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
         if (groupingColsValue.getResultType().getFields().isEmpty()) {
-            return Quantifier.forEach(Reference.of(
+            return NonnullPair.of(Quantifier.forEach(Reference.of(
                     new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun)));
+                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
         } else {
-            return Quantifier.forEach(Reference.of(
+            return NonnullPair.of(Quantifier.forEach(Reference.of(
                     new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun)));
+                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
         }
     }
 
@@ -295,7 +303,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         selectHavingGraphExpansionBuilder.addResultColumn(Column.unnamedOf(aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
         final List<CorrelationIdentifier> finalPlaceholders;
         if (isPermuted()) {
-            Placeholder placeholder = Placeholder.newInstance(aggregateValueReference, newParameterAlias());
+            Placeholder placeholder = Placeholder.newInstanceWithoutRanges(aggregateValueReference, newParameterAlias());
             placeholderAliases.add(placeholder.getParameterAlias());
             selectHavingGraphExpansionBuilder.addPlaceholder(placeholder).addPredicate(placeholder);
             if (columnPermutations > 0) {

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -41,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -52,17 +54,30 @@ import java.util.stream.Collectors;
 @SuppressWarnings("java:S2160")
 public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersectionPlan implements RecordQueryPlanWithComparisonKeyValues {
 
+    /**
+     * A list of {@link ProvidedOrderingPart}s that is used to compute the comparison key function. This attribute is
+     * transient and therefore not plan-serialized
+     */
+    @Nullable
+    private final List<ProvidedOrderingPart> comparisonKeyOrderingParts;
+
     protected RecordQueryIntersectionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                   @Nonnull final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryIntersectionOnValuesPlanProto.getSuper()));
+        this.comparisonKeyOrderingParts = null;
     }
 
-    public RecordQueryIntersectionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                               @Nonnull final List<? extends Value> comparisonKeyValues,
-                                               final boolean reverse) {
+    private RecordQueryIntersectionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                                @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                final boolean reverse) {
         super(quantifiers,
                 new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
                 reverse);
+        this.comparisonKeyOrderingParts =
+                comparisonKeyOrderingParts == null
+                ? null
+                : ImmutableList.copyOf(comparisonKeyOrderingParts);
     }
 
     @Nonnull
@@ -88,6 +103,12 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
 
     @Nonnull
     @Override
+    public List<ProvidedOrderingPart> getComparisonKeyOrderingParts() {
+        return Objects.requireNonNull(comparisonKeyOrderingParts);
+    }
+
+    @Nonnull
+    @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }
@@ -102,6 +123,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     @Override
     public RecordQueryIntersectionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryIntersectionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
+                comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
                 isReverse());
     }
@@ -113,6 +135,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
                 newChildren.stream()
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList()),
+                comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
                 isReverse());
     }
@@ -123,7 +146,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
                 Quantifiers.fromPlans(getChildren()
                         .stream()
                         .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
-        return new RecordQueryIntersectionOnValuesPlan(quantifiers, getComparisonKeyValues(), reverse);
+        return new RecordQueryIntersectionOnValuesPlan(quantifiers, comparisonKeyOrderingParts, getComparisonKeyValues(), reverse);
     }
 
     @Nonnull
@@ -146,11 +169,12 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
 
     @Nonnull
     public static RecordQueryIntersectionOnValuesPlan intersection(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                   @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                                   final boolean reverse) {
+                                                                   @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                                   final boolean isReverse) {
         return new RecordQueryIntersectionOnValuesPlan(quantifiers,
-                comparisonKeyValues,
-                reverse);
+                comparisonKeyOrderingParts,
+                ProvidedOrderingPart.comparisonKeyValues(comparisonKeyOrderingParts, isReverse),
+                isReverse);
     }
 
     /**

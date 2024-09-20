@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -41,7 +42,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -50,23 +53,36 @@ import java.util.Set;
 @SuppressWarnings("java:S2160")
 public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan implements RecordQueryPlanWithComparisonKeyValues {
 
+    /**
+     * A list of {@link ProvidedOrderingPart}s that is used to compute the comparison key function. This attribute is
+     * transient and therefore not plan-serialized
+     */
+    @Nullable
+    private final List<ProvidedOrderingPart> comparisonKeyOrderingParts;
+
     protected RecordQueryInUnionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
                                              @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
         super(serializationContext, recordQueryInUnionOnValuesPlanProto.getSuper());
+        this.comparisonKeyOrderingParts = null;
     }
 
     public RecordQueryInUnionOnValuesPlan(@Nonnull final Quantifier.Physical inner,
                                           @Nonnull final List<? extends InSource> inSources,
+                                          @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                           @Nonnull final List<? extends Value> comparisonKeyValues,
-                                          final boolean reverse,
+                                          final boolean isReverse,
                                           final int maxNumberOfValuesAllowed,
                                           @Nonnull final Bindings.Internal internal) {
         super(inner,
                 inSources,
                 new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
-                reverse,
+                isReverse,
                 maxNumberOfValuesAllowed,
                 internal);
+        this.comparisonKeyOrderingParts =
+                comparisonKeyOrderingParts == null
+                ? null
+                : ImmutableList.copyOf(comparisonKeyOrderingParts);
     }
 
     @Nonnull
@@ -92,6 +108,12 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
 
     @Nonnull
     @Override
+    public List<ProvidedOrderingPart> getComparisonKeyOrderingParts() {
+        return Objects.requireNonNull(comparisonKeyOrderingParts);
+    }
+
+    @Nonnull
+    @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }
@@ -113,6 +135,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     public RecordQueryInUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInUnionOnValuesPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getInSources(),
+                comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
                 reverse,
                 maxNumberOfValuesAllowed,
@@ -124,6 +147,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     public RecordQueryInUnionOnValuesPlan withChild(@Nonnull final Reference childRef) {
         return new RecordQueryInUnionOnValuesPlan(Quantifier.physical(childRef),
                 getInSources(),
+                comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
                 reverse,
                 maxNumberOfValuesAllowed,
@@ -153,14 +177,15 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     @Nonnull
     public static RecordQueryInUnionOnValuesPlan inUnion(@Nonnull final Quantifier.Physical inner,
                                                          @Nonnull final List<? extends InSource> inSources,
-                                                         @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                         final boolean reverse,
+                                                         @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                         final boolean isReverse,
                                                          final int maxNumberOfValuesAllowed,
                                                          @Nonnull final Bindings.Internal internal) {
         return new RecordQueryInUnionOnValuesPlan(inner,
                 inSources,
-                comparisonKeyValues,
-                reverse,
+                comparisonKeyOrderingParts,
+                ProvidedOrderingPart.comparisonKeyValues(comparisonKeyOrderingParts, isReverse),
+                isReverse,
                 maxNumberOfValuesAllowed,
                 internal);
     }

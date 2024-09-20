@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.planprotos.PComparisonKeyFunction.POnValues
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -172,6 +174,70 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      */
     default boolean isDynamic() {
         return false;
+    }
+
+    /**
+     * Helper to resolve a comparison direction. This is needed for distinct set operations that use comparison keys.
+     *
+     * @param providedOrderingParts an iterable of {@link ProvidedOrderingPart}s
+     * @return {@code false} if there are more directional sort orders are not descending;
+     *         {@code true} if there more directional sort orders are descending
+     */
+    static boolean resolveComparisonDirection(@Nonnull final Iterable<ProvidedOrderingPart> providedOrderingParts) {
+        int numAscending = 0;
+        int numDescending = 0;
+
+        for (final var providedOrderingPart : providedOrderingParts) {
+            final var sortOrder = providedOrderingPart.getSortOrder();
+            switch (sortOrder) {
+                case ASCENDING:
+                case ASCENDING_NULLS_LAST:
+                    numAscending ++;
+                    break;
+                case DESCENDING:
+                case DESCENDING_NULLS_FIRST:
+                    numDescending ++;
+                    break;
+                case FIXED:
+                case CHOOSE:
+                    break;
+                default:
+                    throw new RecordCoreException("unexpected sort order");
+            }
+        }
+
+        if (numAscending == 0 && numDescending == 0) {
+            // in the absence of anything we return forward by default
+            return false;
+        }
+
+        return numDescending > numAscending;
+    }
+
+    /**
+     * Helper to resolve a comparison direction. This is needed for distinct set operations that use comparison keys.
+     *
+     * @param providedOrderingParts an iterable of {@link ProvidedOrderingPart}s
+     * @return {@code false} if there are more directional sort orders are not descending;
+     *         {@code true} if there more directional sort orders are descending
+     */
+    static List<ProvidedOrderingPart> adjustFixedBindings(@Nonnull final Iterable<ProvidedOrderingPart> providedOrderingParts,
+                                                          final boolean isReverse) {
+        return Streams.stream(providedOrderingParts)
+                .map(providedOrderingPart -> {
+                    if (providedOrderingPart.getSortOrder() != OrderingPart.ProvidedSortOrder.FIXED) {
+                        return providedOrderingPart;
+                    }
+                    //
+                    // This is a part that we can choose the resulting order in any way we like. Once we know
+                    // the reverse-ness of the set operation, we chose the sort order that is the simplest to
+                    // create the physical comparison key for, i.e. the regular non-counterflow sort orders
+                    // matching the reversed-ness
+                    //
+                    return new ProvidedOrderingPart(providedOrderingPart.getValue(),
+                            isReverse ? OrderingPart.ProvidedSortOrder.DESCENDING : OrderingPart.ProvidedSortOrder.ASCENDING);
+                })
+                .collect(ImmutableList.toImmutableList());
     }
 
     /**

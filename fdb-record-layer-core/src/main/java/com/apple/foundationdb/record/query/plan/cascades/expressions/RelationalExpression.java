@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
@@ -44,9 +43,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -55,6 +54,8 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -82,13 +83,13 @@ import java.util.stream.StreamSupport;
  * and various logical relational expressions (not yet introduced), which represent an abstract stream of records but can't
  * be executed directly (such as an unimplemented sort). Other planner expressions such as {@link com.apple.foundationdb.record.query.expressions.QueryComponent}
  * and {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression} do not represent streams of records.
- *
+ * <br>
  * The basic type that represents a part of the planner expression tree. An expression is generally an immutable
  * object with two different kinds of fields: regular Java fields and reference fields. The regular fields represent
  * "node information", which pertains only to this specific node in the tree. In contrast, the reference fields represent
  * this expression's children in the tree, such as its inputs and filter/sort expressions, and are always hidden behind
  * an {@link Reference}.
- *
+ * <br>
  * Deciding whether certain fields constitute "node information" (and should therefore be a regular field) or
  * "hierarchical information" (and therefore should not be) is subtle and more of an art than a science. There are two
  * reasonable tests that can help make this decision:
@@ -103,7 +104,7 @@ import java.util.stream.StreamSupport;
  * Applying the first rule, it wouldn't really make sense to match the index name or the comparisons being performed on
  * their own: they're what define an index scan, after all!
  * Applying the second rule, they're relatively small immutable objects that don't need to be memoized.
- *
+ * <br>
  * In contrast, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} has no regular fields.
  * A filter plan has two important fields: the <code>Query.Component</code> used for the filter and a child plan that
  * provides input. Both of these might be matched by rules directly, in order to optimize them without regard for the
@@ -159,9 +160,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         }
 
         if (query.getSort() != null) {
+            final var sortValues =
+                    ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType());
             quantifier = Quantifier.forEach(Reference.of(
-                    new LogicalSortExpression(ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType()),
-                            query.isSortReverse(),
+                    new LogicalSortExpression(
+                            LogicalSortExpression.buildRequestedOrdering(sortValues,
+                                    query.isSortReverse(), quantifier),
                             quantifier)));
         } else {
             quantifier = Quantifier.forEach(Reference.of(LogicalSortExpression.unsorted(quantifier)));
@@ -195,7 +199,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return getResultValue().getDynamicTypes();
     }
 
-    @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
+    @SuppressWarnings("java:S3655")
     default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
         return getResultValue().semanticEquals(otherExpression.getResultValue(), aliasMap);
     }
@@ -213,32 +217,30 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Returns if this expression can be the anchor of a correlation.
-     *
+     * <br>
      * A correlation is always formed between three entities:
      * <ol>
      * <li>the {@link Quantifier} that flows data</li>
      * <li>2. the anchor (which is a {@link RelationalExpression}) that ranges directly over the source</li>
      * <li>3. the consumers (or dependents) of the correlation which must be a descendant of the anchor.</li>
      * </ol>
-     *
      * In order for a correlation to be meaningful, the anchor must define how data is bound and used by all
      * dependents. For most expressions it is not meaningful or even possible to define correlation in such a way.
-     *
+     * <br>
      * For instance, a {@link LogicalUnionExpression}
      * cannot correlate (this method returns {@code false}) because it is not meaningful to bind a record from one child
      * of the union while providing bound values to another.
-     *
+     * <br>
      * In another example, a logical select expression can correlate which means that one child of the SELECT expression
      * can be evaluated and the resulting records can bound individually one after another. For each bound record
      * flowing along that quantifier the other children of the SELECT expression can be evaluated, potentially causing
      * more correlation values to be bound, etc. These concepts follow closely to the mechanics of what SQL calls a query
      * block.
-     *
+     * <br>
      * The existence of a correlation between source, anchor, and dependents may adversely affect planning because
      * a correlation always imposes order between the evaluated of children of an expression. This may or may
      * not tie the hands of the planner to produce an optimal plan. In certain cases, queries written in a correlated
      * way can be <em>de-correlated</em> to allow for better optimization techniques.
-     *
      * @return {@code true} if this expression can be the anchor of a correlation, {@code false} otherwise.
      */
     default boolean canCorrelate() {
@@ -386,11 +388,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * Attempt to match this expression (this graph) with another expression (from another graph called the candidate
      * graph) to produce matches of some kind.
-     *
+     * <br>
      * This overload matches over all quantifiers owned by this expression respectively the {@code otherExpression}.
      * See {@link #match(RelationalExpression, AliasMap, List, List, Function, MatchFunction, CombineFunction)} for
      * more information about the matching process.
-     *
      * @param otherExpression the expression to match this expression with
      * @param boundAliasMap alias map containing bound aliases
      * @param constraintsFunction function constraining the number of permutations to enumerate
@@ -422,14 +423,14 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * Attempt to match this expression (this graph) with another expression (from another graph called the candidate
      * graph) to produce matches of some kind.
-     *
+     * <br>
      * Two relational expressions can only match if the sub-graphs of the quantifiers they range over match
      * themselves under a bijective association (mapping between the quantifiers of this expression and
      * the quantifier of the candidate expression). To this end, the {@code matchFunction} passed in to this method is
      * used to determine the matches between two quantifiers: one from this graph and one from the candidate graph.
      * The {@code matchFunction} can produce zero, one or many matches which are returned as an {@link Iterable} of type
      * {@code M}.
-     *
+     * <br>
      * This method attempts to find that bijective mapping between the quantifiers contained by their respective
      * expressions. Naturally, if the expressions that are being matched own a different number of quantifiers we cannot
      * ever find a bijective mapping. In that case, the two expressions do not match at all. If, on the other hand the
@@ -443,11 +444,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * depends on {@code q1}, denoted by {@code q1 -> q2}.
      * This implies that every enumerated mapping must contain {@code q1} before {@code q2} which therefore decreases
      * the number of all mappings that need to be enumerated.
-     *
+     * <br>
      * One complicating factor are correlations to parts of the graph that are not contained in the sub-graphs
      * underneath {@code this} respectively the candidate expression. These correlations are enumerated and bound
      * prior to matching the quantifiers.
-     *
      * @param otherExpression the expression to match this expression with
      * @param boundAliasMap alias map containing bound aliases
      * @param quantifiers the set of quantifiers owned by this expression that is matched over
@@ -523,25 +523,24 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     /**
      * A functional interface to combine the matches computed over pairs of quantifiers during matching into a
      * result (for the bound correlatedTo set handed into {@link #combine}).
-     *
+     * <br>
      * Let's assume we have multiple bindings during matching on the deep correlations (.getCorrelatedTo() of this).
      * Let's call that the sets of outer bindings. We also attempt to match the quantifiers owned by this to the
-     * quantifiers of other.
-     *
+     * quantifiers of {@code other}.
+     * <br>
      * For each set of outer bindings we enumerate bindings among the owned quantifiers of the respective expressions.
      * Let's call those sets the inner bindings. For each set out outer bindings there are many sets of inner bindings.
-     *
+     * <br>
      * At the end of matching we want to establish a match between this expression and some other expression and the
      * quantifiers owned by the respective expressions and their bindings among each other do not matter anymore in
      * terms of matching logic. Those bindings only matter for the result of the match under a set of outer bindings.
-     *
+     * <br>
      * The matching algorithm returns an iterable of some type {@code S} which is computed by a lambda passed in by
      * the caller. It is up to the caller what to do with the outer and inner bindings and how to compute a useful
      * result out of it. The signature of that lambda is defined by this interface.
-     *
+     * <br>
      * During matching the matching logic calls {@link #combine} for each set of outer bindings with and {@link Iterable}
      * over sets of inner bindings (and their match results).
-     *
      * @param <R> type of the match result computed while matching quantifiers
      * @param <S> type of combined match result
      */
@@ -561,9 +560,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Method to enumerate all bindings of unbound correlations of this and some other expression.
-     *
+     * <br>
      * Example:
-     *
      * <pre>
      * {@code
      *
@@ -692,30 +690,59 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * Helper method that can be called by sub classes to defer subsumption in a way that the particular expression
      * only matches if it is semantically equivalent.
      * @param candidateExpression the candidate expression
-     * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
+     * @param bindingAliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
      *        from one of the expressions below that quantifier
-     * @param maxMatchMap the max match map.
+     * @param translationMap the current translation map.
      * @return an iterable of {@link MatchInfo}s if semantic equivalence between this expression and the candidate
      *         expression can be established
      */
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     default Iterable<MatchInfo> exactlySubsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                                  @Nonnull final AliasMap aliasMap,
+                                                  @Nonnull final AliasMap bindingAliasMap,
                                                   @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                  @Nonnull final Optional<MaxMatchMap> maxMatchMap) {
-        if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, candidateExpression.getQuantifiers())) {
-            return ImmutableList.of();
-        }
+                                                  @Nonnull final TranslationMap translationMap) {
+        Verify.verify(!candidateExpression.canCorrelate());
+        Verify.verify(candidateExpression.getQuantifiers().size() <= 1);
 
-        if (equalsWithoutChildren(candidateExpression, aliasMap)) {
+        final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+        final var maxMatchMap =
+                MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
+                        ValueEquivalence.fromAliasMap(bindingAliasMap));
+
+        if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
             return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {
             return ImmutableList.of();
         }
+    }
+
+    @Nonnull
+    static Optional<TranslationMap> pullUpAndComposeTranslationMapsMaybe(@Nonnull final RelationalExpression candidateExpression,
+                                                                         @Nonnull final AliasMap bindingAliasMap,
+                                                                         @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        final var candidateAliasesToQuantifierMap =
+                Quantifiers.aliasToQuantifierMap(candidateExpression.getQuantifiers());
+        var translationMapBuilder = TranslationMap.builder();
+        for (final var entry : partialMatchMap.entrySet()) {
+            final var quantifier = entry.getKey().get();
+            final var partialMatch = entry.getValue().get();
+            final var matchInfo = partialMatch.getMatchInfo();
+            final var candidateAlias =
+                    Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias()));
+            final var maxMatchMap = matchInfo.getMaxMatchMap();
+            final var quantifierTranslationMapOptional = quantifier.pullUpMaxMatchMapMaybe(maxMatchMap, candidateAlias);
+            if (quantifierTranslationMapOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var candidateQuantifier = candidateAliasesToQuantifierMap.get(candidateAlias);
+            if (!(candidateQuantifier instanceof Quantifier.Existential)) {
+                translationMapBuilder = translationMapBuilder.compose(quantifierTranslationMapOptional.get());
+            }
+        }
+        return Optional.of(translationMapBuilder.build());
     }
 
     /**
@@ -727,6 +754,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     default Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         return Optional.empty();
+    }
+
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    default boolean isCompatiblyAndCompletelyBound(@Nonnull final AliasMap bindingAliasMap, @Nonnull final List<? extends Quantifier> candidateQuantifiers) {
+        return !hasUnboundQuantifiers(bindingAliasMap) &&
+                !hasIncompatibleBoundQuantifiers(bindingAliasMap, candidateQuantifiers);
     }
 
     default boolean hasUnboundQuantifiers(final AliasMap aliasMap) {

@@ -59,6 +59,8 @@ public class FDBRecordContextConfig {
     @Nonnull
     private final Set<String> tags;
     private final boolean reportConflictingKeys;
+    @Nullable
+    private final KeyChecker keyChecker;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -76,6 +78,7 @@ public class FDBRecordContextConfig {
         this.propertyStorage = builder.recordContextProperties;
         this.tags = builder.tags;
         this.reportConflictingKeys = builder.reportConflictingKeys;
+        this.keyChecker = builder.keyChecker;
     }
 
     /**
@@ -234,6 +237,15 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get the key checker to hook operations' keys.
+     * @return the key checker to use
+     */
+    @Nullable
+    public KeyChecker getKeyChecker() {
+        return keyChecker;
+    }
+
+    /**
      * Convert the current configuration to a builder. This will set all options in the builder to their
      * current values in this configuration object.
      *
@@ -269,6 +281,8 @@ public class FDBRecordContextConfig {
         @Nonnull
         private Set<String> tags = Collections.emptySet();
         private boolean reportConflictingKeys = false;
+        @Nullable
+        private KeyChecker keyChecker;
 
         private Builder() {
         }
@@ -289,6 +303,7 @@ public class FDBRecordContextConfig {
             this.recordContextProperties = config.propertyStorage;
             this.tags = config.tags;
             this.reportConflictingKeys = config.reportConflictingKeys;
+            this.keyChecker = config.keyChecker;
         }
 
         private Builder(@Nonnull Builder config) {
@@ -307,6 +322,7 @@ public class FDBRecordContextConfig {
             this.recordContextProperties = config.recordContextProperties;
             this.tags = config.tags;
             this.reportConflictingKeys = config.reportConflictingKeys;
+            this.keyChecker = config.keyChecker;
         }
 
         /**
@@ -671,6 +687,23 @@ public class FDBRecordContextConfig {
         public Builder setReportConflictingKeys(final boolean reportConflictingKeys) {
             this.reportConflictingKeys = reportConflictingKeys;
             return this;
+        }
+
+        /**
+         * Get the key checker to hook operations' keys.
+         * @return the key checker to use
+         */
+        @Nullable
+        public KeyChecker getKeyChecker() {
+            return keyChecker;
+        }
+
+        /**
+         * Set the key checker to hook operations' keys.
+         * @param keyChecker the key checker to use
+         */
+        public void setKeyChecker(@Nullable final KeyChecker keyChecker) {
+            this.keyChecker = keyChecker;
         }
 
         /**

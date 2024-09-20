@@ -237,6 +237,11 @@ message PValue {
     PVersionValue version_value = 38;
     PFirstOrDefaultValue first_or_default_value = 39;
     PThrowsValue throws_value = 40;
+    PIndexEntryObjectValue index_entry_object_value = 41;
+    PToOrderedBytesValue to_ordered_bytes_value = 42;
+    PFromOrderedBytesValue from_ordered_bytes_value = 43;
+    PCollateValue collate_value = 44;
+    PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
   }
 }
 
@@ -370,6 +375,13 @@ message PArithmeticValue {
       BITXOR_IL = 99;
       BITXOR_LI = 100;
       BITXOR_LL = 101;
+
+      BITMAP_BUCKET_OFFSET_LI = 102;
+      BITMAP_BUCKET_OFFSET_II = 103;
+      BITMAP_BUCKET_NUMBER_LI = 104;
+      BITMAP_BUCKET_NUMBER_II = 105;
+      BITMAP_BIT_POSITION_LI = 106;
+      BITMAP_BIT_POSITION_II = 107;
   }
 
   optional PPhysicalOperator operator = 1;
@@ -433,8 +445,28 @@ message PFirstOrDefaultValue {
   optional PValue on_empty_result_value = 2;
 }
 
+message PFromOrderedBytesValue {
+  optional PValue child = 1;
+  optional PDirection direction = 2;
+  optional PType result_type = 3;
+}
+
+enum PDirection {
+  ASC_NULLS_FIRST = 1;
+  ASC_NULLS_LAST = 2;
+  DESC_NULLS_FIRST = 3;
+  DESC_NULLS_LAST = 4;
+}
+
 message PIndexedValue {
   optional PType result_type = 1;
+}
+
+message PIndexEntryObjectValue {
+  optional string index_entry_alias = 1;
+  optional PIndexKeyValueToPartialRecord.PTupleSource source = 2;
+  repeated int32 ordinal_path = 3;
+  optional PType result_type = 4;
 }
 
 message PIndexOnlyAggregateValue {  // abstract
@@ -498,10 +530,16 @@ message PNumericAggregationValue {
       MAX_L = 14;
       MAX_F = 15;
       MAX_D = 16;
+
+      BITMAP_CONSTRUCT_AGG_L = 17;
+      BITMAP_CONSTRUCT_AGG_I = 18;
   }
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;
 
+  message PBitmapConstructAgg {
+    optional PNumericAggregationValue super = 1;
+  }
   message PSum {
     optional PNumericAggregationValue super = 1;
   }
@@ -783,6 +821,14 @@ message PBinaryRelOpValue {
       NEQ_BYU = 200;
       NEQ_BYBY = 201;
       NEQ_UBY = 202;
+      LT_BYU = 203;
+      LT_BYBY = 204;
+      LTE_BYU = 205;
+      LTE_BYBY = 206;
+      GT_BYU = 207;
+      GT_BYBY = 208;
+      GTE_BYU = 209;
+      GTE_BYBY = 210;
 
   }
   optional PRelOpValue super = 1;
@@ -791,6 +837,11 @@ message PBinaryRelOpValue {
 
 message PThrowsValue {
   optional PType result_type = 1;
+}
+
+message PToOrderedBytesValue {
+  optional PValue child = 1;
+  optional PDirection direction = 2;
 }
 
 message PUnaryRelOpValue {
@@ -859,6 +910,13 @@ message PWindowedValue {
   repeated PValue argument_values = 2;
 }
 
+message PCollateValue {
+  optional string collator_registry = 1;
+  optional PValue string_child = 2;
+  optional PValue locale_child = 3;
+  optional PValue strength_child = 4;
+}
+
 //
 // Comparisons
 //
@@ -897,12 +955,20 @@ message PComparison {
     PMultiColumnComparison multi_column_comparison = 8;
     PInvertedFunctionComparison inverted_function_comparison = 9;
     PRecordTypeComparison record_type_comparison = 10;
+    PConversionSimpleComparison conversion_simple_comparison = 11;
+    PConversionParameterComparison conversion_parameter_comparison = 12;
   }
 }
 
 message PSimpleComparison {
   optional PComparison.PComparisonType type = 1;
   optional PComparableObject object = 2;
+}
+
+message PConversionSimpleComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional PComparableObject object = 2;
+  optional KeyExpression conversion = 3;
 }
 
 message PComparableObject {
@@ -940,6 +1006,13 @@ message PParameterComparison {
   optional PComparison.PComparisonType type = 1;
   optional string parameter = 2;
   optional PBindingKind internal = 3;
+}
+
+message PConversionParameterComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional string parameter = 2;
+  optional PParameterComparison.PBindingKind internal = 3;
+  optional KeyExpression conversion = 4;
 }
 
 message PValueComparison {
@@ -1166,6 +1239,7 @@ message PIndexKeyValueToPartialRecord {
       google.protobuf.Any additional_copiers = 1;
       PFieldCopier field_copier = 2;
       PMessageCopier message_copier = 3;
+      PFieldWithValueCopier field_with_value_copier = 4;
     }
   }
 
@@ -1203,6 +1277,13 @@ message PIndexKeyValueToPartialRecord {
   message PMessageCopier {
     optional string field = 1;
     optional PIndexKeyValueToPartialRecord nested = 2;
+  }
+
+  message PFieldWithValueCopier {
+    optional string index_entry_alias = 1;
+    optional PQueryPredicate copy_if_predicate = 2;
+    optional PValue extractFromIndexEntryValue = 3;
+    optional string field = 4;
   }
 
   repeated PCopier copiers = 1;

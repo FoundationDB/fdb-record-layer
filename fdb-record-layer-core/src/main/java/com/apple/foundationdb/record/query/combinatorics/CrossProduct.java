@@ -31,6 +31,7 @@ import com.google.common.collect.PeekingIterator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -174,7 +175,7 @@ public class CrossProduct {
             }
         }
 
-        private ComplexIterable(@Nonnull final List<? extends Iterable<T>> sources) {
+        private ComplexIterable(@Nonnull final Collection<? extends Iterable<T>> sources) {
             Verify.verify(sources.size() > 1);
             this.sources = ImmutableList.copyOf(sources);
         }
@@ -243,7 +244,7 @@ public class CrossProduct {
      *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
      *         orderings that violate the given depends-on constraints
      */
-    public static <T> EnumeratingIterable<T> crossProduct(@Nonnull final List<? extends Iterable<T>> sources) {
+    public static <T> EnumeratingIterable<T> crossProduct(@Nonnull final Collection<? extends Iterable<T>> sources) {
         // try simple
         @Nullable
         final EnumeratingIterable<T> maybeSimpleIterable = trySimpleIterable(sources);
@@ -255,7 +256,7 @@ public class CrossProduct {
     }
 
     @Nullable
-    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final List<? extends Iterable<T>> sources) {
+    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final Collection<? extends Iterable<T>> sources) {
         if (sources.isEmpty()) {
             return EnumeratingIterable.emptyIterable();
         } else if (sources.size() == 1) {

@@ -1,5 +1,5 @@
 /*
- * PullUpCompensation.java
+ * ValueCompensation.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -29,15 +28,14 @@ import javax.annotation.Nonnull;
  * Functional interface to perform compensation for partially matched {@link Value}-trees.
  */
 @FunctionalInterface
-public interface PullUpCompensation {
-    PullUpCompensation NO_COMPENSATION = (upperBaseAlias, value) -> value;
+public interface ValueCompensation {
+    ValueCompensation NO_COMPENSATION = (value) -> value;
 
     @Nonnull
-    Value compensate(@Nonnull CorrelationIdentifier upperBaseAlias,
-                     @Nonnull Value value);
+    Value compensate(@Nonnull Value value);
 
     @Nonnull
-    static PullUpCompensation noCompensation() {
+    static ValueCompensation noCompensation() {
         return NO_COMPENSATION;
     }
 }

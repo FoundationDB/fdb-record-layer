@@ -21,37 +21,33 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
-import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -133,6 +129,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
 
+    @Nonnull
+    private final Supplier<Optional<IndexEntryToLogicalRecord>> indexEntryToLogicalRecordOptionalSupplier;
+
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
                                            @Nonnull Collection<RecordType> queriedRecordTypes,
                                            @Nonnull final Traversal traversal,
@@ -158,6 +157,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         this.fullKeyExpression = fullKeyExpression;
         this.primaryKey = primaryKey;
         this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
+        this.indexEntryToLogicalRecordOptionalSupplier =
+                Suppliers.memoize(() -> ScanWithFetchMatchCandidate.computeIndexEntryToLogicalRecord(queriedRecordTypes,
+                        baseAlias, baseType, indexKeyValues, ImmutableList.of()));
     }
 
     @Override
@@ -234,6 +236,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     }
 
     @Nonnull
+    private Optional<IndexEntryToLogicalRecord> getIndexEntryToLogicalRecordMaybe() {
+        return indexEntryToLogicalRecordOptionalSupplier.get();
+    }
+
+    @Nonnull
     @Override
     public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
@@ -281,11 +288,17 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     //
                     @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
-                    builder.add(
-                            MatchedOrderingPart.of(rankAlias, normalizedValue, rankComparisonRange, MatchedSortOrder.ASCENDING));
+                    final var matchedOrderingPart =
+                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                                    (v, sortOrder) -> MatchedOrderingPart.of(rankAlias, v, rankComparisonRange, sortOrder),
+                                    OrderingValueComputationRuleSet.usingMatchedOrderingParts());
+                    builder.add(matchedOrderingPart);
                 } else {
-                    builder.add(
-                            MatchedOrderingPart.of(parameterId, normalizedValue, comparisonRange, MatchedSortOrder.ASCENDING));
+                    final var matchedOrderingPart =
+                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                                    (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
+                                    OrderingValueComputationRuleSet.usingMatchedOrderingParts());
+                    builder.add(matchedOrderingPart);
                 }
             }
         }
@@ -304,7 +317,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
         // We keep a set for normalized values in order to check for duplicate values in the index definition.
         // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
-        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+        final var seenValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
@@ -318,11 +331,19 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
-            normalizedValues.add(normalizedValue);
+            seenValues.add(normalizedValue);
             if (i == scoreOrdinal) {
                 bindingMapBuilder.put(normalizedValue, Binding.fixed(new Comparisons.OpaqueEqualityComparison()));
+                seenValues.add(normalizedValue);
             } else {
-                bindingMapBuilder.put(normalizedValue, Binding.fixed(comparison));
+                final var simplifiedComparisonPairOptional =
+                        MatchCandidate.simplifyComparisonMaybe(normalizedValue, comparison);
+                if (simplifiedComparisonPairOptional.isEmpty()) {
+                    continue;
+                }
+                final var simplifiedComparisonPair = simplifiedComparisonPairOptional.get();
+                bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
+                seenValues.add(simplifiedComparisonPair.getLeft());
             }
         }
 
@@ -334,21 +355,27 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 break;
             }
 
-            final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
-                            getBaseType());
-
             //
             // Note that it is not really important here if the keyExpression can be normalized in a lossless way
             // or not. A key expression containing repeated fields is sort-compatible with its normalized key
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
+            final var normalizedValue =
+                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
+                            getBaseType());
 
-            if (!normalizedValues.contains(normalizedValue)) {
-                normalizedValues.add(normalizedValue);
-                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
-                orderingSequenceBuilder.add(normalizedValue);
+            final var providedOrderingPart =
+                    normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                            OrderingValueComputationRuleSet.usingProvidedOrderingParts());
+
+            final var providedOrderingValue = providedOrderingPart.getValue();
+            if (!seenValues.contains(providedOrderingValue)) {
+                seenValues.add(providedOrderingValue);
+                bindingMapBuilder.put(providedOrderingValue,
+                        Binding.sorted(providedOrderingPart.getSortOrder()
+                                .flipIfReverse(isReverse)));
+                orderingSequenceBuilder.add(providedOrderingValue);
             }
         }
 
@@ -377,7 +404,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 QueryPlanConstraint.tautology()));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
                                                                 @Nonnull final PlanContext planContext,
@@ -385,30 +411,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                                 @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                 final boolean isReverse,
                                                                 @Nonnull final Type.Record baseRecordType) {
-        if (queriedRecordTypes.size() > 1) {
+        final var indexEntryToLogicalRecordOptional = getIndexEntryToLogicalRecordMaybe();
+        if (indexEntryToLogicalRecordOptional.isEmpty()) {
             return Optional.empty();
         }
-
-        final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-        final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseRecordType);
-        for (int i = 0; i < indexKeyValues.size(); i++) {
-            final Value keyValue = indexKeyValues.get(i);
-            if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-                if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
-                    return Optional.empty();
-                }
-            }
-        }
-
-        if (!builder.isValid()) {
-            return Optional.empty();
-        }
-
-        final IndexScanParameters scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges));
-        final RecordQueryPlanWithIndex indexPlan =
+        final var indexEntryToLogicalRecord = indexEntryToLogicalRecordOptional.get();
+        final var scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges));
+        final var indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
                         primaryKey,
                         scanParameters,
@@ -420,12 +429,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         baseRecordType,
                         QueryPlanConstraint.tautology());
 
-        final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
-                recordType.getName(),
+        final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
+                indexEntryToLogicalRecord.getQueriedRecordType().getName(),
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
-                builder.build());
+                indexEntryToLogicalRecord.getIndexKeyValueToPartialRecord());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)), coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)),
+                coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 
     @Nonnull
@@ -433,11 +443,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     public Optional<Value> pushValueThroughFetch(@Nonnull Value toBePushedValue,
                                                  @Nonnull CorrelationIdentifier sourceAlias,
                                                  @Nonnull CorrelationIdentifier targetAlias) {
+        final var indexEntryToLogicalRecord =
+                getIndexEntryToLogicalRecordMaybe().orElseThrow(() -> new RecordCoreException("need index entry to logical record"));
+
         return ScanWithFetchMatchCandidate.pushValueThroughFetch(toBePushedValue,
                 baseAlias,
                 sourceAlias,
                 targetAlias,
-                indexKeyValues);
+                indexEntryToLogicalRecord.getLogicalKeyValues());
     }
 
     @Nonnull
@@ -447,31 +460,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
-    }
-
-    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                            @Nonnull FieldValue fieldValue,
-                                            @Nonnull AvailableFields.FieldData fieldData) {
-        // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
-        for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
-            if (maybeFieldName.isEmpty()) {
-                return false;
-            }
-            builder = builder.getFieldBuilder(maybeFieldName.get());
-        }
-
-        // TODO not sure what to do with the null standing requirement
-
-        final var maybeFieldName = fieldValue.getLastFieldName();
-        if (maybeFieldName.isEmpty()) {
-            return false;
-        }
-        final String fieldName = maybeFieldName.get();
-        if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(),
-                    new AvailableFields.TruePredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
-        }
-        return true;
     }
 
     @Nonnull

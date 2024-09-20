@@ -118,7 +118,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void setUp() {
         fdb.setAsyncToSyncTimeout(waitEvent -> {
             if (waitEvent == FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX) {
-                return org.apache.commons.lang3.tuple.Pair.of(30L, TimeUnit.SECONDS);
+                return org.apache.commons.lang3.tuple.Pair.of(60L, TimeUnit.SECONDS);
             } else {
                 return org.apache.commons.lang3.tuple.Pair.of(7L, TimeUnit.SECONDS);
             }

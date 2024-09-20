@@ -173,17 +173,19 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         }
 
         if (candidatePredicate.isTautology()) {
-            return Optional.of(PredicateMapping.regularMapping(this,
-                    candidatePredicate,
-                    getDefaultCompensatePredicateFunction(),
-                    Optional.empty()));  // TODO: provide a translated predicate value here.
+            return Optional.of(
+                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
+                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                            .build());
         }
 
         final var semanticEquals = this.semanticEquals(candidatePredicate, valueEquivalence);
         return semanticEquals
                 .mapToOptional(queryPlanConstraint ->
-                        PredicateMapping.regularMappingWithoutCompensation(this,
-                                candidatePredicate, queryPlanConstraint));
+                        PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                                .setConstraint(queryPlanConstraint)
+                                .build());
     }
 
     /**
@@ -251,6 +253,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
         final ImmutableList<PredicateMapping> result = mappingBuilder.build();
         if (mappingKeys.isEmpty()) {
+            //
+            // Note that for uniqueness constraints during matching it is important to create a new instance of the
+            // constant predicate here.
+            //
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
             return impliesCandidatePredicate(valueEquivalence, tautologyPredicate, evaluationContext)
                     .map(ImmutableSet::of)
@@ -278,7 +284,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nullable
-    <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
+    default <M extends Message> Boolean evalWithoutStore(@Nonnull final EvaluationContext context) {
+        return eval(null, context);
+    }
+
+    @Nullable
+    <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();

@@ -25,10 +25,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
   `clearUniquenessViolations`.
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Scope the IndexUniquenessCommitCheck by subspace [(Issue #2919)](https://github.com/FoundationDB/fdb-record-layer/issues/2919)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Infinite recursion in `TreeLike#replaceLeavesMaybe` [(Issue #2884)](https://github.com/FoundationDB/fdb-record-layer/issues/2884)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -47,6 +47,25 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.545.0
+
+* **Bug fix** The new `TupleHelpers.prefixLengthOfSize` must catch more errors. [(Issue #2921)](https://github.com/FoundationDB/fdb-record-layer/issues/2921)
+
+### 3.4.544.0
+
+* **Feature** Feature 1 [(Issue #2904)](https://github.com/FoundationDB/fdb-record-layer/issues/2904)
+
+### 3.4.543.0
+
+
+### 3.4.542.0
+
+
+### 3.4.541.0
+
+* **Bug fix** In-union plans should now do a better job of not incorrectly de-duping groups in the presence of repeated fields [(Issue #2901)](https://github.com/FoundationDB/fdb-record-layer/issues/2901)
+* **Bug fix** Infinite recursion in `TreeLike#replaceLeavesMaybe` [(Issue #2884)](https://github.com/FoundationDB/fdb-record-layer/issues/2884)
 
 ### 3.4.540.0
 

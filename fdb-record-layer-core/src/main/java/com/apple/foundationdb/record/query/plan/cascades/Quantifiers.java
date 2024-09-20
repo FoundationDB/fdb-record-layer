@@ -541,7 +541,7 @@ public class Quantifiers {
     public static Type getFlowedTypeForSetOperation(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
         return Streams.stream(quantifiers)
                 .findFirst()
-                .map(quantifier -> quantifier.getFlowedObjectType())
+                .map(Quantifier::getFlowedObjectType)
                 .orElseThrow(() -> new RecordCoreException("unable to resolve object type from quantifiers"));
     }
 

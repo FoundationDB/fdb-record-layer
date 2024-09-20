@@ -207,7 +207,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final Object result = inValue.eval(store, context);
         if (result == null) {
