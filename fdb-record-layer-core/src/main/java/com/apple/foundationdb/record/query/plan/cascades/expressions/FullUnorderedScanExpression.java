@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRew
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -172,8 +173,11 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         }
     }
 
+    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   @Nonnull final PullUp pullUp) {
         return Compensation.noCompensation();
     }
 

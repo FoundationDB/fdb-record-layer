@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -781,8 +782,21 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                 });
     }
 
-    default Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+    @Nonnull
+    default Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                    @Nonnull final PullUp pullUp) {
         throw new RecordCoreException("expression matched but no compensation logic implemented");
+    }
+
+    @Nonnull
+    default PullUp initialPullUp() {
+        return PullUp.initial(getResultValue());
+    }
+
+    @Nonnull
+    default PullUp nestPullUp(@Nonnull final Quantifier upperQuantifier, @Nonnull final PullUp pullUp) {
+        return pullUp.nest(upperQuantifier.getAlias(), getResultValue(), upperQuantifier.getCorrelatedTo());
     }
 
     @Nonnull

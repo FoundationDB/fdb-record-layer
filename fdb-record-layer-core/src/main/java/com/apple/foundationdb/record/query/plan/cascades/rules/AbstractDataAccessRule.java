@@ -550,7 +550,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
                     scanDirection == ScanDirection.BOTH);
 
-            final var compensation = partialMatch.compensate();
+            final var compensation = partialMatch.compensateCompleteMatch();
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,

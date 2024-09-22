@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -261,13 +262,22 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Compensation compensate() {
-        return queryExpression.compensate(this, getBoundParameterPrefixMap());
+    public Compensation compensateCompleteMatch() {
+        final var candidateExpression = candidateRef.get();
+        return queryExpression.compensate(this, getBoundParameterPrefixMap(),
+                candidateExpression.initialPullUp());
     }
 
     @Nonnull
-    public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        return queryExpression.compensate(this, boundParameterPrefixMap);
+    public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   @Nonnull final PullUp pullUp) {
+        return queryExpression.compensate(this, boundParameterPrefixMap, pullUp);
+    }
+
+    @Nonnull
+    public PullUp nestPullUp(@Nonnull final Quantifier upperQuantifier, @Nonnull final PullUp pullUp) {
+        final var candidateExpression = candidateRef.get();
+        return candidateExpression.nestPullUp(upperQuantifier, pullUp);
     }
 
     /**
