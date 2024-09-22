@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -240,15 +241,21 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         return computeRequestedOrderingSupplier.get();
     }
 
+    @Nonnull
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   @Nonnull final PullUp pullUp) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
         // if the match requires, for the moment, any, compensation, we reject it.
-        final Optional<Compensation> childCompensation = matchInfo.getChildPartialMatch(quantifier)
-                                .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+        final Optional<Compensation> childCompensation =
+                matchInfo.getChildPartialMatch(quantifier)
+                        .map(childPartialMatch -> {
+                            final var childPullUp = childPartialMatch.nestPullUp(quantifier, pullUp);
+                            return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
+                        });
 
         if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || childCompensation.get().isNeeded())) {
             return Compensation.impossibleCompensation();

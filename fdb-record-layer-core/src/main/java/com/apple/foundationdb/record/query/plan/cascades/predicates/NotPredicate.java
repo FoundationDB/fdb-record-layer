@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
@@ -46,7 +46,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * A {@link QueryPredicate} that is satisfied when its child component is not satisfied.
@@ -139,18 +138,17 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
     @Nonnull
     @Override
-    public Optional<PredicateMultiMap.ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                                  @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                                  @Nonnull final List<Optional<PredicateMultiMap.ExpandCompensationFunction>> childrenResults) {
+    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults) {
         Verify.verify(childrenResults.size() == 1);
-        final var childInjectCompensationFunctionOptional = Iterables.getOnlyElement(childrenResults);
-        if (childInjectCompensationFunctionOptional.isEmpty()) {
-            return Optional.empty();
+        final var compensationFunction = Iterables.getOnlyElement(childrenResults);
+        if (!compensationFunction.isNeeded()) {
+            return PredicateCompensationFunction.noCompensationNeeded();
         }
-        final var childInjectCompensationFunction = childInjectCompensationFunctionOptional.get();
 
-        return Optional.of(translationMap -> {
-            final var childPredicates = childInjectCompensationFunction.applyCompensationForPredicate(translationMap);
+        return PredicateCompensationFunction.of(translationMap -> {
+            final var childPredicates = compensationFunction.applyCompensationForPredicate(translationMap);
             return LinkedIdentitySet.of(not(AndPredicate.and(childPredicates)));
         });
     }

@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.CompensatePredicateFunction;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensation;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
@@ -177,7 +177,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (candidatePredicate.isTautology()) {
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, originalQueryPredicate, candidatePredicate)
-                            .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
+                            .setPredicateCompensation(getDefaultPredicateCompensation())
                             .build());
         }
 
@@ -191,23 +191,26 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     /**
-     * Return a {@link CompensatePredicateFunction} that reapplies this predicate.
-     * @return a new {@link CompensatePredicateFunction} that reapplies this predicate.
+     * Return a {@link PredicateCompensation} that reapplies this predicate.
+     * @return a new {@link PredicateCompensation} that reapplies this predicate.
      */
     @Nonnull
-    default CompensatePredicateFunction getDefaultCompensatePredicateFunction() {
+    default PredicateCompensation getDefaultPredicateCompensation() {
         return (partialMatch, boundParameterPrefixMap) ->
                 Objects.requireNonNull(foldNullable(Function.identity(),
-                        (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
+                        (queryPredicate, childFunctions) -> queryPredicate.computeCompensationFunction(partialMatch,
                                 boundParameterPrefixMap,
                                 ImmutableList.copyOf(childFunctions))));
     }
 
     @Nonnull
-    default Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                 @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                 @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
-        return Optional.of(translationMap -> LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(translationMap)));
+    default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults) {
+        if (childrenResults.stream().anyMatch(PredicateCompensationFunction::isImpossible)) {
+            return PredicateCompensationFunction.impossibleCompensation();
+        }
+        return PredicateCompensationFunction.of(translationMap -> LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(translationMap)));
     }
 
     /**

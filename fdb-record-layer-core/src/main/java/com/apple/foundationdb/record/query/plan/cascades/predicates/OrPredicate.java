@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -259,7 +259,7 @@ public class OrPredicate extends AndOrPredicate {
                         PredicateMapping.orTermMappingBuilder(
                                         originalQueryPredicate, this,
                                         new ConstantPredicate(true))
-                                .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
+                                .setPredicateCompensation(getDefaultPredicateCompensation())
                                 .setConstraint(constraintOptional.get())
                                 .build());
             }
@@ -333,9 +333,9 @@ public class OrPredicate extends AndOrPredicate {
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
                                     candidatePredicate)
-                            .setCompensatePredicateFunction((partialMatch, boundParameterPrefixMap) ->
+                            .setPredicateCompensation((partialMatch, boundParameterPrefixMap) ->
                                     Objects.requireNonNull(foldNullable(Function.identity(),
-                                            (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
+                                            (queryPredicate, childFunctions) -> queryPredicate.computeCompensationFunction(partialMatch,
                                                     boundParameterPrefixMap,
                                                     ImmutableList.copyOf(childFunctions)))))
                             .build());
@@ -350,22 +350,27 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nonnull
     @Override
-    public Optional<PredicateMultiMap.ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                                  @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                                  @Nonnull final List<Optional<PredicateMultiMap.ExpandCompensationFunction>> childrenResults) {
-        final var childrenInjectCompensationFunctions =
-                childrenResults.stream()
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(ImmutableList.toImmutableList());
-        if (childrenInjectCompensationFunctions.isEmpty()) {
-            return Optional.empty();
+    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults) {
+        boolean isNeeded = false;
+        for (final var childPredicateCompensationFunction : childrenResults) {
+            isNeeded |= childPredicateCompensationFunction.isNeeded();
+            if (childPredicateCompensationFunction.isImpossible()) {
+                return PredicateCompensationFunction.impossibleCompensation();
+            }
         }
 
-        return Optional.of(translationMap -> {
-            final var childPredicatesList = childrenInjectCompensationFunctions.stream()
-                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap))
-                    .collect(ImmutableList.toImmutableList());
+        if (!isNeeded) {
+            return PredicateCompensationFunction.noCompensationNeeded();
+        }
+
+        return PredicateCompensationFunction.of(translationMap -> {
+            final var childPredicatesList =
+                    childrenResults.stream()
+                            .filter(PredicateCompensationFunction::isNeeded)
+                            .map(compensationFunction -> compensationFunction.applyCompensationForPredicate(translationMap))
+                            .collect(ImmutableList.toImmutableList());
             // take the predicates from each individual expansion, "and" them, and then "or" them
             final var predicates = LinkedIdentitySet.<QueryPredicate>of();
             for (final var childPredicates : childPredicatesList) {
