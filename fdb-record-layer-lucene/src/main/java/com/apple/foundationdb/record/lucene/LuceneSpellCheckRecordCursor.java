@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -114,8 +113,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
                 try {
                     spellcheck();
                 } catch (IOException e) {
-                    // TODO toRecordCoreException
-                    throw new RecordCoreException("Spellcheck suggestions lookup failure", e);
+                    throw LuceneExceptions.toRecordCoreException("Spellcheck suggestions lookup failure", e);
                 }
             }
             return currentPosition < spellcheckSuggestions.size() ? spellcheckSuggestions.get(currentPosition) : null;

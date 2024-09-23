@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.synonym;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.apache.lucene.analysis.Analyzer;
@@ -101,7 +102,10 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
             });
             parser.parse(new InputStreamReader(config.getSynonymInputStream(), StandardCharsets.UTF_8));
             return parser.build();
-        } catch (IOException | ParseException ex) {
+        } catch (IOException ex) {
+            throw LuceneExceptions.toRecordCoreException("Failed to build synonym map", ex,
+                    LogMessageKeys.SYNONYM_NAME, config.getName());
+        } catch ( ParseException ex) {
             throw new RecordCoreException("Failed to build synonym map", ex)
                     .addLogInfo(LogMessageKeys.SYNONYM_NAME, config.getName());
         }

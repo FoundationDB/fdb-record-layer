@@ -412,9 +412,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     maybePerformScan();
                     return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
                 } catch (IOException ioException) {
-                    // TODO: toRecordCoreException??
-                    throw new RecordCoreException(ioException)
-                            .addLogInfo(LogMessageKeys.QUERY, query);
+                    throw LuceneExceptions.toRecordCoreException(ioException.getMessage(), ioException, LogMessageKeys.QUERY, query);
                 }
             } else {
                 return CompletableFuture.completedFuture(nextResult);
@@ -593,9 +591,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, termMap,
                         analyzerSelector, autoCompleteAnalyzerSelector);
             } catch (IOException e) {
-                // TODO: toRecordCoreException??
-                throw new RecordCoreException("Failed to get document", e)
-                        .addLogInfo("currentPosition", currentPosition);
+                throw LuceneExceptions.toRecordCoreException("Failed to get document", e, "currentPosition", currentPosition);
             }
         }, executor);
     }
