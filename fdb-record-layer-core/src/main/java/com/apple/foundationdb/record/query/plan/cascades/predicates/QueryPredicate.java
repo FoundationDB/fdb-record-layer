@@ -42,6 +42,8 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -196,17 +198,19 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      */
     @Nonnull
     default PredicateCompensation getDefaultPredicateCompensation() {
-        return (partialMatch, boundParameterPrefixMap) ->
+        return (partialMatch, boundParameterPrefixMap, pullUp) ->
                 Objects.requireNonNull(foldNullable(Function.identity(),
                         (queryPredicate, childFunctions) -> queryPredicate.computeCompensationFunction(partialMatch,
                                 boundParameterPrefixMap,
-                                ImmutableList.copyOf(childFunctions))));
+                                ImmutableList.copyOf(childFunctions),
+                                pullUp)));
     }
 
     @Nonnull
     default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults) {
+                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                      @Nonnull final PullUp pullUp) {
         if (childrenResults.stream().anyMatch(PredicateCompensationFunction::isImpossible)) {
             return PredicateCompensationFunction.impossibleCompensation();
         }
@@ -407,6 +411,20 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @Nonnull
     default Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(@Nonnull final EvaluationContext evaluationContext) {
         return Optional.empty();
+    }
+
+    @Nonnull
+    default Optional<QueryPredicate> replaceValues(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        return replaceLeavesMaybe(leafPredicate -> {
+            if (leafPredicate instanceof PredicateWithValue) {
+                final var predicateWithValue = (PredicateWithValue)leafPredicate;
+
+                return predicateWithValue.translateValueAndComparisonsMaybe(replacementFunction,
+                        comparison -> replacementFunction.apply(Objects.requireNonNull(comparison.getValue()))
+                                .map(comparison::withValue)).orElse(null);
+            }
+            return leafPredicate;
+        });
     }
 
     @Nonnull

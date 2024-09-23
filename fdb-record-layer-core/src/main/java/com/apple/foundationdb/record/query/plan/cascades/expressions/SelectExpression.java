@@ -729,6 +729,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nonnull final PullUp pullUp) {
         final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
+        final var matchedQuantifierMap = partialMatch.getMatchedQuantifierMap();
         final var matchInfo = partialMatch.getMatchInfo();
         final var predicateMap = matchInfo.getPredicateMap();
 
@@ -745,9 +746,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                 .flatMap(quantifier ->
-                        matchInfo.getChildPartialMatch(quantifier)
+                        matchInfo.getChildPartialMatchMaybe(quantifier)
                                 .map(childPartialMatch -> {
-                                    final var childPullUp = childPartialMatch.nestPullUp(quantifier, pullUp);
+                                    final var childPullUp =
+                                            childPartialMatch.nestPullUp(pullUp,
+                                                    quantifier.getAlias(),
+                                                    Objects.requireNonNull(matchedQuantifierMap.get(quantifier)));
                                     return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
                                 }).stream())
                 .reduce(Compensation.noCompensation(), Compensation::union);
@@ -784,21 +788,31 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 // compensation for this query predicate at all.
                 //
                 PredicateCompensationFunction compensationFunction = null;
+                boolean isCompensationFunctionNeeded = true;
+                boolean isCompensationFunctionImpossible = true;
                 for (final var predicateMapping : predicateMappings) {
                     final var compensationFunctionForCandidatePredicate =
                             predicateMapping.getPredicateCompensation()
-                                    .computeCompensationFunction(partialMatch, boundParameterPrefixMap);
+                                    .computeCompensationFunction(partialMatch, boundParameterPrefixMap, pullUp);
                     if (!compensationFunctionForCandidatePredicate.isNeeded()) {
-                        compensationFunction = null;
+                        isCompensationFunctionNeeded = false;
                         break;
-                    } else if (compensationFunction == null) {
-                        compensationFunction = compensationFunctionForCandidatePredicate;
+                    }
+
+                    if (!compensationFunctionForCandidatePredicate.isImpossible()) {
+                        isCompensationFunctionImpossible = false;
+                        if (compensationFunction == null) {
+                            compensationFunction = compensationFunctionForCandidatePredicate;
+                        }
                     }
                 }
-                if (compensationFunction != null) {
-                    Verify.verify(!compensationFunction.isImpossible() &&
-                            compensationFunction.isNeeded());
-                    predicateCompensationMap.put(predicate, compensationFunction);
+
+                if (isCompensationFunctionNeeded) {
+                    if (isCompensationFunctionImpossible) {
+                        isImpossible = true;
+                    } else {
+                        predicateCompensationMap.put(predicate, Objects.requireNonNull(compensationFunction));
+                    }
                 }
             }
         }

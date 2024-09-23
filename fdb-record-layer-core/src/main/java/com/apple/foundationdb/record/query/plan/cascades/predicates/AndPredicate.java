@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -121,7 +122,8 @@ public class AndPredicate extends AndOrPredicate {
     @Override
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults) {
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
         boolean isNeeded = false;
         for (final var childPredicateCompensationFunction : childrenResults) {
             isNeeded |= childPredicateCompensationFunction.isNeeded();

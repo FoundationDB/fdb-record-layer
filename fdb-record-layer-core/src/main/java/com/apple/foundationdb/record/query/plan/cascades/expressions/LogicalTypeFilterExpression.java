@@ -95,7 +95,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     }
 
     @Nonnull
-    private Quantifier getInner() {
+    public Quantifier getInner() {
         return inner;
     }
 
@@ -151,16 +151,12 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                                    @Nonnull final PullUp pullUp) {
         final PartialMatch childPartialMatch =
                 Objects.requireNonNull(partialMatch.getMatchInfo()
-                        .getChildPartialMatch(inner)
+                        .getChildPartialMatchMaybe(inner)
                         .orElseThrow(() -> new RecordCoreException("expected a match child")));
-        final var childPullUp = childPartialMatch.nestPullUp(inner, pullUp);
+        final var childPullUp =
+                childPartialMatch.nestPullUp(pullUp, inner.getAlias(),
+                        Objects.requireNonNull(partialMatch.getMatchedQuantifierMap().get(inner)));
         return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
-    }
-
-    @Nonnull
-    @Override
-    public PullUp nestPullUp(@Nonnull final Quantifier upperQuantifier, @Nonnull final PullUp pullUp) {
-        return pullUp.nest(upperQuantifier.getAlias(), inner.getAlias(), upperQuantifier.getCorrelatedTo());
     }
 
     @Nonnull

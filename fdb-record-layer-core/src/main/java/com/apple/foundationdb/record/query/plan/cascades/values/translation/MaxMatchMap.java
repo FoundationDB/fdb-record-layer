@@ -187,21 +187,22 @@ public class MaxMatchMap {
         final List<QueryPlanConstraint> queryPlanConstraints = Lists.newArrayList();
         queryResultValue.preOrderPruningIterator(queryValuePart -> {
             // look up the query sub values in the candidate value.
-            final var matchPairOptional = Streams.stream(candidateResultValue
-                            // when traversing the candidate in pre-order, only descend into structures that can be referenced
-                            // from the top expression. For example, RCV's components can be referenced however an Arithmetic
-                            // operator's children can not be referenced.
-                            // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
-                            .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                    .flatMap(candidateValuePart -> {
-                        final var semanticEquals =
-                                queryValuePart.semanticEquals(candidateValuePart, valueEquivalence);
-                        if (semanticEquals.isFalse()) {
-                            return Stream.of();
-                        }
-                        return Stream.of(NonnullPair.of(candidateValuePart, semanticEquals.getConstraint()));
-                    })
-                    .findAny();
+            final var matchPairOptional =
+                    Streams.stream(candidateResultValue
+                                    // when traversing the candidate in pre-order, only descend into structures that can be referenced
+                                    // from the top expression. For example, RCV's components can be referenced however an Arithmetic
+                                    // operator's children can not be referenced.
+                                    // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
+                                    .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
+                            .flatMap(candidateValuePart -> {
+                                final var semanticEquals =
+                                        queryValuePart.semanticEquals(candidateValuePart, valueEquivalence);
+                                if (semanticEquals.isFalse()) {
+                                    return Stream.of();
+                                }
+                                return Stream.of(NonnullPair.of(candidateValuePart, semanticEquals.getConstraint()));
+                            })
+                            .findAny();
             matchPairOptional.ifPresent(matchPair -> {
                 newMapping.put(queryValuePart, matchPair.getLeft());
                 queryPlanConstraints.add(matchPair.getRight());

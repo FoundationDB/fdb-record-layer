@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -204,20 +205,29 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     @Override
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults) {
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
-        return computeCompensationFunction(partialMatch, boundParameterPrefixMap);
+        return computeCompensationFunction(partialMatch, boundParameterPrefixMap, pullUp);
     }
 
     @Nonnull
     private PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                      @Nonnull final PullUp pullUp) {
         final var matchInfo = partialMatch.getMatchInfo();
-        final var childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
+        final var childPartialMatchOptional = matchInfo.getChildPartialMatchMaybe(existentialAlias);
         final var compensationOptional =
-                childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+                childPartialMatchOptional.map(childPartialMatch ->
+                        childPartialMatch.compensate(boundParameterPrefixMap, childPartialMatch.topPullUp()));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-            return PredicateCompensationFunction.of(translationMap -> LinkedIdentitySet.of(this));
+            final var inverseMatchedAliasMap =
+                    partialMatch.getMatchedAliasMap().inverse();
+            final var queryExistentialAlias = inverseMatchedAliasMap.get(getExistentialAlias());
+            if (queryExistentialAlias == null) {
+                return PredicateCompensationFunction.impossibleCompensation();
+            }
+            return PredicateCompensationFunction.of(translationMap -> LinkedIdentitySet.of(new ExistsPredicate(queryExistentialAlias)));
         }
         return PredicateCompensationFunction.noCompensationNeeded();
     }

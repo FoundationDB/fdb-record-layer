@@ -251,9 +251,10 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         // if the match requires, for the moment, any, compensation, we reject it.
         final Optional<Compensation> childCompensation =
-                matchInfo.getChildPartialMatch(quantifier)
+                matchInfo.getChildPartialMatchMaybe(quantifier)
                         .map(childPartialMatch -> {
-                            final var childPullUp = childPartialMatch.nestPullUp(quantifier, pullUp);
+                            final var childPullUp = childPartialMatch.nestPullUp(pullUp, quantifier.getAlias(),
+                                    Objects.requireNonNull(partialMatch.getMatchedQuantifierMap().get(quantifier)));
                             return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
                         });
 
