@@ -84,12 +84,11 @@ public class LuceneConcurrency {
             }
         } else {
             final Pair<Long, TimeUnit> asyncToSyncTimeout = recordContext.getDatabase().getAsyncToSyncTimeout(event);
-            Timeout timeout = (asyncToSyncTimeout == null) ? null : Timeout.of(asyncToSyncTimeout.getLeft(), asyncToSyncTimeout.getRight());
             final FDBStoreTimer timer = recordContext.getTimer();
             final long startTime = System.nanoTime();
             try {
-                if (timeout != null) {
-                    return async.get(timeout.getDuration(), timeout.getTimeUnit());
+                if (asyncToSyncTimeout != null) {
+                    return async.get(asyncToSyncTimeout.getLeft(), asyncToSyncTimeout.getRight());
                 } else {
                     return async.get();
                 }
@@ -97,8 +96,8 @@ public class LuceneConcurrency {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
                     throw new AsyncToSyncTimeoutException(ex.getMessage(), ex,
-                            LogMessageKeys.TIME_LIMIT.toString(), timeout.getDuration(),
-                            LogMessageKeys.TIME_UNIT.toString(), timeout.getTimeUnit());
+                            LogMessageKeys.TIME_LIMIT.toString(), asyncToSyncTimeout.getLeft(),
+                            LogMessageKeys.TIME_UNIT.toString(), asyncToSyncTimeout.getRight());
                 }
                 throw new AsyncToSyncTimeoutException(ex.getMessage(), ex);
             } catch (ExecutionException ex) {
@@ -115,33 +114,6 @@ public class LuceneConcurrency {
     }
 
     private LuceneConcurrency() {
-    }
-
-    /**
-     * A representation of a timeout value: A duration and a time unit.
-     */
-    public static class Timeout {
-        private final long duration;
-        @Nonnull
-        private final TimeUnit timeUnit;
-
-        private Timeout(final long duration, @Nonnull final TimeUnit timeUnit) {
-            this.duration = duration;
-            this.timeUnit = timeUnit;
-        }
-
-        public static Timeout of(final long duration, @Nonnull final TimeUnit timeUnit) {
-            return new Timeout(duration, timeUnit);
-        }
-
-        public long getDuration() {
-            return duration;
-        }
-
-        @Nonnull
-        public TimeUnit getTimeUnit() {
-            return timeUnit;
-        }
     }
 
     /**
