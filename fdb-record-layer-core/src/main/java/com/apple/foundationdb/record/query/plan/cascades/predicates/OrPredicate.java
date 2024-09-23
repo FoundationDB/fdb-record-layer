@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -302,7 +303,7 @@ public class OrPredicate extends AndOrPredicate {
         final var matchPair = matchPairOptional.get();
         final var comparisonCompensation = matchPair.getLeft();
         final var compensatedLeftValueWithRangesOptional =
-                leftValueWithRanges.translateValueAndComparisonsMaybe(comparisonCompensation::applyToValue,
+                leftValueWithRanges.translateValueAndComparisonsMaybe(value -> Optional.of(comparisonCompensation.applyToValue(value)),
                         comparisonCompensation::applyToComparisonMaybe);
         if (compensatedLeftValueWithRangesOptional.isEmpty()) {
             return Optional.empty();
@@ -338,11 +339,12 @@ public class OrPredicate extends AndOrPredicate {
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
                                     candidatePredicate)
-                            .setPredicateCompensation((partialMatch, boundParameterPrefixMap) ->
+                            .setPredicateCompensation((partialMatch, boundParameterPrefixMap, pullUp) ->
                                     Objects.requireNonNull(foldNullable(Function.identity(),
                                             (queryPredicate, childFunctions) -> queryPredicate.computeCompensationFunction(partialMatch,
                                                     boundParameterPrefixMap,
-                                                    ImmutableList.copyOf(childFunctions)))))
+                                                    ImmutableList.copyOf(childFunctions),
+                                                    pullUp))))
                             .build());
         } else {
             return Optional.of(
@@ -357,7 +359,8 @@ public class OrPredicate extends AndOrPredicate {
     @Override
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults) {
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
         boolean isNeeded = false;
         for (final var childPredicateCompensationFunction : childrenResults) {
             isNeeded |= childPredicateCompensationFunction.isNeeded();

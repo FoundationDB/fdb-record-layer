@@ -312,12 +312,12 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
     /**
      * Internal helper to create a map based on an {@link Iterable} of {@link PartialMatchWithQuantifier}s that is indexed
      * by quantifiers (by identity).
-     * @param matchResult the iterable to be converted
+     * @param partialMatchWithQuantifiers the iterable to be converted
      * @return a map mapping from identity(quantifier) to {@link PartialMatch}
      */
     @Nonnull
-    private IdentityBiMap<Quantifier, PartialMatch> partialMatchMap(final Iterable<PartialMatchWithQuantifier> matchResult) {
-        return StreamSupport.stream(matchResult.spliterator(), false)
+    private IdentityBiMap<Quantifier, PartialMatch> partialMatchMap(final Iterable<PartialMatchWithQuantifier> partialMatchWithQuantifiers) {
+        return StreamSupport.stream(partialMatchWithQuantifiers.spliterator(), false)
                 .collect(IdentityBiMap.toImmutableIdentityBiMap(PartialMatchWithQuantifier::getQuantifier,
                         PartialMatchWithQuantifier::getPartialMatch,
                         (v1, v2) -> {

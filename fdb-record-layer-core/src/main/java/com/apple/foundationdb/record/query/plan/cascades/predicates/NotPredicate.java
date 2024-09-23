@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
@@ -148,7 +149,8 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @Override
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults) {
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
         Verify.verify(childrenResults.size() == 1);
         final var compensationFunction = Iterables.getOnlyElement(childrenResults);
         if (!compensationFunction.isNeeded()) {

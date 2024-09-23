@@ -790,16 +790,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     @Nonnull
-    default PullUp initialPullUp() {
-        return PullUp.initial(getResultValue());
-    }
-
-    @Nonnull
-    default PullUp nestPullUp(@Nonnull final Quantifier upperQuantifier, @Nonnull final PullUp pullUp) {
-        return pullUp.nest(upperQuantifier.getAlias(), getResultValue(), upperQuantifier.getCorrelatedTo());
-    }
-
-    @Nonnull
     @Override
     default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
         if (getCorrelatedTo().stream().anyMatch(aliasMap::containsSource)) {

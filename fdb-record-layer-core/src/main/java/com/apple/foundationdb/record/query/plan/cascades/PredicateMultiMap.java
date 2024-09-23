@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
@@ -61,7 +62,8 @@ public class PredicateMultiMap {
     public interface PredicateCompensation {
         @Nonnull
         PredicateCompensationFunction computeCompensationFunction(@Nonnull PartialMatch partialMatch,
-                                                                  @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap);
+                                                                  @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                  @Nonnull PullUp pullup);
     }
 
     /**
@@ -346,7 +348,7 @@ public class PredicateMultiMap {
                 this.candidatePredicate = candidatePredicate;
                 this.mappingKind = mappingKind;
                 this.predicateCompensation =
-                        (partialMatch, boundPrefixMap) -> PredicateCompensationFunction.noCompensationNeeded();
+                        (partialMatch, boundPrefixMap, pullUp) -> PredicateCompensationFunction.noCompensationNeeded();
                 this.parameterAliasOptional = Optional.empty();
                 this.comparisonRangeOptional = Optional.empty();
                 this.constraint = QueryPlanConstraint.tautology();

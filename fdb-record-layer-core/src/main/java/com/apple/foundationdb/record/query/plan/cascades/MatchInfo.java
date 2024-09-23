@@ -138,12 +138,12 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public Optional<PartialMatch> getChildPartialMatch(@Nonnull final Quantifier quantifier) {
+    public Optional<PartialMatch> getChildPartialMatchMaybe(@Nonnull final Quantifier quantifier) {
         return Optional.ofNullable(quantifierToPartialMatchMap.getUnwrapped(quantifier));
     }
 
     @Nonnull
-    public Optional<PartialMatch> getChildPartialMatch(@Nonnull final CorrelationIdentifier alias) {
+    public Optional<PartialMatch> getChildPartialMatchMaybe(@Nonnull final CorrelationIdentifier alias) {
         return Optional.ofNullable(aliasToPartialMatchMapSupplier.get().get(alias));
     }
 
