@@ -230,7 +230,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         final IOException ioException = assertThrows(IOException.class, () -> directory.rename("NoExist", "newName"));
         assertEquals(ioException.getCause().getClass(), RecordCoreArgumentException.class);
 
-        assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_RENAME, 1);
+        // In the case where the Future was already completed, WAIT_LUCENE_RENAME will not be recorded, but LUCENE_RENAME_FILE will
+        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_RENAME_FILE, 1);
     }
 
     private void assertCorrectMetricCount(StoreTimer.Event metric, int expectedValue) {
