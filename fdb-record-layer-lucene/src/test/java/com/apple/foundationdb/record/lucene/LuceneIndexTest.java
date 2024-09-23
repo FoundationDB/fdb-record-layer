@@ -6414,13 +6414,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             try {
                 try {
                     lock.close();
-                } catch (RuntimeException ex) {
-                    gotException = true;
+                } catch (IOException ex) {
+                    if (ex.getCause() instanceof RuntimeException) {
+                        gotException = true;
+                    }
                 }
                 try {
                     directory.close();
-                } catch (RuntimeException ex) {
-                    gotException = true;
+                } catch (IOException ex) {
+                    if (ex.getCause() instanceof RuntimeException) {
+                        gotException = true;
+                    }
                 }
                 agile.flushAndClose();
                 context.commit();

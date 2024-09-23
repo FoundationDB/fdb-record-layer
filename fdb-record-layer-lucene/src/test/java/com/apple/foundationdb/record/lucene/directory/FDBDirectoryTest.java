@@ -227,7 +227,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testRename() {
-        assertThrows(RecordCoreArgumentException.class, () -> directory.rename("NoExist", "newName"));
+        final IOException ioException = assertThrows(IOException.class, () -> directory.rename("NoExist", "newName"));
+        assertEquals(ioException.getCause().getClass(), RecordCoreArgumentException.class);
 
         assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_RENAME, 1);
     }

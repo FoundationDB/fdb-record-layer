@@ -63,7 +63,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         // dir is ignored
         try {
             return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
-        } catch (RecordCoreException ex) {
+        } catch (FDBDirectoryLockException | RecordCoreException ex) {
             // Wrap in a Lucene-compatible exception (that extends IOException)
             throw LuceneExceptions.toIoException(ex, null);
         }
