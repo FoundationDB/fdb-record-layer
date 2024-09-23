@@ -38,8 +38,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static com.apple.foundationdb.record.lucene.LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC;
-
 /**
  * Utility class for methods related to synchronizing Futures.
  */
@@ -65,7 +63,7 @@ public class LuceneConcurrency {
     @Nullable
     @API(API.Status.INTERNAL)
     public static <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async, @Nonnull FDBRecordContext recordContext) {
-        if (recordContext.getPropertyStorage().getPropertyValue(LUCENE_USE_LEGACY_ASYNC_TO_SYNC)) {
+        if (recordContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC)) {
             return recordContext.asyncToSync(event, async);
         }
 
@@ -98,7 +96,9 @@ public class LuceneConcurrency {
             } catch (TimeoutException ex) {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
-                    throw new AsyncToSyncTimeoutException(ex.getMessage(), ex, LogMessageKeys.TIME_LIMIT.toString(), timeout.getDuration(), LogMessageKeys.TIME_UNIT.toString(), timeout.getTimeUnit());
+                    throw new AsyncToSyncTimeoutException(ex.getMessage(), ex,
+                            LogMessageKeys.TIME_LIMIT.toString(), timeout.getDuration(),
+                            LogMessageKeys.TIME_UNIT.toString(), timeout.getTimeUnit());
                 }
                 throw new AsyncToSyncTimeoutException(ex.getMessage(), ex);
             } catch (ExecutionException ex) {
@@ -125,7 +125,7 @@ public class LuceneConcurrency {
         @Nonnull
         private final TimeUnit timeUnit;
 
-        public Timeout(final long duration, @Nonnull final TimeUnit timeUnit) {
+        private Timeout(final long duration, @Nonnull final TimeUnit timeUnit) {
             this.duration = duration;
             this.timeUnit = timeUnit;
         }

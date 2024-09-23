@@ -966,7 +966,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         while (!toVisit.isEmpty()) {
             Throwable cause = toVisit.removeFirst();
             if (!visited.containsKey(cause)) {
-                // TODO: This should eventually be removed since LoggableTimeoutException would not be thrown
+                // This will get throws when the legacy asyncToSync is called
                 if (cause instanceof LoggableTimeoutException) {
                     return (LoggableTimeoutException) cause;
                 } else if (cause instanceof LuceneConcurrency.AsyncToSyncTimeoutException) {

@@ -6453,5 +6453,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
     }
+
+    /**
+     * A version of the tests that runs with the new version of asyncToSync.
+     */
+    public static class LuceneIndexWithLuceneAsyncToSyncTest extends LuceneIndexTest {
+        @Override
+        protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
+            return super.addDefaultProps(props)
+                    .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, false);
+        }
+    }
 }
 
