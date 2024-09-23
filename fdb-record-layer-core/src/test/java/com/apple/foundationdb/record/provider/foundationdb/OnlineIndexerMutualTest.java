@@ -53,6 +53,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -444,7 +448,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
-                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, false))
+                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, false)
+                            .allowTakeoverContinue(true))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -458,13 +463,29 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
     @ParameterizedTest
     @BooleanSource
     void testMultiTargetContinueAsMutual(boolean explicit) {
-        // Start building with multi target, stop, continue as mutual
+        // Start building as multi targets, stop, continue as mutual
         // Make sure that the mutual indexing is unblocked
+
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        testByRecordsContinueAsMutual(indexes, explicit);
+    }
 
+    @ParameterizedTest
+    @BooleanSource
+    void testSingleTargetContinueAsMutual(boolean explicit) {
+        // Start building as a single target, stop, continue as mutual
+        // Make sure that the mutual indexing is unblocked
+        // Note that a single target session produces a different indexing type stamp than a multi target session
+
+        final Index index = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        List<Index> indexes = List.of(index);
+        testByRecordsContinueAsMutual(indexes, explicit);
+    }
+
+    void testByRecordsContinueAsMutual(List<Index> indexes, boolean explicit) {
         int numRecords = 32;
         populateData(numRecords);
 
@@ -472,12 +493,17 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(hook);
         disableAll(indexes);
 
-        // Build as mutual, crash half way
+        // Build as multi target, crash half way
         final String testThrowMsg = "Intentionally crash during test";
+        AtomicBoolean passed = new AtomicBoolean(false);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setLimit(10)
                 .setConfigLoader(old -> {
-                    throw new RecordCoreException(testThrowMsg);
+                    if (passed.get()) {
+                        throw new RecordCoreException(testThrowMsg);
+                    }
+                    passed.set(true);
+                    return old;
                 })
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
@@ -493,56 +519,19 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             indexBuilder.buildIndex(true);
         }
 
-        // validate
-        assertReadable(indexes);
-        assertAllValidated(indexes);
-    }
-
-    @ParameterizedTest
-    @BooleanSource
-    void testSingleTargetContinueAsMutual(boolean explicit) {
-        // Start building with a single target, stop, continue as mutual
-        // Make sure that the mutual indexing is unblocked
-        // Note that a single target session produces a different indexing type stamp than a multi target session
-        final Index index = new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
-        List<Index> indexes = List.of(index);
-
-        int numRecords = 32;
-        populateData(numRecords);
-
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
-        openSimpleMetaData(hook);
-        disableAll(indexes);
-
-        // Build as mutual, crash half way
-        final String testThrowMsg = "Intentionally crash during test";
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
-                .setLimit(5)
-                .setConfigLoader(old -> {
-                    throw new RecordCoreException(testThrowMsg);
-                })
-                .build()) {
-            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains(testThrowMsg));
-        }
-
-        // Continue as mutual
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
-                .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, true)
-                        .setMutualIndexing())
-                .build()) {
-            indexBuilder.buildIndex(true);
-        }
+        // The mutual indexing should index some of the records, but not those that were indexed by the multi-target session
+        int indexedMutually = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+        assertTrue(indexedMutually > 0);
+        assertTrue(indexedMutually < numRecords);
 
         // validate
         assertReadable(indexes);
         assertAllValidated(indexes);
     }
 
-    @ParameterizedTest
-    @BooleanSource
+    @Test
     void testMultiTargetForbidContinueAsMutual() {
-        // Start building with multi target, stop, fail to continue as mutual because takeover is not allowed
+        // Start building as multi targets, stop, fail to continue as mutual because takeover is not allowed
         // Make sure that the mutual indexing is unblocked
         List<Index> indexes = new ArrayList<>();
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
@@ -556,7 +545,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(hook);
         disableAll(indexes);
 
-        // Build as mutual, crash half way
+        // Build as multi targets, crash half way
         final String testThrowMsg = "Intentionally crash during test";
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                 .setLimit(10)
@@ -568,8 +557,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             assertTrue(e.getMessage().contains(testThrowMsg));
         }
 
-        // Continue as mutual
-
+        // Fail to continue as mutual
         final List<Tuple> boundaries = getBoundariesList(numRecords, 11);
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
@@ -579,6 +567,274 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
         }
+    }
+
+    @Test
+    void testByRecordsContinueAsMutualNonIdenticalList() {
+        // Attempt continue a multi-target as mutual. Non-identical indexes list should fail, unless continuing as a single target.
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        int numRecords = 32;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // Build indexes sublist as a multi target, crash half way
+        final String testThrowMsg = "Intentionally crash during test";
+        AtomicBoolean passed = new AtomicBoolean(false);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.subList(0, 3))
+                .setLimit(7)
+                .setConfigLoader(old -> {
+                    if (passed.get()) {
+                        throw new RecordCoreException(testThrowMsg);
+                    }
+                    passed.set(true);
+                    return old;
+                })
+                .build()) {
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains(testThrowMsg));
+        }
+
+        // Continue as mutual, by a different sublists of the indexes. All should fail
+        for (List<Index> indexesSubList: List.of(
+                indexes,
+                indexes.subList(1, 4),
+                indexes.subList(0, 2),
+                indexes.subList(2, 4))) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexesSubList)
+                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(true, true)
+                            .setMutualIndexing())
+                    .build()) {
+                RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+                assertTrue(e.getMessage().contains("This index was partly built by another method") ||
+                        e.getMessage().contains("A target index state doesn't match the primary index state"));
+            }
+        }
+
+        // Now attempt to continue one at a time, mutually. Each one should succeed as a mutual-single.
+        for (Index index: indexes) {
+            final FDBStoreTimer timer = new FDBStoreTimer();
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(index, timer)
+                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(true, true)
+                            .setMutualIndexing())
+                    .build()) {
+                indexBuilder.buildIndex(true);
+            }
+            // Each mutual indexing should index some of the records, but not those that were indexed by the multi-target session
+            int indexedMutually = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+            assertTrue(indexedMutually > 0);
+            if (index.equals(indexes.get(3))) {
+                // Was not built by the multi target session
+                assertEquals(indexedMutually, numRecords);
+            } else {
+                // Was partly built by the multi target session
+                assertTrue(indexedMutually < numRecords);
+            }
+        }
+
+        // validate
+        assertReadable(indexes);
+        assertAllValidated(indexes);
+    }
+
+    @Test
+    void testForbidConversionToMultiTarget() throws InterruptedException {
+        // Start mutual index, pause, forbid conversion to multi-target, successfully continue the mutual session
+        final int numRecords = 59;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        Thread t1 = new Thread(() -> {
+            // build indexes mutually and pause halfway, allowing an active session test
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setMutualIndexing()
+                            .build())
+                    .setLimit(14)
+                    .setConfigLoader(old -> {
+                        try {
+                            startBuildingSemaphore.release();
+                            pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        pauseMutualBuildSemaphore.release();
+                        return old;
+                    })
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        t1.start();
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+        // Fail converting a mutual indexing to a multi-target session
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setTargetIndexes(indexes)
+                .build()) {
+            assertThrows(IndexingBase.PartlyBuiltException.class, indexBuilder::buildIndex);
+        }
+        // let the other thread finish indexing
+        pauseMutualBuildSemaphore.release();
+        t1.join();
+
+        // must index all the records
+        int indexedMutually = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+        assertEquals(indexedMutually, numRecords);
+
+        // happy indexes assertion
+        assertReadable(indexes);
+    }
+
+    @Test
+    void testActiveMultiTargetConversionToMutual() throws InterruptedException {
+        // Start multi-target index, pause, convert to mutual and finish successfully, fail to continue the multi-target
+        final int numRecords = 33;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        AtomicBoolean passed = new AtomicBoolean(false);
+        Thread t1 = new Thread(() -> {
+            // build indexes as multi-target and pause halfway
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setLimit(7)
+                    .setConfigLoader(old -> {
+                        if (passed.get()) {
+                            try {
+                                startBuildingSemaphore.release();
+                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes elsewhere
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                            pauseMutualBuildSemaphore.release();
+                        } else {
+                            passed.set(true);
+                        }
+                        return old;
+                    })
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        t1.start();
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+
+        // Take over as mutual
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setTargetIndexes(indexes)
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(false, true)
+                        .setMutualIndexing())
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // let the other thread finish, verify that it did was not completed
+        pauseMutualBuildSemaphore.release();
+        t1.join();
+        int indexedAsMulti = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+        assertTrue(indexedAsMulti > 0);
+        assertTrue(indexedAsMulti < numRecords);
+
+
+        // happy indexes assertion
+        assertAllValidated(indexes);
+        assertReadable(indexes);
+    }
+
+    @Test
+    void testSingleToMutualAndViceVersa() throws InterruptedException {
+        // This test path is not fixed. One thread runs a single index session and one mutual, both allowed
+        // to take over the other one, with no sync lock to protect them. Many transactions conflicts are expected (and seen in the logs)
+        // The verification would be for:
+        // 1. no deadlocks
+        // 2. successful, verified indexing
+        final int numRecords = 59;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+
+        populateData(numRecords);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // Mutual indexer, allowed to take over a BY_RECORDS one
+        Thread t1 = new Thread(() -> {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(false, true)
+                            .setMutualIndexing())
+                    .setLimit(4)
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        // Single target indexer, allowed to take over a mutual indexing session
+        Thread t2 = new Thread(() -> {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .allowTakeoverContinue())
+                    .setLimit(4)
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+
+        // Start both threads in random order
+        if (ThreadLocalRandom.current().nextBoolean()) {
+            t1.start();
+            t2.start();
+        } else {
+            t2.start();
+            t1.start();
+        }
+
+        // wait for both
+        t1.join();
+        t2.join();
+
+        // happy indexes assertion
+        assertReadable(indexes);
+        assertAllValidated(indexes);
     }
 
     @Test

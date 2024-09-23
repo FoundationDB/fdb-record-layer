@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -910,19 +911,24 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         Semaphore startBuildingSemaphore =  new Semaphore(1);
         pauseMutualBuildSemaphore.acquire();
         startBuildingSemaphore.acquire();
+        AtomicBoolean passed = new AtomicBoolean(false);
         Thread t1 = new Thread(() -> {
             // build index and pause halfway, allowing an active session test
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
                     .setConfigLoader(old -> {
-                        try {
-                            startBuildingSemaphore.release();
-                            pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
+                        if (passed.get()) {
+                            try {
+                                startBuildingSemaphore.release();
+                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                            pauseMutualBuildSemaphore.release();
+                        } else {
+                            passed.set(true);
                         }
-                        pauseMutualBuildSemaphore.release();
                         return old;
                     })
                     .build()) {
@@ -970,19 +976,24 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         Semaphore startBuildingSemaphore =  new Semaphore(1);
         pauseMutualBuildSemaphore.acquire();
         startBuildingSemaphore.acquire();
+        AtomicBoolean passed = new AtomicBoolean(false);
         Thread t1 = new Thread(() -> {
             // build index and pause halfway, allowing an active session test
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
                     .setConfigLoader(old -> {
-                        try {
-                            startBuildingSemaphore.release();
-                            pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
+                        if (passed.get()) {
+                            try {
+                                startBuildingSemaphore.release();
+                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                            pauseMutualBuildSemaphore.release();
+                        } else {
+                            passed.set(true);
                         }
-                        pauseMutualBuildSemaphore.release();
                         return old;
                     })
                     .build()) {
