@@ -169,4 +169,48 @@ public class MoreAsyncUtilTest {
 
 
     }
+
+    @Test
+    void swallowException() throws ExecutionException, InterruptedException {
+        RuntimeException runtimeException1 = new RuntimeException();
+
+        {
+            CompletableFuture<Void> completedExceptionally1 = new CompletableFuture<>();
+            completedExceptionally1.completeExceptionally(runtimeException1);
+
+            assertSwallowedOrNot(completedExceptionally1, runtimeException1);
+        }
+        {
+            final CompletableFuture<Void> runAsync = CompletableFuture.runAsync(() -> {
+                throw runtimeException1;
+            });
+
+            assertSwallowedOrNot(runAsync, runtimeException1);
+        }
+        {
+            // the following should not throw
+            // successful future
+            MoreAsyncUtil.swallowException(CompletableFuture.completedFuture(null),
+                    throwable -> true).get();
+            MoreAsyncUtil.swallowException(CompletableFuture.runAsync(() -> { }),
+                    throwable -> true).get();
+            // successful future with bad handler
+            MoreAsyncUtil.swallowException(CompletableFuture.completedFuture(null),
+                    throwable -> {
+                        throw new RuntimeException();
+                    }).get();
+        }
+
+
+    }
+
+    private static void assertSwallowedOrNot(final CompletableFuture<Void> completedExceptionally1, final RuntimeException runtimeException1) throws InterruptedException, ExecutionException {
+        MoreAsyncUtil.swallowException(completedExceptionally1,
+                throwable -> throwable.equals(runtimeException1)).get(); // should not throw
+        final CompletableFuture<Void> notSwallowed = MoreAsyncUtil.swallowException(completedExceptionally1,
+                throwable -> false);
+        final ExecutionException executionException = assertThrows(ExecutionException.class, notSwallowed::get);
+        assertEquals(runtimeException1, executionException.getCause());
+    }
+
 }

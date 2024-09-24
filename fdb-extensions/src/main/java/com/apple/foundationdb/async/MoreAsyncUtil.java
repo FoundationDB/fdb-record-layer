@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.async.AsyncUtil.collect;
@@ -971,6 +973,30 @@ public class MoreAsyncUtil {
         // thenCompose will not be executed.
         return CompletableFuture.anyOf(future1, future2)
                 .thenCompose(vignore -> future1.thenCombine(future2, combiner));
+    }
+
+    /**
+     * Swallows exceptions matching a given predicate from a future.
+     * @param future a future which you expect to potentially throw an exception
+     * @param shouldSwallow a predicate on whether to swallow the error from the future. Note that if the future failed
+     * with a {@link CompletionException}, {@code swallowException} will also be called with its cause so that you don't
+     * need special handling to cover this.
+     *
+     * @return a future that will complete successfully if  {@code future} completed successfully, <em>or</em> the
+     * {@code shouldSwallow} predicate returned {@code true} for the error that {@code future} threw
+     */
+    public static CompletableFuture<Void> swallowException(@Nonnull CompletableFuture<Void> future,
+                                                           @Nonnull Predicate<Throwable> shouldSwallow) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        future.whenComplete((vignore, err) -> {
+            if (err == null || shouldSwallow.test(err) ||
+                    (err instanceof CompletionException && err.getCause() != null && shouldSwallow.test(err.getCause()))) {
+                result.complete(null);
+            } else {
+                result.completeExceptionally(err);
+            }
+        });
+        return result;
     }
 
     /**

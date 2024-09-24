@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -142,11 +143,17 @@ public abstract class IndexMaintainer {
 
     /**
      * Scans through the list of uniqueness violations within the database.
-     * It will return a cursor of {@link IndexEntry} instances where the
-     * {@link IndexEntry#getKey() getKey()} will return the primary key
-     * of the record causing a problem and {@link IndexEntry#getValue() getValue()}
-     * will return the index value that is being duplicated.
-     *
+     * <p>
+     *     It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
+     *     return the primary key of the record causing a problem and {@link IndexEntry#getValue() getValue()} will
+     *     return the index value that is being duplicated.
+     * </p>
+     * <p>
+     *     Implementors <em>should</em> store all relevant data, and nothing else in
+     *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, but this requirement was not
+     *     clearly stated, so it's possible there are implementations that store information about uniqueness violations
+     *     in another range.
+     * </p>
      * @param range range of tuples to read
      * @param continuation any continuation from a previous invocation
      * @param scanProperties row limit and other scan properties
@@ -154,6 +161,33 @@ public abstract class IndexMaintainer {
      */
     @Nonnull
     public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
+
+    /**
+     * Clear the list of uniqueness violations.
+     * <p>
+     *     This should only be called when the index is no longer unique, and implementations should throw a
+     *     {@link com.apple.foundationdb.record.RecordCoreException} if the index is unique.
+     * </p>
+     * <p>
+     *     This should be as simple as clearing the
+     *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, as that should be where all data
+     *     about the violations should be stored.
+     * </p>
+     * @return a future that will complete when the violations have been cleared
+     */
+    public CompletableFuture<Void> clearUniquenessViolations() {
+        // By default we do nothing, but that is _not_ what any implementer should do.
+        // The only time this is called is when an index is being marked readable but is not unique.
+        // This could happen in proper situations if, after this new method is added, an index changes from unique to
+        // non-unique without updating the lastModifiedVersion. This doesn't require a rebuild, but there could be
+        // violations on disk. Since we don't know whether an index maintainer stored all data around uniqueness
+        // violations in state.store.indexUniquenessViolationsSubspace(state.index) and can't guarantee this doesn't
+        // we just leave that data around.
+        if (state.index.isUnique()) {
+            throw new RecordCoreException(state.index.getName() + " is unique and cannot clear uniqueness violations");
+        }
+        return AsyncUtil.DONE;
+    }
 
     /**
      * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
@@ -105,7 +106,7 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
     }
 
     protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context,
-                                                                         @Nonnull RecordMetaData metaData) {
+                                                                         @Nonnull RecordMetaDataProvider metaData) {
         Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = createOrOpenRecordStore(context, metaData, path);
         recordStore = recordStoreQueryPlannerPair.getLeft();
         planner = recordStoreQueryPlannerPair.getRight();
