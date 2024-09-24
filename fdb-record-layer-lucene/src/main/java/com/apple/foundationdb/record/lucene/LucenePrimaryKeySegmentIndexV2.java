@@ -79,7 +79,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
                  RecordCursor<Tuple> entries = kvs.map(kv -> subspace.unpack(kv.getKey()))) {
-            tuples = aContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList());
+            tuples = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext);
         }
         list.set(tuples.stream().map(t -> {
             List<Object> items = t.getItems();
