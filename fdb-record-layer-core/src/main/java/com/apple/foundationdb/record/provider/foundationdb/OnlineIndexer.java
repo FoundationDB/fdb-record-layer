@@ -1592,7 +1592,7 @@ public class OnlineIndexer implements AutoCloseable {
              * <li>"Single index by records" may continue a multi index session.</li>
              * <li>"Single index by records" may continue a mutually built session.</li>
              *  </ul>
-             *  This function will allow/disallow the all possible conversion types. {@link #allowTakeoverContinue(Collection)} supports allowing a subset of these conversions.
+             *  This function will allow/disallow all possible conversion types. {@link #allowTakeoverContinue(Collection)} supports allowing a subset of these conversions.
              *  Note - if {@link #allowTakeoverContinue(Collection)} is called with a non-null argument, it will override this function's argument.
              * @param allow if true, allow takeover.
              * @return this builder

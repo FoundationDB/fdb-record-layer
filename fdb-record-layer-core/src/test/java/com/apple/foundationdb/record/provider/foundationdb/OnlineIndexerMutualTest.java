@@ -448,8 +448,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
-                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, false)
-                            .allowTakeoverContinue(true))
+                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit, false))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -766,7 +765,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             indexBuilder.buildIndex();
         }
 
-        // let the other thread finish, verify that it did was not completed
+        // let the other thread finish, verify that it was not completed
         pauseMutualBuildSemaphore.release();
         t1.join();
         int indexedAsMulti = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);

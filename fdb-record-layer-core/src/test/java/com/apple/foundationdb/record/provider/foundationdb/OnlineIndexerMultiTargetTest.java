@@ -924,8 +924,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                                 pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
                             } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
+                            } finally {
+                                pauseMutualBuildSemaphore.release();
                             }
-                            pauseMutualBuildSemaphore.release();
                         } else {
                             passed.set(true);
                         }
@@ -989,8 +990,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                                 pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
                             } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
+                            } finally {
+                                pauseMutualBuildSemaphore.release();
                             }
-                            pauseMutualBuildSemaphore.release();
                         } else {
                             passed.set(true);
                         }
