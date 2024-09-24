@@ -792,10 +792,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     public synchronized List<CompletableFuture<Void>> removeCommitChecks(
             @Nonnull Function<CommitCheckAsync, Boolean> filter,
             @Nonnull Predicate<Throwable> shouldSwallow) {
-        return commitChecks.entrySet().stream()
+        // we need to extract from the original list, because if the commitCheck is already done, removeCommitCheck
+        // would be called in the same thread, which could cause a ConcurrentModificationException due to removing the
+        // entry from the map while iterating over it.
+        final List<Map.Entry<String, CommitCheckAsync>> toRemove = commitChecks.entrySet().stream()
                 .filter(entry -> filter.apply(entry.getValue()))
-                .map(entry -> MoreAsyncUtil.swallowException(entry.getValue().checkAsync(), shouldSwallow)
-                        .whenComplete((result, err) -> removeCommitCheck(entry.getKey())))
+                .collect(Collectors.toList());
+        return toRemove.stream().map(entry ->
+                        MoreAsyncUtil.swallowException(entry.getValue().checkAsync(), shouldSwallow)
+                                .whenComplete((result, err) -> removeCommitCheck(entry.getKey())))
                 .collect(Collectors.toList());
     }
 
