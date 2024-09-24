@@ -44,7 +44,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
 
-
 /**
  * Testing basic query logging: plan, time, cache hits, etc.
  */

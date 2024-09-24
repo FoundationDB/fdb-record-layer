@@ -39,7 +39,7 @@ public interface RelationalArray extends Array, Wrapper {
     @Override
     default Object getArray(long oneBasedIndex, int count) throws SQLException {
         final var array = new ArrayList<>();
-        final var rs  = getResultSet(oneBasedIndex, count);
+        final var rs = getResultSet(oneBasedIndex, count);
         while (rs.next()) {
             array.add(rs.getObject(2));
         }

@@ -35,7 +35,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, AutoCloseable {
 
     private LogAppender logAppender;

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
 
@@ -40,6 +40,7 @@ public class EmbeddedRelationalEngine {
     private final MetricRegistry metricRegistry;
 
     //TODO(bfines) eventually we need to move StoreCatalog into StorageCluster
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "May be refactored as embedded takes over transaction lifetime")
     public EmbeddedRelationalEngine(List<StorageCluster> fdbClusters,
                                   @Nonnull MetricRegistry metricRegistry) {
         if (fdbClusters.isEmpty()) {

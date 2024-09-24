@@ -42,7 +42,6 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
 
-
 /**
  * Basic tests for {@link RelationalStatement#executeDeleteRange(String, KeySet, Options)} when the schema template
  * has records that share a single primary key extent.

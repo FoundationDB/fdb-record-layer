@@ -64,6 +64,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
@@ -123,6 +124,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
 
     private final RecordLayerSchema catalogSchema;
 
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
     RecordLayerStoreCatalog(@Nonnull final KeySpace keySpace) throws RelationalException {
         this.catalogSchemaPath = RelationalKeyspaceProvider.toDatabasePath(DASH_DASH_SYS, keySpace)
                 .schemaPath(RelationalKeyspaceProvider.CATALOG);

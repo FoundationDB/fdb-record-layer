@@ -100,28 +100,28 @@ public class RandomDataGenerator implements DataGenerator {
         Object o = null;
         switch (field.getJavaType()) {
             case INT:
-                o =  random.nextInt();
+                o = random.nextInt();
                 break;
             case LONG:
-                o =  random.nextLong();
+                o = random.nextLong();
                 break;
             case FLOAT:
-                o =  random.nextFloat();
+                o = random.nextFloat();
                 break;
             case DOUBLE:
-                o =  random.nextDouble();
+                o = random.nextDouble();
                 break;
             case BOOLEAN:
-                o =  random.nextBoolean();
+                o = random.nextBoolean();
                 break;
             case STRING:
-                o =  makeString();
+                o = makeString();
                 break;
             case BYTE_STRING:
-                o =  ByteString.copyFrom(makeBytes());
+                o = ByteString.copyFrom(makeBytes());
                 break;
             case MESSAGE:
-                o =  generateRecord(field.getMessageType());
+                o = generateRecord(field.getMessageType());
                 break;
             case ENUM:
                 final List<Descriptors.EnumValueDescriptor> values = field.getEnumType().getValues();

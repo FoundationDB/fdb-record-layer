@@ -69,9 +69,9 @@ class QueryInvoker {
     @SuppressWarnings("unchecked")
     @Nonnull
     private Collection<QuerySet> getQueriesFromMethod(Object testInstance,
-                                                                SchemaDescription description,
-                                                                JupiterEngineExecutionContext context,
-                                                                InterceptingExecutableInvoker executableInvoker) {
+                                                      SchemaDescription description,
+                                                      JupiterEngineExecutionContext context,
+                                                      InterceptingExecutableInvoker executableInvoker) {
         if (schemaMethods.isEmpty()) {
             return Collections.emptyList();
         }

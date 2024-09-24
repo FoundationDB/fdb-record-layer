@@ -57,17 +57,14 @@ public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutio
                 new DefaultJupiterConfiguration(discoveryRequest.getConfigurationParameters()));
         TestDescriptor rootDescriptor = new JupiterEngineDescriptor(uniqueId, config);
 
-        discoveryRequest.getSelectorsByType(ClasspathRootSelector.class).forEach(selector -> {
-            appendTestsInClasspathRoot(selector.getClasspathRoot(), rootDescriptor, config);
-        });
+        discoveryRequest.getSelectorsByType(ClasspathRootSelector.class).forEach(selector ->
+                appendTestsInClasspathRoot(selector.getClasspathRoot(), rootDescriptor, config));
 
-        discoveryRequest.getSelectorsByType(PackageSelector.class).forEach(selector -> {
-            appendTestsInPackage(selector.getPackageName(), rootDescriptor, config);
-        });
+        discoveryRequest.getSelectorsByType(PackageSelector.class).forEach(selector ->
+                appendTestsInPackage(selector.getPackageName(), rootDescriptor, config));
 
-        discoveryRequest.getSelectorsByType(ClassSelector.class).forEach(selector -> {
-            appendTestsInClass(selector.getJavaClass(), rootDescriptor, config);
-        });
+        discoveryRequest.getSelectorsByType(ClassSelector.class).forEach(selector ->
+                appendTestsInClass(selector.getJavaClass(), rootDescriptor, config));
         return rootDescriptor;
     }
 

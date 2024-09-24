@@ -223,10 +223,10 @@ public class RelationalPlanCacheTests {
 
     @Nonnull
     private Pair<PlanGenerator, BitSet> getPlanGenerator(@Nonnull final RelationalPlanCache cache,
-                                                                        @Nonnull final String schemaTemplateName,
-                                                                        int schemaTemplateVersion,
-                                                                        int userVersion,
-                                                                        @Nonnull final Set<String> readableIndexes) throws Exception {
+                                                         @Nonnull final String schemaTemplateName,
+                                                         int schemaTemplateVersion,
+                                                         int userVersion,
+                                                         @Nonnull final Set<String> readableIndexes) throws Exception {
         final var schemaName = connection.getSchema();
         final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(schemaTemplateVersion).setName(schemaTemplateName).build();

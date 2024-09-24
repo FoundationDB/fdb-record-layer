@@ -37,7 +37,6 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
-
 public class RelationalStatementRule implements BeforeEachCallback, AfterEachCallback, RelationalStatement {
     RelationalConnection connection;
     RelationalStatement statement;

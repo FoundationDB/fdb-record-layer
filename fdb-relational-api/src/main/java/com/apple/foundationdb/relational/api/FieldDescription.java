@@ -115,11 +115,11 @@ public final class FieldDescription {
     }
 
     private FieldDescription(String fieldName,
-                            int sqlType,
-                            int nullable,
-                            boolean phantom,
-                            @Nullable StructMetaData fieldMetaData,
-                            @Nullable ArrayMetaData arrayMetaData) {
+                             int sqlType,
+                             int nullable,
+                             boolean phantom,
+                             @Nullable StructMetaData fieldMetaData,
+                             @Nullable ArrayMetaData arrayMetaData) {
         this.fieldName = fieldName;
         this.sqlTypeCode = sqlType;
         this.nullable = nullable;

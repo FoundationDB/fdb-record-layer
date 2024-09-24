@@ -63,10 +63,10 @@ public final class JunitUtils {
     }
 
     public static <E extends Extension> void  invokeExecutionExceptionHandlers(JupiterTestDescriptor testDescriptor,
-                                                                          Class<E> handlerType,
-                                                                          ExtensionRegistry registry,
-                                                                          Throwable t,
-                                                                          JunitUtils.ExceptionHandlerInvoker<E> handlerInvoker) {
+                                                                               Class<E> handlerType,
+                                                                               ExtensionRegistry registry,
+                                                                               Throwable t,
+                                                                               JunitUtils.ExceptionHandlerInvoker<E> handlerInvoker) {
         testDescriptor.invokeExecutionExceptionHandlers(handlerType, registry, t, handlerInvoker::invoke);
     }
 

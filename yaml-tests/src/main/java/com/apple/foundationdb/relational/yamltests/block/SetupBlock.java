@@ -136,7 +136,7 @@ public class SetupBlock extends Block {
     private static final class DestructTemplateBlock extends SetupBlock {
 
         public static DestructTemplateBlock withDatabaseAndSchema(int lineNumber, @Nonnull YamlExecutionContext executionContext,
-                                                 @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
+                                                                  @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
             try {
                 final var steps = new ArrayList<String>();
                 steps.add("DROP DATABASE " + databasePath);

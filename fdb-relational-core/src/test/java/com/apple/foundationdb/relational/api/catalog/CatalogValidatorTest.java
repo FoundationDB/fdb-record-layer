@@ -57,9 +57,8 @@ public class CatalogValidatorTest {
         // clear database_id field
         RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) goodSchema.getSchemaTemplate().generateSchema(null, goodSchema.getName());
 
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(badRecordLayerSchema);
-        });
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
+                CatalogValidator.validateSchema(badRecordLayerSchema));
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field database_id in Schema must be set!", exception.getMessage());
     }
@@ -68,9 +67,8 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetTemplateName() {
         // clear schema_template_name field
         RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) generateBadSchemaWithEmptySchemaTemplateName().getSchemaTemplate().generateSchema("foo", "bar");
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(badRecordLayerSchema);
-        });
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
+                CatalogValidator.validateSchema(badRecordLayerSchema));
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field schema_template_name in Schema must be set!", exception.getMessage());
     }
@@ -79,9 +77,8 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetVersion() {
         // clear schema_version field
         RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) generateBadSchemaWithWrongVersion().getSchemaTemplate().generateSchema("foo", "bar");
-        RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> {
-            CatalogValidator.validateSchema(badRecordLayerSchema);
-        });
+        RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
+                CatalogValidator.validateSchema(badRecordLayerSchema));
         Assertions.assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
         Assertions.assertEquals("Field schema_version cannot be < 0!", exception.getMessage());
     }

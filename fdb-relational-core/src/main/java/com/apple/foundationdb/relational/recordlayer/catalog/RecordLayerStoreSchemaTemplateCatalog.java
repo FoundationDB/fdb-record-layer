@@ -59,6 +59,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -84,6 +85,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
      * @param catalogSchemaPath The path to the schema context to use as operating context.
      * @throws RelationalException Thrown by unwrap on schema template if type doesn't match (should never happen).
      */
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
     RecordLayerStoreSchemaTemplateCatalog(RecordLayerSchema catalogSchema,
                 RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath) throws RelationalException {
         this.catalogSchema = catalogSchema;

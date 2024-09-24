@@ -36,7 +36,7 @@ import java.util.stream.LongStream;
  * parameters that define "how" the value can be produced from the given the arguments. This is done through
  * {@link Parameter#bind} operation.
  */
-public abstract class UnboundParameter implements Parameter  {
+public abstract class UnboundParameter implements Parameter {
 
     @Override
     public boolean isUnbound() {

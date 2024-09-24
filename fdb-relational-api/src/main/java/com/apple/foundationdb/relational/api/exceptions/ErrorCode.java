@@ -85,8 +85,6 @@ public enum ErrorCode {
     INVALID_BINARY_REPRESENTATION("22F03"),
     INVALID_ARGUMENT_FOR_FUNCTION("22F00"),
 
-
-
     // Class 23 - Integrity Constraint Violation
     NOT_NULL_VIOLATION("23502"),
     UNIQUE_CONSTRAINT_VIOLATION("23505"),

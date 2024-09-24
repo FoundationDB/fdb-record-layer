@@ -256,7 +256,7 @@ public class SchemaTemplateSerDeTests {
     @ParameterizedTest
     @MethodSource("badSchemaTemplateGenerationsTestcaseProvider")
     public void testBadSchemaTemplateGenerations(Map<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>> testcase,
-                                                           Class<? extends Exception> exceptionClass, String message) {
+                                                 Class<? extends Exception> exceptionClass, String message) {
         final var thrown = Assertions.assertThrows(exceptionClass, () -> {
             final var schemaTemplate = getTestRecordLayerSchemaTemplate(testcase);
             schemaTemplate.toRecordMetadata();

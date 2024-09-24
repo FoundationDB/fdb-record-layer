@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -40,7 +40,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -95,20 +94,8 @@ class JDBCRelationalConnection implements RelationalConnection {
      */
     private Closeable closeable;
 
-    JDBCRelationalConnection(String urlStr) {
-        if (!urlStr.startsWith(JDBCURI.JDBC_URL_PREFIX)) {
-            throw new IllegalArgumentException("Missing 'jdbc:' prefix: " + urlStr);
-        }
-        // Parse the url String as a URI; makes it easy to pull out the pieces.
-        URI uri;
-        try {
-            uri = new URI(urlStr.substring(JDBCURI.JDBC_URL_PREFIX.length()));
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
-        }
-        if (!uri.getScheme().equals(JDBCURI.JDBC_URL_SCHEME)) {
-            throw new IllegalArgumentException("Not a relational jdbc url: " + uri);
-        }
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
+    JDBCRelationalConnection(URI uri) {
         this.database = uri.getPath();
         Map<String, List<String>> queryParams = JDBCURI.splitQuery(uri);
         this.schema = JDBCURI.getFirstValue("schema", queryParams);

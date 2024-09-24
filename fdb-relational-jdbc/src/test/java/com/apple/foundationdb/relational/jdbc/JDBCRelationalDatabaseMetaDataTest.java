@@ -31,15 +31,17 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.util.Properties;
 
 public class JDBCRelationalDatabaseMetaDataTest {
     private static DatabaseMetaData databaseMetaData;
     private static Connection connection;
 
     @BeforeAll
-    public static void beforeAll() {
+    public static void beforeAll() throws SQLException {
         DatabaseMetaDataResponse response = DatabaseMetaDataResponse.newBuilder().build();
-        connection = new JDBCRelationalConnection(JDBCURI.JDBC_BASE_URL + "example.com");
+        JDBCRelationalDriver driver = new JDBCRelationalDriver();
+        connection = driver.connect(JDBCURI.JDBC_BASE_URL + "example.com", new Properties());
         databaseMetaData = new JDBCRelationalDatabaseMetaData(connection, response);
     }
 

@@ -115,9 +115,9 @@ class ProtobufDataBuilderTest {
     }
 
     public static DescriptorProtos.FieldDescriptorProto newDescriptor(String name,
-                                                            JavaType javaType,
-                                                            String messageType,
-                                                            boolean isRepeated) {
+                                                                      JavaType javaType,
+                                                                      String messageType,
+                                                                      boolean isRepeated) {
         DescriptorProtos.FieldDescriptorProto.Builder proto = DescriptorProtos.FieldDescriptorProto.newBuilder()
                 .setName(name);
         switch (javaType) {

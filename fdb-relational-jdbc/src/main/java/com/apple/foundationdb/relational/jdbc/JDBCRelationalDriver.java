@@ -24,6 +24,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -32,8 +34,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Locale;
 import java.util.Properties;
-// Unavoidable. This is part of the JDBC Driver Interface... getParentLogger returns it.
-// We ignore it. We use log4j2 logging in relational (so do some customers).
 import java.util.logging.Logger;
 
 /**
@@ -63,9 +63,19 @@ public class JDBCRelationalDriver implements Driver {
         if (!acceptsURL(url)) {
             throw new SQLException("Not an acceptable relational JDBC url: " + url);
         }
-        // Pass the 'url' string and let the JDBCRelationalConnection try to
+        // Parse the url String as a URI; makes it easy to pull out the pieces.
+        URI uri;
+        try {
+            uri = new URI(url.substring(JDBCURI.JDBC_URL_PREFIX.length()));
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
+        if (!uri.getScheme().equals(JDBCURI.JDBC_URL_SCHEME)) {
+            throw new IllegalArgumentException("Not a relational jdbc url: " + uri);
+        }
+        // Pass the URI in and let the JDBCRelationalConnection try to
         // make sense of it and its parts (host, port, db, etc.) as it sees fit.
-        return new JDBCRelationalConnection(url);
+        return new JDBCRelationalConnection(uri);
     }
 
     @Override

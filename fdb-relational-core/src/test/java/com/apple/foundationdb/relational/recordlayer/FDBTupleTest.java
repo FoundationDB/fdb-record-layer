@@ -24,31 +24,42 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FDBTupleTest {
-    static final FDBTuple emptyTuple = new FDBTuple(EmptyTuple.INSTANCE);
-    static final FDBTuple longTuple = new FDBTuple(new ValueTuple(5L));
-    static final Tuple fdbUnderlyingTuple = new Tuple()
-            .add("five")
-            .add(5L)
-            .add(5.0f)
-            .add(new Tuple()
-                    .add("six")
-                    .add(6L)
-                    .add(6.0f)
-                    .add(new Tuple().add("seven").add(7L).add(7.0f)));
+    @Nonnull
+    static final FDBTuple emptyTuple;
+    @Nonnull
+    static final FDBTuple longTuple;
+    static final Tuple fdbUnderlyingTuple =
+            Tuple.from("five", 5L, 5.0f,
+                    Tuple.from("six", 6L, 6.0f,
+                            Tuple.from("seven", 7L, 7.0f)
+                    )
+            );
     static final FDBTuple fdbTuple = new FDBTuple(fdbUnderlyingTuple);
 
+    static {
+        try {
+            emptyTuple = FDBTuple.fromRow(EmptyTuple.INSTANCE);
+            longTuple = FDBTuple.fromRow(new ValueTuple(5L));
+        } catch (RelationalException err) {
+            throw err.toUncheckedWrappedException();
+        }
+    }
+
     @Test
-    void setTuple() {
-        FDBTuple tuple = new FDBTuple(emptyTuple);
+    void setTuple() throws RelationalException {
+        FDBTuple tuple = FDBTuple.fromRow(emptyTuple);
         tuple.setTuple(fdbUnderlyingTuple);
         Assertions.assertEquals(fdbUnderlyingTuple, tuple.fdbTuple());
     }

@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.RelationalStatementRule;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;

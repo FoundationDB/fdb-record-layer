@@ -72,7 +72,7 @@ class AutoTestResolver {
         List<Method> queryMethods = getMethods(testClass, Query.class);
         QueryInvoker qi = new QueryInvoker(queryMethods, querySetFields);
 
-        return new AutoTestDescriptor(uid, testClass, config,  connMakers, schemaInvoker, dataSetInvoker, qi, configInvoker);
+        return new AutoTestDescriptor(uid, testClass, config, connMakers, schemaInvoker, dataSetInvoker, qi, configInvoker);
     }
 
     private List<Field> getFields(Class<?> testClass, Class<? extends Annotation> annotation) {

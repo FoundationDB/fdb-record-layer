@@ -43,7 +43,7 @@ import java.util.Objects;
  * </ul>
  * @param <T> The type of the fragment.
  */
-public class ParsingFragment<T extends DataType> implements ExpressionFragment<T>  {
+public class ParsingFragment<T extends DataType> implements ExpressionFragment<T> {
     @Nonnull
     private final String fragment;
 
@@ -51,7 +51,7 @@ public class ParsingFragment<T extends DataType> implements ExpressionFragment<T
     private final T dataType;
 
     public ParsingFragment(@Nonnull final T dataType,
-                              @Nonnull final String fragment) {
+                           @Nonnull final String fragment) {
         this.dataType = dataType;
         this.fragment = fragment;
     }

@@ -48,10 +48,10 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     private final TypeCreator tableCreator;
 
     private SchemaTemplateRule(RelationalExtension relationalExtension,
-                              String templateName,
-                              @Nullable SchemaTemplateOptions options,
-                              TypeCreator typeCreator,
-                              TypeCreator tableCreator) {
+                               String templateName,
+                               @Nullable SchemaTemplateOptions options,
+                               TypeCreator typeCreator,
+                               TypeCreator tableCreator) {
         this.relationalExtension = relationalExtension;
         this.templateName = templateName;
         this.options = options;

@@ -84,6 +84,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     public static final int STATEMENT_NO_RESULT = -2;
     private Options options;
 
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
     JDBCRelationalStatement(@Nonnull final JDBCRelationalConnection connection) throws SQLException {
         this.connection = connection;
         this.options = connection.getOptions().withChild(Options.NONE);

@@ -347,8 +347,8 @@ public final class TestBlock extends Block {
     }
 
     private TestBlock(int lineNumber, @Nonnull List<QueryCommand> queryCommands, @Nonnull List<Consumer<RelationalConnection>> executables,
-              @Nonnull List<Consumer<RelationalConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
-              @Nonnull TestBlockOptions options, @Nonnull YamlExecutionContext executionContext) {
+                      @Nonnull List<Consumer<RelationalConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
+                      @Nonnull TestBlockOptions options, @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executables, connectionURI, executionContext);
         this.queryCommands = queryCommands;
         this.options = options;
@@ -440,7 +440,7 @@ public final class TestBlock extends Block {
 
     @Nonnull
     private static Consumer<RelationalConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                              @Nonnull Random random, boolean runAsPreparedStatement) {
+                                                                     @Nonnull Random random, boolean runAsPreparedStatement) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> queryCommand.execute(connection, checkCache, executor);
     }

@@ -50,6 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvide
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -78,10 +79,12 @@ public class FRL implements AutoCloseable {
     private static final String JDBC_EMBED_PREFIX = "jdbc:embed:";
     private boolean registeredJDBCEmbedDriver;
 
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
     public FRL() throws RelationalException {
         this(Options.NONE);
     }
 
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
     public FRL(@Nonnull Options options) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);

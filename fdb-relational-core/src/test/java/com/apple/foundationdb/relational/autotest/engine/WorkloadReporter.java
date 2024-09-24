@@ -48,7 +48,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiConsumer;
 
-class WorkloadReporter  {
+class WorkloadReporter {
     private final String reportDirectory;
     private String fileName;
 

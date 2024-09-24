@@ -99,7 +99,7 @@ public class RelationalStructure {
                     final long nestedRecordId = generateRecordId(field.getName());
                     flattenToValues(nestedMessage, nestedRecordId, destination);
                     destClause.addValues(Long.toString(nestedRecordId));
-                }  else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.STRING) {
+                } else if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.STRING) {
                     Object o = m.getField(field);
                     String s = o == null ? "NULL" : "'" + escapeQuotes((String) o) + "'";
                     destClause.addValues(s);

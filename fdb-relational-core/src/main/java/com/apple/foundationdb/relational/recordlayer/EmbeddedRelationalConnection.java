@@ -53,6 +53,7 @@ import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.Ex
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.util.Supplier;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -104,6 +105,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     private int transactionIsolation;
 
+    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "May be refactored as embedded takes over transaction lifetime")
     public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
                                       @Nonnull StoreCatalog backingCatalog,
                                       @Nullable Transaction transaction,

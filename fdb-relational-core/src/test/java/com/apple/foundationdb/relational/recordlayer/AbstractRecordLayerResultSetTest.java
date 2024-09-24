@@ -47,7 +47,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
 class AbstractRecordLayerResultSetTest {
 
     private static final Set<Pair<java.lang.Class<?>, String>> supportedConversions = Set.of(

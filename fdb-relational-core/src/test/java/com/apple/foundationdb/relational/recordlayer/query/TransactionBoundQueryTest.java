@@ -68,7 +68,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-
 public class TransactionBoundQueryTest {
     @Nonnull
     private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1(id bigint, a bigint, b string, PRIMARY KEY(id)) " +

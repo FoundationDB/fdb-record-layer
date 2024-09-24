@@ -22,12 +22,13 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 public final class TupleUtils {
 
-    public static Tuple toFDBTuple(Row relationalTuple) {
+    public static Tuple toFDBTuple(Row relationalTuple) throws RelationalException {
         if (!(relationalTuple instanceof FDBTuple)) {
-            relationalTuple = new FDBTuple(relationalTuple);
+            relationalTuple = FDBTuple.fromRow(relationalTuple);
         }
 
         return ((FDBTuple) relationalTuple).fdbTuple();

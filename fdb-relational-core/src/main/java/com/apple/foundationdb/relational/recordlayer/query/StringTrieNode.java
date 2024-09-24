@@ -21,11 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.util.TrieNode;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 
+@SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "Singleton designation is a false positive")
 public class StringTrieNode extends TrieNode.AbstractTrieNode<String, Void, StringTrieNode> {
     @Nonnull
     private static final StringTrieNode LEAF = new StringTrieNode(null);

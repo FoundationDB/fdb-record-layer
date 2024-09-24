@@ -108,15 +108,15 @@ public class SchemaGenerator {
             final var col = columns.get(i);
             if (col.sqlType == Types.STRUCT) {
                 if (col.isRepeated) {
-                    fieldDescs[i] =  FieldDescription.array(col.name, DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(col.structMetaData, DatabaseMetaData.columnNoNulls));
+                    fieldDescs[i] = FieldDescription.array(col.name, DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(col.structMetaData, DatabaseMetaData.columnNoNulls));
                 } else {
-                    fieldDescs[i] =  FieldDescription.struct(col.name, DatabaseMetaData.columnNoNulls, col.structMetaData);
+                    fieldDescs[i] = FieldDescription.struct(col.name, DatabaseMetaData.columnNoNulls, col.structMetaData);
                 }
             } else {
                 if (col.isRepeated) {
-                    fieldDescs[i] =  FieldDescription.array(col.name, DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofPrimitive(col.sqlType, DatabaseMetaData.columnNoNulls));
+                    fieldDescs[i] = FieldDescription.array(col.name, DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofPrimitive(col.sqlType, DatabaseMetaData.columnNoNulls));
                 } else {
-                    fieldDescs[i] =  FieldDescription.primitive(col.name, col.sqlType, DatabaseMetaData.columnNoNulls);
+                    fieldDescs[i] = FieldDescription.primitive(col.name, col.sqlType, DatabaseMetaData.columnNoNulls);
                 }
             }
         }
@@ -192,7 +192,7 @@ public class SchemaGenerator {
             int nextColPos = random.nextInt(columns.size());
             ColumnDesc chosenCol = columns.get(nextColPos);
             int loopPos = nextColPos;
-            while ((chosenColumns.contains(chosenCol.name) || !chosenCol.allowedInPrimaryKey())) {
+            while (chosenColumns.contains(chosenCol.name) || !chosenCol.allowedInPrimaryKey()) {
                 nextColPos = (nextColPos + 1) % columns.size();
                 chosenCol = columns.get(nextColPos);
                 if (nextColPos == loopPos) {

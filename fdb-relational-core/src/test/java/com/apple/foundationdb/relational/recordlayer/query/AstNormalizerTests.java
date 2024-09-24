@@ -836,7 +836,7 @@ public class AstNormalizerTests {
         validateNotSameHash("select * from t1 where col1 in (10, col2, 1000, ?)",
                 "select * from t1 where col1 in (10, 100, 1000, ?)", PreparedParams.ofUnnamed(Map.of(1, 42)));
         validateNotEqual("select * from t1 where col1 in (10, col2, 1000)",
-                "select * from t1 where col1 in (10, 100, 1000)",  PreparedParams.ofUnnamed(Map.of(1, 42)));
+                "select * from t1 where col1 in (10, 100, 1000)", PreparedParams.ofUnnamed(Map.of(1, 42)));
     }
 
     @Test

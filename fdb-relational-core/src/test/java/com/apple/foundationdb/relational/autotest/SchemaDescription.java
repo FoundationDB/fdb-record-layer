@@ -65,6 +65,6 @@ public class SchemaDescription {
     @Override
     public String toString() {
         return "CREATE SCHEMA TEMPLATE " + templateName + " " +
-                templateDescription ;
+                templateDescription;
     }
 }

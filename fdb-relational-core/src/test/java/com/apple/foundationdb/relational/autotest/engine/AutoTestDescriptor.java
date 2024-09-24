@@ -70,13 +70,13 @@ class AutoTestDescriptor extends ClassTestDescriptor {
     ));
 
     AutoTestDescriptor(UniqueId uniqueId,
-                              Class<?> testClass,
-                              JupiterConfiguration configuration,
-                              List<ConnectionMaker> connectionMakers,
-                              SchemaInvoker schemaInvoker,
-                              DataInvoker dataInvoker,
-                              QueryInvoker queryInvoker,
-                              ConfigurationInvoker configInvoker) {
+                       Class<?> testClass,
+                       JupiterConfiguration configuration,
+                       List<ConnectionMaker> connectionMakers,
+                       SchemaInvoker schemaInvoker,
+                       DataInvoker dataInvoker,
+                       QueryInvoker queryInvoker,
+                       ConfigurationInvoker configInvoker) {
         super(uniqueId, testClass, configuration);
         this.connectionMakers = connectionMakers;
         this.schemaInvoker = schemaInvoker;

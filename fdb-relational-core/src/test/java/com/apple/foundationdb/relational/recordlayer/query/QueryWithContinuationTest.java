@@ -266,7 +266,7 @@ public class QueryWithContinuationTest {
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p WITH CONTINUATION ?continuation")) {
                 ps.setMaxRows(2);
-                ps.setBytes("continuation",  new byte[0]);
+                ps.setBytes("continuation", new byte[0]);
                 ps.setInt("p", 9);
                 continuation = assertResult(ps, 10L, 11L);
                 assertContinuation(continuation, false, false);

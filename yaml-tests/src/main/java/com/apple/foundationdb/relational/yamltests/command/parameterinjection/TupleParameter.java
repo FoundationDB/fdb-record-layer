@@ -58,7 +58,7 @@ public class TupleParameter extends ListParameter {
         }
         // Currently, the name of the struct is not set properly since we do not look at the name while creating structs.
         // This should change when the underlying assumption changes.
-        return (Objects.requireNonNull(connection).createStruct("na", array));
+        return Objects.requireNonNull(connection).createStruct("na", array);
     }
 
     @Nonnull

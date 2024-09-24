@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-
 public class InListParameter implements Parameter {
 
     @Nonnull

@@ -40,7 +40,7 @@ abstract class ConnectionMaker {
         return new MethodMaker(method);
     }
 
-    private static class FieldMaker extends ConnectionMaker {
+    private static final class FieldMaker extends ConnectionMaker {
         private final Field field;
 
         private FieldMaker(Field field) {
@@ -66,7 +66,7 @@ abstract class ConnectionMaker {
         }
     }
 
-    private static class MethodMaker extends ConnectionMaker {
+    private static final class MethodMaker extends ConnectionMaker {
         private final Method method;
 
         private MethodMaker(Method method) {

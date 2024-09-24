@@ -24,8 +24,10 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,24 +36,6 @@ class FDBTuple extends AbstractRow {
 
     public FDBTuple(Tuple tuple) {
         this.tuple = tuple;
-    }
-
-    /**
-     * Copy-constructor to make an FDB tuple from another type of tuple.
-     *
-     * @param copy the tuple to copy
-     */
-    FDBTuple(@Nonnull Row copy) {
-        Tuple t = new Tuple();
-        for (int i = 0; i < copy.getNumFields(); i++) {
-            try {
-                t = t.addObject(copy.getObject(i));
-            } catch (InvalidColumnReferenceException e) {
-                // This should never happen since we checked getNumFields above
-                throw e.toUncheckedWrappedException();
-            }
-        }
-        this.tuple = t;
     }
 
     void setTuple(Tuple t) {
@@ -109,5 +93,20 @@ class FDBTuple extends AbstractRow {
     @Override
     public String toString() {
         return tuple.toString();
+    }
+
+    /**
+     * Copy an FDB tuple from another type of tuple.
+     *
+     * @param copy the tuple to copy
+     */
+    @Nonnull
+    public static FDBTuple fromRow(@Nonnull Row copy) throws RelationalException {
+        List<Object> items = new ArrayList<>(copy.getNumFields());
+        for (int i = 0; i < copy.getNumFields(); i++) {
+            items.add(copy.getObject(i));
+        }
+        Tuple t = Tuple.fromList(items);
+        return new FDBTuple(t);
     }
 }
