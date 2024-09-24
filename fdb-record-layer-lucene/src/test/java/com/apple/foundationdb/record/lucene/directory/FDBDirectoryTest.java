@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for FDBDirectory validating it can function as a backing store
@@ -228,7 +229,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testRename() {
         final IOException ioException = assertThrows(IOException.class, () -> directory.rename("NoExist", "newName"));
-        assertEquals(ioException.getCause().getClass(), RecordCoreArgumentException.class);
+        assertTrue(ioException.getCause() instanceof RecordCoreArgumentException);
 
         // In the case where the Future was already completed, WAIT_LUCENE_RENAME will not be recorded, but LUCENE_RENAME_FILE will
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_RENAME_FILE, 1);
