@@ -24,24 +24,20 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 /**
  * Represents a max match between a (rewritten) query result {@link Value} and the candidate result {@link Value}.
@@ -185,33 +181,32 @@ public class MaxMatchMap {
                                         @Nonnull final ValueEquivalence valueEquivalence) {
         final BiMap<Value, Value> newMapping = HashBiMap.create();
         final List<QueryPlanConstraint> queryPlanConstraints = Lists.newArrayList();
-        queryResultValue.preOrderPruningIterator(queryValuePart -> {
-            // look up the query sub values in the candidate value.
-            final var matchPairOptional =
-                    Streams.stream(candidateResultValue
-                                    // when traversing the candidate in pre-order, only descend into structures that can be referenced
-                                    // from the top expression. For example, RCV's components can be referenced however an Arithmetic
-                                    // operator's children can not be referenced.
-                                    // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
-                                    .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                            .flatMap(candidateValuePart -> {
-                                final var semanticEquals =
-                                        queryValuePart.semanticEquals(candidateValuePart, valueEquivalence);
-                                if (semanticEquals.isFalse()) {
-                                    return Stream.of();
-                                }
-                                return Stream.of(NonnullPair.of(candidateValuePart, semanticEquals.getConstraint()));
-                            })
-                            .findAny();
-            matchPairOptional.ifPresent(matchPair -> {
-                newMapping.put(queryValuePart, matchPair.getLeft());
-                queryPlanConstraints.add(matchPair.getRight());
-            });
-            // if match is empty, descend further and look for more fine-grained matches.
-            return matchPairOptional.isEmpty();
-        }).forEachRemaining(ignored -> {
-            // nothing
-        });
+
+        final var queryResultValueIterator = queryResultValue.preOrderIterator();
+        while (queryResultValueIterator.hasNext()) {
+            final var currentQueryValue = queryResultValueIterator.next();
+
+            boolean found = false;
+            for (final var currentCandidateValue : candidateResultValue
+                    // when traversing the candidate in pre-order, only descend into structures that can be referenced
+                    // from the top expression. For example, RCV's components can be referenced however an Arithmetic
+                    // operator's children can not be referenced.
+                    // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
+                    .preOrderIterable(v -> v instanceof RecordConstructorValue)) {
+                final var semanticEquals =
+                        currentQueryValue.semanticEquals(currentCandidateValue, valueEquivalence);
+                if (semanticEquals.isTrue()) {
+                    newMapping.put(currentQueryValue, currentCandidateValue);
+                    queryPlanConstraints.add(semanticEquals.getConstraint());
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                // we found a match to the candidate side, we can skip the
+                queryResultValueIterator.skipNextSubtree();
+            }
+        }
 
         return new MaxMatchMap(newMapping, queryResultValue, candidateResultValue,
                 QueryPlanConstraint.composeConstraints(queryPlanConstraints), valueEquivalence);
