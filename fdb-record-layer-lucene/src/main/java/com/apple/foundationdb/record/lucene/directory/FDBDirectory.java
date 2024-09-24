@@ -658,7 +658,8 @@ public class FDBDirectory extends Directory  {
     }
 
     @Nonnull
-    private CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
+    @VisibleForTesting
+    protected CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         if (fileReferenceCache.get() != null) {
             return CompletableFuture.completedFuture(fileReferenceCache.get());
         }
@@ -731,7 +732,8 @@ public class FDBDirectory extends Directory  {
         }
     }
 
-    private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
+    @VisibleForTesting
+    protected boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
         // TODO make this transactional or ensure that it is deleted in the right order
         FDBLuceneFileReference value = cache.remove(name);
         if (value == null) {
