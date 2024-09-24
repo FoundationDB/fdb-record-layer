@@ -287,8 +287,5 @@ public class IndexingCommon {
 
     public void close() {
         runner.close();
-        if (synchronizedSessionRunner != null) {
-            synchronizedSessionRunner.close();
-        }
     }
 }
