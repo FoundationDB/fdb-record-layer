@@ -65,7 +65,7 @@ public class TypeConversion {
      * @return {@link RelationalStruct} instance pulled from <code>resultSet</code>
      * @throws SQLException If failed get of <code>resultSet</code> metadata.
      */
-    // Manipulation of protobufs. Exploits package-private internal ottributes of {@link RelationalStructFacade}.
+    // Manipulation of protobufs. Exploits package-private internal attributes of {@link RelationalStructFacade}.
     static RelationalStruct getStruct(ResultSet resultSet, int rowIndex, int oneBasedColumn) throws SQLException {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         var metadata =
@@ -118,15 +118,15 @@ public class TypeConversion {
     static KeySet toProtobuf(com.apple.foundationdb.relational.api.KeySet keySet) {
         KeySet.Builder keySetBuilder = KeySet.newBuilder();
         for (Map.Entry<String, Object> entry : keySet.toMap().entrySet()) {
-            KeySetValue keySetValue = null;
+            KeySetValue keySetValue;
             // Currently we support a few types only.
-            if (entry.getValue() instanceof String) {
-                keySetValue = KeySetValue.newBuilder().setStringValue((String) entry.getValue()).build();
-            } else if (entry.getValue() instanceof byte[]) {
+            if (entry.getValue() instanceof String stringValue) {
+                keySetValue = KeySetValue.newBuilder().setStringValue(stringValue).build();
+            } else if (entry.getValue() instanceof byte[] bytesValue) {
                 keySetValue =
-                        KeySetValue.newBuilder().setBytesValue(ByteString.copyFrom((byte[]) entry.getValue())).build();
-            } else if (entry.getValue() instanceof Long) {
-                keySetValue = KeySetValue.newBuilder().setLongValue((long) entry.getValue()).build();
+                        KeySetValue.newBuilder().setBytesValue(ByteString.copyFrom(bytesValue)).build();
+            } else if (entry.getValue() instanceof Long longValue) {
+                keySetValue = KeySetValue.newBuilder().setLongValue(longValue).build();
             } else {
                 throw new UnsupportedOperationException("Unsupported type " + entry.getValue());
             }

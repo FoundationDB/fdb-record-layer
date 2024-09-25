@@ -188,17 +188,15 @@ public final class SqlTypeSupport {
                     fieldType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls,
                     KNOWN_PHANTOM_COLUMNS.contains(field.getFieldName())
             );
-        } else if (fieldType instanceof Type.Array) {
-            Type.Array arrayType = (Type.Array) fieldType;
+        } else if (fieldType instanceof Type.Array arrayType) {
             Type elementType = Objects.requireNonNull(arrayType.getElementType());
             ArrayMetaData arrayMetadata;
             if (elementType.isPrimitive()) {
                 arrayMetadata = RelationalArrayMetaData.ofPrimitive(
                         SqlTypeSupport.recordTypeToSqlType(elementType.getTypeCode()),
                         elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
-            } else if (elementType instanceof Type.Record) {
+            } else if (elementType instanceof Type.Record structType) {
                 //get a StructMetaData recursively
-                Type.Record structType = (Type.Record) elementType;
                 arrayMetadata = RelationalArrayMetaData.ofStruct(
                         recordToMetaData(structType),
                         elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
@@ -207,8 +205,7 @@ public final class SqlTypeSupport {
                 throw new RelationalException("Cannot have an array of arrays right now", ErrorCode.UNSUPPORTED_OPERATION);
             }
             return FieldDescription.array(field.getFieldName(), arrayType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls, arrayMetadata);
-        } else if (fieldType instanceof Type.Record) {
-            Type.Record recType = (Type.Record) fieldType;
+        } else if (fieldType instanceof Type.Record recType) {
             StructMetaData smd = recordToMetaData(recType);
             return FieldDescription.struct(field.getFieldName(),
                     fieldType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls, smd);
@@ -219,10 +216,10 @@ public final class SqlTypeSupport {
 
     @Nonnull
     public static StructMetaData typeToMetaData(@Nonnull Type type) throws RelationalException {
-        if (type instanceof Type.Record) {
-            return recordToMetaData((Type.Record) type);
-        } else if (type instanceof Type.Relation) {
-            return typeToMetaData(((Type.Relation) type).getInnerType());
+        if (type instanceof Type.Record recordType) {
+            return recordToMetaData(recordType);
+        } else if (type instanceof Type.Relation relationType) {
+            return typeToMetaData(relationType.getInnerType());
         } else {
             throw new RelationalException("Unexpected Data type " + type.getTypeCode(), ErrorCode.UNSUPPORTED_OPERATION);
         }

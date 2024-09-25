@@ -63,19 +63,20 @@ import java.util.stream.Stream;
 
 public class PreparedStatementTests {
 
-    private static final String schemaTemplate =
-            "CREATE TYPE AS STRUCT LatLong (latitude double, longitude double)" +
-                    "CREATE TYPE AS STRUCT Location (address string, pin bigint, coords LatLong)" +
-                    " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" bigint, \"endorsementText\" string)" +
-                    " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer bigint, rating bigint, endorsements \"ReviewerEndorsements\" array)" +
-                    " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight bigint)" +
-                    " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
-                    " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, key bytes, PRIMARY KEY(rest_no))" +
-                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, secrets bytes array, PRIMARY KEY(id))" +
-                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
-                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
-                    " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
-                    " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
+    private static final String schemaTemplate = """
+            CREATE TYPE AS STRUCT LatLong (latitude double, longitude double)
+            CREATE TYPE AS STRUCT Location (address string, pin bigint, coords LatLong)
+            CREATE TYPE AS STRUCT "ReviewerEndorsements" ("endorsementId" bigint, "endorsementText" string)
+            CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer bigint, rating bigint, endorsements "ReviewerEndorsements" array)
+            CREATE TYPE AS STRUCT RestaurantTag (tag string, weight bigint)
+            CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)
+            CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, key bytes, PRIMARY KEY(rest_no))
+            CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, secrets bytes array, PRIMARY KEY(id))
+            CREATE INDEX record_name_idx as select name from RestaurantComplexRecord
+            CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer
+            CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R
+            CREATE INDEX mv2 AS SELECT endo."endorsementText" FROM RestaurantComplexRecord rec, (SELECT X."endorsementText" FROM rec.reviews rev, (SELECT "endorsementText" from rev.endorsements) X) endo
+            """;
 
     @RegisterExtension
     @Order(0)
