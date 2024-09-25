@@ -104,7 +104,7 @@ public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorder
                         .stream()
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yieldExpression(new RecordQueryPredicatesFilterPlan(newQun,
+        call.yieldFinalExpression(new RecordQueryPredicatesFilterPlan(newQun,
                         rebasedPredicates));
     }
 }

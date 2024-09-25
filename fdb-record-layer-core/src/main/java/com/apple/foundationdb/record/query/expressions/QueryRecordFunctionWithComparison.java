@@ -30,11 +30,11 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.StoreRecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -156,7 +156,8 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             //
 
             // predicate on rank
-            final var rankColumnValue = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(rankQuantifier), rankSelectExpression.getResultValues().size() - 1);
+            final var rankColumnValue = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(rankQuantifier),
+                    rankSelectExpression.getResultValues().size() - 1);
             final var rankComparisonExpansion =
                     GraphExpansion.builder()
                             .addQuantifier(rankQuantifier)

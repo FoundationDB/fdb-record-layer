@@ -26,9 +26,11 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.PlanVisitorHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -102,13 +104,13 @@ import java.util.Objects;
  * In particular, a {@link Value}-tree that somewhere appears in a plan as part of a {@link QueryPredicate}, or other
  * expression, is guaranteed to be part of a derivation which is not correlated.
  */
-public class DerivationsProperty implements PlanProperty<DerivationsProperty.Derivations> {
+public class DerivationsProperty implements ExpressionProperty<DerivationsProperty.Derivations> {
     public static final DerivationsProperty DERIVATIONS = new DerivationsProperty();
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Derivations> createVisitor() {
-        return new DerivationsVisitor();
+    public RelationalExpressionVisitor<Derivations> createVisitor() {
+        return PlanVisitorHelpers.toExpressionVisitor(new DerivationsVisitor());
     }
 
     @Override
@@ -744,7 +746,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
     @Nonnull
     public static Derivations evaluateDerivations(@Nonnull RecordQueryPlan recordQueryPlan) {
-        return DERIVATIONS.createVisitor().visit(recordQueryPlan);
+        return new DerivationsVisitor().visit(recordQueryPlan);
     }
 
     /**

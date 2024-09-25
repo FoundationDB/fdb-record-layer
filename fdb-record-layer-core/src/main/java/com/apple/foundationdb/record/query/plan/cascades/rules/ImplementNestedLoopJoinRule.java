@@ -186,6 +186,6 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
         final var newInnerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
 
-        call.yieldExpression(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+        call.yieldFinalExpression(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
     }
 }

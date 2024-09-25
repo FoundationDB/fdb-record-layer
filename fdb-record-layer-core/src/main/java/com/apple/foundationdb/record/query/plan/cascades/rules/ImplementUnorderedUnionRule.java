@@ -83,6 +83,6 @@ public class ImplementUnorderedUnionRule extends CascadesRule<LogicalUnionExpres
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldExpression(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers));
+        call.yieldFinalExpression(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers));
     }
 }

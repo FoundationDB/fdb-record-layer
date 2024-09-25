@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 
 import javax.annotation.Nonnull;
@@ -40,7 +40,7 @@ import java.util.Optional;
  * logic.
  * <br>
  * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
- * {@link PlannerRuleCall#yieldExpression(Object)} method on its rule call, with a new
+ * {@link PlannerRuleCall#yieldResult(Object)} method on its rule call, with a new
  * {@link Reference}. The <code>yield()</code> method can be called more than once, or zero times if no
  * alternative expressions are found.
  * <br>
@@ -73,7 +73,7 @@ public abstract class AbstractRule<RESULT, CALL extends AbstractRuleCall<RESULT,
      * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
      * Used primarily for indexing rules for more efficient rule search.
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
-     * @see PlannerRuleSet
+     * @see PlanningRuleSet
      */
     @Nonnull
     @Override

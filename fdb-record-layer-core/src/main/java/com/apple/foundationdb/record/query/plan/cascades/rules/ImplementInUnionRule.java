@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -159,20 +159,20 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions =
-                PlanPartition.rollUpTo(
-                        innerReference.getPlanPartitions(),
+                PlanPartitions.rollUpTo(
+                        innerReference.computePlanPartitions(),
                         OrderingProperty.ORDERING);
 
         final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+            final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ORDERING);
 
             for (final var requestedOrdering : requestedOrderings) {
                 if (requestedOrdering.isPreserve()) {
                     continue;
                 }
-                
+
                 final var valueRequestedSortOrderMap = requestedOrdering.getValueRequestedSortOrderMap();
                 final var adjustedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
                 for (final var entry : providedOrdering.getBindingMap().asMap().entrySet()) {
@@ -198,7 +198,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                     //
                     final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
-                    call.yieldExpression(
+                    call.yieldFinalExpression(
                             RecordQueryInUnionPlan.from(newInnerQuantifier,
                                     inSources,
                                     comparisonOrderingParts,

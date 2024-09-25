@@ -84,14 +84,14 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
         if (requestedOrdering.isPreserve()) {
-            call.yieldExpression(innerPlanPartition.getPlans());
+            call.yieldFinalExpressions(innerPlanPartition.getPlans());
             return;
         }
 
         final List<OrderingPart.RequestedOrderingPart> requestedOrderingParts = requestedOrdering.getOrderingParts();
         final Set<Value> sortValuesSet = requestedOrderingParts.stream().map(OrderingPart::getValue).collect(Collectors.toSet());
 
-        final Ordering ordering = innerPlanPartition.getAttributeValue(ORDERING);
+        final Ordering ordering = innerPlanPartition.getPropertyValue(ORDERING);
         final Set<Value> equalityBoundKeys = ordering.getEqualityBoundValues();
         int equalityBoundUnsorted = equalityBoundKeys.size();
 
@@ -108,7 +108,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             return;
         }
 
-        final boolean isDistinct = innerPlanPartition.getAttributeValue(DISTINCT_RECORDS);
+        final boolean isDistinct = innerPlanPartition.getPropertyValue(DISTINCT_RECORDS);
         if (isDistinct) {
             if (ordering.getOrderingSet()
                     .getSet()
@@ -119,7 +119,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                                 .stream()
                                 .map(plan -> plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
-                call.yieldExpression(strictlySortedInnerPlans);
+                call.yieldFinalExpressions(strictlySortedInnerPlans);
             }
         }
 
@@ -137,7 +137,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             }
         }
 
-        call.yieldExpression(resultExpressions);
+        call.yieldFinalExpressions(resultExpressions);
     }
 
     private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int numKeys) {

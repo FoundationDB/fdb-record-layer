@@ -67,7 +67,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                                        @Nonnull final List<Object> values,
                                        final boolean sortValues,
                                        final boolean sortReverse) {
-        this(Quantifier.physical(Reference.of(plan)),
+        this(Quantifier.physical(Reference.ofPlan(plan)),
                 bindingName,
                 internal,
                 values,

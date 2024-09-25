@@ -40,10 +40,11 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.CompensatePredicateFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -62,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -393,6 +395,18 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @SuppressWarnings("unused")
     default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
         throw new RecordCoreException("implementor must override");
+    }
+
+    @Nonnull
+    default QueryPredicate translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
+        return replaceLeavesMaybe(t -> {
+            if (!(t instanceof PredicateWithValue)) {
+                return this;
+            }
+            final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
+            // TODO this needs an ovverride in PredicateWitValue
+            return predicateWithValue.translateValues(translationOperator);
+        }).orElseThrow(() -> new RecordCoreException("should not throw"));
     }
 
     @Nonnull

@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -46,29 +47,29 @@ import java.util.stream.Stream;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
- * @param <RESULT> the type that {@link AbstractValueRule}s in this set yield
+ * @param <RESULT> the type that {@link PlannerRule}s in this set yield
  * @param <CALL> the type of the call rules in this set will receive
  *        when {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule#onMatch(PlannerRuleCall)} is invoked.
  * @param <BASE> the type of entity all rules in the set must match
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class AbstractRuleSet<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> {
+public class AbstractRuleSet<RESULT, CALL extends PlannerRuleCall<RESULT>, BASE> {
     @Nonnull
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE") // false positive
-    private final Multimap<Class<?>, AbstractRule<RESULT, CALL, BASE, ? extends BASE>> ruleIndex;
+    private final Multimap<Class<?>, PlannerRule<RESULT, CALL, ? extends BASE>> ruleIndex;
     @Nonnull
-    private final List<AbstractRule<RESULT, CALL, BASE, ? extends BASE>> alwaysRules;
+    private final List<PlannerRule<RESULT, CALL, ? extends BASE>> alwaysRules;
 
     @Nonnull
-    private final SetMultimap<AbstractRule<RESULT, CALL, BASE, ? extends BASE>, AbstractRule<RESULT, CALL, BASE, ? extends BASE>> dependsOn;
+    private final SetMultimap<PlannerRule<RESULT, CALL, ? extends BASE>, PlannerRule<RESULT, CALL, ? extends BASE>> dependsOn;
 
     @Nonnull
-    private final LoadingCache<Class<? extends BASE>, List<AbstractRule<RESULT, CALL, BASE, ? extends BASE>>> rulesCache;
+    private final LoadingCache<Class<? extends BASE>, List<PlannerRule<RESULT, CALL, ? extends BASE>>> rulesCache;
 
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    protected AbstractRuleSet(@Nonnull final Set<? extends AbstractRule<RESULT, CALL, BASE, ? extends BASE>> rules,
-                              @Nonnull final SetMultimap<? extends AbstractRule<RESULT, CALL, BASE, ? extends BASE>, ? extends AbstractRule<RESULT, CALL, BASE, ? extends BASE>> dependencies) {
+    protected AbstractRuleSet(@Nonnull final Set<? extends PlannerRule<RESULT, CALL, ? extends BASE>> rules,
+                              @Nonnull final SetMultimap<? extends PlannerRule<RESULT, CALL, ? extends BASE>, ? extends PlannerRule<RESULT, CALL, ? extends BASE>> dependencies) {
         this.ruleIndex = MultimapBuilder.hashKeys().arrayListValues().build();
         this.alwaysRules = new ArrayList<>();
         this.dependsOn = MultimapBuilder.hashKeys().hashSetValues().build();
@@ -88,10 +89,9 @@ public class AbstractRuleSet<RESULT, CALL extends AbstractRuleCall<RESULT, CALL,
                 .build(new CacheLoader<>() {
                     @Nonnull
                     @Override
-                    @SuppressWarnings("UnstableApiUsage")
-                    public List<AbstractRule<RESULT, CALL, BASE, ? extends BASE>> load(@Nonnull final Class<? extends BASE> key) {
+                    public List<PlannerRule<RESULT, CALL, ? extends BASE>> load(@Nonnull final Class<? extends BASE> key) {
                         final var applicableRules =
-                                ImmutableSet.<AbstractRule<RESULT, CALL, BASE, ? extends BASE>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
+                                ImmutableSet.<PlannerRule<RESULT, CALL, ? extends BASE>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
                                         .addAll(ruleIndex.get(key))
                                         .addAll(alwaysRules)
                                         .build();
@@ -104,14 +104,14 @@ public class AbstractRuleSet<RESULT, CALL extends AbstractRuleCall<RESULT, CALL,
     }
 
     @Nonnull
-    public Stream<? extends AbstractRule<RESULT, CALL, BASE, ? extends BASE>> getValueRules(@Nonnull BASE value) {
-        return getValueRules(value, r -> true);
+    public Stream<? extends PlannerRule<RESULT, CALL, ? extends BASE>> getRules(@Nonnull BASE value) {
+        return getRules(value, r -> true);
     }
 
     @Nonnull
     @SuppressWarnings({"PMD.PreserveStackTrace", "unchecked"})
-    public Stream<? extends AbstractRule<RESULT, CALL, BASE, ? extends BASE>> getValueRules(@Nonnull BASE value,
-                                                                                            @Nonnull final Predicate<AbstractRule<RESULT, CALL, BASE, ? extends BASE>> rulePredicate) {
+    public Stream<? extends PlannerRule<RESULT, CALL, ? extends BASE>> getRules(@Nonnull BASE value,
+                                                                                @Nonnull final Predicate<PlannerRule<RESULT, CALL, ? extends BASE>> rulePredicate) {
         try {
             return rulesCache.get((Class<? extends BASE>)value.getClass()).stream().filter(rulePredicate);
         } catch (final ExecutionException ee) {

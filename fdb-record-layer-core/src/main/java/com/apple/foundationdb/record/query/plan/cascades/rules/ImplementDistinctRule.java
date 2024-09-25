@@ -65,7 +65,7 @@ public class ImplementDistinctRule extends CascadesRule<LogicalDistinctExpressio
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(STORED_RECORD),
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull
@@ -81,11 +81,11 @@ public class ImplementDistinctRule extends CascadesRule<LogicalDistinctExpressio
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
-        if (innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
-            call.yieldExpression(innerPlanPartition.getPlans());
+        if (innerPlanPartition.getPropertyValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
+            call.yieldFinalExpressions(innerPlanPartition.getPlans());
         } else {
             // these create duplicates
-            call.yieldExpression(
+            call.yieldFinalExpression(
                     new RecordQueryUnorderedPrimaryKeyDistinctPlan(
                             Quantifier.physical(
                                     call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()))));

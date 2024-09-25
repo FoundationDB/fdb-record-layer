@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PAbstractEventWithState;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEven
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExecutingTaskEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreExpressionEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreGroupEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PInitiatePlannerPhaseEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PInsertIntoMemoEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PMatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.POptimizeGroupEvent;
@@ -222,6 +224,7 @@ public interface Debugger {
         TRANSFORM,
         INSERT_INTO_MEMO,
         TRANSLATE_CORRELATIONS,
+        INITPHASE,
     }
 
     /**
@@ -470,6 +473,54 @@ public interface Debugger {
         public PEvent.Builder toEventBuilder() {
             return PEvent.newBuilder()
                     .setExecutingTaskEvent(toProto());
+        }
+    }
+
+    /**
+     * Events of this class are generated every time the planner executes a task.
+     */
+    class InitiatePlannerPhaseEvent extends AbstractEventWithState {
+        @Nonnull
+        private final PlannerPhase plannerPhase;
+
+        public InitiatePlannerPhaseEvent(@Nonnull final Reference rootReference,
+                                         @Nonnull final Deque<Task> taskStack,
+                                         @Nonnull final PlannerPhase plannerPhase) {
+            super(rootReference, taskStack, Location.COUNT);
+            this.plannerPhase = plannerPhase;
+        }
+
+        @Override
+        @Nonnull
+        public String getDescription() {
+            return "initiating planner phase " + getPlannerPhase().name();
+        }
+
+        @Override
+        @Nonnull
+        public Shorthand getShorthand() {
+            return Shorthand.INITPHASE;
+        }
+
+        @Nonnull
+        public PlannerPhase getPlannerPhase() {
+            return plannerPhase;
+        }
+
+        @Nonnull
+        @Override
+        public PInitiatePlannerPhaseEvent toProto() {
+            return PInitiatePlannerPhaseEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setPlannerPhase(plannerPhase.name())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setInitiatePlannerPhaseEvent(toProto());
         }
     }
 

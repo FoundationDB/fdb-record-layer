@@ -116,6 +116,6 @@ public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends
                         fetchPlan.getPushValueFunction(),
                         Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
 
-        call.yieldExpression(newFetchPlan);
+        call.yieldFinalExpression(newFetchPlan);
     }
 }

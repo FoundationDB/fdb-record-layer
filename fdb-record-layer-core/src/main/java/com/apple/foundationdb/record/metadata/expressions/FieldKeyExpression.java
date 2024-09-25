@@ -29,9 +29,9 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
@@ -221,8 +221,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 .build();
         switch (fanType) {
             case FanOut:
-                return Quantifier.forEach(Reference.of(
-                        ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
+                return Quantifier.forEach(Reference.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
             default:
                 throw new RecordCoreException("unrecognized fan type");
         }
