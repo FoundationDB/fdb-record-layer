@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Pa
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.PrimitiveParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.TupleParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.UnboundParameter;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -44,6 +45,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 /**
  * {@link QueryInterpreter} interprets the query that is provided in the YAML testing framework using the
@@ -110,12 +112,12 @@ public final class QueryInterpreter {
         public Parameter constructObject(Node node) {
             if (node.getTag().equals(RANDOM_TAG) || node.getTag().equals(ARRAY_GENERATOR_TAG) || node.getTag().equals(IN_LIST_TAG) || node.getTag().equals(NULL_TAG)) {
                 return (Parameter) super.constructObject(node);
-            } else if (node instanceof SequenceNode sequenceNode) {
+            } else if (node instanceof SequenceNode) {
                 // simple list
-                return new ListParameter(sequenceNode.getValue().stream().map(this::constructObject).toList());
-            } else if (node instanceof MappingNode mappingNode) {
+                return new ListParameter(((SequenceNode) node).getValue().stream().map(this::constructObject).collect(Collectors.toList()));
+            } else if (node instanceof MappingNode) {
                 // simple tuple
-                return new TupleParameter(mappingNode.getValue().stream().map(t -> constructObject(t.getKeyNode())).toList());
+                return new TupleParameter(((MappingNode) node).getValue().stream().map(t -> constructObject(t.getKeyNode())).collect(Collectors.toList()));
             } else {
                 // literal of one of primitive type
                 return new PrimitiveParameter(super.constructObject(node));
@@ -129,17 +131,17 @@ public final class QueryInterpreter {
 
             @Override
             public Object construct(Node node) {
-                if (node instanceof SequenceNode sequenceNode) {
-                    var values = sequenceNode.getValue();
+                if (node instanceof SequenceNode) {
+                    var values = ((SequenceNode) node).getValue();
                     if (values.size() == 1) {
                         return new UnboundParameter.RandomRangeParameter(constructObject(values.get(0)));
                     } else if (values.size() == 2) {
                         return new UnboundParameter.RandomRangeParameter(constructObject(values.get(0)), constructObject(values.get(1)));
                     }
                     Assert.failUnchecked("!r expects a list of 1 or 2 elements.");
-                } else if (node instanceof MappingNode mappingNode) {
-                    var values = mappingNode.getValue();
-                    return new UnboundParameter.RandomSetParameter(values.stream().map(v -> constructObject(v.getKeyNode())).toList());
+                } else if (node instanceof MappingNode) {
+                    var values = ((MappingNode) node).getValue();
+                    return new UnboundParameter.RandomSetParameter(values.stream().map(v -> constructObject(v.getKeyNode())).collect(Collectors.toList()));
                 }
                 return null;
             }
@@ -152,16 +154,16 @@ public final class QueryInterpreter {
 
             @Override
             public Object construct(Node node) {
-                if (node instanceof SequenceNode sequenceNode) {
-                    var values = sequenceNode.getValue();
+                if (node instanceof SequenceNode) {
+                    var values = ((SequenceNode) node).getValue();
                     if (values.size() == 1) {
                         return new UnboundParameter.ListRangeParameter(constructObject(values.get(0)));
                     } else if (values.size() == 2) {
                         return new UnboundParameter.ListRangeParameter(constructObject(values.get(0)), constructObject(values.get(1)));
                     }
                     Assert.failUnchecked("!a expects a list of 1 or 2 elements.");
-                } else if (node instanceof MappingNode mappingNode) {
-                    var values = mappingNode.getValue();
+                } else if (node instanceof MappingNode) {
+                    var values = ((MappingNode) node).getValue();
                     Assert.thatUnchecked(values.size() == 2, "!a expects a set to have 2 elements.");
                     return new UnboundParameter.ElementMultiplicityListParameter(constructObject(values.get(0).getKeyNode()), constructObject(values.get(1).getKeyNode()));
                 }
@@ -241,9 +243,9 @@ public final class QueryInterpreter {
                 Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
                 return new QueryExecutor(query, lineNumber);
             } else {
-                var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).toList();
+                var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
                 if (runAsPreparedStatement) {
-                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).toList());
+                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()));
                 } else {
                     return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), lineNumber);
                 }

@@ -99,7 +99,8 @@ public class RelationalServer implements Closeable {
     @Override
     public String toString() {
         return "listening=" + this.grpcServer.getListenSockets() +
-                ", services=" + this.grpcServer.getServices().stream().map(m -> m.getServiceDescriptor().getName()).toList() +
+                ", services=" + this.grpcServer.getServices().stream().map(m -> m.getServiceDescriptor().getName())
+                .collect(Collectors.toList()) +
                 ", httpPort=" + this.httpPort;
     }
 
