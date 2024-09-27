@@ -113,13 +113,16 @@ public class QueryExecutor {
             return executeQuery(s, queryString);
         }
         final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
-        final var preValue = embeddedRelationalConnection.getMetricCollector() != null &&
-                embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
-                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
+        final var preMetricCollector = embeddedRelationalConnection.getMetricCollector();
+        final var preValue = preMetricCollector != null &&
+                preMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
+                preMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
         final var toReturn = executeQuery(s, queryString);
-        final var postValue = embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
-                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
-        if (preValue + 1 != postValue) {
+        final var postMetricCollector = embeddedRelationalConnection.getMetricCollector();
+        final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
+                postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
+        final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
+        if (!planFound) {
             reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
         } else {
             logger.debug("🎁 Retrieved the plan from the cache!");

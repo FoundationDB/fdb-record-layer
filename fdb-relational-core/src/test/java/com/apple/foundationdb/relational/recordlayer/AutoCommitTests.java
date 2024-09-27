@@ -603,7 +603,7 @@ public class AutoCommitTests {
     }
 
     @Test
-    public void transactionPersistWithResultSetAfterStatement() throws SQLException {
+    public void transactionClosesWithStatement() throws SQLException {
         EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
 
         Assertions.assertFalse(conn.inActiveTransaction());
@@ -619,14 +619,39 @@ public class AutoCommitTests {
             Assertions.assertTrue(conn.inActiveTransaction());
             ResultSetAssert.assertThat(rs).hasNextRow();
         }
-        // since the resultSet remains open, transaction is still open.
-        Assertions.assertFalse(rs.isClosed());
-        Assertions.assertTrue(conn.inActiveTransaction());
+        // since the statement closes, the associated result set should close as well.
+        Assertions.assertTrue(rs.isClosed());
+        // ...and the connection
+        Assertions.assertFalse(conn.inActiveTransaction());
 
         // explicit close
         rs.close();
         Assertions.assertFalse(conn.inActiveTransaction());
         Assertions.assertThrows(SQLException.class, rs::next);
+    }
+
+    @Test
+    public void newTransactionForEachExecutionOfStatement() throws SQLException, RelationalException {
+        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+
+        Assertions.assertFalse(conn.inActiveTransaction());
+        Assertions.assertTrue(conn.getAutoCommit());
+
+        try (final var stmt = conn.createStatement()) {
+            final var rs1 = stmt.executeQuery("SELECT NAME FROM RESTAURANT WHERE REST_NO < 3");
+            ResultSetAssert.assertThat(rs1).hasNextRow();
+            // since the resultSet and statement is still open, transaction should be opened.
+            Assertions.assertTrue(conn.inActiveTransaction());
+            final var txn1 = conn.getTransaction();
+
+            final var rs2 = stmt.executeQuery("SELECT NAME FROM RESTAURANT WHERE REST_NO < 3");
+            ResultSetAssert.assertThat(rs2).hasNextRow();
+            // previous resultSet is closed.
+            Assertions.assertTrue(rs1.isClosed());
+            Assertions.assertTrue(conn.inActiveTransaction());
+            final var txn2 = conn.getTransaction();
+            Assertions.assertNotSame(txn1, txn2);
+        }
     }
 
     private static void checkOpenTransaction(@Nonnull EmbeddedRelationalConnection connection, TransactionType transactionType) {

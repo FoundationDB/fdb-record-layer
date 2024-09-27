@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -32,12 +33,10 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -52,6 +51,8 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
 
     @Nullable
     RelationalResultSet currentResultSet;
+    boolean resultSetRetrieved = true;
+
     boolean closed;
 
     int currentRowCount;
@@ -67,10 +68,8 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     public boolean executeInternal(String sql) throws SQLException, RelationalException {
+        closeOpenResultSets();
         checkOpen();
-        if (currentResultSet != null) {
-            currentResultSet.close();
-        }
         Assert.notNull(sql);
         conn.ensureTransactionActive();
         return conn.getMetricCollector().clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
@@ -89,10 +88,12 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                     final var executionContext = Plan.ExecutionContext.of(conn.getTransaction(), planGenerator.getOptions(), conn, conn.getMetricCollector());
                     if (plan instanceof QueryPlan) {
                         currentResultSet = new ErrorCapturingResultSet(((QueryPlan) plan).execute(executionContext));
+                        resultSetRetrieved = false;
                         if (plan.isUpdatePlan()) {
                             //this is an update statement, so generate the row count and set the update clause
                             try (ResultSet updateResultSet = currentResultSet) {
                                 currentResultSet = null;
+                                resultSetRetrieved = true;
                                 currentRowCount = countUpdates(updateResultSet);
                                 return false;
                             }
@@ -104,6 +105,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                     } else {
                         plan.execute(executionContext);
                         currentResultSet = null;
+                        resultSetRetrieved = true;
                         //ddl statements are updates that don't return results, so they get 0 for row count
                         currentRowCount = 0;
                         if (conn.canCommit()) {
@@ -129,10 +131,13 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
     @Override
     public RelationalResultSet getResultSet() throws SQLException {
         checkOpen();
-        if (currentResultSet != null && !currentResultSet.isClosed()) {
-            var resultSet = currentResultSet;
-            currentResultSet = null;
-            return resultSet;
+        // check if there is a result set to return
+        if (currentResultSet != null) {
+            if (!resultSetRetrieved) {
+                Assert.thatUnchecked(!currentResultSet.isClosed(), ErrorCode.INTERNAL_ERROR, "ResultSet exists but is closed");
+                resultSetRetrieved = true;
+                return currentResultSet;
+            }
         }
         throw new SQLException("no open result set available");
     }
@@ -148,7 +153,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
     }
 
     @Override
-    public Connection getConnection() throws SQLException {
+    public RelationalConnection getConnection() throws SQLException {
         checkOpen();
         return conn;
     }
@@ -161,9 +166,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
     @Override
     public void close() throws SQLException {
         try {
-            if (currentResultSet != null) {
-                currentResultSet.close();
-            }
+            closeOpenResultSets();
             closed = true;
         } catch (RuntimeException ex) {
             if (conn.canCommit()) {
@@ -215,6 +218,14 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
             }
             throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
+    }
+
+    private void closeOpenResultSets() throws SQLException {
+        if (currentResultSet != null) {
+            currentResultSet.close();
+            currentResultSet = null;
+        }
+        resultSetRetrieved = true;
     }
 
     @Override

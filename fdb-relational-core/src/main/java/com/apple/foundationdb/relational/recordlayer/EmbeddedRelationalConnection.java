@@ -446,20 +446,29 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
      * @return {@code true} if calling this method starts a new transaction, else {@code false}.
      * @throws RelationalException if there is no active transaction and one cannot be started.
      */
-    boolean ensureTransactionActive() throws RelationalException {
-        if (!inActiveTransaction()) {
-            try {
-                startTransaction();
-                return true;
-            } catch (SQLException e) {
-                throw ExceptionUtil.toRelationalException(e);
+    boolean ensureTransactionActive() throws RelationalException, SQLException {
+        if (inActiveTransaction()) {
+            if (canCommit()) {
+                // canCommit() = true means that there is no external transaction and autoCommit is enabled, meaning
+                // that the internal stakeholders can manage the transactions when required to.
+                // As this implies that autoCommit is enabled, if there is an existing transaction in such a case, that
+                // should be dropped and a fresh transaction should be started.
+                rollbackInternal();
+                // call again with no active transaction.
+                return ensureTransactionActive();
             }
+            return false;
         }
-        return false;
+        try {
+            startTransaction();
+            return true;
+        } catch (SQLException e) {
+            throw ExceptionUtil.toRelationalException(e);
+        }
     }
 
     @VisibleForTesting
-    public void createNewTransaction() throws RelationalException {
+    public void createNewTransaction() throws RelationalException, SQLException {
         if (inActiveTransaction()) {
             throw new RelationalException("There is already an opened transaction!", ErrorCode.INVALID_TRANSACTION_STATE);
         }

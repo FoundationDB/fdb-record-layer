@@ -216,6 +216,7 @@ public class QueryLoggingTest {
         final var query1 = "SELECT * FROM RESTAURANT where rest_no = 34 OPTIONS (LOG QUERY)";
         final var conn = (EmbeddedRelationalConnection) connection.connection;
         int queryHash = 0;
+        conn.setAutoCommit(false);
         conn.createNewTransaction();
         try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
             final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
@@ -227,6 +228,7 @@ public class QueryLoggingTest {
                     .build();
             queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().getHash();
         }
+        conn.commit();
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 0 OPTIONS (LOG QUERY)")) {
             resultSet.next();
         }
