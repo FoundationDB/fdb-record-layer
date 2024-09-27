@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -160,6 +161,12 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
             outerRef = call.memoizePlans(
                     new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
                             new NullValue(outerQuantifier.getFlowedObjectType())));
+        }  else if (outerQuantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)outerQuantifier).hasDefaultOnEmpty()) {
+            final var forEachQuantifier = ((Quantifier.ForEach)outerQuantifier);
+            outerRef = call.memoizePlans(
+                    new RecordQueryDefaultOnEmptyPlan(
+                            Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
+                            forEachQuantifier.getDefaultOnEmpty()));
         }
 
         if (!outerPredicates.isEmpty()) {

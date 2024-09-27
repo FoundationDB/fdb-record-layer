@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -321,6 +322,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             // TODO This plan is sorted by anything it's flowing as its max cardinality is one.
             //      We cannot express that as of yet.
             return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan element) {
+            return orderingFromSingleChild(element);
         }
 
         @Nonnull

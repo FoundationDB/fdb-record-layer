@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PPhysicalQuantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -145,28 +147,63 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public static final class ForEach extends Quantifier {
         @Nonnull private final Reference rangesOver;
 
+        @Nonnull
+        private final Optional<Value> defaultOnEmpty;
+
         /**
          * Builder subclass to build for-each quantifiers.
          */
         public static class ForEachBuilder extends Builder<ForEach, ForEachBuilder> {
+
+            @Nullable
+            private Value defaultOnEmpty;
+
+            @Nonnull
+            public ForEachBuilder setDefaultOnEmpty(@Nonnull final Value defaultOnEmpty) {
+                this.defaultOnEmpty = defaultOnEmpty;
+                return this;
+            }
+
+            @Nonnull
+            @Override
+            public ForEachBuilder from(final ForEach quantifier) {
+                final var builder = withAlias(quantifier.getAlias());
+                return quantifier.hasDefaultOnEmpty() ? builder.setDefaultOnEmpty(quantifier.getDefaultOnEmpty()) : builder;
+            }
+
             @Nonnull
             @Override
             public ForEach build(@Nonnull final Reference rangesOver) {
-                return new ForEach(alias == null ? Quantifier.uniqueID() : alias,
-                        rangesOver);
+                return new ForEach(alias == null ? Quantifier.uniqueID() : alias, rangesOver, Optional.ofNullable(defaultOnEmpty));
             }
         }
 
         private ForEach(@Nonnull final CorrelationIdentifier alias,
-                        @Nonnull final Reference rangesOver) {
+                        @Nonnull final Reference rangesOver,
+                        @Nonnull final Optional<Value> defaultOnEmpty) {
             super(alias);
             this.rangesOver = rangesOver;
+            this.defaultOnEmpty = defaultOnEmpty;
         }
 
         @Override
         @Nonnull
         public Reference getRangesOver() {
             return rangesOver;
+        }
+
+        public boolean hasDefaultOnEmpty() {
+            return defaultOnEmpty.isPresent();
+        }
+
+        @Nonnull
+        public Value getDefaultOnEmpty() {
+            return defaultOnEmpty.orElseThrow(() -> new RecordCoreException("attempt to get a non-existing default value"));
+        }
+
+        @Nonnull
+        public Optional<Value> getDefaultOnEmptyMaybe() {
+            return defaultOnEmpty;
         }
 
         @Override
@@ -207,6 +244,34 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                                     .when(getAlias()).then((src, quantifiedValue) -> translatedQueryValue)
                                     .build());
         }
+
+        @Override
+        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+            if (!(other instanceof ForEach)) {
+                return false;
+            }
+            final ForEach that = (ForEach)Objects.requireNonNull(other);
+            return hasDefaultOnEmpty() == that.hasDefaultOnEmpty()
+                    && (!hasDefaultOnEmpty() || getDefaultOnEmpty().semanticEquals(that.getDefaultOnEmpty(), aliasMap))
+                    && getRangesOver().semanticEquals(that.getRangesOver(), aliasMap);
+        }
+
+        @Override
+        public int semanticHashCode() {
+            if (hasDefaultOnEmpty()) {
+                return Objects.hash(getShorthand(), getRangesOver().semanticHashCode(), hasDefaultOnEmpty());
+            }
+            return Objects.hash(getShorthand(), getRangesOver().semanticHashCode());
+        }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            final var isNullOnEmpty = defaultOnEmpty.isPresent() ? "DefaultIfEmpty" : "";
+            return getShorthand() + "(" + getAlias() + ")" + isNullOnEmpty + " -> {" +
+                    getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
+                    "}";
+        }
     }
 
     /**
@@ -240,6 +305,39 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                                   @Nonnull final CorrelationIdentifier alias) {
         return forEachBuilder()
                 .withAlias(alias)
+                .build(reference);
+    }
+
+    /**
+     * Shorthand to create a for-each quantifier ranging over a reference using a given alias.
+     * @param reference the reference
+     * @param defaultOnEmpty return a default {@code Value} if the underlying {@code Reference} returns nothing,
+     *                      otherwise, it returns whatever the underlying {@code Reference} returns
+     * @return a new for-each quantifier ranging over {@code reference}
+     */
+    @Nonnull
+    public static ForEach forEach(@Nonnull final Reference reference,
+                                  @Nonnull final Value defaultOnEmpty) {
+        return forEachBuilder()
+                .setDefaultOnEmpty(defaultOnEmpty)
+                .build(reference);
+    }
+
+    /**
+     * Shorthand to create a for-each quantifier ranging over a reference using a given alias.
+     * @param reference the reference
+     * @param alias the alias to be used
+     * @param defaultOnEmpty Optionally return a default {@code Value} if the underlying {@code Reference} returns nothing,
+     *                      otherwise, it returns whatever the underlying {@code Reference} returns
+     * @return a new for-each quantifier ranging over {@code reference}
+     */
+    @Nonnull
+    public static ForEach forEach(@Nonnull final Reference reference,
+                                  @Nonnull final CorrelationIdentifier alias,
+                                  @Nonnull final Value defaultOnEmpty) {
+        return forEachBuilder()
+                .withAlias(alias)
+                .setDefaultOnEmpty(defaultOnEmpty)
                 .build(reference);
     }
 

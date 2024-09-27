@@ -33,11 +33,15 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -263,15 +267,33 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         }).collect(ImmutableList.toImmutableList());
 
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
-        if (groupingColsValue.getResultType().getFields().isEmpty()) {
-            return NonnullPair.of(Quantifier.forEach(Reference.of(
-                    new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
-        } else {
-            return NonnullPair.of(Quantifier.forEach(Reference.of(
-                    new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
+
+        final var groupByExpression = new GroupByExpression(
+                groupingColsValue.getResultType().getFields().isEmpty() ? null : groupingColsValue,
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                GroupByExpression::nestedResults, selectWhereQun);
+        final var groupByQuantifier = constructGroupByQuantifier(groupByExpression);
+        return NonnullPair.of(groupByQuantifier, ImmutableList.of());
+    }
+
+    @Nonnull
+    private Quantifier constructGroupByQuantifier(@Nonnull final GroupByExpression groupByExpression) {
+        final var groupByReference = Reference.of(groupByExpression);
+        if (groupByExpression.getGroupingValue() == null) {
+            final var defaultValue = Verify.verifyNotNull(groupByExpression.getResultValue().replace(v -> {
+                // as per SQL standard section 4.16.4 (Aggregate functions):
+                // "If no row qualifies, then the result of COUNT is 0 (zero), and the result of any other aggregate function is the null value."
+                if (v instanceof CountValue) {
+                    return LiteralValue.ofScalar(0L);
+                }
+                if (v instanceof NumericAggregationValue || v instanceof IndexableAggregateValue) {
+                    return new NullValue(v.getResultType());
+                }
+                return v;
+            }));
+            return Quantifier.forEach(groupByReference, defaultValue);
         }
+        return Quantifier.forEach(groupByReference);
     }
 
     @Nonnull

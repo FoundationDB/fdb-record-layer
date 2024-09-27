@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -107,6 +108,14 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                                     .withAlias(quantifier.getAlias())
                                     .build(referenceBuilder.reference()),
                             new NullValue(quantifier.getFlowedObjectType())));
+        } else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).hasDefaultOnEmpty()) {
+            final var defaultValue = ((Quantifier.ForEach)quantifier).getDefaultOnEmpty();
+            referenceBuilder = call.memoizePlansBuilder(
+                    new RecordQueryDefaultOnEmptyPlan(
+                            Quantifier.physicalBuilder()
+                                    .withAlias(quantifier.getAlias())
+                                    .build(referenceBuilder.reference()),
+                            defaultValue));
         }
 
         final var nonTautologyPredicates =
