@@ -81,7 +81,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     private final int mergeDirectoryCount;
     private final Exception exceptionAtCreation;
 
-    private FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
+    protected FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
         this.mergeDirectoryCount = getMergeDirectoryCount(state);
@@ -286,12 +286,16 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
         final Tuple mapKey = getDirectoryKey(groupingKey, partitionId);
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize()));
+        return createdDirectories.computeIfAbsent(mapKey, key -> createNewDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize()));
     }
 
-    public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
+    private FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
                                                       final AgilityContext agilityContext) {
-        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
+        return createNewDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
+    }
+
+    protected @Nonnull FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
+        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
     }
 
     private int getBlockCacheMaximumSize() {

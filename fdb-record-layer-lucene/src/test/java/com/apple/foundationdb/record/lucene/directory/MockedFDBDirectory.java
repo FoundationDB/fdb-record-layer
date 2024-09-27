@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -49,12 +50,16 @@ public class MockedFDBDirectory extends FDBDirectory {
         READ_BLOCK,
         LIST_ALL,
         GET_FILE_REFERENCE_CACHE_ASYNC,
-        DELETE_FILE_INTERNAL
+        DELETE_FILE_INTERNAL,
+        GET_PRIMARY_KEY_SEGMENT_INDEX
     }
-
 
     private EnumMap<Methods, FailureDescription> failureDescriptions = new EnumMap<>(Methods.class);
     private EnumMap<Methods, AtomicLong> invocationCounts = new EnumMap<>(Methods.class);
+
+    public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
+        super(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
+    }
 
     public MockedFDBDirectory(@Nonnull final Subspace subspace, @Nonnull final FDBRecordContext context, @Nullable final Map<String, String> indexOptions) {
         super(subspace, context, indexOptions);
@@ -116,6 +121,13 @@ public class MockedFDBDirectory extends FDBDirectory {
     protected boolean deleteFileInternal(@Nonnull final Map<String, FDBLuceneFileReference> cache, @Nonnull final String name) throws IOException {
         checkFailureForCoreException(Methods.DELETE_FILE_INTERNAL);
         return super.deleteFileInternal(cache, name);
+    }
+
+    @Nullable
+    @Override
+    public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
+        checkFailureForCoreException(Methods.GET_PRIMARY_KEY_SEGMENT_INDEX);
+        return super.getPrimaryKeySegmentIndex();
     }
 
     private void checkFailureForIoException(@Nonnull final Methods method) throws IOException {
