@@ -587,13 +587,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        LOG.trace("scanUniquenessViolations");
-        return RecordCursor.empty(executor);
-    }
-
-    @Nonnull
-    @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {
         LOG.trace("validateEntries");
         return RecordCursor.empty(executor);

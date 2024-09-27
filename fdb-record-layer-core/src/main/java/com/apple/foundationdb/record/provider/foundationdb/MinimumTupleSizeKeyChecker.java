@@ -159,7 +159,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
                 Arrays.equals(key, 0, prefix.length, prefix, 0, prefix.length);
     }
 
-    private void checkPrefixesCount(@Nonnull CheckedSubspace checkedSubspace) {
+    private synchronized void checkPrefixesCount(@Nonnull CheckedSubspace checkedSubspace) {
         int count = 0;
         for (byte[] prefix : prefixes) {
             if (keyHasPrefix(prefix, checkedSubspace.prefix)) {

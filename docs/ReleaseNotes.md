@@ -17,7 +17,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** The new `TupleHelpers.prefixLengthOfSize` must catch more errors. [(Issue #2921)](https://github.com/FoundationDB/fdb-record-layer/issues/2921)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,27 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.548.0
+
+* **Feature** asyncToSync without exception mapping for Lucene [(Issue #2926)](https://github.com/FoundationDB/fdb-record-layer/issues/2926)
+* **Feature** Allow converting a single/multi target indexing session to mutual one [(Issue #2917)](https://github.com/FoundationDB/fdb-record-layer/issues/2917)
+
+### 3.4.547.0
+
+* For implementors of `IndexMaintainer`, there is a new method `clearUniquenessViolations` that is used to clear any
+  uniqueness violations if the index is not unique. By default this is a no-op, but `StandardIndexMaintainer` clears
+  the violations it maintains. This can be utilized to change an index from unique to non-unique without having to
+  rebuild, by keeping everything else  about the index the same, including `lastModifiedVersion` and the `subspaceKey`.
+  However, this functionality should only be used if you know the the associated `IndexMaintainer` properly implements
+  `clearUniquenessViolations`.
+
+* **Bug fix** Scope the IndexUniquenessCommitCheck by subspace [(Issue #2919)](https://github.com/FoundationDB/fdb-record-layer/issues/2919)
+* **Feature** Mark READABLE_UNIQUE_PENDING indexes to READABLE if they are not unique [(Issue #1991)](https://github.com/FoundationDB/fdb-record-layer/issues/1991)
+
+### 3.4.545.0
+
+* **Bug fix** The new `TupleHelpers.prefixLengthOfSize` must catch more errors. [(Issue #2921)](https://github.com/FoundationDB/fdb-record-layer/issues/2921)
 
 ### 3.4.544.0
 

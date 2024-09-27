@@ -562,8 +562,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                                     index,
                                     LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                                List<IndexEntry> matches = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
-                                        cursor.asList());
+                                List<IndexEntry> matches = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList(), context);
                                 assertFalse(matches.isEmpty());
                             }
 
@@ -967,7 +966,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         while (!toVisit.isEmpty()) {
             Throwable cause = toVisit.removeFirst();
             if (!visited.containsKey(cause)) {
-                // TODO: This should eventually be removed since LoggableTimeoutException would not be thrown
+                // This will get throws when the legacy asyncToSync is called
                 if (cause instanceof LoggableTimeoutException) {
                     return (LoggableTimeoutException) cause;
                 } else if (cause instanceof LuceneConcurrency.AsyncToSyncTimeoutException) {

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -85,7 +85,7 @@ public class FDBRecordStoreConcurrentTestBase {
     }
 
     protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context,
-                                                                         @Nonnull RecordMetaData metaData,
+                                                                         @Nonnull RecordMetaDataProvider metaData,
                                                                          @Nonnull final KeySpacePath path) {
         FDBRecordStore store = getStoreBuilder(context, metaData, path).createOrOpen();
         return Pair.of(store, setupPlanner(store, null));
@@ -109,7 +109,8 @@ public class FDBRecordStoreConcurrentTestBase {
     }
 
     @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData,
+    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
+                                                     @Nonnull RecordMetaDataProvider metaData,
                                                      @Nonnull final KeySpacePath path) {
         return FDBRecordStore.newBuilder()
                 .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)

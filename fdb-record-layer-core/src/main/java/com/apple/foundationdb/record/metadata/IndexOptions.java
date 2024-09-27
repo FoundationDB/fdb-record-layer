@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.rtree.RTree;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 
 import java.util.Collections;
 import java.util.Map;
@@ -44,7 +45,16 @@ public class IndexOptions {
     public static final Map<String, String> EMPTY_OPTIONS = Collections.emptyMap();
 
     /**
-     * If {@code "true"}, index throws {@link com.apple.foundationdb.record.RecordIndexUniquenessViolation} on attempts to store duplicate values.
+     * If {@code "true"}, index throws {@link com.apple.foundationdb.record.RecordIndexUniquenessViolation} on attempts
+     * to store duplicate values.
+     * <p>
+     *     Unlike most index modifications, it is safe to change this option from {@code true} to {@code false}
+     *     without rebuilding the index, and thus you can change this without changing the {@code lastModifiedVersion}.
+     *     Changing this from {@code false} to {@code true} requires increasing the {@code lastModifiedVersion}.
+     *     If you do change the {@code lastModifiedVersion} it will require a rebuild of the index. This functionality
+     *     is only usable by indexes maintained by {@link IndexMaintainer}s that have a proper implementation of
+     *     {@link IndexMaintainer#clearUniquenessViolations()}.
+     * </p>
      */
     public static final String UNIQUE_OPTION = "unique";
     /**

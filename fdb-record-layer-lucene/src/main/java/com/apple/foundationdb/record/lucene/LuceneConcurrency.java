@@ -47,9 +47,8 @@ public class LuceneConcurrency {
 
     /**
      * An implementation of {@code asyncToSync} that is isolated from external exception injections.
-     * This implementation does NOT perform exception mapping, nor does it check whether the calls have
-     * "async" in the stack trace (as the original {@link FDBRecordContext#asyncToSync} does).
-     * This method is meant to be used internally in places where obtaining and using the result pf asynchronous
+     * This implementation does NOT perform exception mapping (as the original {@link FDBRecordContext#asyncToSync} does).
+     * This method is meant to be used internally in places where obtaining and using the result of asynchronous
      * operation is required.
      * This method uses the {@link FDBDatabase#getAsyncToSyncTimeout} to find the period to use for the timeout.
      * This method will throw the runtime exception that was thrown by the Future's realization in case such error
@@ -66,14 +65,16 @@ public class LuceneConcurrency {
     @Nullable
     @API(API.Status.INTERNAL)
     public static <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async, @Nonnull FDBRecordContext recordContext) {
-        // TODO: call check blocking async?? It's mostly disabled.
-        if (recordContext.getPropertyStorage().getPropertyValue(LUCENE_USE_LEGACY_ASYNC_TO_SYNC)) {
+        if (recordContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC)) {
             return recordContext.asyncToSync(event, async);
         }
 
         if (recordContext.hasHookForAsyncToSync() && !MoreAsyncUtil.isCompletedNormally(async)) {
             recordContext.getHookForAsyncToSync().accept(event);
         }
+
+        recordContext.getDatabase().checkIfBlockingInFuture(async);
+
         if (async.isDone()) {
             try {
                 return async.get();
@@ -90,15 +91,17 @@ public class LuceneConcurrency {
             final FDBStoreTimer timer = recordContext.getTimer();
             final long startTime = System.nanoTime();
             try {
-                if (timeout != null) {
-                    return async.get(timeout.getDuration(), timeout.getTimeUnit());
+                if (asyncToSyncTimeout != null) {
+                    return async.get(asyncToSyncTimeout.getLeft(), asyncToSyncTimeout.getRight());
                 } else {
                     return async.get();
                 }
             } catch (TimeoutException ex) {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
-                    throw new AsyncToSyncTimeoutException(ex.getMessage(), ex, LogMessageKeys.TIME_LIMIT.toString(), timeout.getDuration(), LogMessageKeys.TIME_UNIT.toString(), timeout.getTimeUnit());
+                    throw new AsyncToSyncTimeoutException(ex.getMessage(), ex,
+                            LogMessageKeys.TIME_LIMIT.toString(), asyncToSyncTimeout.getLeft(),
+                            LogMessageKeys.TIME_UNIT.toString(), asyncToSyncTimeout.getRight());
                 }
                 throw new AsyncToSyncTimeoutException(ex.getMessage(), ex);
             } catch (ExecutionException ex) {

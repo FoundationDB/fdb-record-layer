@@ -776,6 +776,39 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Remove commit checks based on a predicate, once the commit check completes.
+     * <p>
+     *     This waits until the commit check completes before removing to ensure that, if it is doing something you can
+     *     ensure that its activity completes before it is removed.
+     * </p>
+     * @param filter if this returns {@code true} the commit check will be removed when it completes
+     * (successfully or unsuccessfully)
+     * @param shouldSwallow a predicate to swallow exceptions, if desired
+     * (see {@link MoreAsyncUtil#swallowException(CompletableFuture, Predicate)})
+     * @return a list of futures that will complete when the associated {@link CommitCheck} has completed, and been
+     * removed from the list of commit checks.
+     */
+    @API(API.Status.INTERNAL)
+    public synchronized List<CompletableFuture<Void>> removeCommitChecks(
+            @Nonnull Function<CommitCheckAsync, Boolean> filter,
+            @Nonnull Predicate<Throwable> shouldSwallow) {
+        // we need to extract from the original list, because if the commitCheck is already done, removeCommitCheck
+        // would be called in the same thread, which could cause a ConcurrentModificationException due to removing the
+        // entry from the map while iterating over it.
+        final List<Map.Entry<String, CommitCheckAsync>> toRemove = commitChecks.entrySet().stream()
+                .filter(entry -> filter.apply(entry.getValue()))
+                .collect(Collectors.toList());
+        return toRemove.stream().map(entry ->
+                        MoreAsyncUtil.swallowException(entry.getValue().checkAsync(), shouldSwallow)
+                                .whenComplete((result, err) -> removeCommitCheck(entry.getKey())))
+                .collect(Collectors.toList());
+    }
+
+    private synchronized void removeCommitCheck(String key) {
+        commitChecks.remove(key);
+    }
+
+    /**
      * Add a check to be completed before {@link #commit} finishes.
      *
      * {@link #commit} will wait for the future to be completed (exceptionally if the check fails)
