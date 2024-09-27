@@ -22,22 +22,30 @@ package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Represents a max match between a (rewritten) query result {@link Value} and the candidate result {@link Value}.
@@ -179,36 +187,165 @@ public class MaxMatchMap {
     public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
                                         @Nonnull final Value candidateResultValue,
                                         @Nonnull final ValueEquivalence valueEquivalence) {
-        final BiMap<Value, Value> newMapping = HashBiMap.create();
-        final List<QueryPlanConstraint> queryPlanConstraints = Lists.newArrayList();
+        final var recursionResult =
+                recurseQueryResultValue(queryResultValue, candidateResultValue,
+                        valueEquivalence, ImmutableBiMap.of(), new LinkedIdentitySet<>());
 
-        final var queryResultValueIterator = queryResultValue.preOrderIterator();
-        while (queryResultValueIterator.hasNext()) {
-            final var currentQueryValue = queryResultValueIterator.next();
+        return new MaxMatchMap(recursionResult.getValueMap(), recursionResult.getNewCurrentValue(),
+                candidateResultValue, recursionResult.getQueryPlanConstraint(), valueEquivalence);
+    }
 
-            boolean found = false;
-            for (final var currentCandidateValue : candidateResultValue
-                    // when traversing the candidate in pre-order, only descend into structures that can be referenced
-                    // from the top expression. For example, RCV's components can be referenced however an Arithmetic
-                    // operator's children can not be referenced.
-                    // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
-                    .preOrderIterable(v -> v instanceof RecordConstructorValue)) {
-                final var semanticEquals =
-                        currentQueryValue.semanticEquals(currentCandidateValue, valueEquivalence);
-                if (semanticEquals.isTrue()) {
-                    newMapping.put(currentQueryValue, currentCandidateValue);
-                    queryPlanConstraints.add(semanticEquals.getConstraint());
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                // we found a match to the candidate side, we can skip the
-                queryResultValueIterator.skipNextSubtree();
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static RecursionResult recurseQueryResultValue(@Nonnull final Value currentQueryValue,
+                                                           @Nonnull final Value candidateResultValue,
+                                                           @Nonnull final ValueEquivalence valueEquivalence,
+                                                           @Nonnull final BiMap<Value, Value> knownValueMap,
+                                                           @Nonnull final Set<Value> expandedValues) {
+        final var queryPlanConstraintsBuilder = ImmutableList.<QueryPlanConstraint>builder();
+
+        var currentMatchingPair =
+                findMatchingCandidateValue(currentQueryValue,
+                        candidateResultValue,
+                        valueEquivalence);
+        var isFound = currentMatchingPair.getKey();
+        if (isFound.isTrue()) {
+            queryPlanConstraintsBuilder.add(isFound.getConstraint());
+            //
+            // We found a match to the candidate side.
+            //
+            return new RecursionResult(ImmutableBiMap.of(currentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+                    currentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+        }
+
+        boolean areAllChildrenSame = true;
+        final var newChildrenBuilder = ImmutableList.<Value>builder();
+        final var knownNestedValueMap = HashBiMap.<Value, Value>create();
+        knownNestedValueMap.putAll(knownValueMap);
+        final var resultValueMapBuilder = ImmutableBiMap.<Value, Value>builder();
+        for (final var child : currentQueryValue.getChildren()) {
+            final var recursionResult =
+                    recurseQueryResultValue(child, candidateResultValue, valueEquivalence, knownNestedValueMap, expandedValues);
+
+            final var newChild = recursionResult.getNewCurrentValue();
+            newChildrenBuilder.add(newChild);
+            areAllChildrenSame = areAllChildrenSame && (child == newChild);
+
+            final var nestedNewValueMap = recursionResult.getValueMap();
+            knownNestedValueMap.putAll(nestedNewValueMap);
+            resultValueMapBuilder.putAll(nestedNewValueMap);
+
+            queryPlanConstraintsBuilder.add(recursionResult.getQueryPlanConstraint());
+        }
+
+        final var resultCurrentValue =
+                areAllChildrenSame
+                ? currentQueryValue
+                : currentQueryValue.withChildren(newChildrenBuilder.build());
+
+        final var resultValueMap = resultValueMapBuilder.build();
+
+        if (knownValueMap.containsKey(resultCurrentValue)) {
+            return new RecursionResult(ImmutableBiMap.of(), resultCurrentValue, QueryPlanConstraint.tautology());
+        }
+
+        currentMatchingPair =
+                findMatchingCandidateValue(resultCurrentValue,
+                        candidateResultValue,
+                        valueEquivalence);
+        isFound = currentMatchingPair.getKey();
+        if (isFound.isTrue()) {
+            queryPlanConstraintsBuilder.add(isFound.getConstraint());
+            //
+            // We found a match to the candidate side, this supersedes everything that was already found in the
+            // subtree recursion.
+            //
+            return new RecursionResult(ImmutableBiMap.of(resultCurrentValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+                    resultCurrentValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+        }
+
+        if (!expandedValues.contains(currentQueryValue) &&
+                currentQueryValue.getResultType().isRecord() &&
+                !(currentQueryValue instanceof RecordConstructorValue)) {
+            expandedValues.add(currentQueryValue);
+            try {
+                final var expandedCurrentQueryValue = expandValueToRcvOverFields(currentQueryValue);
+                return recurseQueryResultValue(expandedCurrentQueryValue, candidateResultValue, valueEquivalence,
+                        knownValueMap, expandedValues);
+            } finally {
+                expandedValues.remove(currentQueryValue);
             }
         }
 
-        return new MaxMatchMap(newMapping, queryResultValue, candidateResultValue,
-                QueryPlanConstraint.composeConstraints(queryPlanConstraints), valueEquivalence);
+        return new RecursionResult(resultValueMap, resultCurrentValue,
+                QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+    }
+
+    @Nonnull
+    private static RecordConstructorValue expandValueToRcvOverFields(@Nonnull final Value quantifiedValue) {
+        final var resultType = quantifiedValue.getResultType();
+        Verify.verify(resultType.isRecord());
+        Verify.verify(resultType instanceof Type.Record);
+        final Type.Record resultRecordType = (Type.Record)resultType;
+
+        final List<Type.Record.Field> fields = Objects.requireNonNull(resultRecordType.getFields());
+        final var resultBuilder = ImmutableList.<Column<? extends Value>>builder();
+        for (int i = 0; i < fields.size(); i++) {
+            //final var field = fields.get(i);
+            resultBuilder.add(Column.unnamedOf(FieldValue.ofOrdinalNumberAndFuseIfPossible(quantifiedValue, i)));
+            //resultBuilder.add(Column.of(field, FieldValue.ofOrdinalNumberAndFuseIfPossible(quantifiedValue, i)));
+        }
+        return RecordConstructorValue.ofColumns(resultBuilder.build());
+    }
+
+    @Nonnull
+    private static Pair<BooleanWithConstraint, Value> findMatchingCandidateValue(@Nonnull final Value currentQueryValue,
+                                                                                 @Nonnull final Value candidateResultValue,
+                                                                                 @Nonnull final ValueEquivalence valueEquivalence) {
+        for (final var currentCandidateValue : candidateResultValue
+                // when traversing the candidate in pre-order, only descend into structures that can be referenced
+                // from the top expression. For example, RCV's components can be referenced however an Arithmetic
+                // operator's children can not be referenced.
+                // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
+                .preOrderIterable(v -> v instanceof RecordConstructorValue)) {
+            final var semanticEquals =
+                    currentQueryValue.semanticEquals(currentCandidateValue, valueEquivalence);
+            if (semanticEquals.isTrue()) {
+                return Pair.of(semanticEquals, currentCandidateValue);
+            }
+        }
+        return Pair.of(BooleanWithConstraint.falseValue(), null);
+    }
+
+    private static class RecursionResult {
+        @Nonnull
+        private final BiMap<Value, Value> valueMap;
+        @Nonnull
+        private final Value newCurrentValue;
+        @Nonnull
+        private final QueryPlanConstraint queryPlanConstraint;
+
+        public RecursionResult(@Nonnull final BiMap<Value, Value> valueMap,
+                               @Nonnull final Value newCurrentValue,
+                               @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+            this.valueMap = valueMap;
+            this.newCurrentValue = newCurrentValue;
+            this.queryPlanConstraint = queryPlanConstraint;
+        }
+
+        @Nonnull
+        public BiMap<Value, Value> getValueMap() {
+            return valueMap;
+        }
+
+        @Nonnull
+        public Value getNewCurrentValue() {
+            return newCurrentValue;
+        }
+
+        @Nonnull
+        public QueryPlanConstraint getQueryPlanConstraint() {
+            return queryPlanConstraint;
+        }
     }
 }

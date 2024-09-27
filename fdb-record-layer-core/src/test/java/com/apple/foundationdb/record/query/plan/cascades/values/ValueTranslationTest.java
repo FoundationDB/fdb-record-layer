@@ -842,8 +842,6 @@ public class ValueTranslationTest {
 
     @Test
     public void maxMatchDifferentCompositions() {
-
-
         final var tv = rcv(
                 fv(t, "a", "q"),
                 fv(t, "a", "r"),
@@ -1030,7 +1028,6 @@ public class ValueTranslationTest {
      */
     @Test
     public void maxMatchValueSimpleQueriedValues() {
-
         final var pv = new QueriedValue(getTType(), ImmutableList.of("T"));
         final var p_v = new QueriedValue(getTType(), ImmutableList.of("T"));
 
@@ -1068,6 +1065,54 @@ public class ValueTranslationTest {
         final var l2TranslatedPredicate = pPredicate.translateCorrelationsAndSimplify(l2TranslationMap);
         Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p_, 0, 0),
                 LiteralValue.ofScalar(42))), l2TranslatedPredicate);
+    }
+
+    /**
+     * Test to establish that simple a QOV(T) (fields a, b, j) can be matched to a RCV(T.a, T.b, T.j).
+     */
+    @Test
+    public void maxMatchQovUsingExpandedSimpleQov() {
+        final var p_v = rcv(fv(t_, "a"), fv(t_, "b"), fv(t_, "j"));
+
+        /*
+          let's construct a max match map (m3) using the translated value with the candidate value.
+         */
+        final var m3 = MaxMatchMap.calculate(t_, p_v);
+
+        System.out.println(m3);
+    }
+
+    /**
+     * Test to establish that simple a QOV(T) can be matched to a deconstructed RCV(T.a, T.b).
+     */
+    @Test
+    public void maxMatchQovUsingExpandedQovReorderedFields() {
+        final var p_v = rcv(fv(t_, "b"), fv(t_, "a"), fv(t_, "j"));
+
+        /*
+          let's construct a max match map (m3) using the translated value with the candidate value.
+         */
+        final var m3 = MaxMatchMap.calculate(t_, p_v);
+
+        System.out.println(m3);
+    }
+
+    /**
+     * Test to establish that simple a QOV(T) can be matched to a deconstructed RCV(T.a, T.b).
+     */
+    @Test
+    public void maxMatchQovUsingExpandedQovReorderedComplex1() {
+        final var p_v =
+                rcv(rcv(fv(t_, "a", "q"), fv(t_, "a", "r")),
+                        fv(t_, "b"),
+                        fv(t_, "j"));
+
+        /*
+          let's construct a max match map (m3) using the translated value with the candidate value.
+         */
+        final var m3 = MaxMatchMap.calculate(t_, p_v);
+
+        System.out.println(m3);
     }
 
     @Nonnull
