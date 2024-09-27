@@ -49,14 +49,14 @@ public class QuantifierMatchers {
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOver(@Nonnull final Class<Q> bindableClass,
                                                                              @Nonnull final BindingMatcher<? extends Collection<? extends RelationalExpression>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
+        return typedWithDownstream(bindableClass,
                 Extractor.of(q -> q.getRangesOver().getMembers(), name -> "rangesOver(getMembers(" + name + "))"),
                 downstream);
     }
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOverRef(@Nonnull final Class<Q> bindableClass,
                                                                                 @Nonnull final BindingMatcher<? extends Reference> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
+        return typedWithDownstream(bindableClass,
                 Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
                 downstream);
     }
@@ -118,7 +118,7 @@ public class QuantifierMatchers {
 
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmpty() {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Quantifier.ForEach.class,
+        return typedWithDownstream(Quantifier.ForEach.class,
                 Extractor.of(Quantifier.ForEach::hasDefaultOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
                 PrimitiveMatchers.equalsObject(true));
     }
