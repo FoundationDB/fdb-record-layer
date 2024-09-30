@@ -223,6 +223,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         // create single scan accesses
         for (final var bestMatchWithIndex : bestMaximumCoverageMatches) {
             final var bestMatch = bestMatchWithIndex.getElement();
+            if (bestMatch.getContainingMatch() == ContainingMatch.DIFFERENT_MATCH_CANDIDATE) {
+                if (bestMatch.getSatisfyingRequestedOrderings().stream().noneMatch(RequestedOrdering::isExhaustive)) {
+                    continue;
+                }
+            }
             applyCompensationForSingleDataAccess(call, bestMatch, bestMatchToPlanMap.get(bestMatch.getPartialMatch()))
                     .ifPresent(resultSet::add);
         }
@@ -436,38 +441,36 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var outerMatch = outerPartialMatchWithCompensation.getPartialMatch();
             final var outerBindingPredicates = outerMatch.getBindingPredicates();
 
-            var foundContainingInner = false;
+            var foundContainingInner = ContainingMatch.NOT_FOUND;
             for (var j = 0; j < partialMatchesWithCompensation.size(); j++) {
                 final var innerPartialMatchWithCompensation =
                         partialMatchesWithCompensation.get(j);
 
-                if (outerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate() !=
-                        innerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate()) {
-                    continue;
-                }
-
-                if (outerPartialMatchWithCompensation.isReverseScanOrder() !=
-                        innerPartialMatchWithCompensation.isReverseScanOrder()) {
-                    continue;
-                }
-
-                final var innerBindingPredicates = innerPartialMatchWithCompensation.getPartialMatch().getBindingPredicates();
+                final var innerBindingPredicates =
+                        innerPartialMatchWithCompensation.getPartialMatch()
+                                .getBindingPredicates();
                 // check if outer is completely contained in inner
                 if (outerBindingPredicates.size() >= innerBindingPredicates.size()) {
                     break;
                 }
 
                 if (i != j && innerBindingPredicates.containsAll(outerBindingPredicates)) {
-                    foundContainingInner = true;
+                    if (outerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate() ==
+                            innerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate()) {
+                        foundContainingInner  = ContainingMatch.SAME_MATCH_CANDIDATE;
+                        break;
+                    }
+                    foundContainingInner = ContainingMatch.DIFFERENT_MATCH_CANDIDATE;
                     break;
                 }
             }
 
-            if (!foundContainingInner) {
+            if (foundContainingInner != ContainingMatch.SAME_MATCH_CANDIDATE) {
                 //
                 // no other partial match completely contained this one
                 //
-                maximumCoverageMatchesBuilder.add(Vectored.of(outerPartialMatchWithCompensation, index));
+                maximumCoverageMatchesBuilder.add(
+                        Vectored.of(outerPartialMatchWithCompensation.withContainingMatch(foundContainingInner), index));
                 index ++;
             }
         }
@@ -488,19 +491,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                             final @Nonnull Set<RequestedOrdering> requestedOrderings) {
         final var partialMatchesWithCompensation = new ArrayList<SingleMatchedAccess>();
         for (final var partialMatch: partialMatches) {
-            final var scanDirectionOptional = satisfiesAnyRequestedOrderings(partialMatch, requestedOrderings);
-            if (scanDirectionOptional.isEmpty()) {
+            final var satisfyingOrderingsPairOptional = satisfiesAnyRequestedOrderings(partialMatch, requestedOrderings);
+            if (satisfyingOrderingsPairOptional.isEmpty()) {
                 continue;
             }
 
-            final var scanDirection = scanDirectionOptional.get();
+            final var satisfyingOrderingsPair = satisfyingOrderingsPairOptional.get();
+            final var scanDirection = satisfyingOrderingsPair.getLeft();
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
                     scanDirection == ScanDirection.BOTH);
 
             final var compensation = partialMatch.compensate();
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
-                partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation, false));
+                partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
+                        false, satisfyingOrderingsPair.getRight(), ContainingMatch.NOT_FOUND));
             }
 
             //
@@ -512,7 +517,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             //      that satisfy the requirements.
             //
             if (scanDirection == ScanDirection.REVERSE /* || scanDirection == ScanDirection.BOTH */) {
-                partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation, true));
+                partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
+                        true, satisfyingOrderingsPair.getRight(), ContainingMatch.NOT_FOUND));
             }
         }
 
@@ -533,14 +539,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     @SuppressWarnings("java:S135")
-    private static Optional<ScanDirection> satisfiesAnyRequestedOrderings(@Nonnull final PartialMatch partialMatch,
-                                                                          @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+    private static Optional<NonnullPair<ScanDirection, Set<RequestedOrdering>>> satisfiesAnyRequestedOrderings(@Nonnull final PartialMatch partialMatch,
+                                                                                                               @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         boolean seenForward = false;
         boolean seenReverse = false;
+        final var satisfyingRequestedOrderings = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {
             final var scanDirectionForRequestedOrderingOptional =
                     satisfiesRequestedOrdering(partialMatch, requestedOrdering);
             if (scanDirectionForRequestedOrderingOptional.isPresent()) {
+                satisfyingRequestedOrderings.add(requestedOrdering);
                 // Note, that a match may satisfy one requested ordering using a forward scan and another requested
                 // ordering using a reverse scan.
                 final var scanDirectionForRequestedOrdering = scanDirectionForRequestedOrderingOptional.get();
@@ -566,10 +574,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         if (seenForward && seenReverse) {
-            return Optional.of(ScanDirection.BOTH);
+            return Optional.of(NonnullPair.of(ScanDirection.BOTH, satisfyingRequestedOrderings.build()));
         }
 
-        return Optional.of(seenForward ? ScanDirection.FORWARD : ScanDirection.REVERSE);
+        return Optional.of(NonnullPair.of(seenForward ? ScanDirection.FORWARD : ScanDirection.REVERSE,
+                satisfyingRequestedOrderings.build()));
     }
 
     /**
@@ -909,13 +918,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         @Nonnull
         private final Compensation compensation;
         private final boolean reverseScanOrder;
+        @Nonnull
+        private final Set<RequestedOrdering> satisfyingRequestedOrderings;
+        @Nonnull
+        private final ContainingMatch containingMatch;
 
         public SingleMatchedAccess(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Compensation compensation,
-                                   final boolean reverseScanOrder) {
+                                   final boolean reverseScanOrder,
+                                   @Nonnull final Set<RequestedOrdering> satisfyingRequestedOrderings,
+                                   @Nonnull final ContainingMatch containingMatch) {
             this.partialMatch = partialMatch;
             this.compensation = compensation;
             this.reverseScanOrder = reverseScanOrder;
+            this.satisfyingRequestedOrderings = ImmutableSet.copyOf(satisfyingRequestedOrderings);
+            this.containingMatch = containingMatch;
         }
 
         @Nonnull
@@ -930,6 +947,22 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         public boolean isReverseScanOrder() {
             return reverseScanOrder;
+        }
+
+        @Nonnull
+        public Set<RequestedOrdering> getSatisfyingRequestedOrderings() {
+            return satisfyingRequestedOrderings;
+        }
+
+        @Nonnull
+        public ContainingMatch getContainingMatch() {
+            return containingMatch;
+        }
+
+        @Nonnull
+        public SingleMatchedAccess withContainingMatch(@Nonnull ContainingMatch newContainingMatch) {
+            return new SingleMatchedAccess(getPartialMatch(), getCompensation(), isReverseScanOrder(),
+                    getSatisfyingRequestedOrderings(), newContainingMatch);
         }
     }
 
@@ -1023,5 +1056,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         FORWARD,
         REVERSE,
         BOTH
+    }
+
+    private enum ContainingMatch {
+        NOT_FOUND,
+        SAME_MATCH_CANDIDATE,
+        DIFFERENT_MATCH_CANDIDATE
     }
 }

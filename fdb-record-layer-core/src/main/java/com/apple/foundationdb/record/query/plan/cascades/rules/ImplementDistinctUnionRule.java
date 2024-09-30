@@ -237,7 +237,8 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                        @Nonnull final RequestedOrdering requestedOrdering) {
         final var unionRef = unionForEachQuantifier.getRangesOver();
         for (final var providedOrdering : providedOrderings) {
-            final var requestedOrderings = providedOrdering.deriveRequestedOrderings(requestedOrdering);
+            final var requestedOrderings =
+                    providedOrdering.deriveRequestedOrderings(requestedOrdering, false);
             call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, requestedOrderings);
         }
     }

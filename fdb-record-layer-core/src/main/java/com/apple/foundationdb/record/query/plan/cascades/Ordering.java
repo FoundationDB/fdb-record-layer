@@ -275,14 +275,16 @@ public class Ordering {
      * @return a set of {@link RequestedOrdering}s that can be pushed down the legs of the set operation
      */
     @Nonnull
-    public Set<RequestedOrdering> deriveRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
+    public Set<RequestedOrdering> deriveRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering,
+                                                           final boolean isExhaustive) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableSet.of();
         }
 
         final var satisfyingEnumeratedOrderings = enumerateCompatibleRequestedOrderings(requestedOrdering);
         return Streams.stream(satisfyingEnumeratedOrderings)
-                .map(keyParts -> RequestedOrdering.ofPrimitiveParts(keyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS))
+                .map(keyParts -> RequestedOrdering.ofPrimitiveParts(keyParts,
+                        RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, isExhaustive))
                 .collect(ImmutableSet.toImmutableSet());
     }
 

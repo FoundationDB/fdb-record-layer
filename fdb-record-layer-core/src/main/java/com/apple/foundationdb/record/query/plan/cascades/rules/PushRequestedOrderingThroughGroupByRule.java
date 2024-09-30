@@ -160,7 +160,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                                     .map(value -> new RequestedOrderingPart(value, RequestedSortOrder.ANY))
                                     .forEach(resultOrderingPartsBuilder::add);
                             toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.ofPrimitiveParts(resultOrderingPartsBuilder.build(),
-                                    pushedRequestedOrdering.getDistinctness()));
+                                    pushedRequestedOrdering.getDistinctness(), false));
                         }
                     }
                 }
