@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
+import com.apple.foundationdb.util.LoggableKeysAndValues;
 import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.IOException;
@@ -32,13 +33,13 @@ import java.io.IOException;
  */
 public class LuceneExceptions {
     /**
-     * Convert the exception thrown by Lucene by a {@link RecordCoreException} that can be later interpreted by the higher levels.
+     * Convert the exception thrown by Lucene to a {@link RecordCoreException} that can be later interpreted by the higher levels.
      * @param message the exception's message to use; the cause's message will be appended to this one
      * @param ex the exception thrown by Lucene
      * @param additionalLogInfo (optional) additional log infos to add to the created exception
      * @return the {@link RecordCoreException} that should be thrown
      */
-    public static RecordCoreException toRecordCoreException(String message, IOException ex, Object... additionalLogInfo) {
+    public static RuntimeException toRecordCoreException(String message, IOException ex, Object... additionalLogInfo) {
         if (ex instanceof LockObtainFailedException) {
             // Use the retryable exception for this case
             return new FDBExceptions.FDBStoreLockTakenException(message + ": " + ex.getMessage(), ex)
@@ -59,13 +60,21 @@ public class LuceneExceptions {
                 return result;
             }
         }
-        // See if this is a generic IOException wrapping a RecordCoreException
-        if (ex.getCause() instanceof RecordCoreException) {
-            RecordCoreException recordCoreException = (RecordCoreException)ex.getCause();
-            recordCoreException.addSuppressed(ex);
-            return recordCoreException;
+        // This should handle a RecordCoreException wrapped by an IOException, as well as any other RuntimeExceptions:
+        // They should both be unwrapped (and add any loggable info if we can), then forwarded upward.
+        // If this is a RecordCoreException then we should just pass it along.
+        // If this is an unknown RuntimeException, we should also not wrap it to allow higher levels to interpret it -
+        // it may be the result of the generic wrapping by IOException in toIoException.
+        if (ex.getCause() instanceof RuntimeException) {
+            RuntimeException runtimeException = (RuntimeException)ex.getCause();
+            runtimeException.addSuppressed(ex);
+            if (runtimeException instanceof LoggableKeysAndValues) {
+                ((LoggableKeysAndValues)runtimeException).addLogInfo(additionalLogInfo);
+            }
+            return runtimeException;
         }
 
+        // All else failed - wrap with RecordCoreException
         return new RecordCoreException(message + ": " + ex.getMessage(), ex)
                 .addLogInfo(additionalLogInfo);
     }

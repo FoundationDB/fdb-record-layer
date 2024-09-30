@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.MockedFDBDirectory;
@@ -48,6 +49,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -152,6 +154,7 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         Tuple groupingKey = Tuple.from(1L);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
+                .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
                 .build();
 
         final int totalDocCount = 10; // configured index's highwater mark
@@ -199,6 +202,83 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @ParameterizedTest
+    @BooleanSource
+    void addDocumentTest(boolean useLegacyAsyncToSync) throws IOException {
+        Index index = COMPLEX_PARTITIONED;
+        Tuple groupingKey = Tuple.from(1L);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
+                .build();
+
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        // create/save documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // Inject failures (using partition 0)
+            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
+            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
+                    new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                    0);
+            // this should fail with injected exception
+            assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
+                    () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void addDocumentWithUnknownExceptionTest(boolean useLegacyAsyncToSync) throws IOException {
+        Index index = COMPLEX_PARTITIONED;
+        Tuple groupingKey = Tuple.from(1L);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
+                .build();
+
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        // Unknown RecordCoreException (rethrown as-is)
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // Inject failures (using partition 0)
+            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
+            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
+                    new UnknownRecordCoreException("Blah"),
+                    0);
+            // this should fail with injected exception
+            assertThrows(UnknownRecordCoreException.class,
+                    () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
+        }
+
+        // Unknown IOException with RecordCoreException (cause rethrown)
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // Inject failures (using partition 0)
+            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
+            mockedDirectory.addFailure(MockedFDBDirectory.Methods.LIST_ALL,
+                    new IOException((new UnknownRecordCoreException("Blah"))),
+                    0);
+            // this should fail with injected exception
+            assertThrows(UnknownRecordCoreException.class,
+                    () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
+        }
+
+        // Unknown IOException with RuntimeException (cause rethrown)
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // Inject failures (using partition 0)
+            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
+            mockedDirectory.addFailure(MockedFDBDirectory.Methods.LIST_ALL,
+                    new IOException((new UnknownRuntimeException("Blah"))),
+                    0);
+            // this should fail with injected exception
+            assertThrows(UnknownRuntimeException.class,
+                    () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
+        }
+    }
 
     private @Nonnull FDBDirectoryManager injectMockDirectoryManager(final FDBRecordContext context, final Index index) {
         IndexMaintainerState state = new IndexMaintainerState(recordStore, index, IndexMaintenanceFilter.NORMAL);
@@ -265,6 +345,22 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
             }
         }
         return tuples;
+    }
+
+    private class UnknownRecordCoreException extends RecordCoreException {
+        private static final long serialVersionUID = 0L;
+
+        public UnknownRecordCoreException(@Nonnull final String msg) {
+            super(msg, new Exception(msg));
+        }
+    }
+
+    private class UnknownRuntimeException extends RuntimeException {
+        private static final long serialVersionUID = 0L;
+
+        public UnknownRuntimeException(@Nonnull final String msg) {
+            super(msg);
+        }
     }
 
 }
