@@ -345,7 +345,9 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     private PlanStringRepresentation visitInUnionPlan(@Nonnull RecordQueryInUnionPlan element) {
         return append("∪(")
                 .appendItems(element.getInSources(), ", ")
-                .append(") ")
+                .append(")")
+                .append(element.getComparisonKeyFunction())
+                .append(" ")
                 .visit(element.getChild());
     }
 
