@@ -128,10 +128,10 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
             final LuceneScanBounds scanBounds = fullTextSearch(COMPLEX_PARTITIONED_NOGROUP, "text:propose");
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, COMPLEX_PARTITIONED_NOGROUP).getDirectory(scanBounds.groupKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
-                    new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
-                    0);
+            getMockedDirectory(scanBounds.getGroupKey(), COMPLEX_PARTITIONED_NOGROUP, 0)
+                    .addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+                            new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                            0);
 
             recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
             recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
@@ -180,10 +180,10 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 1)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 1);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
-                    new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
-                    0);
+            getMockedDirectory(groupingKey, index, 1)
+                    .addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
+                            new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                            0);
             // Save more docs - this should fail with injected exception
             assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L + totalDocCount, ENGINEER_JOKE, docGroupFieldValue, start - 1)));
@@ -217,8 +217,7 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
+            getMockedDirectory(groupingKey, index, 0).addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
                     new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
                     0);
             // this should fail with injected exception
@@ -243,10 +242,10 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
-                    new UnknownRecordCoreException("Blah"),
-                    0);
+            getMockedDirectory(groupingKey, index, 0)
+                    .addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
+                            new UnknownRecordCoreException("Blah"),
+                            0);
             // this should fail with injected exception
             assertThrows(UnknownRecordCoreException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
@@ -256,10 +255,10 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.LIST_ALL,
-                    new IOException((new UnknownRecordCoreException("Blah"))),
-                    0);
+            getMockedDirectory(groupingKey, index, 0)
+                    .addFailure(MockedFDBDirectory.Methods.LIST_ALL,
+                            new IOException((new UnknownRecordCoreException("Blah"))),
+                            0);
             // this should fail with injected exception
             assertThrows(UnknownRecordCoreException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
@@ -269,21 +268,20 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.LIST_ALL,
-                    new IOException((new UnknownRuntimeException("Blah"))),
-                    0);
+            getMockedDirectory(groupingKey, index, 0)
+                    .addFailure(MockedFDBDirectory.Methods.LIST_ALL,
+                            new IOException((new UnknownRuntimeException("Blah"))),
+                            0);
             // this should fail with injected exception
             assertThrows(UnknownRuntimeException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
         }
     }
 
-    private @Nonnull FDBDirectoryManager injectMockDirectoryManager(final FDBRecordContext context, final Index index) {
-        IndexMaintainerState state = new IndexMaintainerState(recordStore, index, IndexMaintenanceFilter.NORMAL);
-        FDBDirectoryManager manager = new MockedFDBDirectoryManager(state);
-        context.putInSessionIfAbsent(state.indexSubspace, manager);
-        return manager;
+    private MockedFDBDirectory getMockedDirectory(final Tuple groupKey, final Index index, final int partitionId) {
+        LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+        MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)indexMaintainer.getDirectory(groupKey, partitionId);
+        return mockedDirectory;
     }
 
     @Nonnull
@@ -295,6 +293,15 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
                 options);
     }
 
+    /**
+     * Private utility to set up the test environment.
+     * This method creates the {@link TestingIndexMaintainerRegistry} and the {@link MockedLuceneIndexMaintainerFactory}
+     * that create the MockedDirectory* classes that allow failure injection to take place.
+     *
+     * @param context the context for the store
+     * @param document the record type
+     * @param index the index to use
+     */
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();

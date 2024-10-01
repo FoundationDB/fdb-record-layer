@@ -572,6 +572,7 @@ public class LuceneIndexTestUtils {
                 .build();
     }
 
+    // TODO: This looks similar to the code in FDBRecordStoreTestBase. Can we consolidate?
     public static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
                                                                           final KeySpacePath path,
                                                                           final String document,
