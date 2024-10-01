@@ -124,7 +124,6 @@ public class LazyOpener<T> {
             return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            // TODO: Should use toRecordCoreException??
             throw new RecordCoreException(e);
         }
     }
