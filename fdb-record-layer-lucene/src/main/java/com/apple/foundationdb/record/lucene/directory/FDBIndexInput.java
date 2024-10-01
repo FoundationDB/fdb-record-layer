@@ -354,7 +354,6 @@ public class FDBIndexInput extends IndexInput {
      */
     public int prefetch(int beginBlock, int length) {
         for (int i = 0; i < length; i++) {
-            // TODO: What does this do with the future? It is never realized?
             fdbDirectory.readBlock(this, fileName, reference, beginBlock + i);
         }
         return length;

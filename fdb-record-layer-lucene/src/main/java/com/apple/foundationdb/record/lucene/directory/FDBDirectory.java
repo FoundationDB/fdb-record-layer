@@ -423,7 +423,6 @@ public class FDBDirectory extends Directory  {
      * @return the actual data size written to database with potential compression and encryption applied
      */
     public int writeData(final long id, final int block, @Nonnull final byte[] value) {
-        // TODO: Should this translate exceptions to IOExzception?
         final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled));
         //This may not be correct transactionally
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE, encodedBytes.length);

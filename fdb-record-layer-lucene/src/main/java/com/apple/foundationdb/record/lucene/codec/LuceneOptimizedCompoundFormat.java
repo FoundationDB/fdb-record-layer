@@ -108,7 +108,6 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     }
 
     protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields) {
-        // TODO: Should this be converted to IOException?
         if (fieldInfos != 1) {
             throw new RecordCoreException("Segment has wrong number of FieldInfos")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);

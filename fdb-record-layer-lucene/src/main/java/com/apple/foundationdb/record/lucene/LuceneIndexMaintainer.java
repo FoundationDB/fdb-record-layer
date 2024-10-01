@@ -164,7 +164,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (scanType.equals(LuceneScanTypes.BY_LUCENE)) {
             LuceneScanQuery scanQuery = (LuceneScanQuery)scanBounds;
             // if partitioning is enabled, a non-null continuation will include the current partition info
-            // TODO: This calls asyncToSync
             LucenePartitioner.PartitionedQueryHint partitionedQueryHint = continuation == null ? partitioner.selectQueryPartition(scanQuery.getGroupKey(), scanQuery) : null;
             if (partitionedQueryHint != null && !partitionedQueryHint.canHaveMatches) {
                 return RecordCursor.empty(state.context.getExecutor());
@@ -714,7 +713,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                             new LuceneMetadataInfo.LuceneInfo(
                                     indexReader.numDocs(),
                                     fileList, fieldInfosCount));
-        } catch (Exception e) {
+        } catch (IOException e) {
             return CompletableFuture.failedFuture(e);
         }
     }

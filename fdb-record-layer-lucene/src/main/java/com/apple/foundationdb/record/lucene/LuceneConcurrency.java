@@ -38,8 +38,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static com.apple.foundationdb.record.lucene.LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC;
-
 /**
  * Utility class for methods related to synchronizing Futures.
  */
@@ -82,12 +80,10 @@ public class LuceneConcurrency {
                 throw FDBExceptions.wrapException(ex);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                // TODO: The original mapping for InterruptedException would be INTERNAL_ERROR, now it will be RecordCoreInterruptedException
                 throw FDBExceptions.wrapException(ex);
             }
         } else {
             final Pair<Long, TimeUnit> asyncToSyncTimeout = recordContext.getDatabase().getAsyncToSyncTimeout(event);
-            Timeout timeout = (asyncToSyncTimeout == null) ? null : Timeout.of(asyncToSyncTimeout.getLeft(), asyncToSyncTimeout.getRight());
             final FDBStoreTimer timer = recordContext.getTimer();
             final long startTime = System.nanoTime();
             try {
@@ -108,7 +104,6 @@ public class LuceneConcurrency {
                 throw FDBExceptions.wrapException(ex);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                // TODO: The original mapping for InterruptedException would be INTERNAL_ERROR, now it will be RecordCoreInterruptedException
                 throw FDBExceptions.wrapException(ex);
             } finally {
                 if (timer != null) {
@@ -119,48 +114,5 @@ public class LuceneConcurrency {
     }
 
     private LuceneConcurrency() {
-    }
-
-    /**
-     * A representation of a timeout value: A duration and a time unit.
-     */
-    public static class Timeout {
-        private final long duration;
-        @Nonnull
-        private final TimeUnit timeUnit;
-
-        public Timeout(final long duration, @Nonnull final TimeUnit timeUnit) {
-            this.duration = duration;
-            this.timeUnit = timeUnit;
-        }
-
-        public static Timeout of(final long duration, @Nonnull final TimeUnit timeUnit) {
-            return new Timeout(duration, timeUnit);
-        }
-
-        public long getDuration() {
-            return duration;
-        }
-
-        @Nonnull
-        public TimeUnit getTimeUnit() {
-            return timeUnit;
-        }
-    }
-
-    /**
-     * An exception that is thrown when the async to sync operation times out.
-     */
-    public static class AsyncToSyncTimeoutException extends RecordCoreException {
-        private static final long serialVersionUID = -1L;
-
-        public AsyncToSyncTimeoutException(final String message, final Throwable cause) {
-            super(message, cause);
-        }
-
-        public AsyncToSyncTimeoutException(final String message, final Throwable cause, final Object... keyValues) {
-            super(message, cause);
-            addLogInfo(keyValues);
-        }
     }
 }
