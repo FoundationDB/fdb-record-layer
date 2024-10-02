@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.google.protobuf.ByteString;
@@ -76,41 +78,45 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
         try {
             directory.writeStoredFields(segmentName, docId, storedFields.build().toByteArray());
             docId++;
-        } catch (Exception e) {
-            throw new IOException(e);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 
     @Override
     public void writeField(final FieldInfo info, final IndexableField field) throws IOException {
-        LuceneStoredFieldsProto.StoredField.Builder builder = LuceneStoredFieldsProto.StoredField.newBuilder();
-        builder.setFieldNumber(info.number);
-        Number number = field.numericValue();
-        if (number != null) {
-            if (number instanceof Byte || number instanceof Short || number instanceof Integer) {
-                builder.setIntValue(number.intValue());
-            } else if (number instanceof Long) {
-                builder.setLongValue(number.longValue());
-            } else if (number instanceof Float) {
-                builder.setFloatValue(number.floatValue());
-            } else if (number instanceof Double) {
-                builder.setDoubleValue(number.doubleValue());
-            } else {
-                throw new IllegalArgumentException("cannot store numeric type " + number.getClass());
-            }
-        } else {
-            BytesRef bytes = field.binaryValue();
-            if (bytes != null) {
-                builder.setBytesValue(ByteString.copyFrom(bytes.bytes, bytes.offset, bytes.length));
-            } else {
-                String string = field.stringValue();
-                if (string == null) {
-                    throw new IllegalArgumentException("field " + field.name() + " is stored but does not have binaryValue, stringValue nor numericValue");
+        try {
+            LuceneStoredFieldsProto.StoredField.Builder builder = LuceneStoredFieldsProto.StoredField.newBuilder();
+            builder.setFieldNumber(info.number);
+            Number number = field.numericValue();
+            if (number != null) {
+                if (number instanceof Byte || number instanceof Short || number instanceof Integer) {
+                    builder.setIntValue(number.intValue());
+                } else if (number instanceof Long) {
+                    builder.setLongValue(number.longValue());
+                } else if (number instanceof Float) {
+                    builder.setFloatValue(number.floatValue());
+                } else if (number instanceof Double) {
+                    builder.setDoubleValue(number.doubleValue());
+                } else {
+                    throw new IllegalArgumentException("cannot store numeric type " + number.getClass());
                 }
-                builder.setStringValue(string);
+            } else {
+                BytesRef bytes = field.binaryValue();
+                if (bytes != null) {
+                    builder.setBytesValue(ByteString.copyFrom(bytes.bytes, bytes.offset, bytes.length));
+                } else {
+                    String string = field.stringValue();
+                    if (string == null) {
+                        throw new IllegalArgumentException("field " + field.name() + " is stored but does not have binaryValue, stringValue nor numericValue");
+                    }
+                    builder.setStringValue(string);
+                }
             }
+            storedFields.addStoredFields(builder);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-        storedFields.addStoredFields(builder);
     }
 
     @Override
@@ -123,30 +129,34 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
     @SuppressWarnings("PMD.CloseResource")
     @Override
     public int merge(final MergeState mergeState) throws IOException {
-        List<StoredFieldsMergeSub> subs = new ArrayList<>();
-        for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
-            // TODO: Explore whether we should read a range to speed up the retrieval of the documents (there are more documents than we actually need
-            // since some of them are tombstones)
-            subs.add(new StoredFieldsMergeSub(new MergeVisitor(mergeState, i), mergeState.docMaps[i], mergeState.storedFieldsReaders[i], mergeState.maxDocs[i]));
-        }
-
-        final DocIDMerger<StoredFieldsMergeSub> docIDMerger = DocIDMerger.of(subs, mergeState.needsIndexSort);
-
-        int docCount = 0;
-        while (true) {
-            StoredFieldsMergeSub sub = docIDMerger.next();
-            if (sub == null) {
-                break;
+        try {
+            List<StoredFieldsMergeSub> subs = new ArrayList<>();
+            for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
+                // TODO: Explore whether we should read a range to speed up the retrieval of the documents (there are more documents than we actually need
+                // since some of them are tombstones)
+                subs.add(new StoredFieldsMergeSub(new MergeVisitor(mergeState, i), mergeState.docMaps[i], mergeState.storedFieldsReaders[i], mergeState.maxDocs[i]));
             }
-            assert sub.mappedDocID == docCount;
-            startDocument();
-            sub.reader.visitDocument(sub.docID, sub.visitor);
-            finishDocument();
-            docCount++;
-        }
 
-        finish(mergeState.mergeFieldInfos, docCount);
-        return docCount;
+            final DocIDMerger<StoredFieldsMergeSub> docIDMerger = DocIDMerger.of(subs, mergeState.needsIndexSort);
+
+            int docCount = 0;
+            while (true) {
+                StoredFieldsMergeSub sub = docIDMerger.next();
+                if (sub == null) {
+                    break;
+                }
+                assert sub.mappedDocID == docCount;
+                startDocument();
+                sub.reader.visitDocument(sub.docID, sub.visitor);
+                finishDocument();
+                docCount++;
+            }
+
+            finish(mergeState.mergeFieldInfos, docCount);
+            return docCount;
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @Override

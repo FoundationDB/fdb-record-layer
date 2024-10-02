@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -197,7 +198,7 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    void testCloseTwice() {
+    void testCloseTwice() throws IOException {
         FDBIndexOutput output = new FDBIndexOutput(FILE_NAME, directory);
         output.close();
         assertDoesNotThrow(output::close);

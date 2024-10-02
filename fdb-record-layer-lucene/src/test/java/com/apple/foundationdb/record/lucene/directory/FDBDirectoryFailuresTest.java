@@ -1,9 +1,9 @@
 /*
- * FDBDirectoryTest.java
+ * FDBDirectoryFailuresTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,57 +20,47 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.test.Tags;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import java.util.stream.LongStream;
-import java.util.stream.Stream;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test for FDBDirectory validating it can function as a backing store
- * for Lucene.
+ * This is a modified version of the {@link FDBDirectoryTest} where a mocked directory is set up and various FDBDirectory
+ * calls are mocked to fail. Assertions on the correct exceptions are in place.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBDirectoryTest extends FDBDirectoryBaseTest {
-
-    @Test
-    public void testDirectoryCreate() {
-        assertNotNull(directory, "directory should not be null");
-        assertEquals(subspace, directory.getSubspace());
-    }
-
+public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
     @Test
     public void testGetIncrement() throws IOException {
+        addFailure(MockedFDBDirectory.Methods.GET_INCREMENT, new IOException("Blah"), 2);
+
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
+        // This call fails with the mock exveption
+        assertThrows(IOException.class, () -> directory.getIncrement());
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, 2);
         directory.getCallerContext().commit();
 
@@ -81,93 +71,76 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testConcurrentGetIncrement() throws IOException {
-        final int threads = 50;
-        List<CompletableFuture<Long>> futures = new ArrayList<>(threads);
-        for (int i = 0; i < threads; i++) {
-            futures.add(CompletableFuture.supplyAsync(() -> {
-                try {
-                    return directory.getIncrement();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }, directory.getCallerContext().getExecutor()));
-        }
-        List<Long> values = AsyncUtil.getAll(futures).join();
-        assertThat(values, containsInAnyOrder(LongStream.range(1, threads + 1).mapToObj(Matchers::equalTo).collect(Collectors.toList())));
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, threads);
-        assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, threads);
-        directory.getCallerContext().commit();
-
-        try (FDBRecordContext context = fdb.openContext()) {
-            directory = new FDBDirectory(subspace, context, null);
-            assertEquals(threads + 1, directory.getIncrement());
-        }
-    }
-
-    @Test
-    public void testWriteGetLuceneFileReference() {
-        FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("NonExist");
-        assertNull(luceneFileReference);
-        String luceneReference1 = "luceneReference1";
-        FDBLuceneFileReference fileReference = new FDBLuceneFileReference(1, 10, 10, 10);
-        directory.writeFDBLuceneFileReference(luceneReference1, fileReference);
-        FDBLuceneFileReference actual = directory.getFDBLuceneFileReference(luceneReference1);
-        assertNotNull(actual, "file reference should exist");
-        assertEquals(actual, fileReference);
-    }
-
-    @Test
     public void testWriteLuceneFileReference() {
+        addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+                new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                0);
+
         // write already created file reference
         FDBLuceneFileReference reference1 = new FDBLuceneFileReference(2, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference1);
         FDBLuceneFileReference reference2 = new FDBLuceneFileReference(3, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference2);
-        FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("test1");
-        assertNotNull(luceneFileReference, "fileReference should exist");
-
-        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE_FILE_REFERENCE, 2,
-                LuceneSerializer.encode(reference1.getBytes(), true, false).length + LuceneSerializer.encode(reference2.getBytes(), true, false).length);
-    }
-
-    @Test
-    public void testMissingSeek() {
-        final CompletableFuture<byte[]> seekFuture = directory.readBlock(
-                new EmptyIndexInput("Test Empty"),
-                "testDescription",
-                directory.getFDBLuceneFileReferenceAsync("testReference"),
-                1
-        );
-        final FDBRecordContext context = directory.getCallerContext();
-        assertThrows(RecordCoreArgumentException.class,
-                () -> LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, seekFuture, context));
+        // This call should fail witht the mock exception
+        Exception ex = assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class, () -> directory.getFDBLuceneFileReference("test1"));
+        assertTrue(ex.getCause() instanceof TimeoutException);
     }
 
     @Test
     public void testWriteSeekData() throws Exception {
+        addFailure(MockedFDBDirectory.Methods.READ_BLOCK,
+                new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                0);
+
         directory.writeFDBLuceneFileReference("testReference1", new FDBLuceneFileReference(1, 1, 1, 1));
         final EmptyIndexInput emptyInput = new EmptyIndexInput("Empty Input");
-        assertNull(directory.readBlock(emptyInput,
-                "testReference1", directory.getFDBLuceneFileReferenceAsync("testReference1"), 1).get());
+        // This call should fail with the mock exception
+        // Future.get throws ExecutionException
+        Exception ex = assertThrows(ExecutionException.class,
+                () -> directory.readBlock(emptyInput, "testReference1", directory.getFDBLuceneFileReferenceAsync("testReference1"), 1)
+                        .get());
+        assertTrue(ex.getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException);
+
         directory.writeFDBLuceneFileReference("testReference2", new FDBLuceneFileReference(2, 1, 1, 200));
         byte[] data = "test string for write".getBytes();
         directory.writeData(2, 1, data);
-        assertNotNull(directory.readBlock(emptyInput, "testReference2",
-                directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
+        // This call should fail with the mock exception
+        // AsyncToSync restored the original timeout exception
+        ex = assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
+                () -> LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK,
+                        directory.readBlock(emptyInput, "testReference2", directory.getFDBLuceneFileReferenceAsync("testReference2"), 1),
+                        context));
+        assertTrue(ex.getCause() instanceof TimeoutException);
 
         directory.getCallerContext().commit();
         assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, LuceneSerializer.encode(data, true, false).length);
     }
 
     @Test
+    public void testLitAllGetFileReference() throws IOException {
+        addFailure(MockedFDBDirectory.Methods.GET_FILE_REFERENCE_CACHE_ASYNC,
+                new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                0);
+
+        // This call should fail with the mock exception
+        Exception ex = assertThrows(IOException.class, () -> directory.listAll());
+        assertTrue(ex.getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException);
+    }
+
+    @Test
     public void testListAll() throws IOException {
-        assertEquals(directory.listAll().length, 0);
+        addFailure(MockedFDBDirectory.Methods.LIST_ALL, new IOException("Blah"), 0);
+
+        // This call should fail with the mock exception
+        assertThrows(IOException.class, () -> directory.listAll());
         directory.writeFDBLuceneFileReference("test1", new FDBLuceneFileReference(1, 1, 1, 1));
         directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1, 1));
         directory.writeFDBLuceneFileReference("test3", new FDBLuceneFileReference(3, 1, 1, 1));
-        assertArrayEquals(new String[]{"test1", "test2", "test3"}, directory.listAll());
-        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LIST_ALL, 2);
+
+        // clear failure, listAll() should pass now
+        removeFailure(MockedFDBDirectory.Methods.LIST_ALL);
+        assertArrayEquals(new String[] {"test1", "test2", "test3"}, directory.listAll());
+        assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LIST_ALL, 1);
         // Assert that the cache is loaded only once even though directory::listAll is called twice
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, 1);
         directory.getCallerContext().ensureActive().cancel();
@@ -183,24 +156,36 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testDeleteData() throws Exception {
+        addFailure(MockedFDBDirectory.Methods.DELETE_FILE_INTERNAL,
+                new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException()),
+                1);
+
         assertThrows(NoSuchFileException.class, () -> directory.deleteFile("NonExist"));
         FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 1, 1, 1);
         directory.writeFDBLuceneFileReference("test1", reference1);
-        directory.deleteFile("test1");
-        assertEquals(directory.listAll().length, 0);
+        // This should fail with mock exception
+        Exception ex = assertThrows(IOException.class, () -> directory.deleteFile("test1"));
+        assertTrue(ex.getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException);
+        assertEquals(directory.listAll().length, 1);
 
         // WAIT only gets called if there's a future to wait on, and so this value can be less than 2 if
         // the futures complete quickly
-        assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, 2);
+        assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, 1);
     }
 
     @Test
     public void testFileLength() throws Exception {
+        addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+                new FDBExceptions.FDBStoreTransactionIsTooOldException("Blah", new FDBException("Blah", 7)),
+                0);
+
         long expectedSize = 20;
         FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, expectedSize, expectedSize, 1024);
         directory.writeFDBLuceneFileReference("test1", reference1);
-        long fileSize = directory.fileLength("test1");
-        assertEquals(expectedSize, fileSize);
+        // This call should fail with mocked exception
+        // This is the IOException flavor of the exception
+        assertThrows(LuceneExceptions.LuceneTransactionTooOldException.class, () -> directory.fileLength("test1"));
+
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH, 1);
         directory.getCallerContext().commit();
 
@@ -214,22 +199,14 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         }
     }
 
-    @SuppressWarnings("unused") // used to provide arguments for parameterized test
-    static Stream<Arguments> testFileLengthNonExistent() {
-        return Stream.of("nonExist", "nonExistentEntries.cfe", "nonExistentSegmentInfo.si")
-                .map(Arguments::of);
-    }
-
-    @ParameterizedTest(name = "testFileLengthNonExistent[fileName={0}]")
-    @MethodSource
-    public void testFileLengthNonExistent(String fileName) {
-        assertThrows(NoSuchFileException.class, () -> directory.fileLength(fileName));
-    }
-
     @Test
     public void testRename() {
+        addFailure(MockedFDBDirectory.Methods.GET_FILE_REFERENCE_CACHE_ASYNC,
+                new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                0);
+
         final IOException ioException = assertThrows(IOException.class, () -> directory.rename("NoExist", "newName"));
-        assertTrue(ioException.getCause() instanceof RecordCoreArgumentException);
+        assertTrue(ioException.getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException);
 
         // In the case where the Future was already completed, WAIT_LUCENE_RENAME will not be recorded, but LUCENE_RENAME_FILE will
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_RENAME_FILE, 1);
@@ -250,5 +227,22 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     private void assertMetricCountAtMost(StoreTimer.Event metric, int maximumValue) {
         assertThat("Metric " + metric + " should be called at most " + maximumValue + " times",
                 timer.getCount(metric), lessThanOrEqualTo(maximumValue));
+    }
+
+    /*
+     * Override default behavior to create a mocked directory.
+     */
+    @Nonnull
+    @Override
+    protected FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, final Map<String, String> indexOptions) {
+        return new MockedFDBDirectory(subspace, context, indexOptions);
+    }
+
+    private void addFailure(final MockedFDBDirectory.Methods method, final Exception exception, final int count) {
+        ((MockedFDBDirectory)directory).addFailure(method, exception, count);
+    }
+
+    private void removeFailure(final MockedFDBDirectory.Methods method) {
+        ((MockedFDBDirectory)directory).removeFailure(method);
     }
 }

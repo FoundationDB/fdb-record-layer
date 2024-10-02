@@ -30,9 +30,11 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
@@ -269,25 +271,29 @@ public class FDBDirectory extends Directory  {
      * Returns and increments the increment if its already set.
      * @return current increment value
      */
-    public long getIncrement() {
-        // Stop using any shared cache.
-        sharedCachePending = false;
-        sharedCache = null;
+    public long getIncrement() throws IOException {
+        try {
+            // Stop using any shared cache.
+            sharedCachePending = false;
+            sharedCache = null;
 
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS);
+            agilityContext.increment(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS);
 
-        // Make sure the file counter is loaded from the database into the fileSequenceCounter, then
-        // use the cached value
-        asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, loadFileSequenceCounter());
-        long incrementedValue = fileSequenceCounter.incrementAndGet();
+            // Make sure the file counter is loaded from the database into the fileSequenceCounter, then
+            // use the cached value
+            asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, loadFileSequenceCounter());
+            long incrementedValue = fileSequenceCounter.incrementAndGet();
 
-        // Use BYTE_MAX here so that if there are concurrent calls (which will get different increments because they
-        // are serialized around the fileSequenceCounter AtomicLong), the largest one always gets
-        // committed into the database
-        byte[] serializedValue = serializeFileSequenceCounter(incrementedValue);
-        agilityContext.accept(aContext -> aContext.ensureActive().mutate(MutationType.BYTE_MAX, sequenceSubspaceKey, serializedValue));
+            // Use BYTE_MAX here so that if there are concurrent calls (which will get different increments because they
+            // are serialized around the fileSequenceCounter AtomicLong), the largest one always gets
+            // committed into the database
+            byte[] serializedValue = serializeFileSequenceCounter(incrementedValue);
+            agilityContext.accept(aContext -> aContext.ensureActive().mutate(MutationType.BYTE_MAX, sequenceSubspaceKey, serializedValue));
 
-        return incrementedValue;
+            return incrementedValue;
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     /**
@@ -524,7 +530,7 @@ public class FDBDirectory extends Directory  {
             ));
         } catch (ExecutionException e) {
             // This would happen when the cache.get() fails to execute the lambda (not when the block's future is joined)
-            throw new RecordCoreException(e.getCause());
+            throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
         }
     }
 
@@ -572,10 +578,12 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     @Nonnull
-    public String[] listAll() {
+    public String[] listAll() throws IOException {
         long startTime = System.nanoTime();
         try {
             return getFileReferenceCache().keySet().stream().filter(name -> !name.endsWith(".pky")).toArray(String[]::new);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         } finally {
             agilityContext.recordEvent(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
@@ -648,7 +656,8 @@ public class FDBDirectory extends Directory  {
     }
 
     @Nonnull
-    private CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
+    @VisibleForTesting
+    protected CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         if (fileReferenceCache.get() != null) {
             return CompletableFuture.completedFuture(fileReferenceCache.get());
         }
@@ -714,12 +723,15 @@ public class FDBDirectory extends Directory  {
                 //  so we might need to delete the primary key entries another way for case where tryDeleteDocument
                 //  wasn't used.
             }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         } finally {
             agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_FILE);
         }
     }
 
-    private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
+    @VisibleForTesting
+    protected boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
         // TODO make this transactional or ensure that it is deleted in the right order
         FDBLuceneFileReference value = cache.remove(name);
         if (value == null) {
@@ -767,7 +779,7 @@ public class FDBDirectory extends Directory  {
      * @throws NoSuchFileException if the file reference doesn't exist.
      */
     @Override
-    public long fileLength(@Nonnull String name) throws NoSuchFileException {
+    public long fileLength(@Nonnull String name) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("fileLength",
                     LuceneLogMessageKeys.FILE_NAME, name));
@@ -779,6 +791,8 @@ public class FDBDirectory extends Directory  {
                 throw new NoSuchFileException(name);
             }
             return reference.getSize();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         } finally {
             agilityContext.recordEvent(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH, System.nanoTime() - startTime);
         }
@@ -817,6 +831,8 @@ public class FDBDirectory extends Directory  {
             } else {
                 return new FDBIndexOutput(name, name, this);
             }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         } finally {
             agilityContext.recordEvent(LuceneEvents.Waits.WAIT_LUCENE_CREATE_OUTPUT, System.nanoTime() - startTime);
         }
@@ -869,7 +885,7 @@ public class FDBDirectory extends Directory  {
      * @param dest desc
      */
     @Override
-    public void rename(@Nonnull final String source, @Nonnull final String dest) {
+    public void rename(@Nonnull final String source, @Nonnull final String dest) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("rename",
                     LogMessageKeys.SOURCE_FILE, source,
@@ -896,6 +912,8 @@ public class FDBDirectory extends Directory  {
 
                 return null;
             }));
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         } finally {
             agilityContext.increment(LuceneEvents.Counts.LUCENE_RENAME_FILE);
         }
@@ -908,21 +926,25 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("openInput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name)) {
-            final FDBLuceneFileReference reference = getFDBLuceneFileReference(name);
-            if (reference.getContent().isEmpty()) {
-                throw new RecordCoreException("File content is not stored in reference")
-                        .addLogInfo(LuceneLogMessageKeys.FILE_NAME, name);
+        try {
+            if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name)) {
+                final FDBLuceneFileReference reference = getFDBLuceneFileReference(name);
+                if (reference.getContent().isEmpty()) {
+                    throw new RecordCoreException("File content is not stored in reference")
+                            .addLogInfo(LuceneLogMessageKeys.FILE_NAME, name);
+                } else {
+                    return new ByteBuffersIndexInput(
+                            new ByteBuffersDataInput(reference.getContent().asReadOnlyByteBufferList()), name);
+                }
+            } else if (FDBDirectory.isFieldInfoFile(name) || FDBDirectory.isStoredFieldsFile(name)) {
+                return new EmptyIndexInput(name);
             } else {
-                return new ByteBuffersIndexInput(
-                        new ByteBuffersDataInput(reference.getContent().asReadOnlyByteBufferList()), name);
+                // the contract is that this should throw an exception, but we don't
+                // https://github.com/FoundationDB/fdb-record-layer/issues/2361
+                return new FDBIndexInput(name, this);
             }
-        } else if (FDBDirectory.isFieldInfoFile(name) || FDBDirectory.isStoredFieldsFile(name)) {
-            return new EmptyIndexInput(name);
-        } else {
-            // the contract is that this should throw an exception, but we don't
-            // https://github.com/FoundationDB/fdb-record-layer/issues/2361
-            return new FDBIndexInput(name, this);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 
@@ -948,10 +970,15 @@ public class FDBDirectory extends Directory  {
      * No Op that reports in debug mode the block and file reference cache stats.
      */
     @Override
-    public void close() {
+    public void close() throws IOException {
         try {
             clearLockIfLocked();     // no-op if already closed. This call may or may not be called in a recovery path.
             agilityContext.flush();  // no-op if already flushed or closed.
+        } catch (RecordCoreException ex) {
+            // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
+            agilityContext.abortAndClose();
+            clearLockIfLocked();     // after closing, this call will be performed in a recovery path
+            throw LuceneExceptions.toIoException(ex, null);
         } catch (RuntimeException ex) {
             // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
             agilityContext.abortAndClose();
@@ -994,8 +1021,7 @@ public class FDBDirectory extends Directory  {
     }
 
     @Nullable
-    public <T> T asyncToSync(StoreTimer.Wait event,
-                             @Nonnull CompletableFuture<T> async ) {
+    public <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
         return agilityContext.asyncToSync(event, async);
     }
 
@@ -1063,16 +1089,20 @@ public class FDBDirectory extends Directory  {
     // Map segment name to integer id.
     // TODO: Could store this elsewhere, such as inside compound file.
     public long primaryKeySegmentId(@Nonnull String segmentName, boolean create) throws IOException {
-        final String fileName = IndexFileNames.segmentFileName(segmentName, "", "pky");
-        FDBLuceneFileReference ref = getFDBLuceneFileReference(fileName);
-        if (ref == null) {
-            if (!create) {
-                throw new NoSuchFileException(segmentName);
+        try {
+            final String fileName = IndexFileNames.segmentFileName(segmentName, "", "pky");
+            FDBLuceneFileReference ref = getFDBLuceneFileReference(fileName);
+            if (ref == null) {
+                if (!create) {
+                    throw new NoSuchFileException(segmentName);
+                }
+                ref = new FDBLuceneFileReference(getIncrement(), 0, 0, 0);
+                writeFDBLuceneFileReference(fileName, ref);
             }
-            ref = new FDBLuceneFileReference(getIncrement(), 0, 0, 0);
-            writeFDBLuceneFileReference(fileName, ref);
+            return ref.getId();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-        return ref.getId();
     }
 
     byte[] fileLockKey(String lockName) {

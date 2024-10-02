@@ -22,8 +22,10 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import org.apache.lucene.store.DataInput;
@@ -65,7 +67,7 @@ public final class FDBIndexOutput extends IndexOutput {
      * @param name name of resource
      * @param fdbDirectory existing FDBDirectory
      */
-    public FDBIndexOutput(@Nonnull String name, @Nonnull FDBDirectory fdbDirectory) {
+    public FDBIndexOutput(@Nonnull String name, @Nonnull FDBDirectory fdbDirectory) throws IOException {
         this(name, name, fdbDirectory);
     }
 
@@ -76,7 +78,7 @@ public final class FDBIndexOutput extends IndexOutput {
      * @param name name of resource
      * @param fdbDirectory existing FDBDirectory
      */
-    public FDBIndexOutput(@Nonnull String resourceDescription, @Nonnull String name, @Nonnull FDBDirectory fdbDirectory) {
+    public FDBIndexOutput(@Nonnull String resourceDescription, @Nonnull String name, @Nonnull FDBDirectory fdbDirectory) throws IOException {
         super(resourceDescription, name);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("init",
@@ -97,15 +99,19 @@ public final class FDBIndexOutput extends IndexOutput {
      */
     @Override
     @SpotBugsSuppressWarnings(value = "RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", justification = "it is fine if it is not accepted")
-    public void close() {
+    public void close() throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("close()",
                     LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
-        if (buffer != null) {
-            flush();
-            buffer = null; // prevent writing after close
-            fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
+        try {
+            if (buffer != null) {
+                flush();
+                buffer = null; // prevent writing after close
+                fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
+            }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 
@@ -129,11 +135,15 @@ public final class FDBIndexOutput extends IndexOutput {
     }
 
     @Override
-    public void writeByte(final byte b) {
-        buffer.put(b);
-        crc.update(b);
-        currentSize++;
-        flushIfFullBuffer();
+    public void writeByte(final byte b) throws IOException {
+        try {
+            buffer.put(b);
+            crc.update(b);
+            currentSize++;
+            flushIfFullBuffer();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     /**
@@ -148,16 +158,20 @@ public final class FDBIndexOutput extends IndexOutput {
 
     @Override
     public void copyBytes(@Nonnull final DataInput input, final long numBytes) throws IOException {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("copy bytes",
-                    LuceneLogMessageKeys.INPUT, input,
-                    LuceneLogMessageKeys.BYTE_NUMBER, numBytes));
+        try {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(getLogMessage("copy bytes",
+                        LuceneLogMessageKeys.INPUT, input,
+                        LuceneLogMessageKeys.BYTE_NUMBER, numBytes));
+            }
+            // This is an attempt to pre-fetch blocks to speed up large copies (Segment Merge Process)
+            if (input instanceof PrefetchableBufferedChecksumIndexInput) {
+                setExpectedBytes((PrefetchableBufferedChecksumIndexInput)input, numBytes);
+            }
+            super.copyBytes(input, numBytes);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-        // This is an attempt to pre-fetch blocks to speed up large copies (Segment Merge Process)
-        if (input instanceof PrefetchableBufferedChecksumIndexInput) {
-            setExpectedBytes( (PrefetchableBufferedChecksumIndexInput) input, numBytes);
-        }
-        super.copyBytes(input, numBytes);
     }
 
     /**
@@ -169,27 +183,31 @@ public final class FDBIndexOutput extends IndexOutput {
      * @param length length
      */
     @Override
-    public void writeBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
+    public void writeBytes(@Nonnull final byte[] bytes, final int offset, final int length) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("writeBytes()",
                     LuceneLogMessageKeys.OFFSET, offset,
                     LuceneLogMessageKeys.LENGTH, length));
         }
-        crc.update(bytes, offset, length);
-        int bytesWritten = 0;
-        while (bytesWritten < length) {
-            int toWrite = Math.min(
-                    length - bytesWritten, // the total leftover bytes to write
-                    (blockSize - buffer.position()) // the free space in this buffer
-            );
-            buffer.put(bytes, bytesWritten + offset, toWrite);
-            bytesWritten += toWrite;
-            currentSize += toWrite;
-            flushIfFullBuffer();
+        try {
+            crc.update(bytes, offset, length);
+            int bytesWritten = 0;
+            while (bytesWritten < length) {
+                int toWrite = Math.min(
+                        length - bytesWritten, // the total leftover bytes to write
+                        (blockSize - buffer.position()) // the free space in this buffer
+                );
+                buffer.put(bytes, bytesWritten + offset, toWrite);
+                bytesWritten += toWrite;
+                currentSize += toWrite;
+                flushIfFullBuffer();
+            }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 
-    private void flush() {
+    private void flush() throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("flush()",
                     LuceneLogMessageKeys.FILE_ID, id));
@@ -203,7 +221,7 @@ public final class FDBIndexOutput extends IndexOutput {
         buffer.clear();
     }
 
-    private void flushIfFullBuffer() {
+    private void flushIfFullBuffer() throws IOException {
         if (buffer.position() >= blockSize) {
             flush();
         }

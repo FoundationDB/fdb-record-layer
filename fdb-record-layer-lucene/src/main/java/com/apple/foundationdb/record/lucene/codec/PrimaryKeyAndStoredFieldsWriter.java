@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -53,11 +55,15 @@ class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter 
     @Override
     public void writeField(FieldInfo info, IndexableField field) throws IOException {
         super.writeField(info, field);
-        if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(info.name)) {
-            final byte[] primaryKey = field.binaryValue().bytes;
-            lucenePrimaryKeySegmentIndex.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, info.name);
-            // TODO we store this twice, but we'll probably want to optimize and only store this once
-            storedFields.setPrimaryKey(ByteString.copyFrom(primaryKey));
+        try {
+            if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(info.name)) {
+                final byte[] primaryKey = field.binaryValue().bytes;
+                lucenePrimaryKeySegmentIndex.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, info.name);
+                // TODO we store this twice, but we'll probably want to optimize and only store this once
+                storedFields.setPrimaryKey(ByteString.copyFrom(primaryKey));
+            }
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 }
