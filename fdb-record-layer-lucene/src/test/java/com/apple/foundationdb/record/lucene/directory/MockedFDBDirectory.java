@@ -1,5 +1,5 @@
 /*
- * MockedFdbDirectory.java
+ * MockedFDBDirectory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -19,7 +19,6 @@
  */
 
 package com.apple.foundationdb.record.lucene.directory;
-
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
