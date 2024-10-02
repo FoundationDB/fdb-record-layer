@@ -82,6 +82,7 @@ import java.util.stream.StreamSupport;
 public class SemanticAnalyzer {
 
     private static final int BITMAP_DEFAULT_ENTRY_SIZE = 10_000;
+    private static final Set<String> BITMAP_SCALAR_FUNCTIONS = ImmutableSet.of("bitmap_bucket_offset", "bitmap_bit_position");
     @Nonnull
     private final SchemaTemplate metadataCatalog;
 
@@ -734,7 +735,7 @@ public class SemanticAnalyzer {
         final var builtInFunction = functionCatalog.lookUpFunction(functionName);
         List<Expression> argumentList = new ArrayList<>();
         argumentList.addAll(List.of(arguments));
-        if ("bitmap_bucket_offset".equals(functionName) || "bitmap_bit_position".equals(functionName)) {
+        if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
         }
         final List<? extends Typed> valueArgs = argumentList.stream().map(Expression::getUnderlying)

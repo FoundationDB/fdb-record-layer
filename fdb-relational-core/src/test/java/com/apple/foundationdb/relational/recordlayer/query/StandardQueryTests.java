@@ -878,8 +878,8 @@ public class StandardQueryTests {
 
     @Test
     void testBitmap() throws Exception {
-        final String query = "SELECT bitmap_construct_agg(bitmap_bit_position(uid)) as bitmap, category, bitmap_bucket_offset(uid) as offset FROM T1\n" +
-                "GROUP BY category, bitmap_bucket_offset(uid)\n";
+        final String query = "SELECT BITMAP_CONSTRUCT_AGG(BITMAP_BIT_POSITION(uid)) as bitmap, category, BITMAP_BUCKET_OFFSET(uid) as offset FROM T1\n" +
+                "GROUP BY category, BITMAP_BUCKET_OFFSET(uid)\n";
         final String schemaTemplate = "CREATE TABLE T1(uid bigint, category string, PRIMARY KEY(uid))\n" +
                 "create index bitmapIndex as\n" +
                 query;
