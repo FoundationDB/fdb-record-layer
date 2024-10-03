@@ -723,6 +723,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return directoryManager.getDirectory(groupingKey, partitionId);
     }
 
+    @VisibleForTesting
+    public FDBDirectoryManager getDirectoryManager() {
+        return directoryManager;
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    protected FDBDirectoryManager createDirectoryManager(final @Nonnull IndexMaintainerState state) {
+        return FDBDirectoryManager.getManager(state);
+    }
+
     /**
      * Simple throttling mechanism for log messages.
      * Since the index writer may see many of these errors in quick succession, limit the number of log messages by ensuring

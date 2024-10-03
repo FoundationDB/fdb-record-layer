@@ -1,5 +1,5 @@
 /*
- * MockedFdbDirectory.java
+ * MockedFDBDirectory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.store.IndexInput;
@@ -35,6 +35,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 
 /**
  * An {@link FDBDirectory} used for testing. It has the ability to delegate calls to the production implementation as well as fail as needed.
@@ -51,10 +52,25 @@ public class MockedFDBDirectory extends FDBDirectory {
         LIST_ALL,
         GET_FILE_REFERENCE_CACHE_ASYNC,
         DELETE_FILE_INTERNAL,
-        GET_PRIMARY_KEY_SEGMENT_INDEX
+        GET_PRIMARY_KEY_SEGMENT_INDEX,
+        GET_ALL_FIELDS_INFO_STREAM
     }
 
-    private EnumMap<Methods, FailureDescription> failureDescriptions = new EnumMap<>(Methods.class);
+    /**
+     * The scope used to add failures.
+     * LOCAL only impacts the mocked directory on which the call is made
+     * GLOBAL impacts all mocked directories loaded by the class loader
+     *
+     * NOTE: Since GLOBAL failures are placed in a static variable, setting this in a test requires it being cleaned up
+     * afterward to ensure no other tests are impacted.
+     */
+    public enum Scope { LOCAL, GLOBAL }
+
+    // The GLOBAL state (static, available to all mocks)
+    private static EnumMap<Methods, FailureDescription> globalFailureDescriptions = new EnumMap<>(Methods.class);
+
+    // The LOCAL state (available to current instance)
+    private EnumMap<Methods, FailureDescription> localFailureDescriptions = new EnumMap<>(Methods.class);
     private EnumMap<Methods, AtomicLong> invocationCounts = new EnumMap<>(Methods.class);
 
     public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
@@ -66,12 +82,25 @@ public class MockedFDBDirectory extends FDBDirectory {
     }
 
     public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count) {
-        failureDescriptions.put(method, new FailureDescription(method, exception, count));
+        addFailure(method, exception, count, Scope.LOCAL);
+    }
+
+    public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count, Scope scope) {
+        if (scope == Scope.LOCAL) {
+            localFailureDescriptions.put(method, new FailureDescription(method, exception, count));
+        } else {
+            globalFailureDescriptions.put(method, new FailureDescription(method, exception, count));
+        }
     }
 
     public void removeFailure(@Nonnull Methods method) {
-        failureDescriptions.remove(method);
+        localFailureDescriptions.remove(method);
+        globalFailureDescriptions.remove(method);
         invocationCounts.remove(method);
+    }
+
+    public static void clearGlobal() {
+        globalFailureDescriptions.clear();
     }
 
     @Override
@@ -130,6 +159,12 @@ public class MockedFDBDirectory extends FDBDirectory {
         return super.getPrimaryKeySegmentIndex();
     }
 
+    @Override
+    Stream<NonnullPair<Long, byte[]>> getAllFieldInfosStream() {
+        checkFailureForCoreException(Methods.GET_ALL_FIELDS_INFO_STREAM);
+        return super.getAllFieldInfosStream();
+    }
+
     private void checkFailureForIoException(@Nonnull final Methods method) throws IOException {
         try {
             checkFailure(method);
@@ -151,7 +186,11 @@ public class MockedFDBDirectory extends FDBDirectory {
     }
 
     private void checkFailure(@Nonnull final Methods method) throws Exception {
-        FailureDescription failureDescription = failureDescriptions.get(method);
+        // Local definitions have precedence over global ones
+        FailureDescription failureDescription = localFailureDescriptions.get(method);
+        if (failureDescription == null) {
+            failureDescription = globalFailureDescriptions.get(method);
+        }
         if (failureDescription != null) {
             AtomicLong count = invocationCounts.computeIfAbsent(method, m -> new AtomicLong(0));
             long invocations = count.incrementAndGet();
