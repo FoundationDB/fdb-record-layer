@@ -29,10 +29,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.geophile.z.SpatialIndex;
 import com.geophile.z.SpatialJoin;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 

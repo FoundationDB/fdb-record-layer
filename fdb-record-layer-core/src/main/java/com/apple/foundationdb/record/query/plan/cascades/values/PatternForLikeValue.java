@@ -37,17 +37,18 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.util.StringUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ObjectArrays;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -56,8 +57,24 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class PatternForLikeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
-    private static final String[] SEARCH = {"%", "_", "|", ".", "^", "$", "\\", "*", "+", "?", "[", "]", "{", "}", "(", ")"};
-    private static final String[] REPLACE = {".*", ".", "\\|", "\\.", "\\^", "\\$", "\\\\", "\\*", "\\+", "\\?", "\\[", "\\]", "\\{", "\\}", "\\(", "\\)"};
+    private static final Map<String, String> REPLACE_MAP = ImmutableMap.<String, String>builder()
+            .put("%", ".*")
+            .put("_", ".")
+            .put("|", "\\|")
+            .put(".", "\\.")
+            .put("^", "\\^")
+            .put("$", "\\$")
+            .put("\\", "\\\\")
+            .put("*", "\\*")
+            .put("+", "\\+")
+            .put("?", "\\?")
+            .put("[", "\\[")
+            .put("]", "\\]")
+            .put("{", "\\{")
+            .put("}", "\\}")
+            .put("(", "\\(")
+            .put(")", "\\)")
+            .build();
 
     @Nonnull
     private final Value patternChild;
@@ -83,14 +100,18 @@ public class PatternForLikeValue extends AbstractValue {
         if (patternStr == null) {
             return null;
         }
-        String[] search = SEARCH;
-        String[] replace = REPLACE;
-        if (escapeChar != null) {
+        Map<String, String> replaceMap;
+        if (escapeChar == null) {
+            replaceMap = REPLACE_MAP;
+        } else {
             SemanticException.check(escapeChar.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-            search = ObjectArrays.concat(new String[] {escapeChar + "_", escapeChar + "%"}, SEARCH, String.class);
-            replace = ObjectArrays.concat(new String[] {"_", "%"}, REPLACE, String.class);
+            replaceMap = ImmutableMap.<String, String>builderWithExpectedSize(REPLACE_MAP.size() + 2)
+                    .put(escapeChar + "_", "_")
+                    .put(escapeChar + "%", "%")
+                    .putAll(REPLACE_MAP)
+                    .build();
         }
-        return "^" + StringUtils.replaceEach(patternStr, search, replace) + "$";
+        return "^" + StringUtils.replaceEach(patternStr, replaceMap) + "$";
     }
 
     @Nonnull
