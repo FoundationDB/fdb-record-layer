@@ -87,7 +87,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             if (quantifier instanceof Quantifier.Existential) {
                 edge = new ExistentialQuantifierEdge(label, dependsOn);
             } else if (quantifier instanceof Quantifier.ForEach) {
-                edge = new ForEachQuantifierEdge(label, dependsOn);
+                edge = new ForEachQuantifierEdge(label, ((Quantifier.ForEach)quantifier).isNullOnEmpty(), dependsOn);
             } else if (quantifier instanceof Quantifier.Physical) {
                 edge = new PhysicalQuantifierEdge(label, dependsOn);
             } else {
@@ -808,7 +808,11 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         }
 
         public ForEachQuantifierEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
-            super(label, dependsOn);
+            this(label, false, dependsOn);
+        }
+
+        public ForEachQuantifierEdge(@Nullable final String label, boolean isNullIfEmpty, final Set<? extends AbstractEdge> dependsOn) {
+            super(isNullIfEmpty ? label + "||∅" : label, dependsOn);
         }
     }
 

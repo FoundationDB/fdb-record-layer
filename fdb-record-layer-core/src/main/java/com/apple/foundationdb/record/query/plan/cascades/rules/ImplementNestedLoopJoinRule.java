@@ -161,12 +161,11 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
             outerRef = call.memoizePlans(
                     new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
                             new NullValue(outerQuantifier.getFlowedObjectType())));
-        }  else if (outerQuantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)outerQuantifier).hasDefaultOnEmpty()) {
-            final var forEachQuantifier = ((Quantifier.ForEach)outerQuantifier);
+        }  else if (outerQuantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)outerQuantifier).isNullOnEmpty()) {
             outerRef = call.memoizePlans(
                     new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
-                            forEachQuantifier.getDefaultOnEmpty()));
+                            new NullValue(outerQuantifier.getFlowedObjectType())));
         }
 
         if (!outerPredicates.isEmpty()) {

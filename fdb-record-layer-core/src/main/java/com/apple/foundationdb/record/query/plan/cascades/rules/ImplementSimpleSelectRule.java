@@ -108,14 +108,13 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                                     .withAlias(quantifier.getAlias())
                                     .build(referenceBuilder.reference()),
                             new NullValue(quantifier.getFlowedObjectType())));
-        } else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).hasDefaultOnEmpty()) {
-            final var defaultValue = ((Quantifier.ForEach)quantifier).getDefaultOnEmpty();
+        } else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
             referenceBuilder = call.memoizePlansBuilder(
                     new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
                                     .build(referenceBuilder.reference()),
-                            defaultValue));
+                            new NullValue(quantifier.getFlowedObjectType())));
         }
 
         final var nonTautologyPredicates =

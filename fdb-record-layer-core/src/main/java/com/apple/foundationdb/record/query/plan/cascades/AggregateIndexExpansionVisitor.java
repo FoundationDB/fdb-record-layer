@@ -38,9 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -271,28 +268,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 groupingColsValue.getResultType().getFields().isEmpty() ? null : groupingColsValue,
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
                 GroupByExpression::nestedResults, selectWhereQun);
-        final var groupByQuantifier = constructGroupByQuantifier(groupByExpression);
-        return NonnullPair.of(groupByQuantifier, ImmutableList.of());
-    }
-
-    @Nonnull
-    private Quantifier constructGroupByQuantifier(@Nonnull final GroupByExpression groupByExpression) {
         final var groupByReference = Reference.of(groupByExpression);
-        if (groupByExpression.getGroupingValue() == null) {
-            final var defaultValue = Verify.verifyNotNull(groupByExpression.getResultValue().replace(v -> {
-                // as per SQL standard section 4.16.4 (Aggregate functions):
-                // "If no row qualifies, then the result of COUNT is 0 (zero), and the result of any other aggregate function is the null value."
-                if (v instanceof CountValue) {
-                    return LiteralValue.ofScalar(0L);
-                }
-                if (v instanceof NumericAggregationValue || v instanceof IndexableAggregateValue) {
-                    return new NullValue(v.getResultType());
-                }
-                return v;
-            }));
-            return Quantifier.forEach(groupByReference, defaultValue);
-        }
-        return Quantifier.forEach(groupByReference);
+        final var groupByQuantifier = Quantifier.forEach(groupByReference);
+        return NonnullPair.of(groupByQuantifier, ImmutableList.of());
     }
 
     @Nonnull
@@ -304,7 +282,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 ? null
                 : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
 
-        final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1), 0);
+        Value aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1), 0);
 
         final var placeholderAliases = ImmutableList.<CorrelationIdentifier>builder();
         final var selectHavingGraphExpansionBuilder = GraphExpansion.builder().addQuantifier(groupByQun);

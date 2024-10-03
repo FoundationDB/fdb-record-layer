@@ -119,7 +119,7 @@ public class QuantifierMatchers {
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmpty() {
         return typedWithDownstream(Quantifier.ForEach.class,
-                Extractor.of(Quantifier.ForEach::hasDefaultOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
+                Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
                 PrimitiveMatchers.equalsObject(true));
     }
 
@@ -129,13 +129,13 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return typedWithDownstream(Quantifier.ForEach.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(Quantifier.ForEach.class,
                         ImmutableList.of(
                                 typedWithDownstream(Quantifier.ForEach.class,
-                                        Extractor.of(Quantifier.ForEach::hasDefaultOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
+                                        Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
                                         PrimitiveMatchers.equalsObject(true)),
                                 typedWithDownstream(Quantifier.ForEach.class,
                                         Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
