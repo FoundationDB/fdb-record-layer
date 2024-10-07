@@ -78,6 +78,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
@@ -210,6 +211,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         final var bestMaximumCoverageMatches =
                 maximumCoverageMatches(matchPartition, requestedOrderings);
+
         if (bestMaximumCoverageMatches.isEmpty()) {
             return LinkedIdentitySet.of();
         }
@@ -223,7 +225,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         // create single scan accesses
         for (final var bestMatchWithIndex : bestMaximumCoverageMatches) {
             final var bestMatch = bestMatchWithIndex.getElement();
-            if (bestMatch.getContainingMatch() == ContainingMatch.DIFFERENT_MATCH_CANDIDATE) {
+            if (bestMatch.getContainingMatch() == ContainingAccess.MAYBE_CONTAINING) {
                 if (bestMatch.getSatisfyingRequestedOrderings().stream().noneMatch(RequestedOrdering::isExhaustive)) {
                     continue;
                 }
@@ -430,52 +432,65 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @SuppressWarnings({"java:S1905", "java:S135"})
     private static List<Vectored<SingleMatchedAccess>> maximumCoverageMatches(@Nonnull final Collection<? extends PartialMatch> matches,
                                                                               @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        final var partialMatchesWithCompensation =
+        final var singleMatchedAccesses =
                 prepareMatchesAndCompensations(matches, requestedOrderings);
 
         int index = 0;
         final var maximumCoverageMatchesBuilder = ImmutableList.<Vectored<SingleMatchedAccess>>builder();
-        for (var i = 0; i < partialMatchesWithCompensation.size(); i++) {
-            final var outerPartialMatchWithCompensation =
-                    partialMatchesWithCompensation.get(i);
-            final var outerMatch = outerPartialMatchWithCompensation.getPartialMatch();
-            final var outerBindingPredicates = outerMatch.getBindingPredicates();
+        for (var i = 0; i < singleMatchedAccesses.size(); i++) {
+            final var outerAccess = singleMatchedAccesses.get(i);
+            final var innerAccessPair =
+                    findContainingAccess(singleMatchedAccesses, outerAccess,
+                            innerAccess -> outerAccess.getPartialMatch().getMatchCandidate() ==
+                                    innerAccess.getPartialMatch().getMatchCandidate());
 
-            var foundContainingInner = ContainingMatch.NOT_FOUND;
-            for (var j = 0; j < partialMatchesWithCompensation.size(); j++) {
-                final var innerPartialMatchWithCompensation =
-                        partialMatchesWithCompensation.get(j);
-
-                final var innerBindingPredicates =
-                        innerPartialMatchWithCompensation.getPartialMatch()
-                                .getBindingPredicates();
-                // check if outer is completely contained in inner
-                if (outerBindingPredicates.size() >= innerBindingPredicates.size()) {
-                    break;
-                }
-
-                if (i != j && innerBindingPredicates.containsAll(outerBindingPredicates)) {
-                    if (outerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate() ==
-                            innerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate()) {
-                        foundContainingInner  = ContainingMatch.SAME_MATCH_CANDIDATE;
-                        break;
-                    }
-                    foundContainingInner = ContainingMatch.DIFFERENT_MATCH_CANDIDATE;
-                    break;
-                }
-            }
-
-            if (foundContainingInner != ContainingMatch.SAME_MATCH_CANDIDATE) {
-                //
-                // no other partial match completely contained this one
-                //
+            if (innerAccessPair == null ||
+                    innerAccessPair.getRight() != ContainingAccess.CONTAINING) {
                 maximumCoverageMatchesBuilder.add(
-                        Vectored.of(outerPartialMatchWithCompensation.withContainingMatch(foundContainingInner), index));
+                        Vectored.of(outerAccess.withContainingMatch(
+                                innerAccessPair == null
+                                ? ContainingAccess.NOT_FOUND
+                                : ContainingAccess.MAYBE_CONTAINING), index));
                 index ++;
             }
         }
 
         return maximumCoverageMatchesBuilder.build();
+    }
+
+    @Nullable
+    private static NonnullPair<SingleMatchedAccess, ContainingAccess> findContainingAccess(@Nonnull final List<SingleMatchedAccess> sortedSingleMatches,
+                                                                                           @Nonnull final SingleMatchedAccess probeSingleMatchedAccess,
+                                                                                           @Nonnull final Predicate<SingleMatchedAccess> isContainingAccessPredicate) {
+        final var probeMatch = probeSingleMatchedAccess.getPartialMatch();
+        final var probeBindingPredicates = probeMatch.getBindingPredicates();
+
+        SingleMatchedAccess containingSingleMatchedAccess = null;
+        for (final var singleMatchedAccess : sortedSingleMatches) {
+            final var bindingPredicates =
+                    singleMatchedAccess.getPartialMatch()
+                            .getBindingPredicates();
+            // check if outer is completely contained in inner
+            if (probeBindingPredicates.size() >= bindingPredicates.size()) {
+                break;
+            }
+
+            if (!probeSingleMatchedAccess.equals(singleMatchedAccess) &&
+                    bindingPredicates.containsAll(probeBindingPredicates)) {
+                if (isContainingAccessPredicate.test(singleMatchedAccess)) {
+                    return NonnullPair.of(singleMatchedAccess, ContainingAccess.CONTAINING);
+                }
+                if (containingSingleMatchedAccess == null) {
+                    containingSingleMatchedAccess = singleMatchedAccess;
+                }
+            }
+        }
+
+        if (containingSingleMatchedAccess != null) {
+            NonnullPair.of(containingSingleMatchedAccess, ContainingAccess.MAYBE_CONTAINING);
+        }
+
+        return null;
     }
 
     /**
@@ -505,7 +520,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        false, satisfyingOrderingsPair.getRight(), ContainingMatch.NOT_FOUND));
+                        false, satisfyingOrderingsPair.getRight(), ContainingAccess.NOT_FOUND));
             }
 
             //
@@ -518,7 +533,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             //
             if (scanDirection == ScanDirection.REVERSE /* || scanDirection == ScanDirection.BOTH */) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        true, satisfyingOrderingsPair.getRight(), ContainingMatch.NOT_FOUND));
+                        true, satisfyingOrderingsPair.getRight(), ContainingAccess.NOT_FOUND));
             }
         }
 
@@ -757,6 +772,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                         @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                                         @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var partitionOrderings = adjustMatchedOrderingParts(partition);
+        final var intersectionOrdering = intersectOrderings(partitionOrderings);
 
         final var equalityBoundKeyValues =
                 partitionOrderings
@@ -767,8 +783,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                         .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
                                         .map(MatchedOrderingPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
-
-        final var intersectionOrdering = intersectOrderings(partitionOrderings);
         boolean hasCommonOrdering = false;
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
         for (final var requestedOrdering : requestedOrderings) {
@@ -921,18 +935,18 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         @Nonnull
         private final Set<RequestedOrdering> satisfyingRequestedOrderings;
         @Nonnull
-        private final ContainingMatch containingMatch;
+        private final ContainingAccess containingAccess;
 
         public SingleMatchedAccess(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Compensation compensation,
                                    final boolean reverseScanOrder,
                                    @Nonnull final Set<RequestedOrdering> satisfyingRequestedOrderings,
-                                   @Nonnull final ContainingMatch containingMatch) {
+                                   @Nonnull final ContainingAccess containingAccess) {
             this.partialMatch = partialMatch;
             this.compensation = compensation;
             this.reverseScanOrder = reverseScanOrder;
             this.satisfyingRequestedOrderings = ImmutableSet.copyOf(satisfyingRequestedOrderings);
-            this.containingMatch = containingMatch;
+            this.containingAccess = containingAccess;
         }
 
         @Nonnull
@@ -955,14 +969,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         @Nonnull
-        public ContainingMatch getContainingMatch() {
-            return containingMatch;
+        public ContainingAccess getContainingMatch() {
+            return containingAccess;
         }
 
         @Nonnull
-        public SingleMatchedAccess withContainingMatch(@Nonnull ContainingMatch newContainingMatch) {
+        public SingleMatchedAccess withContainingMatch(@Nonnull ContainingAccess newContainingAccess) {
             return new SingleMatchedAccess(getPartialMatch(), getCompensation(), isReverseScanOrder(),
-                    getSatisfyingRequestedOrderings(), newContainingMatch);
+                    getSatisfyingRequestedOrderings(), newContainingAccess);
         }
     }
 
@@ -1058,9 +1072,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         BOTH
     }
 
-    private enum ContainingMatch {
+    private enum ContainingAccess {
         NOT_FOUND,
-        SAME_MATCH_CANDIDATE,
-        DIFFERENT_MATCH_CANDIDATE
+        CONTAINING,
+        MAYBE_CONTAINING
     }
 }

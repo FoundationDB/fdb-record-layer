@@ -69,8 +69,9 @@ public class PushRequestedOrderingThroughUnionRule extends CascadesRule<LogicalU
         }
 
         // push only exhaustive requested orderings
-        final var pushedRequestedOrderings =
-                requestedOrderingsOptional.get()
+        final var requestedOrderings = requestedOrderingsOptional.get();
+        final var exhaustiveRequestedOrderings =
+                requestedOrderings
                         .stream()
                         .map(RequestedOrdering::exhaustive)
                         .collect(ImmutableSet.toImmutableSet());
@@ -79,10 +80,21 @@ public class PushRequestedOrderingThroughUnionRule extends CascadesRule<LogicalU
         final List<? extends Quantifier.ForEach> rangesOverQuantifiers =
                 bindings.getAll(innerQuantifierMatcher);
 
+        for (int i = 0; i < rangesOverQuantifiers.size(); i++) {
+            final var rangesOverQuantifier = rangesOverQuantifiers.get(i);
+            //
+            // The first quantifier needs to produce all possible orderings, the other ones get specifically requested
+            // in the union implementation rule.
+            //
+            call.pushConstraint(rangesOverQuantifier.getRangesOver(),
+                    RequestedOrderingConstraint.REQUESTED_ORDERING,
+                    i == 0 ? exhaustiveRequestedOrderings : requestedOrderings);
+        }
+
         final var firstQuantifier =
                 Objects.requireNonNull(Iterables.getFirst(rangesOverQuantifiers, null));
         call.pushConstraint(firstQuantifier.getRangesOver(),
                 RequestedOrderingConstraint.REQUESTED_ORDERING,
-                pushedRequestedOrderings);
+                exhaustiveRequestedOrderings);
     }
 }
