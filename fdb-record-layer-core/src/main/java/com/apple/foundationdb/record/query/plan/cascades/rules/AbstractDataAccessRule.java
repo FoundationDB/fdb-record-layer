@@ -63,6 +63,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,6 +73,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -222,6 +224,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         final var resultSet = new LinkedIdentitySet<RelationalExpression>();
 
+        final var intersectionCache =
+                Maps.<BitSet, IntersectionCachedItem>newLinkedHashMap();
+
         // create single scan accesses
         for (final var bestMatchWithIndex : bestMaximumCoverageMatches) {
             final var bestMatch = bestMatchWithIndex.getElement();
@@ -231,7 +236,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 }
             }
             applyCompensationForSingleDataAccess(call, bestMatch, bestMatchToPlanMap.get(bestMatch.getPartialMatch()))
-                    .ifPresent(resultSet::add);
+                    .ifPresent(expression -> {
+                        resultSet.add(expression);
+                        final var cacheKey = new BitSet();
+                        cacheKey.set(bestMatchWithIndex.getPosition());
+                        intersectionCache.put(cacheKey,
+                                new IntersectionCachedItem(orderingFromSingleMatchedAccess(bestMatchWithIndex),
+                                        ImmutableList.of(expression)));
+                    });
         }
 
         final var bestMatchToDistinctPlanMap =
@@ -294,6 +306,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             requestedOrderings);
             if (binaryIntersections.hasCommonIntersectionOrdering()) {
                 resultSet.addAll(binaryIntersections.getExpressions());
+                addToIntersectionCache(intersectionCache, binaryPartition, binaryIntersections);
             } else {
                 if (sieveBitMatrix != null) {
                     final int i = binaryPartition.get(0).getPosition();
@@ -353,7 +366,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     Verify.verify(intersectionResult.hasCommonIntersectionOrdering());
                     hasCommonOrderingForK = true;
 
+                    Debugger.sanityCheck(() -> {
+                        for (final var kMinus1Partition : ChooseK.chooseK(kPartition, kPartition.size() - 1)) {
+                            final var checkCacheKey = cacheKey(kMinus1Partition);
+                            Verify.verify(intersectionCache.get(checkCacheKey) != null);
+                        }
+                    });
                     resultSet.addAll(intersectionResult.getExpressions());
+                    addToIntersectionCache(intersectionCache, kPartition, intersectionResult);
                 }
 
                 if (!hasCommonOrderingForK) {
@@ -771,7 +791,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                         @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
                                                                         @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                                         @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        final var partitionOrderings = adjustMatchedOrderingParts(partition);
+        final var partitionOrderings =
+                partition.stream()
+                        .map(AbstractDataAccessRule::adjustMatchedOrderingParts)
+                        .collect(ImmutableList.toImmutableList());
         final var intersectionOrdering = intersectOrderings(partitionOrderings);
 
         final var equalityBoundKeyValues =
@@ -834,35 +857,38 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         return IntersectionResult.of(expressionsBuilder.build(), hasCommonOrdering ? intersectionOrdering : null);
     }
 
+    @Nonnull
+    private static Ordering orderingFromSingleMatchedAccess(@Nonnull final Vectored<SingleMatchedAccess> singleMatchedAccessWithIndex) {
+        final var singlePartitionOrderingPartsPair =
+                adjustMatchedOrderingParts(singleMatchedAccessWithIndex);
+        return orderingFromOrderingParts(singlePartitionOrderingPartsPair.getLeft(),
+                singlePartitionOrderingPartsPair.getRight());
+    }
+
     /**
      * Helper method to adjust the matched ordering parts to demote ordering parts that are not in the prefix of
      * a partial match and can therefore not contribute to the ordering of the realized scan (minus its compensation)
      * before it is intersected. This method serves a stop-gap purpose as laid out here:
      * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2764">relevant issue</a>
-     * @param singleMatchedAccesses a list of {@link SingleMatchedAccess}s
-     * @return a list pairs of matched ordering parts and the respective scan direction of the partial match it was
+     * @param singleMatchedAccessWithIndex a list of {@link SingleMatchedAccess}s
+     * @return a pair of matched ordering parts and the respective scan direction of the partial match it was
      *         computed from
      */
     @Nonnull
-    private static List<NonnullPair<List<MatchedOrderingPart>, Boolean>> adjustMatchedOrderingParts(@Nonnull final List<Vectored<SingleMatchedAccess>> singleMatchedAccesses) {
-        return singleMatchedAccesses
-                .stream()
-                .map(pair -> {
-                    final var partialMatchWithCompensation = pair.getElement();
-                    final var partialMatch = partialMatchWithCompensation.getPartialMatch();
-                    final var boundParametersPrefixMap =
-                            partialMatch.getBoundParameterPrefixMap();
-                    final List<MatchedOrderingPart> adjustedMatchOrderingParts =
-                            partialMatch.getMatchInfo()
-                                    .getMatchedOrderingParts()
-                                    .stream()
-                                    .map(matchedOrderingPart -> matchedOrderingPart.getComparisonRange().isEquality() &&
-                                                                        !boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
-                                                                ? matchedOrderingPart.demote() : matchedOrderingPart)
-                                    .collect(ImmutableList.toImmutableList());
-                    return NonnullPair.of(adjustedMatchOrderingParts, partialMatchWithCompensation.isReverseScanOrder());
-                })
-                .collect(ImmutableList.toImmutableList());
+    private static NonnullPair<List<MatchedOrderingPart>, Boolean> adjustMatchedOrderingParts(@Nonnull final Vectored<SingleMatchedAccess> singleMatchedAccessWithIndex) {
+        final var partialMatchWithCompensation = singleMatchedAccessWithIndex.getElement();
+        final var partialMatch = partialMatchWithCompensation.getPartialMatch();
+        final var boundParametersPrefixMap =
+                partialMatch.getBoundParameterPrefixMap();
+        final List<MatchedOrderingPart> adjustedMatchOrderingParts =
+                partialMatch.getMatchInfo()
+                        .getMatchedOrderingParts()
+                        .stream()
+                        .map(matchedOrderingPart -> matchedOrderingPart.getComparisonRange().isEquality() &&
+                                                            !boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
+                                                    ? matchedOrderingPart.demote() : matchedOrderingPart)
+                        .collect(ImmutableList.toImmutableList());
+        return NonnullPair.of(adjustedMatchOrderingParts, partialMatchWithCompensation.isReverseScanOrder());
     }
 
     /**
@@ -875,33 +901,36 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     private static Ordering.Intersection intersectOrderings(@Nonnull final List<NonnullPair<List<MatchedOrderingPart>, Boolean>> partitionOrderingPairs) {
         final var orderings =
-                partitionOrderingPairs.stream()
-                        .map(orderingPartsPair -> {
-                            final var matchedOrderingParts = orderingPartsPair.getKey();
-                            final var bindingMapBuilder =
-                                    ImmutableSetMultimap.<Value, Binding>builder();
-                            final var orderingSequenceBuilder =
-                                    ImmutableList.<Value>builder();
-                            for (final var matchedOrderingPart : matchedOrderingParts) {
-                                final var comparisonRange = matchedOrderingPart.getComparisonRange();
-                                if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
-                                    bindingMapBuilder.put(matchedOrderingPart.getValue(),
-                                            Binding.fixed(comparisonRange.getEqualityComparison()));
-                                } else {
-                                    final var orderingValue = matchedOrderingPart.getValue();
-                                    orderingSequenceBuilder.add(orderingValue);
-                                    bindingMapBuilder.put(orderingValue,
-                                            Binding.sorted(matchedOrderingPart.getSortOrder()
-                                                    .toProvidedSortOrder(orderingPartsPair.getRight())));
-                                }
-                            }
-
-                            return Ordering.ofOrderingSequence(bindingMapBuilder.build(),
-                                    orderingSequenceBuilder.build(), false);
-                        })
+                partitionOrderingPairs
+                        .stream()
+                        .map(pair -> orderingFromOrderingParts(pair.getLeft(), pair.getRight()))
                         .collect(ImmutableList.toImmutableList());
 
         return Ordering.merge(orderings, Ordering.INTERSECTION, (left, right) -> true);
+    }
+
+    @Nonnull
+    private static Ordering orderingFromOrderingParts(final @Nonnull List<MatchedOrderingPart> matchedOrderingParts, final boolean isReverse) {
+        final var bindingMapBuilder =
+                ImmutableSetMultimap.<Value, Binding>builder();
+        final var orderingSequenceBuilder =
+                ImmutableList.<Value>builder();
+        for (final var matchedOrderingPart : matchedOrderingParts) {
+            final var comparisonRange = matchedOrderingPart.getComparisonRange();
+            if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
+                bindingMapBuilder.put(matchedOrderingPart.getValue(),
+                        Binding.fixed(comparisonRange.getEqualityComparison()));
+            } else {
+                final var orderingValue = matchedOrderingPart.getValue();
+                orderingSequenceBuilder.add(orderingValue);
+                bindingMapBuilder.put(orderingValue,
+                        Binding.sorted(matchedOrderingPart.getSortOrder()
+                                .toProvidedSortOrder(isReverse)));
+            }
+        }
+
+        return Ordering.ofOrderingSequence(bindingMapBuilder.build(),
+                orderingSequenceBuilder.build(), false);
     }
 
     /**
@@ -924,6 +953,24 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .stream()
                 .filter(commonPrimaryKeyValue -> !equalityBoundKeyValues.contains(commonPrimaryKeyValue))
                 .allMatch(comparisonKeyValues::contains);
+    }
+
+    private static void addToIntersectionCache(@Nonnull final LinkedHashMap<BitSet, IntersectionCachedItem> intersectionCache,
+                                               @Nonnull final Collection<Vectored<SingleMatchedAccess>> partition,
+                                               @Nonnull final IntersectionResult intersectionResult) {
+        final var cacheKey = cacheKey(partition);
+        if (intersectionResult.hasCommonIntersectionOrdering()) {
+            intersectionCache.put(cacheKey,
+                    new IntersectionCachedItem(intersectionResult.getCommonIntersectionOrdering(),
+                            intersectionResult.getExpressions()));
+        }
+    }
+
+    @Nonnull
+    private static BitSet cacheKey(@Nonnull Collection<Vectored<SingleMatchedAccess>> accesses) {
+        final var cacheKey = new BitSet();
+        accesses.forEach(vectored -> cacheKey.set(vectored.getPosition()));
+        return cacheKey;
     }
 
     private static class SingleMatchedAccess {
@@ -1076,5 +1123,28 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         NOT_FOUND,
         CONTAINING,
         MAYBE_CONTAINING
+    }
+
+    private static class IntersectionCachedItem {
+        @Nonnull
+        private final Ordering intersectionOrdering;
+        @Nonnull
+        private final List<RelationalExpression> compensatedRealizedExpressions;
+
+        public IntersectionCachedItem(@Nonnull final Ordering intersectionOrdering,
+                                      @Nonnull final List<RelationalExpression> compensatedRealizedExpression) {
+            this.intersectionOrdering = intersectionOrdering;
+            this.compensatedRealizedExpressions = ImmutableList.copyOf(compensatedRealizedExpression);
+        }
+
+        @Nonnull
+        public Ordering getIntersectionOrdering() {
+            return intersectionOrdering;
+        }
+
+        @Nonnull
+        public List<RelationalExpression> getCompensatedRealizedExpressions() {
+            return compensatedRealizedExpressions;
+        }
     }
 }
