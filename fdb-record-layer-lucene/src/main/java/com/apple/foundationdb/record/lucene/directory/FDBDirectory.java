@@ -30,6 +30,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -529,7 +530,7 @@ public class FDBDirectory extends Directory  {
             ));
         } catch (ExecutionException e) {
             // This would happen when the cache.get() fails to execute the lambda (not when the block's future is joined)
-            final RecordCoreException recordCoreException = new RecordCoreException(e.getCause());
+            final RecordCoreException recordCoreException = new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
             recordCoreException.addSuppressed(e);
             throw recordCoreException;
         }

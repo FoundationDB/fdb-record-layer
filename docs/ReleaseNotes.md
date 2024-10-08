@@ -41,6 +41,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.549.0
+
+* **Feature** Translate IOException to/from RecordCoreException for Lucene [(Issue #2934)](https://github.com/FoundationDB/fdb-record-layer/issues/2934)
+
 ### 3.4.548.0
 
 * **Feature** asyncToSync without exception mapping for Lucene [(Issue #2926)](https://github.com/FoundationDB/fdb-record-layer/issues/2926)
