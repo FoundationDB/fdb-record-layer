@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
@@ -37,6 +39,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -833,6 +836,53 @@ public interface Compensation {
 
                 return completeExpansionBuilder.build().buildSimpleSelectOverQuantifier(newBaseQuantifier);
             }
+        }
+    }
+
+    /**
+     * Compensation class for group by matches that require a rollup.
+     */
+    class RollupCompensation implements Compensation {
+
+        @Nullable
+        private final Value groupingValue;
+
+        @Nonnull
+        private final AggregateValue aggregateValue;
+
+        @Nonnull
+        private final Compensation childCompensation;
+
+        @Nonnull
+        private final CorrelationIdentifier matchedQuantifier;
+
+        public RollupCompensation(@Nullable final Value groupingValue,
+                                  @Nonnull final AggregateValue aggregateValue,
+                                  @Nonnull final Compensation childCompensation,
+                                  @Nonnull final CorrelationIdentifier matchedQuantifier) {
+            this.groupingValue = groupingValue;
+            this.aggregateValue = aggregateValue;
+            this.childCompensation = childCompensation;
+            this.matchedQuantifier = matchedQuantifier;
+        }
+
+        @Nonnull
+        @Override
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull RelationalExpression relationalExpression) {
+            // apply the child as needed
+            if (childCompensation.isNeeded()) {
+                relationalExpression = childCompensation.apply(memoizer, relationalExpression);
+            }
+
+            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                    matchedQuantifier);
+
+            return new GroupByExpression(groupingValue, aggregateValue, GroupByExpression::nestedResults, newBaseQuantifier);
+        }
+
+        @Override
+        public boolean isNeededForFiltering() {
+            return false;
         }
     }
 }
