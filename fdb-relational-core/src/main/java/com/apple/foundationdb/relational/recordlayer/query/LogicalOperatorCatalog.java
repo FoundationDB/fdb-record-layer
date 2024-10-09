@@ -30,7 +30,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class LogicalOperatorCatalog {
+public final class LogicalOperatorCatalog {
 
     @Nonnull
     private final Map<CatalogKey, LogicalOperator> logicalOperators;

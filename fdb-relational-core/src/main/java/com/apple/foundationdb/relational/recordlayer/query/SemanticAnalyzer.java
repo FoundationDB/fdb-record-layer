@@ -130,8 +130,8 @@ public class SemanticAnalyzer {
         var currentFragment = Optional.of(logicalPlanFragment);
         while (currentFragment.isPresent()) {
             final var logicalOperators = currentFragment.get().getLogicalOperators();
-            final var matches = logicalOperators.stream().filter(logicalOperator -> logicalOperator.getName().isPresent()
-                    && logicalOperator.getName().get().equals(identifier)).collect(ImmutableList.toImmutableList());
+            final var matches = logicalOperators.stream().filter(logicalOperator -> logicalOperator.getName().isPresent() &&
+                    logicalOperator.getName().get().equals(identifier)).collect(ImmutableList.toImmutableList());
             Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS, () -> String.format("found '%s' more than once", identifier.getName()));
             if (!matches.isEmpty()) {
                 return Optional.of(matches.get(0));

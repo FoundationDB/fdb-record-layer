@@ -57,7 +57,7 @@ class CatalogMetaDataProviderTest {
         StoreCatalog storeCatalog;
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //create the Catalog RecordStore
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, RelationalKeyspaceProvider.getKeySpace());
+            storeCatalog = StoreCatalogProvider.getCatalog(txn, RelationalKeyspaceProvider.instance().getKeySpace());
             txn.commit();
         }
 

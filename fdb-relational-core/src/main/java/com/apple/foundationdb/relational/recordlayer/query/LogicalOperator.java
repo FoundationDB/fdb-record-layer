@@ -400,16 +400,16 @@ public class LogicalOperator {
                                                               @Nonnull LogicalOperators logicalOperators) {
         return // no joins
                 Iterables.size(logicalOperators.forEachOnly()) == 1 &&
-               // must be a Star expression
-                Iterables.size(output) == 1 &&
-                Iterables.getOnlyElement(output) instanceof Star &&
-               // special case for CTEs where it is possible that a Star is referencing aliased columns of a named query
-               // if these columns are aliased differently from the underlying query fragment, then we can only avoid
-               // projecting individual columns (and lose their aliases) if and only if their names pairwise match the
-               // underlying query fragment columns.
-                output.expanded().stream().allMatch(expression -> expression.getName().isEmpty() ||
-                        (expression.getUnderlying() instanceof FieldValue &&
-                                ((FieldValue)expression.getUnderlying()).getLastFieldName().equals(expression.getName().map(Identifier::getName))));
+                        // must be a Star expression
+                        Iterables.size(output) == 1 &&
+                        Iterables.getOnlyElement(output) instanceof Star &&
+                        // special case for CTEs where it is possible that a Star is referencing aliased columns of a named query
+                        // if these columns are aliased differently from the underlying query fragment, then we can only avoid
+                        // projecting individual columns (and lose their aliases) if and only if their names pairwise match the
+                        // underlying query fragment columns.
+                        output.expanded().stream().allMatch(expression -> expression.getName().isEmpty() ||
+                                (expression.getUnderlying() instanceof FieldValue &&
+                                        ((FieldValue) expression.getUnderlying()).getLastFieldName().equals(expression.getName().map(Identifier::getName))));
     }
 
     @Nonnull

@@ -107,7 +107,7 @@ public abstract class Command {
                 // save schema template
                 StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
                 RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                        .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
+                        .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
                         .setRlConfig(RecordLayerConfig.getDefault())
                         .setStoreCatalog(backingCatalog)
                         .build();
@@ -135,7 +135,7 @@ public abstract class Command {
                         .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
                         .build();
                 RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                        .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
+                        .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
                         .setRlConfig(rlConfig)
                         .setStoreCatalog(backingCatalog)
                         .build();

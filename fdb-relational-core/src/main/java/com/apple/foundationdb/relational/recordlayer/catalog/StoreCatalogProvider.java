@@ -51,7 +51,7 @@ public class StoreCatalogProvider {
      */
     public static StoreCatalog getCatalogWithNoTemplateOperations(Transaction txn) throws RelationalException {
         // Do not allow repairing Schema operation because they cannot work with NoOpSchemaTemplateCatalog.
-        final var storeCatalog = new RecordLayerStoreCatalog(RelationalKeyspaceProvider.getKeySpace()) {
+        final var storeCatalog = new RecordLayerStoreCatalog(RelationalKeyspaceProvider.instance().getKeySpace()) {
             @Override
             public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName)
                     throws RelationalException {

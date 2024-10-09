@@ -52,8 +52,9 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     }
 
     public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory) {
-        RelationalKeyspaceProvider.registerDomainIfNotExists("TEST");
-        this.keySpace = RelationalKeyspaceProvider.getKeySpace();
+        final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+        keyspaceProvider.registerDomainIfNotExists("TEST");
+        this.keySpace = keyspaceProvider.getKeySpace();
         this.ddlFactoryBuilder = ddlFactory;
     }
 

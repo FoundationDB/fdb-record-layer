@@ -171,7 +171,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
 
     public MetadataOperationsFactory getConstantActionFactory() {
         RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
-        return new RecordLayerMetadataOperationsFactory(rlCfg, catalog, RelationalKeyspaceProvider.getKeySpace()) {
+        return new RecordLayerMetadataOperationsFactory(rlCfg, catalog, RelationalKeyspaceProvider.instance().getKeySpace()) {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
+
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -69,7 +70,6 @@ public final class CatalogKey {
                                 @Nonnull Set<String> requestedIndexes) {
         return new CatalogKey(identifier, requestedIndexes.stream().map(IndexAccessHint::new).collect(ImmutableSet.toImmutableSet()));
     }
-
 
     @Nonnull
     public static CatalogKey of(@Nonnull Identifier identifier) {

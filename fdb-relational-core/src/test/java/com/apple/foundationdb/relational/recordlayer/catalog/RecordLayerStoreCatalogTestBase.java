@@ -56,8 +56,9 @@ public abstract class RecordLayerStoreCatalogTestBase {
     KeySpace keySpace;
 
     RecordLayerStoreCatalogTestBase() {
-        RelationalKeyspaceProvider.registerDomainIfNotExists("TEST");
-        keySpace = RelationalKeyspaceProvider.getKeySpace();
+        final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+        keyspaceProvider.registerDomainIfNotExists("TEST");
+        keySpace = keyspaceProvider.getKeySpace();
     }
 
     @Test

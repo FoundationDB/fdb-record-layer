@@ -115,49 +115,30 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void testKeySpaceForSchemaExtension() throws RelationalException {
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("env", STRING)
-                        .addSubdirectory(new KeySpaceDirectory("db", STRING)));
-
-        KeySpacePath dbPath = KeySpaceUtils.toKeySpacePath(URI.create("/prod/testDb"), keySpace);
-        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "TEST_SCHEMA");
-        String keySpaceString = extended.toString();
-        Assertions.assertEquals("/ (NULL)\n    +- env (STRING)\n       +- db (STRING)\n          +- TEST_SCHEMA (STRING=TEST_SCHEMA)\n", keySpaceString);
-
-        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("TEST_SCHEMA");
-        Assertions.assertEquals("TEST_SCHEMA", schemaDirectory.getValue());
-    }
-
-    @Test
-    void testSchemaInKeySpaceNotToBeOverridden() throws RelationalException {
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("env", STRING)
-                        .addSubdirectory(new KeySpaceDirectory("db", STRING)
-                                .addSubdirectory(new KeySpaceDirectory("TEST_SCHEMA", STRING, "T"))));
-
-        KeySpacePath dbPath = KeySpaceUtils.toKeySpacePath(URI.create("/prod/testDb"), keySpace);
-        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "TEST_SCHEMA");
-        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("TEST_SCHEMA");
-        Assertions.assertEquals("T", schemaDirectory.getValue());
-    }
-
-    @Test
     void canParseUris() throws RelationalException {
         /*
          * Explicitly tests that KeySpacePaths can correctly be parsed from URIs
          */
         final KeySpace keySpace = sampleKeySpace();
-        KeySpacePath parsedMain = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/1/"), keySpace);
-        KeySpacePath expectedMain = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("firstStore");
+        KeySpacePath parsedMain = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/com.apple.test.database/"), keySpace);
+        KeySpacePath expectedMain = keySpace.path("testRoot")
+                .add("domainId", 1234L)
+                .add("database", "com.apple.test.database")
+                .add("firstStore");
         Assertions.assertEquals(expectedMain, parsedMain, "Incorrectly parsed the first store path");
 
-        KeySpacePath parsedServer = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/1/1"), keySpace);
-        KeySpacePath expectedServer = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("secondStore", 1L);
+        KeySpacePath parsedServer = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/com.apple.test.database/S"), keySpace);
+        KeySpacePath expectedServer = keySpace.path("testRoot")
+                .add("domainId", 1234L)
+                .add("database", "com.apple.test.database")
+                .add("secondStore");
         Assertions.assertEquals(expectedServer, parsedServer, "Incorrectly parsed the second store path");
 
-        KeySpacePath parsedDatabase = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/1/2"), keySpace);
-        KeySpacePath expectedDatabase = keySpace.path("testRoot").add("domainId", 1234L).add("database", 1L).add("thirdStore", 2L);
+        KeySpacePath parsedDatabase = KeySpaceUtils.toKeySpacePath(URI.create("/testRoot/1234/com.apple.test.database/C"), keySpace);
+        KeySpacePath expectedDatabase = keySpace.path("testRoot")
+                .add("domainId", 1234L)
+                .add("database", "com.apple.test.database")
+                .add("thirdStore");
         Assertions.assertEquals(expectedDatabase, parsedDatabase, "Incorrectly parsed the second store path");
     }
 
@@ -250,20 +231,16 @@ public class KeySpacePathParsingTest {
     }
 
     private KeySpace sampleKeySpace() {
-        // in reality, the following items are actually DirectoryLayerDirectory instances; since we don't really want to
-        // mess with a DirectoryLayer in these tests, we just use fake mappings:
-        // "S" = 1
-        // "C" = 2
-        // "DSY" = 3
-
         return new KeySpace(
                 new KeySpaceDirectory("testRoot", STRING, "testRoot")
                         .addSubdirectory(new KeySpaceDirectory("domainId", LONG)
-                                .addSubdirectory(new KeySpaceDirectory("database", LONG)
-                                        .addSubdirectory(new KeySpaceDirectory("secondStore", LONG, 1L))
+                                .addSubdirectory(new DirectoryLayerDirectory("database")
                                         .addSubdirectory(new KeySpaceDirectory("firstStore", NULL))
-                                        .addSubdirectory(new KeySpaceDirectory("thirdStore", LONG, 2L))
-                                        .addSubdirectory(new KeySpaceDirectory("fourthStore", LONG, 3L)))));
+                                        .addSubdirectory(new DirectoryLayerDirectory("secondStore", "S"))
+                                        .addSubdirectory(new DirectoryLayerDirectory("thirdStore", "C"))
+                                )
+                        )
+        );
     }
 
     private List<Object> getResolvedValuesForKeySpacePath(@Nonnull KeySpacePath path, @Nonnull FDBRecordContext context) throws RelationalException {

@@ -114,8 +114,9 @@ public final class JDBCEmbedDriver implements java.sql.Driver {
     public JDBCEmbedDriver() {
         FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         DirectFdbConnection fdbConnection = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
-        RelationalKeyspaceProvider.registerDomainIfNotExists("FRL");
-        KeySpace keySpace = RelationalKeyspaceProvider.getKeySpace();
+        final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+        keyspaceProvider.registerDomainIfNotExists("FRL");
+        KeySpace keySpace = keyspaceProvider.getKeySpace();
         try (Transaction txn = fdbConnection.getTransactionManager().createTransaction(Options.NONE)) {
             this.storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
             txn.commit();

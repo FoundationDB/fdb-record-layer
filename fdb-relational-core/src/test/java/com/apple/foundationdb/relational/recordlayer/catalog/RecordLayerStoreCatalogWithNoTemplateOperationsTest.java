@@ -54,7 +54,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
     @AfterEach
     void deleteAllRecords() throws RelationalException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            final KeySpacePath keySpacePath = RelationalKeyspaceProvider.toDatabasePath(URI.create("/__SYS"), RelationalKeyspaceProvider.getKeySpace()).schemaPath("CATALOG");
+            final KeySpacePath keySpacePath = RelationalKeyspaceProvider.instance().toDatabasePath(URI.create("/__SYS")).schemaPath("CATALOG");
             FDBRecordStore.deleteStore(txn.unwrap(FDBRecordContext.class), keySpacePath);
             txn.commit();
         }

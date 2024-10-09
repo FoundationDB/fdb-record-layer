@@ -89,8 +89,9 @@ public class FRL implements AutoCloseable {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
-        RelationalKeyspaceProvider.registerDomainIfNotExists("FRL");
-        KeySpace keySpace = RelationalKeyspaceProvider.getKeySpace();
+        final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+        keyspaceProvider.registerDomainIfNotExists("FRL");
+        KeySpace keySpace = keyspaceProvider.getKeySpace();
         StoreCatalog storeCatalog;
         try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
             storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);

@@ -104,8 +104,9 @@ public abstract class EmbeddedRelationalBenchmark {
         }
 
         public void up() throws RelationalException, SQLException {
-            RelationalKeyspaceProvider.registerDomainIfNotExists("BENCHMARKS");
-            keySpace = RelationalKeyspaceProvider.getKeySpace();
+            final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+            keyspaceProvider.registerDomainIfNotExists("BENCHMARKS");
+            keySpace = keyspaceProvider.getKeySpace();
             final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
             fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
