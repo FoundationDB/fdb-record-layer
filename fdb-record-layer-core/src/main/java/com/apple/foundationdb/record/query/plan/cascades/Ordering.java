@@ -905,7 +905,7 @@ public class Ordering {
             }
             for (final var rightElement : Sets.difference(rightElements, leftElements)) {
                 final var combinedBindings =
-                        mergeOperator.combineBindings(ImmutableSet.of(), leftBindingMap.get(rightElement));
+                        mergeOperator.combineBindings(ImmutableSet.of(), rightBindingMap.get(rightElement));
                 if (!combinedBindings.isEmpty()) {
                     elementsBuilder.add(rightElement);
                     bindingMapBuilder.putAll(rightElement, combinedBindings);
