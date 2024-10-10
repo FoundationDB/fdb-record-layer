@@ -224,7 +224,7 @@ public class Quantifiers {
                                                  @Nonnull final MatchPredicate<Quantifier> matchPredicate) {
         // quantifiers must be equal on kind
         final MatchPredicate<Quantifier> quantifierMatchPredicate =
-                (quantifier, otherQuantifier, eM) -> quantifier.equalsOnKind(otherQuantifier);
+                (quantifier, otherQuantifier, eM) -> quantifier.semanticEqualsWithoutChildren(otherQuantifier);
         return predicatedMatcher(
                 boundAliasesMap,
                 quantifiers,

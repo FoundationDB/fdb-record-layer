@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -215,6 +216,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
             return false;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan element) {
+            return storedRecordsFromSingleChild(element);
         }
 
         @Nonnull

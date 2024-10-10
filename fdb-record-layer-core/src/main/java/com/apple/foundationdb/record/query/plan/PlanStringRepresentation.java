@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -296,6 +297,16 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     @Override
     public PlanStringRepresentation visitFirstOrDefaultPlan(@Nonnull RecordQueryFirstOrDefaultPlan element) {
         return append("firstOrDefault(")
+                .visit(element.getChild())
+                .append(" || ")
+                .append(element.getOnEmptyResultValue())
+                .append(")");
+    }
+
+    @Nonnull
+    @Override
+    public PlanStringRepresentation visitDefaultOnEmptyPlan(@Nonnull RecordQueryDefaultOnEmptyPlan element) {
+        return append("defaultOnEmpty(")
                 .visit(element.getChild())
                 .append(" || ")
                 .append(element.getOnEmptyResultValue())

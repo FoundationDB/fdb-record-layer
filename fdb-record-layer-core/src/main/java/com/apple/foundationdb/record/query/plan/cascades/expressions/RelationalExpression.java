@@ -777,7 +777,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                 .anyMatch(quantifier -> {
                     final Quantifier otherQuantifier =
                             Objects.requireNonNull(otherAliasToQuantifierMap.get(aliasMap.getTarget(quantifier.getAlias())));
-                    return !quantifier.equalsOnKind(otherQuantifier);
+                    return !quantifier.semanticEqualsWithoutChildren(otherQuantifier);
                 });
     }
 

@@ -263,15 +263,14 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         }).collect(ImmutableList.toImmutableList());
 
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
-        if (groupingColsValue.getResultType().getFields().isEmpty()) {
-            return NonnullPair.of(Quantifier.forEach(Reference.of(
-                    new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
-        } else {
-            return NonnullPair.of(Quantifier.forEach(Reference.of(
-                    new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
-        }
+
+        final var groupByExpression = new GroupByExpression(
+                groupingColsValue.getResultType().getFields().isEmpty() ? null : groupingColsValue,
+                RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                GroupByExpression::nestedResults, selectWhereQun);
+        final var groupByReference = Reference.of(groupByExpression);
+        final var groupByQuantifier = Quantifier.forEach(groupByReference);
+        return NonnullPair.of(groupByQuantifier, ImmutableList.of());
     }
 
     @Nonnull
