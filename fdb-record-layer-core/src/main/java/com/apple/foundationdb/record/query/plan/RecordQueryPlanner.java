@@ -672,7 +672,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (comparisonKey == null) {
                 return null;
             }
-            final List<InSource> valuesSources = inExtractor.unionSources();
+            final List<InSource> valuesSources = planWithIn.inExtractor.unionSources();
             final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
             if (distinct) {
                 // Put back in the Distinct with the same comparison key.

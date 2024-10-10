@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -93,6 +94,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -2676,5 +2679,38 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-273024096, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-1756350645, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
+
+        final List<Integer> nv2List = List.of(0, 2);
+        final Consumer<TestRecords1Proto.MySimpleRecord> numValue2Check = simpleRecord -> assertThat(simpleRecord.getNumValue2(), in(nv2List));
+        final Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey = simpleRecord -> Tuple.from(simpleRecord.getNumValue3Indexed());
+        final Bindings base = Bindings.newBuilder().set("nv2_list", nv2List).build();
+        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(UsedTypesProperty.evaluate(plan)).build();
+        assertEquals(34,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even")).build(), typeRepository),
+                        simpleRecord -> {
+                            numValue2Check.accept(simpleRecord);
+                            assertEquals("even", simpleRecord.getStrValueIndexed());
+                        },
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(!useCascadesPlanner && replans == 0 ? 66 : 33, context))
+        );
+        assertEquals(33,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("odd")).build(), typeRepository),
+                        simpleRecord -> {
+                            numValue2Check.accept(simpleRecord);
+                            assertEquals("odd", simpleRecord.getStrValueIndexed());
+                        },
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(!useCascadesPlanner && replans == 0 ? 68 : 34, context))
+        );
+        assertEquals(67,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even", "odd", "other")).build(), typeRepository),
+                        numValue2Check::accept,
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(!useCascadesPlanner && replans > 0 ? 0 : 134, context))
+        );
     }
 }
