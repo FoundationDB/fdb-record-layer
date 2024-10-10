@@ -318,8 +318,44 @@ public class RecordQueryPlannerConfiguration {
         return flagSet(PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK);
     }
 
+    /**
+     * The number of times the {@link RecordQueryPlanner} will attempt to replan during IN-to-JOIN planning.
+     * During IN-to-JOIN planning, the plan will initially try to push as many IN-predicates as possible
+     * into index scans. However, if any IN-predicates cannot be pushed into the index, this can result
+     * in poor performance as the same index scans may be executed multiple times with different elements
+     * selected. Setting this value to a number greater than 0 allows the planner to try again, limiting the
+     * number of extracted predicates. If the configuration value is greater than or equal to 0, it will
+     * attempt to avoid non-sargable IN-predicates by planning all INs as a residual filter. If the
+     * configuration value is less than 0, it will allow un-sargable IN-predicates to planned as an IN-join.
+     *
+     * <p>
+     * The recommended value for this parameter is 1. The default is 0 for backwards compatibility reasons.
+     * This parameter is only relevant for the {@link RecordQueryPlanner}.
+     * </p>
+     *
+     * @return the max number of replans to perform during IN-to-JOIN planning
+     */
     public int getMaxNumReplansForInToJoin() {
         return proto.getMaxNumReplansForInToJoin();
+    }
+
+    /**
+     * The number of times the {@link RecordQueryPlanner} will attempt to replan during IN-to-union
+     * planning. This is analogous to the configuration parameter {@link #getMaxNumReplansForInToJoin()},
+     * but this is relevant for IN-union planning instead of IN-to-JOIN planning. In general, this property
+     * should only be relevant (instead of {@link #getMaxNumReplansForInToJoin()}) if the query results are
+     * sorted.
+     *
+     * <p>
+     * The recommended value for this parameter is 1. The default is -1 for backwards compatbility reasons.
+     * This parameter is only relevant for the {@link RecordQueryPlanner}.
+     * </p>
+     *
+     * @return the max number of replans to perform during IN-union planning
+     * @see #shouldAttemptFailedInJoinAsUnion()
+     */
+    public int getMaxNumReplansForInUnion() {
+        return proto.hasMaxNumReplansForInUnion() ? proto.getMaxNumReplansForInUnion() : -1;
     }
 
     /**
@@ -649,10 +685,25 @@ public class RecordQueryPlannerConfiguration {
          * @param maxNumReplansForInToJoin the number of replanning attempts; defaults to {@code 0} for no
          *        replanning attempts
          * @return this builder
+         * @see #getMaxNumReplansForInToJoin()
          */
         @Nonnull
         public Builder setMaxNumReplansForInToJoin(final int maxNumReplansForInToJoin) {
             protoBuilder.setMaxNumReplansForInToJoin(maxNumReplansForInToJoin);
+            return this;
+        }
+
+        /**
+         * Set the maximum number of replanning-attempts during IN-union transformations in the planner. This
+         * option only applies to {@link RecordQueryPlanner}.
+         * @param maxNumReplansForInUnion the number of replanning attempts; defaults to {@code -1} for no
+         *        replanning attempts
+         * @return this builder
+         * @see #getMaxNumReplansForInUnion()
+         */
+        @Nonnull
+        public Builder setMaxNumReplansForInUnion(final int maxNumReplansForInUnion) {
+            protoBuilder.setMaxNumReplansForInUnion(maxNumReplansForInUnion);
             return this;
         }
 

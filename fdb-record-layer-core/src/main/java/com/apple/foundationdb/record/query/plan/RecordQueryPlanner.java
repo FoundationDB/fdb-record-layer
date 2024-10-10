@@ -547,10 +547,22 @@ public class RecordQueryPlanner implements QueryPlanner {
         return withInJoin;
     }
 
-    @Nullable
-    private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
-        int maxNumReplans = Math.max(getConfiguration().getMaxNumReplansForInToJoin(), 0);
-        boolean allowNonSargedInBindings = getConfiguration().getMaxNumReplansForInToJoin() < 0;
+    private static final class PlanWithInExtractor {
+        @Nonnull
+        private final ScoredPlan plan;
+        @Nonnull
+        private final InExtractor inExtractor;
+
+        PlanWithInExtractor(@Nonnull ScoredPlan plan, @Nonnull InExtractor inExtractor) {
+            this.plan = plan;
+            this.inExtractor = inExtractor;
+        }
+    }
+
+    private PlanWithInExtractor planFilterForInWithReplans(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering, int maxNumReplansInConfig) {
+        int maxNumReplans = Math.max(maxNumReplansInConfig, 0);
+        boolean allowNonSargedInBindings = maxNumReplansInConfig < 0;
+
         int numReplan = 0;
         boolean progress = true;
         ScoredPlan bestPlan = null;
@@ -559,7 +571,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (bestPlan == null) {
                 return null;
             }
-            
+
             final Set<String> inBindings = inExtractor.getInBindings();
             final Set<String> sargedInBindings = bestPlan.getSargedInBindings();
             if (allowNonSargedInBindings || sargedInBindings.containsAll(inBindings)) {
@@ -580,11 +592,11 @@ public class RecordQueryPlanner implements QueryPlanner {
                 progress = false;
                 break;
             }
-                
+
             // Continue to re-plan with fewer in-clauses or exit the loop.
             numReplan ++;
-        }  
-        
+        }
+
         if (!progress || numReplan > maxNumReplans) {
             //
             // We exhausted all attempts to replan with fewer number of in clauses. Replan one last time with
@@ -598,11 +610,21 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         Verify.verifyNotNull(bestPlan);
-        
-        final RecordQueryPlan wrapped = inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.getPlan(), bestPlan.includedRankComparisons, metaData));
-        final ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
+        return new PlanWithInExtractor(bestPlan, inExtractor);
+    }
+
+    @Nullable
+    private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
+        final PlanWithInExtractor planWithIn = planFilterForInWithReplans(planContext, inExtractor, needOrdering, getConfiguration().getMaxNumReplansForInToJoin());
+        if (planWithIn == null) {
+            return null;
+        }
+
+        final ScoredPlan bestPlan = planWithIn.plan;
+        final RecordQueryPlan wrapped = planWithIn.inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.getPlan(), bestPlan.includedRankComparisons, metaData));
+        ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
         if (needOrdering) {
-            scoredPlan.planOrderingKey = inExtractor.adjustOrdering(bestPlan.planOrderingKey, false);
+            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(bestPlan.planOrderingKey, false);
         }
         return scoredPlan;
     }
@@ -618,8 +640,9 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
-        final ScoredPlan scoredPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), false);
-        if (scoredPlan != null) {
+        final PlanWithInExtractor planWithIn = planFilterForInWithReplans(planContext, inExtractor, false, getConfiguration().getMaxNumReplansForInUnion());
+        if (planWithIn != null) {
+            final ScoredPlan scoredPlan = planWithIn.plan;
             RecordQueryPlan inner = scoredPlan.getPlan();
             boolean distinct = false;
             if (inner instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
@@ -632,7 +655,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             // forPlan to handle them that way exposes problems elsewhere in attempting to do Union / Intersection with FanOut
             // comparison keys, which is only valid against an index entry, not an actual record.
             scoredPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, inner, planContext.commonPrimaryKey);
-            scoredPlan.planOrderingKey = inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
+            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
             if (scoredPlan.planOrderingKey == null) {
                 return null;
             }
