@@ -91,7 +91,7 @@ public class PartialMatch {
     private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier;
 
     @Nonnull
-    private final Supplier<Set<QueryPredicate>> bindingPredicatesSupplier;
+    private final Supplier<Set<QueryPredicate>> boundPlaceholdersSupplier;
 
     @Nonnull
     private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier;
@@ -115,7 +115,7 @@ public class PartialMatch {
         this.candidateRef = candidateRef;
         this.matchInfo = matchInfo;
         this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
-        this.bindingPredicatesSupplier = Suppliers.memoize(this::computeBindingQueryPredicates);
+        this.boundPlaceholdersSupplier = Suppliers.memoize(this::computeBoundPlaceholders);
         this.matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
         this.unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
         this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
@@ -192,14 +192,14 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public final Set<QueryPredicate> getBindingPredicates() {
-        return bindingPredicatesSupplier.get();
+    public final Set<QueryPredicate> getBoundPlaceholders() {
+        return boundPlaceholdersSupplier.get();
     }
 
     @Nonnull
-    private Set<QueryPredicate> computeBindingQueryPredicates() {
+    private Set<QueryPredicate> computeBoundPlaceholders() {
         final var boundParameterPrefixMap = getBoundParameterPrefixMap();
-        final var bindingQueryPredicates = Sets.<QueryPredicate>newIdentityHashSet();
+        final var boundPlaceholders = Sets.<QueryPredicate>newIdentityHashSet();
 
         //
         // Go through all accumulated parameter bindings -- find the query predicates binding the parameters. Those
@@ -221,11 +221,11 @@ public class PartialMatch {
 
             final var placeholder = (Placeholder)candidatePredicate;
             if (boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
-                bindingQueryPredicates.add(predicateMapping.getQueryPredicate());
+                boundPlaceholders.add(predicateMapping.getCandidatePredicate());
             }
         }
 
-        return bindingQueryPredicates;
+        return boundPlaceholders;
     }
 
     /**

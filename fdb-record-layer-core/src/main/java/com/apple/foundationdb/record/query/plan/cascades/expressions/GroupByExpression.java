@@ -328,6 +328,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         return RequestedOrdering.ofParts(
                 ImmutableList.of(new RequestedOrderingPart(currentGroupingValue, RequestedSortOrder.ANY)),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                false,
                 inner.getCorrelatedTo());
     }
 

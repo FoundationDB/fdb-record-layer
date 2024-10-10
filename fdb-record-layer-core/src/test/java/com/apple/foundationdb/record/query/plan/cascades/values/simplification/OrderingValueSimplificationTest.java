@@ -120,6 +120,7 @@ class OrderingValueSimplificationTest {
         final var requestedOrdering = RequestedOrdering.ofParts(
                 ImmutableList.of(new OrderingPart.RequestedOrderingPart(outerRecordConstructor, OrderingPart.RequestedSortOrder.ANY)),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                false,
                 ImmutableSet.of());
 
         final var simplifiedValues =
@@ -163,6 +164,7 @@ class OrderingValueSimplificationTest {
         final var requestedOrdering = RequestedOrdering.ofParts(
                 ImmutableList.of(new OrderingPart.RequestedOrderingPart(recordConstructor4, OrderingPart.RequestedSortOrder.ANY)),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                false,
                 ImmutableSet.of());
 
         final var simplifiedValues =
