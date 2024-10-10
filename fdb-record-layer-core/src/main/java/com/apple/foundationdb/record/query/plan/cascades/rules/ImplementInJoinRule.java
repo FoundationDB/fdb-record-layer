@@ -47,7 +47,10 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProp
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
+import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
+import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.SortedInComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
@@ -165,7 +168,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     @Nonnull
     private Stream<List<InSource>> enumerateInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
                                                                           @Nonnull final Set<CorrelationIdentifier> explodeAliases,
-                                                                          @Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
+                                                                          @Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeMap,
                                                                           @Nonnull final Ordering innerOrdering,
                                                                           @Nonnull final RequestedOrdering requestedOrdering) {
         Verify.verify(!explodeAliases.isEmpty());
@@ -227,7 +230,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             final var explodeQuantifier =
                     Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
             final var explodeExpression =
-                    Objects.requireNonNull(quantifierToExplodeBiMap.get((Quantifier.ForEach)explodeQuantifier));
+                    Objects.requireNonNull(quantifierToExplodeMap.get((Quantifier.ForEach)explodeQuantifier));
 
             //
             // At this point we have a bound key expression that matches the requested order at this position,
@@ -252,12 +255,10 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                                 final InSource inSource =
                                         computeInSource(explodeValue, explodeQuantifier, attemptedSortOrder);
 
-                                return inSource == null
-                                       ? Stream.empty()
-                                       : Stream.of(ImmutableList.<OrderingPartWithSource>builder()
-                                        .addAll(prefix)
-                                        .add(new OrderingPartWithSource(new ProvidedOrderingPart(requestedOrderingPart.getValue(), attemptedSortOrder), inSource))
-                                        .build());
+                                return inSource == null ? Stream.empty() :
+                                       Stream.of(ImmutableList.<OrderingPartWithSource>builder().addAll(prefix)
+                                               .add(new OrderingPartWithSource(new ProvidedOrderingPart(requestedOrderingPart.getValue(), attemptedSortOrder), inSource))
+                                               .build());
                             }));
             availableExplodeAliases.remove(explodeAlias);
             resultOrderingBindingMap.removeAll(requestedOrderingValue);
@@ -287,8 +288,10 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
                 final var filteredInnerOrderingSet =
                         innerOrdering.getOrderingSet()
-                                .filterElements(value -> innerOrdering.isSingularNonFixedValue(value) || !outerOrderingValues.contains(value));
-                final var filteredInnerOrdering = Ordering.ofOrderingSet(resultOrderingBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
+                                .filterElements(value -> innerOrdering.isSingularNonFixedValue(value) ||
+                                        !outerOrderingValues.contains(value));
+                final var filteredInnerOrdering = Ordering.ofOrderingSet(resultOrderingBindingMap,
+                        filteredInnerOrderingSet, innerOrdering.isDistinct());
                 final var concatenatedOrdering =
                         Ordering.concatOrderings(outerOrdering, filteredInnerOrdering);
 
@@ -302,8 +305,13 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                        : Stream.empty();
             });
         } else {
-            final var attemptedSortOrders =
-                    attemptedProvidedSortOrdersForAny(requestedOrdering.isExhaustive());
+            //
+            // There are some explodes left, but we don't have any requested sort orders anymore.
+            //
+            @Nullable final var attemptedSortOrders =
+                    requestedOrdering.isExhaustive()
+                    ? attemptedProvidedSortOrdersForAny(requestedOrdering.isExhaustive())
+                    : null;
 
             final Iterable<List<CorrelationIdentifier>> availableExplodeAliasesPermutations =
                     requestedOrdering.isExhaustive()
@@ -311,32 +319,12 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                     : ImmutableList.of(ImmutableList.copyOf(availableExplodeAliases));
 
             prefixStream = prefixStream.flatMap(prefix ->
-                    Streams.stream(availableExplodeAliasesPermutations)
-                            .flatMap(availableExplodeAliasesPermutation -> {
-                                final var suffix =
-                                        availableExplodeAliasesPermutation.stream()
-                                                .map(explodeAlias -> {
-                                                    final var explodeQuantifier =
-                                                            Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
-                                                    final var explodeExpression =
-                                                            Objects.requireNonNull(quantifierToExplodeBiMap.get((Quantifier.ForEach)explodeQuantifier));
-
-                                                    final var explodeValue = explodeExpression.getCollectionValue();
-
-                                                    return attemptedSortOrders.stream()
-                                                            .flatMap(attemptedSortOrder -> {
-                                                                final InSource inSource =
-                                                                        computeInSource(explodeValue, explodeQuantifier, attemptedSortOrder);
-
-                                                                return inSource == null
-                                                                       ? Stream.empty()
-                                                                       : Stream.of(new OrderingPartWithSource(null, inSource));
-                                                            })
-                                                            .collect(ImmutableList.toImmutableList());
-                                                })
-                                                .collect(ImmutableList.toImmutableList());
-                                return Streams.stream(CrossProduct.crossProduct(suffix));
-                            }));
+                    suffixForRemainingExplodes(explodeAliasToQuantifierMap, quantifierToExplodeMap, requestedOrdering,
+                            availableExplodeAliasesPermutations, attemptedSortOrders)
+                            .map(suffix -> ImmutableList.<OrderingPartWithSource>builder()
+                                    .addAll(prefix)
+                                    .addAll(suffix)
+                                    .build()));
         }
 
         //
@@ -347,6 +335,49 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                 orderingPartWithSources.stream()
                         .map(OrderingPartWithSource::getInSource)
                         .collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    private static Stream<List<OrderingPartWithSource>> suffixForRemainingExplodes(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
+                                                                                   @Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeMap,
+                                                                                   @Nonnull final RequestedOrdering requestedOrdering,
+                                                                                   @Nonnull final Iterable<List<CorrelationIdentifier>> availableExplodeAliasesPermutations,
+                                                                                   @Nullable final List<ProvidedSortOrder> attemptedSortOrders) {
+        return Streams.stream(availableExplodeAliasesPermutations)
+                .flatMap(availableExplodeAliasesPermutation -> {
+                    final var suffix =
+                            availableExplodeAliasesPermutation.stream()
+                                    .map(explodeAlias -> {
+                                        final var explodeQuantifier =
+                                                Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
+                                        final var explodeExpression =
+                                                Objects.requireNonNull(quantifierToExplodeMap.get((Quantifier.ForEach)explodeQuantifier));
+
+                                        final var explodeValue = explodeExpression.getCollectionValue();
+
+                                        final var orderingResultsBuilder = ImmutableList.<OrderingPartWithSource>builder();
+                                        if (attemptedSortOrders == null) {
+                                            Verify.verify(!requestedOrdering.isExhaustive());
+                                            final InSource inSource =
+                                                    computeInSource(explodeValue, explodeQuantifier, null);
+                                            if (inSource != null) {
+                                                orderingResultsBuilder.add(new OrderingPartWithSource(null, inSource));
+                                            }
+                                        } else {
+                                            for (final var attemptedSortOrder : attemptedSortOrders) {
+                                                final InSource inSource =
+                                                        computeInSource(explodeValue, explodeQuantifier, attemptedSortOrder);
+
+                                                if (inSource != null) {
+                                                    orderingResultsBuilder.add(new OrderingPartWithSource(null, inSource));
+                                                }
+                                            }
+                                        }
+                                        return orderingResultsBuilder.build();
+                                    })
+                                    .collect(ImmutableList.toImmutableList());
+                    return Streams.stream(CrossProduct.crossProduct(suffix));
+                });
     }
 
     private static boolean isSupportedExplodeValue(@Nonnull final Value explodeValue) {
@@ -369,26 +400,27 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     @SuppressWarnings("unchecked")
     private static InSource computeInSource(@Nonnull final Value explodeValue,
                                             @Nonnull final Quantifier explodeQuantifier,
-                                            @Nonnull ProvidedSortOrder attemptedSortOrder) {
+                                            @Nullable final ProvidedSortOrder attemptedSortOrder) {
         final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
         if (explodeValue instanceof LiteralValue<?>) {
             final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
             if (literalValue instanceof List<?>) {
-                return new SortedInValuesSource(
-                        bindingName,
-                        (List<Object>)literalValue,
+                return attemptedSortOrder == null
+                       ? new InValuesSource(bindingName, (List<Object>)literalValue)
+                       : new SortedInValuesSource(bindingName, (List<Object>)literalValue,
                         attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
             } else {
                 return null;
             }
         } else if (explodeValue instanceof QuantifiedObjectValue) {
-            return new SortedInParameterSource(bindingName,
-                    ((QuantifiedObjectValue)explodeValue).getAlias().getId(),
-                    attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
+            final var alias = ((QuantifiedObjectValue)explodeValue).getAlias().getId();
+            return attemptedSortOrder == null
+                   ? new InParameterSource(bindingName, alias)
+                   : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         } else if (explodeValue.isConstant()) {
-            return new SortedInComparandSource(
-                    bindingName,
-                    new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue),
+            return attemptedSortOrder == null
+                   ? new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue))
+                   : new SortedInComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeValue),
                     attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
         }
         return null;

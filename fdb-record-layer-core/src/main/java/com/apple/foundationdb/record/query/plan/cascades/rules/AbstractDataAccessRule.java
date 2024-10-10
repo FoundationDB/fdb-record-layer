@@ -221,8 +221,51 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final var bestMatchToPlanMap =
                 createScansForMatches(call.getContext(), call, bestMaximumCoverageMatches);
 
-        final var resultSet = new LinkedIdentitySet<RelationalExpression>();
-
+        //
+        // Map data structure that we build and refine to keep already planned intersections together with the
+        // associated intersection orderings and all their plans. Note that plans may be evicted from this map
+        // in the process of planning.
+        //
+        // Some details: We maintain integer indexes which uniquely identify each single data access. The key of this
+        // map is a bitset that encodes each single data access participating in an intersection, or the single bit
+        // if it is a one-access intersection (the single access itself for homogeneity).
+        // Every time, we consider planning a new intersection, we would like to establish that the new intersection
+        // is actually useful in order to eagerly avoid creating useless plan variations. An intersection of
+        // n accesses, if it can be planned, produces an ordering which can be computed by either intersecting all
+        // n orderings of all n accesses, or by looking up the ordering of subpartitions of these n accesses, which
+        // are always planned before, and intersecting any such orderings that cover all n accesses. One observation of
+        // doing that is that a new intersection produces (in loose terms) the same ordering as any of its constituent
+        // subpartitions except for (potentially) additional equality-bound values. We attempt to optimize by
+        // disallowing an intersection where any subpartition of that intersection has the same equality-bound values
+        // that the new intersection would have as that intersection can be regarded as non-filtering or useless.
+        //
+        // Example:
+        //   I1: a, id
+        //   I2: b, id
+        //   query: SELECT * FROM T WHERE a = 5 and b = 'foo'
+        //   Intersection of I1 ∩ I2 is useful producing an intersection order on id with a, b equality-bound
+        //
+        //   If we add
+        //     I3: a, b, id
+        //   we consider it useless to intersect I1 or I2 or I1 ∩ I2 with it as all of these subpartitions already
+        //   constrain a and b.
+        //
+        // We further apply the same idea for an intersection we plan after the current intersection
+        // which is a super-partition of the current intersection, i.e. it intersects all the current accesses, but it
+        // also further intersects more accesses that also impose new useful equality-bound values (see above). Now,
+        // the current partition of accesses is useless as the one planned subsequently is better.
+        //
+        // Alternative view: Mathematically, we consider the power set of all accesses when we plan the intersections
+        // of accesses. Each item in that set is a partition. There is a partial order PO defined on the power set that
+        // states that two elements a, b: aPOb if the set of accesses in b includes the accesses in a.
+        // Some partitions cannot be used outright as they e.g. would not even range over compatibly-ordered data
+        // streams. These partitions are evicted from the power set. All partitions containing those partitions are
+        // immediately evicted as well. Apart from those partitions, there are other albeit useless/redundant elements
+        // (partitions) in the power; we evict those and the ones containing these useless partitions in the same
+        // fashion (as they are also useless/redundant).
+        // What we end up with is a subset of the power set of all accesses that are possible to intersect,
+        // that are not considered useless/redundant and that are local maximums with respect to PO.
+        //
         final var intersectionInfoMap =
                 Maps.<BitSet, IntersectionInfo>newLinkedHashMap();
 
@@ -232,8 +275,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
             final var compensatedSingleAccessExpressionOptional =
                     applyCompensationForSingleDataAccessMaybe(call, bestMatch, bestMatchToPlanMap.get(bestMatch.getPartialMatch()));
+
             addToIntersectionInfoMap(intersectionInfoMap, bestMatchWithIndex, compensatedSingleAccessExpressionOptional);
-            compensatedSingleAccessExpressionOptional.ifPresent(resultSet::add);
         }
 
         final var bestMatchToDistinctPlanMap =
@@ -245,7 +288,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                 .map(singleMatchedAccessVectored -> singleMatchedAccessVectored.getElement().getPartialMatch().getMatchCandidate())
                                 .collect(ImmutableList.toImmutableList()));
         if (commonPrimaryKeyValuesOptional.isEmpty() || bestMaximumCoverageMatches.size() == 1) {
-            return resultSet;
+            return intersectionInfoMapToExpressions(intersectionInfoMap);
         }
         final var commonPrimaryKeyValues = commonPrimaryKeyValuesOptional.get();
 
@@ -296,7 +339,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             binaryPartition,
                             requestedOrderings);
             if (binaryIntersections.hasCommonIntersectionOrdering()) {
-                resultSet.addAll(binaryIntersections.getExpressions());
                 updateIntersectionInfoMap(intersectionInfoMap, binaryPartition, binaryIntersections);
             } else {
                 if (sieveBitMatrix != null) {
@@ -358,7 +400,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     Verify.verify(intersectionResult.hasCommonIntersectionOrdering());
                     hasCommonOrderingForK = true;
 
-                    resultSet.addAll(intersectionResult.getExpressions());
                     updateIntersectionInfoMap(intersectionInfoMap, kPartition, intersectionResult);
                 }
 
@@ -464,16 +505,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final var probeBoundPlaceholders = probeMatch.getBoundPlaceholders();
 
         for (final var singleMatchedAccess : sortedSingleMatches) {
-            final var bindingPredicates =
-                    singleMatchedAccess.getPartialMatch()
-                            .getBoundPlaceholders();
-            // check if probe is completely contained in this one
-            if (probeBoundPlaceholders.size() >= bindingPredicates.size()) {
-                break;
-            }
-
             if (probeSingleMatchedAccess.getPartialMatch().getMatchCandidate() ==
                     singleMatchedAccess.getPartialMatch().getMatchCandidate()) {
+                final var bindingPredicates =
+                        singleMatchedAccess.getPartialMatch()
+                                .getBoundPlaceholders();
+                // check if probe is completely contained in this one
+                if (probeBoundPlaceholders.size() >= bindingPredicates.size()) {
+                    break;
+                }
+
                 if (!probeSingleMatchedAccess.equals(singleMatchedAccess) &&
                         bindingPredicates.containsAll(probeBoundPlaceholders)) {
                     return true;
@@ -963,6 +1004,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
     }
 
+    /**
+     * Method to add a new intersection to the intersection info map if the intersection has a common ordering. This
+     * method also evicts all expressions of sub partitions that have been planned already.
+     * @param intersectionInfoMap intersection info map
+     * @param partition the partition to add (potentially)
+     * @param intersectionResult the result from the intersection attempt (mostly to capture the intersection ordering)
+     */
     private static void updateIntersectionInfoMap(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
                                                   @Nonnull final Collection<Vectored<SingleMatchedAccess>> partition,
                                                   @Nonnull final IntersectionResult intersectionResult) {
@@ -970,10 +1018,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final var cacheKey = cacheKey(partition);
         if (intersectionResult.hasCommonIntersectionOrdering()) {
             if (!intersectionResult.getExpressions().isEmpty()) {
+                // This loop loops partition.size() times
                 for (final var subPartition : ChooseK.chooseK(partition, partition.size() - 1)) {
                     final var subCacheKey = cacheKey(subPartition);
                     final var subIntersectionInfo = Objects.requireNonNull(intersectionInfoMap.get(subCacheKey));
-                    subIntersectionInfo.pruneExpressions();
+                    subIntersectionInfo.evictExpressions();
                 }
             }
             intersectionInfoMap.put(cacheKey,
@@ -982,6 +1031,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
     }
 
+    /**
+     * Strip the resulting expressions from the intersection info map so they can be returned to the actual rule to be
+     * yielded.
+     * @param intersectionInfoMap intersection info map
+     * @return a (linked identity) set of expressions that need to be yielded
+     */
     @Nonnull
     private static Set<RelationalExpression> intersectionInfoMapToExpressions(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap) {
         return intersectionInfoMap.entrySet()
@@ -1150,7 +1205,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             return expressions;
         }
 
-        public void pruneExpressions() {
+        public void evictExpressions() {
             expressions.clear();
         }
 
