@@ -53,4 +53,5 @@ message PlannerConfiguration {
     repeated string valueIndexesOverScanNeeded = 11;
     optional int32 maxNumReplansForInToJoin = 12;
     optional int32 orToUnionMaxNumConjuncts = 13;
+    optional int32 maxNumReplansForInUnion = 14;
 }

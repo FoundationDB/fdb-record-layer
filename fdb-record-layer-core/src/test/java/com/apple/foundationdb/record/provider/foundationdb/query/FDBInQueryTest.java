@@ -82,6 +82,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -1167,6 +1168,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 case AS_UNION:
                     config.setAttemptFailedInJoinAsOr(true);
                     config.setAttemptFailedInJoinAsUnionMaxSize(1000);
+                    // config.setMaxNumReplansForInUnion(1);
                     break;
                 case NONE:
                 default:
@@ -2558,12 +2560,15 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    void testInUnionWithNonSargable() throws Exception {
+    @ParameterizedTest(name = "testInUnionWithNonSargable[replans={0}]")
+    @ValueSource(ints = {-1, 0, 1})
+    void testInUnionWithNonSargable(int replans) throws Exception {
         complexQuerySetup(NO_HOOK);
 
         planner.setConfiguration(planner.getConfiguration().asBuilder()
                 .setAttemptFailedInJoinAsUnionMaxSize(100)
                 .setOmitPrimaryKeyInOrderingKeyForInUnion(true)
+                .setMaxNumReplansForInUnion(replans)
                 .build());
         final var inFilter = Query.field("num_value_2").in(List.of(1, 3, 5, 7, 9));
         RecordQuery query = RecordQuery.newBuilder()
@@ -2598,15 +2603,20 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    void testInUnionWithSomeSargable() throws Exception {
+    @ParameterizedTest(name = "testInUnionWithSomeSargable[replans={0}]")
+    @ValueSource(ints = {-2, -1, 0, 1})
+    void testInUnionWithSomeSargable(int replans) throws Exception {
         final Index numValue2Then3Index = new Index("numValue2NumValue3", concatenateFields("num_value_2", "num_value_3_indexed"));
         final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", numValue2Then3Index);
         complexQuerySetup(hook);
 
-        planner.setConfiguration(planner.getConfiguration().asBuilder()
+        var plannerConfigBuilder = planner.getConfiguration().asBuilder()
                 .setAttemptFailedInJoinAsUnionMaxSize(100)
-                .setOmitPrimaryKeyInOrderingKeyForInUnion(true)
-                .build());
+                .setOmitPrimaryKeyInOrderingKeyForInUnion(true);
+        if (replans != -1) {
+            plannerConfigBuilder.setMaxNumReplansForInUnion(replans);
+        }
+        planner.setConfiguration(plannerConfigBuilder.build());
         final var inFilter1 = Query.field("num_value_2").in("nv2_list");
         final var inFilter2 = Query.field("str_value_indexed").in("str_list");
         RecordQuery query = RecordQuery.newBuilder()
@@ -2630,7 +2640,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             .where(inUnionValuesSources(exactly(inUnionInParameter(equalsObject("nv2_list")), inUnionInParameter(equalsObject("str_list"))))));
             assertEquals(1054186198, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(1446801539, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        } else {
+        } else if (replans < 0) {
             // This is a suboptimal plan!
             // In iterates over both IN-values even though only one of the associated predicate is only sargable
             assertMatchesExactly(plan,
@@ -2641,7 +2651,20 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                             .and(scanComparisons(equalities(only(anyComparison())))))
                                     .where(queryComponents(only(anyObject()))))
                             .where(inUnionValuesSources(exactly(inUnionInParameter(equalsObject("nv2_list")), inUnionInParameter(equalsObject("str_list"))))));
-            /*
+            assertEquals(-973899527, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-800664582, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else if (replans == 0) {
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            indexPlan()
+                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                    .and(scanComparisons(unbounded())))
+                            .where(queryComponents(exactly(equalsObject(inFilter1), equalsObject(inFilter2)))));
+            assertEquals(1049316343, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(339484528, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
+            // This is the optimal plan. It pushes down the sargable IN-predicate into the index, and then it
+            // uses a single filter for the non-sargable IN-union predicate
             assertMatchesExactly(plan,
                     inUnionOnExpressionPlan(
                             filterPlan(
@@ -2650,9 +2673,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                             .and(scanComparisons(equalities(only(anyComparison())))))
                                     .where(queryComponents(only(equalsObject(inFilter2)))))
                             .where(inUnionValuesSources(only(inUnionInParameter(equalsObject("nv2_list"))))));
-             */
-            assertEquals(-973899527, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-800664582, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-273024096, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1756350645, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 }
