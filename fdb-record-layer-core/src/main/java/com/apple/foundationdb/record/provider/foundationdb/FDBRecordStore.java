@@ -1985,8 +1985,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private CompletableFuture<Void> run() {
             if (evaluated == null) {
                 // no record types
-                LOGGER.warn(KeyValueLogMessage.of("Tried to delete prefix with no record types",
-                        subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.of("Tried to delete prefix with no record types",
+                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                }
                 return AsyncUtil.DONE;
             }
 
