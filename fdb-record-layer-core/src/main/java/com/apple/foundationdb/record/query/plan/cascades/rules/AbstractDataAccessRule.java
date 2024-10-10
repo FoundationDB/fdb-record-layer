@@ -52,6 +52,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalInte
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -881,8 +883,18 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     private static boolean isPartitionRedundant(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
                                                 @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                 @Nonnull final ImmutableSet<Value> equalityBoundKeyValues) {
+        // if one of the single accesses has a max cardinality of 0 or 1 it is not useful to create this intersection
+        for (final var singleMatchedAccessWithIndex : partition) {
+            final var infoKey = intersectionInfoKey(singleMatchedAccessWithIndex);
+            final var intersectionInfo = Objects.requireNonNull(intersectionInfoMap.get(infoKey));
+            if (!intersectionInfo.getMaxCardinality().isUnknown() &&
+                    intersectionInfo.getMaxCardinality().getCardinality() <= 1) {
+                return true;
+            }
+        }
+
         for (final var subPartition : ChooseK.chooseK(partition, partition.size() - 1)) {
-            final var checkCacheKey = cacheKey(subPartition);
+            final var checkCacheKey = intersectionInfoKey(subPartition);
             final var subIntersectionInfo = Objects.requireNonNull(intersectionInfoMap.get(checkCacheKey));
             final var subIntersectionOrdering = subIntersectionInfo.getIntersectionOrdering();
             if (subIntersectionOrdering.getEqualityBoundValues().containsAll(equalityBoundKeyValues)) {
@@ -999,8 +1011,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             intersectionInfoMap.put(cacheKey, IntersectionInfo.ofImpossibleAccess(orderingFromSingleMatchedAccess));
         } else {
             final var compensatedExpression = compensatedExpressionOptional.get();
+            final var cardinalities = CardinalitiesProperty.evaluate(compensatedExpression);
+
             intersectionInfoMap.put(cacheKey,
-                    IntersectionInfo.ofSingleAccess(orderingFromSingleMatchedAccess, compensatedExpression));
+                    IntersectionInfo.ofSingleAccess(orderingFromSingleMatchedAccess, compensatedExpression,
+                            cardinalities.getMaxCardinality()));
         }
     }
 
@@ -1015,12 +1030,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                   @Nonnull final Collection<Vectored<SingleMatchedAccess>> partition,
                                                   @Nonnull final IntersectionResult intersectionResult) {
         Verify.verify(partition.size() >= 2);
-        final var cacheKey = cacheKey(partition);
+        final var cacheKey = intersectionInfoKey(partition);
         if (intersectionResult.hasCommonIntersectionOrdering()) {
             if (!intersectionResult.getExpressions().isEmpty()) {
                 // This loop loops partition.size() times
                 for (final var subPartition : ChooseK.chooseK(partition, partition.size() - 1)) {
-                    final var subCacheKey = cacheKey(subPartition);
+                    final var subCacheKey = intersectionInfoKey(subPartition);
                     final var subIntersectionInfo = Objects.requireNonNull(intersectionInfoMap.get(subCacheKey));
                     subIntersectionInfo.evictExpressions();
                 }
@@ -1046,10 +1061,17 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     @Nonnull
-    private static BitSet cacheKey(@Nonnull Collection<Vectored<SingleMatchedAccess>> accesses) {
-        final var cacheKey = new BitSet();
-        accesses.forEach(vectored -> cacheKey.set(vectored.getPosition()));
-        return cacheKey;
+    private static BitSet intersectionInfoKey(@Nonnull Vectored<SingleMatchedAccess> access) {
+        final var intersectionInfoKey = new BitSet();
+        intersectionInfoKey.set(access.getPosition());
+        return intersectionInfoKey;
+    }
+
+    @Nonnull
+    private static BitSet intersectionInfoKey(@Nonnull Collection<Vectored<SingleMatchedAccess>> accesses) {
+        final var intersectionInfoKey = new BitSet();
+        accesses.forEach(vectored -> intersectionInfoKey.set(vectored.getPosition()));
+        return intersectionInfoKey;
     }
 
     private static class SingleMatchedAccess {
@@ -1188,11 +1210,15 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         private final Ordering intersectionOrdering;
         @Nonnull
         private final List<RelationalExpression> expressions;
+        @Nonnull
+        private final Cardinality maxCardinality;
 
         private IntersectionInfo(@Nonnull final Ordering intersectionOrdering,
-                                 @Nonnull final List<RelationalExpression> expressions) {
+                                 @Nonnull final List<RelationalExpression> expressions,
+                                 @Nonnull final Cardinality maxCardinality) {
             this.intersectionOrdering = intersectionOrdering;
             this.expressions = expressions;
+            this.maxCardinality = maxCardinality;
         }
 
         @Nonnull
@@ -1205,25 +1231,31 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             return expressions;
         }
 
+        @Nonnull
+        public Cardinality getMaxCardinality() {
+            return maxCardinality;
+        }
+
         public void evictExpressions() {
             expressions.clear();
         }
 
         @Nonnull
         public static IntersectionInfo ofSingleAccess(@Nonnull final Ordering ordering,
-                                                      @Nonnull final RelationalExpression expression) {
-            return new IntersectionInfo(ordering, Lists.newArrayList(expression));
+                                                      @Nonnull final RelationalExpression expression,
+                                                      @Nonnull final Cardinality maxCardinality) {
+            return new IntersectionInfo(ordering, Lists.newArrayList(expression), maxCardinality);
         }
 
         @Nonnull
         public static IntersectionInfo ofImpossibleAccess(@Nonnull final Ordering ordering) {
-            return new IntersectionInfo(ordering, Lists.newArrayList());
+            return new IntersectionInfo(ordering, Lists.newArrayList(), Cardinality.unknownCardinality());
         }
 
         @Nonnull
         public static IntersectionInfo ofIntersection(@Nonnull final Ordering ordering,
                                                       @Nonnull final List<RelationalExpression> expressions) {
-            return new IntersectionInfo(ordering, Lists.newArrayList(expressions));
+            return new IntersectionInfo(ordering, Lists.newArrayList(expressions), Cardinality.unknownCardinality());
         }
     }
 }
