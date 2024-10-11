@@ -68,6 +68,11 @@ public class RequestedOrdering {
     private final List<RequestedOrderingPart> orderingParts;
     @Nonnull
     private final Distinctness distinctness;
+
+    /**
+     * Boolean to indicate that we are interested in all plans satisfying this requested ordering (if {@code true})
+     * or what would be considered the best plan per requirement.
+     */
     private final boolean isExhaustive;
 
     @Nonnull
@@ -75,7 +80,7 @@ public class RequestedOrdering {
 
     private RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts,
                               @Nonnull final Distinctness distinctness,
-                              @Nonnull final boolean isExhaustive) {
+                              final boolean isExhaustive) {
         this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
         this.isExhaustive = isExhaustive;
@@ -90,6 +95,10 @@ public class RequestedOrdering {
         return distinctness == Distinctness.DISTINCT;
     }
 
+    /**
+     * Method to return if we are interested in all plans satisfying this requested ordering (iff {@code true})
+     * or what would just be preemptively considered the best plan per given requirement.
+     */
     public boolean isExhaustive() {
         return isExhaustive;
     }
