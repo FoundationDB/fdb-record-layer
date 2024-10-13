@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
 import com.apple.foundationdb.record.TupleRange;
@@ -48,14 +46,12 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.IntWrappingFunction;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -66,9 +62,6 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.test.FDBDatabaseExtension;
-import com.apple.foundationdb.record.test.TestKeySpace;
-import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
@@ -83,10 +76,8 @@ import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -121,39 +112,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 @API(API.Status.EXPERIMENTAL)
-public class SyntheticRecordPlannerTest {
-    @RegisterExtension
-    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
-    @RegisterExtension
-    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
-
-    private FDBDatabase fdb;
-    private FDBStoreTimer timer;
-    private RecordMetaDataBuilder metaDataBuilder;
-    private FDBRecordStore.Builder recordStoreBuilder;
-
-    private FDBRecordContext openContext() {
-        return fdb.openContext(null, timer);
-    }
-
+public class SyntheticRecordPlannerTest extends AbstractSyntheticRecordPlannerTest {
     private QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
         if (indexTypes == null) {
             indexTypes = PlannableIndexTypes.DEFAULT;
         }
         return new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
-    }
-
-    @BeforeEach
-    public void initBuilders() {
-        metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecordsJoinIndexProto.getDescriptor());
-
-        fdb = dbExtension.getDatabase();
-        KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-        recordStoreBuilder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaDataBuilder)
-                .setKeySpacePath(path);
-        timer = new FDBStoreTimer();
     }
 
     @Test
