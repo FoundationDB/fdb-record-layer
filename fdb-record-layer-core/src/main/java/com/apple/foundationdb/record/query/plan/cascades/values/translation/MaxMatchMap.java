@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MaxMatchMapSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -82,7 +84,7 @@ public class MaxMatchMap {
     }
 
     @Nonnull
-    public Map<Value, Value> getMapping() {
+    public Map<Value, Value> getMap() {
         return mapping;
     }
 
@@ -204,6 +206,9 @@ public class MaxMatchMap {
                                                            @Nonnull final Set<Value> expandedValues) {
         final var queryPlanConstraintsBuilder = ImmutableList.<QueryPlanConstraint>builder();
 
+        //
+        // Try to find a match for this current query value.
+        //
         var currentMatchingPair =
                 findMatchingCandidateValue(currentQueryValue,
                         candidateResultValue,
@@ -218,6 +223,28 @@ public class MaxMatchMap {
                     currentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
         }
 
+        //
+        // Apply a set of rules to the current query value and try again to match on the translated query value.
+        // The nested call will either directly match or will skip this 'if' entirely.
+        //
+        if (!expandedValues.contains(currentQueryValue)) {
+            expandedValues.add(currentQueryValue);
+            try {
+                final var expandedCurrentQueryValue =
+                        Simplification.simplifyCurrent(currentQueryValue,
+                                AliasMap.emptyMap(), ImmutableSet.of(), MaxMatchMapSimplificationRuleSet.instance());
+                if (expandedCurrentQueryValue != currentQueryValue) {
+                    return recurseQueryResultValue(expandedCurrentQueryValue, candidateResultValue, valueEquivalence,
+                            knownValueMap, expandedValues);
+                }
+            } finally {
+                expandedValues.remove(currentQueryValue);
+            }
+        }
+
+        //
+        // Recurse into the children of the current query value.
+        //
         boolean areAllChildrenSame = true;
         final var newChildrenBuilder = ImmutableList.<Value>builder();
         final var knownNestedValueMap = HashBiMap.<Value, Value>create();
@@ -249,6 +276,9 @@ public class MaxMatchMap {
             return new RecursionResult(ImmutableBiMap.of(), resultCurrentValue, QueryPlanConstraint.tautology());
         }
 
+        //
+        // Try to match this 'modified' current query value again.
+        //
         currentMatchingPair =
                 findMatchingCandidateValue(resultCurrentValue,
                         candidateResultValue,
@@ -262,19 +292,6 @@ public class MaxMatchMap {
             //
             return new RecursionResult(ImmutableBiMap.of(resultCurrentValue, Objects.requireNonNull(currentMatchingPair.getValue())),
                     resultCurrentValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
-        }
-
-        if (!expandedValues.contains(currentQueryValue) &&
-                currentQueryValue.getResultType().isRecord() &&
-                !(currentQueryValue instanceof RecordConstructorValue)) {
-            expandedValues.add(currentQueryValue);
-            try {
-                final var expandedCurrentQueryValue = expandValueToRcvOverFields(currentQueryValue);
-                return recurseQueryResultValue(expandedCurrentQueryValue, candidateResultValue, valueEquivalence,
-                        knownValueMap, expandedValues);
-            } finally {
-                expandedValues.remove(currentQueryValue);
-            }
         }
 
         return new RecursionResult(resultValueMap, resultCurrentValue,

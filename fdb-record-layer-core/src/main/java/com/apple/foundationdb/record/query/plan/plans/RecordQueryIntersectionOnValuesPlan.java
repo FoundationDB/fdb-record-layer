@@ -89,7 +89,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     @Nonnull
     @Override
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
-        final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
+        final var ruleSet = DefaultValueSimplificationRuleSet.instance();
         return getComparisonKeyValues().stream()
                 .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
                 .collect(ImmutableList.toImmutableList());

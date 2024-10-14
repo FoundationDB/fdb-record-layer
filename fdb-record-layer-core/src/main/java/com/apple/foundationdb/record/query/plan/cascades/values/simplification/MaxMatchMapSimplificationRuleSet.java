@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -34,26 +35,26 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
+public class MaxMatchMapSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
+    protected static final ValueSimplificationRule<? extends Value> expandRecordRule = new ExpandRecordRule();
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverFieldValueRule = new ComposeFieldValueOverFieldValueRule();
+    protected static final ValueSimplificationRule<? extends FieldValue> expandFusedFieldValueRule = new ExpandFusedFieldValueRule();
     @Nonnull
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
-            ImmutableSet.of(composeFieldValueOverRecordConstructorRule, composeFieldValueOverFieldValueRule);
+            ImmutableSet.of(expandRecordRule, expandFusedFieldValueRule);
     @Nonnull
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
     @Nonnull
-    private static final DefaultValueSimplificationRuleSet INSTANCE = new DefaultValueSimplificationRuleSet();
+    private static final MaxMatchMapSimplificationRuleSet INSTANCE = new MaxMatchMapSimplificationRuleSet();
 
-    protected DefaultValueSimplificationRuleSet() {
+    protected MaxMatchMapSimplificationRuleSet() {
         super(SIMPLIFICATION_RULES, SIMPLIFICATION_DEPENDS_ON);
     }
 
-    public static DefaultValueSimplificationRuleSet instance() {
+    public static MaxMatchMapSimplificationRuleSet instance() {
         return INSTANCE;
     }
 }
