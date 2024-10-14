@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.Queue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -56,6 +57,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final Queue<CompletableFuture<RecordCursorResult<V>>> pipeline;
     private boolean innerExhausted = false;
+    private volatile boolean closing = false;
 
     @Nullable
     private CompletableFuture<RecordCursorResult<T>> waitInnerFuture = null;
@@ -78,20 +80,44 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor())
                 // pipeline will necessarily contain something if we stopped looping, so pipeline.remove() is nonnull
-                .thenCompose(vignore -> pipeline.peek()) // future should already be (nearly) ready if we stopped looping
+                // future should already be (nearly) ready if we stopped looping
+                // Unless, we are in the process of closing this, in which case there may not be any futures in the
+                // pipeline, and so we should return a cancelled exception
+                .thenCompose(vignore -> peekOrCancelled())
                 .thenApply(result -> {
                     if (result.hasNext()) {
-                        pipeline.remove();
+                        final CompletableFuture<RecordCursorResult<V>> inPipeline = pipeline.poll();
+                        if (inPipeline == null) {
+                            throw new CancellationException("Cursor has already been closed");
+                        }
                     }
                     nextResult = result;
                     return result;
                 });
     }
 
+    @Nullable
+    private CompletableFuture<RecordCursorResult<V>> peekOrCancelled() {
+        final CompletableFuture<RecordCursorResult<V>> peek = pipeline.peek();
+        if (peek == null) {
+            // this could happen if the cursor is in the process of being closed
+            CompletableFuture<RecordCursorResult<V>> future = new CompletableFuture<>();
+            future.cancel(true);
+            return future;
+        }
+        return peek;
+    }
+
     @Override
     public void close() {
+        closing = true;
         while (!pipeline.isEmpty()) {
-            pipeline.remove().cancel(false);
+            final CompletableFuture<RecordCursorResult<V>> outstanding = pipeline.poll();
+            // outstanding here, could be null if an onNext future is also being processed, and it has just removed the
+            // only future in the pipeline
+            if (outstanding != null) {
+                outstanding.cancel(false);
+            }
         }
         inner.close();
     }
