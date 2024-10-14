@@ -96,11 +96,39 @@ public class Simplification {
             final var executionResult = executeRuleSet(isRoot ? current : root,
                     current,
                     ruleSet,
-                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, aliasMap, constantAliases),
+                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings,
+                            aliasMap, constantAliases),
                     Iterables::getOnlyElement);
             Verify.verify(!executionResult.shouldReExplore());
             return executionResult.getBase();
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
+    }
+
+    /**
+     * Main function that simplifies the given value using the {@link AbstractValueRuleSet} passed in.
+     * @param current the {@link Value} to be simplified
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
+     * @return a new simplified {@link Value} of {@code root}
+     */
+    @Nonnull
+    public static Value simplifyCurrent(@Nonnull final Value current,
+                                        @Nonnull final AliasMap aliasMap,
+                                        @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                        @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
+        //
+        // Run the entire given rule set for current.
+        //
+        final var executionResult =
+                executeRuleSet(current,
+                        current,
+                        ruleSet,
+                        (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings,
+                                aliasMap, constantAliases),
+                        Iterables::getOnlyElement);
+        Verify.verify(!executionResult.shouldReExplore());
+        return executionResult.getBase();
     }
 
     /**

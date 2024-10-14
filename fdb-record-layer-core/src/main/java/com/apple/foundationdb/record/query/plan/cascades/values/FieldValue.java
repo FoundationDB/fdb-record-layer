@@ -429,6 +429,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         @Nonnull
+        public ResolvedAccessor getLastFieldAccessor() {
+            Preconditions.checkArgument(!isEmpty());
+            return getFieldAccessors().get(size() - 1);
+        }
+
+        @Nonnull
         public Optional<String> getLastFieldName() {
             Preconditions.checkArgument(!isEmpty());
             return getOptionalFieldNames().get(size() - 1);

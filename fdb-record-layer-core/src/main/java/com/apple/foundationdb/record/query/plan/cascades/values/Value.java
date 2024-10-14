@@ -542,7 +542,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     @Nonnull
     default Value simplify(@Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        return Simplification.simplify(this, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.ofSimplificationRules());
+        return Simplification.simplify(this, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.instance());
     }
 
     /**

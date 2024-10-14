@@ -427,7 +427,7 @@ public class Ordering {
                             toBePushedValues -> {
                                 final var pushedDownValues =
                                         value.pushDown(toBePushedValues,
-                                                DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap,
+                                                DefaultValueSimplificationRuleSet.instance(), aliasMap,
                                                 constantAliases, Quantifier.current());
                                 final var resultMap = new LinkedIdentityMap<Value, Value>();
                                 for (int i = 0; i < toBePushedValues.size(); i++) {
@@ -444,7 +444,7 @@ public class Ordering {
         final var pushedBindingMap = pushedBindingMapBuilder.build();
         final var values = pushedBindingMap.keySet();
         final var pushedValues =
-                value.pushDown(values, DefaultValueSimplificationRuleSet.ofSimplificationRules(),
+                value.pushDown(values, DefaultValueSimplificationRuleSet.instance(),
                         aliasMap, constantAliases, Quantifier.current());
 
         final var pushedValuesMapBuilder = ImmutableMap.<Value, Value>builder();

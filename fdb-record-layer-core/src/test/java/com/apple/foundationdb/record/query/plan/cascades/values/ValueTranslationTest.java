@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxM
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -251,7 +252,7 @@ public class ValueTranslationTest {
                 fv(t_, "a", "r"), fv(t_, "a", "r"),
                 fv(t_, "b", "t"), fv(t_, "b", "t"),
                 fv(t_, "j", "s"), fv(t_, "j", "s"));
-        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMapping());
+        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMap());
         Assertions.assertEquals(expectedL1TranslatedQueryValue, l1m3.getQueryResultValue());
         Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
 
@@ -300,7 +301,7 @@ public class ValueTranslationTest {
 
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
         final var l2m3 = MaxMatchMap.calculate(l2TranslatedQueryValue, r_v);
-        Assertions.assertEquals(l2ExpectedMapping, l2m3.getMapping());
+        Assertions.assertEquals(l2ExpectedMapping, l2m3.getMap());
         Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
         Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
     }
@@ -343,7 +344,7 @@ public class ValueTranslationTest {
                 rcv(fv(t_, "b", "t")),
                 fv(t_, "j", "s")
         );
-        Assertions.assertEquals(expectedMapping, l1M3.getMapping());
+        Assertions.assertEquals(expectedMapping, l1M3.getMap());
         Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryResultValue());
         Assertions.assertEquals(p_v, l1M3.getCandidateResultValue());
     }
@@ -388,7 +389,7 @@ public class ValueTranslationTest {
                 rcv(fv(t_, "b", "t")),
                 fv(t_, "j", "s")
         );
-        Assertions.assertEquals(expectedMapping, l1M3.getMapping());
+        Assertions.assertEquals(expectedMapping, l1M3.getMap());
         Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryResultValue());
         Assertions.assertEquals(p_v, l1M3.getCandidateResultValue());
     }
@@ -432,7 +433,7 @@ public class ValueTranslationTest {
                 rcv(fv(t_, "b", "t")),
                 fv(t_, "j", "s")
         );
-        Assertions.assertEquals(expectedMapping, l1M3.getMapping());
+        Assertions.assertEquals(expectedMapping, l1M3.getMap());
         Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryResultValue());
         Assertions.assertEquals(p_v, l1M3.getCandidateResultValue());
     }
@@ -493,7 +494,7 @@ public class ValueTranslationTest {
                 fv(t_, "a", "r"), fv(t_, "a", "r"),
                 fv(t_, "b", "t"), fv(t_, "b", "t"),
                 fv(t_, "j", "s"), fv(t_, "j", "s"));
-        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMapping());
+        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMap());
         Assertions.assertEquals(expectedL1TranslatedQueryValue, l1m3.getQueryResultValue());
         Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
 
@@ -542,7 +543,7 @@ public class ValueTranslationTest {
 
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
         final var l2m3 = MaxMatchMap.calculate(l2TranslatedQueryValue, r_v);
-        Assertions.assertEquals(l2ExpectedMapping, l2m3.getMapping());
+        Assertions.assertEquals(l2ExpectedMapping, l2m3.getMap());
         Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
         Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
     }
@@ -670,7 +671,7 @@ public class ValueTranslationTest {
                 fv(t_, "a", "r"), fv(t_, "a", "r"),
                 fv(t_, "b", "t"), fv(t_, "b", "t"),
                 fv(t_, "j", "s"), fv(t_, "j", "s"));
-        Assertions.assertEquals(l1ExpectedMappingForTValue, l1m3ForTValue.getMapping());
+        Assertions.assertEquals(l1ExpectedMappingForTValue, l1m3ForTValue.getMap());
         Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1m3ForTValue.getQueryResultValue());
         Assertions.assertEquals(t_v, l1m3ForTValue.getCandidateResultValue());
 
@@ -679,7 +680,7 @@ public class ValueTranslationTest {
         Map<Value, Value> l1ExpectedMappingForMValue = Map.of(
                 fv(m_, "m1", "m11"), fv(m_, "m1", "m11"),
                 fv(m_, "m2", "m21"), fv(m_, "m2", "m21"));
-        Assertions.assertEquals(l1ExpectedMappingForMValue, l1m3ForMValue.getMapping());
+        Assertions.assertEquals(l1ExpectedMappingForMValue, l1m3ForMValue.getMap());
         Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1m3ForMValue.getQueryResultValue());
         Assertions.assertEquals(m_v, l1m3ForMValue.getCandidateResultValue());
 
@@ -689,7 +690,7 @@ public class ValueTranslationTest {
                 fv(n_, "n2", "n21"), fv(n_, "n2", "n21"),
                 fv(n_, "n1", "n12"), fv(n_, "n1", "n12"),
                 fv(n_, "n3", "n32"), fv(n_, "n3", "n32"));
-        Assertions.assertEquals(l1ExpectedMappingForNValue, l1m3ForNValue.getMapping());
+        Assertions.assertEquals(l1ExpectedMappingForNValue, l1m3ForNValue.getMap());
         Assertions.assertEquals(expectedL1TranslatedQueryNValue, l1m3ForNValue.getQueryResultValue());
         Assertions.assertEquals(n_v, l1m3ForNValue.getCandidateResultValue());
 
@@ -1046,7 +1047,7 @@ public class ValueTranslationTest {
         final var l1m3 = MaxMatchMap.calculate(l1TranslatedQueryValue, p_v);
 
         Map<Value, Value> l1ExpectedMapping = Map.of(pv,  p_v);
-        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMapping());
+        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMap());
         Assertions.assertEquals(pv, l1m3.getQueryResultValue());
         Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
 
@@ -1068,51 +1069,70 @@ public class ValueTranslationTest {
     }
 
     /**
-     * Test to establish that simple a QOV(T) (fields a, b, j) can be matched to a RCV(T.a, T.b, T.j).
+     * Test to establish that simple QOV(T') (fields a, b, j) can be matched to a RCV(T'.a, T'.b, T'.j).
      */
     @Test
     public void maxMatchQovUsingExpandedSimpleQov() {
         final var p_v = rcv(fv(t_, "a"), fv(t_, "b"), fv(t_, "j"));
 
-        /*
-          let's construct a max match map (m3) using the translated value with the candidate value.
-         */
         final var m3 = MaxMatchMap.calculate(t_, p_v);
 
-        System.out.println(m3);
+        final var computedMap = m3.getMap();
+        final var expectedMap = ImmutableMap.of(p_v, p_v);
+        Assertions.assertEquals(expectedMap, computedMap);
     }
 
     /**
-     * Test to establish that simple a QOV(T) can be matched to a deconstructed RCV(T.a, T.b).
+     * Test to establish that simple QOV(T') can be matched to a deconstructed RCV(T'.a, T'.b, T'.j).
      */
     @Test
     public void maxMatchQovUsingExpandedQovReorderedFields() {
         final var p_v = rcv(fv(t_, "b"), fv(t_, "a"), fv(t_, "j"));
 
-        /*
-          let's construct a max match map (m3) using the translated value with the candidate value.
-         */
         final var m3 = MaxMatchMap.calculate(t_, p_v);
 
-        System.out.println(m3);
+        final var computedMap = m3.getMap();
+        final var expectedMap =
+                ImmutableMap.of(fv(t_, "a"), fv(t_, "a"),
+                        fv(t_, "b"), fv(t_, "b"),
+                        fv(t_, "j"), fv(t_, "j"));
+        Assertions.assertEquals(expectedMap, computedMap);
     }
 
     /**
-     * Test to establish that simple a QOV(T) can be matched to a deconstructed RCV(T.a, T.b).
+     * Test to establish that simple QOV(T') can be matched to an almost completely deconstructed
+     * RCV(RCV(T'.a.q, T'.a.r), T'.b, T'.j).
      */
     @Test
-    public void maxMatchQovUsingExpandedQovReorderedComplex1() {
+    public void maxMatchQovUsingExpandedQovComplex1() {
         final var p_v =
                 rcv(rcv(fv(t_, "a", "q"), fv(t_, "a", "r")),
                         fv(t_, "b"),
                         fv(t_, "j"));
 
-        /*
-          let's construct a max match map (m3) using the translated value with the candidate value.
-         */
         final var m3 = MaxMatchMap.calculate(t_, p_v);
 
-        System.out.println(m3);
+        final var computedMap = m3.getMap();
+        final var expectedMap = ImmutableMap.of(p_v, p_v);
+        Assertions.assertEquals(expectedMap, computedMap);
+    }
+
+    /**
+     * Test to establish that simple QOV(T') can be matched to an almost completely deconstructed
+     * RCV(RCV(T'.a.q, T'.a.r), T'.b, T'.j).
+     */
+    @Test
+    public void maxMatchFvUsingExpandedQovComplex1() {
+        final var pv =
+                rcv(fv(t_, "a", "q"));
+        final var p_v =
+                rcv(fv(t_, "a"));
+
+        final var m3 = MaxMatchMap.calculate(pv, p_v);
+
+        final var computedMap = m3.getMap();
+        final var expectedMap = ImmutableMap.of(fv(t_, "a"), fv(t_, "a"));
+        Assertions.assertEquals(expectedMap, computedMap);
     }
 
     @Nonnull

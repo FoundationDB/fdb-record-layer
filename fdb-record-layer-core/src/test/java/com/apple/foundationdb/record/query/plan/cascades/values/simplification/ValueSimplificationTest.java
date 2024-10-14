@@ -287,6 +287,6 @@ class ValueSimplificationTest {
 
     @Nonnull
     private static Value defaultSimplify(@Nonnull final Value toBeSimplified) {
-        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), ImmutableSet.of());
+        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.instance(), AliasMap.emptyMap(), ImmutableSet.of());
     }
 }
