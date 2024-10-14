@@ -1281,27 +1281,17 @@ public class RecordCursorTest {
     @RepeatedTest(100)
     public void mapPipelineCloseWhileCancelling() {
         Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
-        int expectedCancellations = 0;
         for (int i = 0; i < 2000; i++) {
             try {
                 LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
                 CompletableFuture<Void> signal = new CompletableFuture<>();
                 RecordCursor<Integer> cursor = RecordCursor.fromList(IntStream.range(0, i % 199).boxed().collect(Collectors.toList()))
-                        .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349), i % 19 + 1);
+                        .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), i % 19 + 2);
                 CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
 
                 signal.complete(null);
                 cursor.close();
-                try {
-                    resultFuture.join();
-                } catch (CompletionException e) {
-                    if (e.getCause() != null && e.getCause() instanceof CancellationException) {
-                        LOGGER.info("Future cancelled");
-                        expectedCancellations++;
-                    } else {
-                        throw e;
-                    }
-                }
+                resultFuture.get(2, TimeUnit.SECONDS);
             } catch (Exception e) {
                 Throwable errToCount;
                 if (e instanceof CompletionException && e.getCause() != null) {
@@ -1318,6 +1308,28 @@ public class RecordCursorTest {
         msg.addKeysAndValues(exceptionCount);
         LOGGER.info(msg.toString());
         assertThat(exceptionCount, Matchers.anEmptyMap());
-        assertThat(expectedCancellations, Matchers.greaterThan(10));
+    }
+
+    @Test
+    void mapPipelinedAfterClosed() {
+        Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
+        for (int i = 0; i < 2000; i++) {
+            LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
+            CompletableFuture<Void> signal = new CompletableFuture<>();
+            LOGGER.info(EXECUTOR.toString());
+            RecordCursor<Integer> cursor = RecordCursor.fromList(IntStream.range(0, i % 199).boxed().collect(Collectors.toList()))
+                    .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), i % 19 + 2);
+
+            signal.complete(null);
+            cursor.close();
+            CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+            final ExecutionException executionException = assertThrows(ExecutionException.class,
+                    () -> resultFuture.get(2, TimeUnit.SECONDS));
+            assertThat(executionException.getCause(), Matchers.instanceOf(CancellationException.class));
+        }
+        KeyValueLogMessage msg = KeyValueLogMessage.build("exception counts");
+        msg.addKeysAndValues(exceptionCount);
+        LOGGER.info(msg.toString());
+        assertThat(exceptionCount, Matchers.anEmptyMap());
     }
 }
