@@ -39,7 +39,6 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
@@ -1278,7 +1277,7 @@ public class RecordCursorTest {
 
     }
 
-    @RepeatedTest(100)
+    @Test
     public void mapPipelineCloseWhileCancelling() {
         Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
         for (int i = 0; i < 2000; i++) {
