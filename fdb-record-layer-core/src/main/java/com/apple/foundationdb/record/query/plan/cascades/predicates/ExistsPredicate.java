@@ -38,11 +38,12 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -173,9 +174,10 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
-                                                                @Nonnull final QueryPredicate candidatePredicate,
-                                                                @Nonnull final EvaluationContext evaluationContext) {
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final QueryPredicate candidatePredicate,
+                                                                     @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate instanceof Placeholder) {
             return Optional.empty();
         } else if (candidatePredicate instanceof ExistsPredicate) {
@@ -186,16 +188,14 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                 return Optional.empty();
             }
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
-                            .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
+                            .setPredicateCompensation(this::computeCompensationFunction)
                             .setConstraint(aliasEquals.getConstraint())
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                             .build());
         } else if (candidatePredicate.isTautology()) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
-                            .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
+                            .setPredicateCompensation(this::computeCompensationFunction)
                             .build());
         }
         return Optional.empty();
@@ -203,34 +203,33 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nonnull
     @Override
-    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
-        return injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
+        return computeCompensationFunction(partialMatch, boundParameterPrefixMap, pullUp);
     }
 
     @Nonnull
-    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+    private PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                      @Nonnull final PullUp pullUp) {
         final var matchInfo = partialMatch.getMatchInfo();
-        final var childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
+        final var childPartialMatchOptional = matchInfo.getChildPartialMatchMaybe(existentialAlias);
         final var compensationOptional =
-                childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+                childPartialMatchOptional.map(childPartialMatch ->
+                        childPartialMatch.compensate(boundParameterPrefixMap, childPartialMatch.topPullUp()));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-            return Optional.of(translationMap -> injectCompensation(partialMatch, translationMap));
+            final var inverseMatchedAliasMap =
+                    partialMatch.getMatchedAliasMap().inverse();
+            final var queryExistentialAlias = inverseMatchedAliasMap.get(getExistentialAlias());
+            if (queryExistentialAlias == null) {
+                return PredicateCompensationFunction.impossibleCompensation();
+            }
+            return PredicateCompensationFunction.of(translationMap -> LinkedIdentitySet.of(new ExistsPredicate(queryExistentialAlias)));
         }
-        return Optional.empty();
-    }
-
-    @Nonnull
-    private Set<QueryPredicate> injectCompensation(@Nonnull final PartialMatch partialMatch, @Nonnull final TranslationMap translationMap) {
-        Verify.verify(!translationMap.containsSourceAlias(existentialAlias));
-
-        final var containingExpression = partialMatch.getQueryExpression();
-        Verify.verify(containingExpression.canCorrelate());
-
-        return LinkedIdentitySet.of(this);
+        return PredicateCompensationFunction.noCompensationNeeded();
     }
     
     @Override

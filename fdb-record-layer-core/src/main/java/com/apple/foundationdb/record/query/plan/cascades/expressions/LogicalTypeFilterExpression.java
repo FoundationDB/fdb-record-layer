@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRew
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -94,7 +95,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     }
 
     @Nonnull
-    private Quantifier getInner() {
+    public Quantifier getInner() {
         return inner;
     }
 
@@ -143,10 +144,19 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
     }
 
+    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final PartialMatch childPartialMatch = Objects.requireNonNull(partialMatch.getMatchInfo().getChildPartialMatch(inner).orElseThrow(() -> new RecordCoreException("expected a match child")));
-        return childPartialMatch.compensate(boundParameterPrefixMap);
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   @Nonnull final PullUp pullUp) {
+        final PartialMatch childPartialMatch =
+                Objects.requireNonNull(partialMatch.getMatchInfo()
+                        .getChildPartialMatchMaybe(inner)
+                        .orElseThrow(() -> new RecordCoreException("expected a match child")));
+        final var childPullUp =
+                childPartialMatch.nestPullUp(pullUp, inner.getAlias(),
+                        Objects.requireNonNull(partialMatch.getMatchedQuantifierMap().get(inner)));
+        return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
     }
 
     @Nonnull

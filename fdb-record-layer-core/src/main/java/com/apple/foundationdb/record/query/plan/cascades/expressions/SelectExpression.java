@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -476,9 +477,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 }
             }
 
+            final var translatedPredicate = predicate.translateCorrelations(translationMap);
             final Iterable<PredicateMapping> impliedMappingsForPredicate =
-                    predicate.findImpliedMappings(bindingValueEquivalence, candidateSelectExpression.getPredicates(),
-                            evaluationContext);
+                    translatedPredicate.findImpliedMappings(bindingValueEquivalence, predicate,
+                            candidateSelectExpression.getPredicates(), evaluationContext);
 
             for (final PredicateMapping predicateMapping : impliedMappingsForPredicate) {
                 var currentPredicateMappings =
@@ -720,10 +722,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return result.build();
     }
 
+    @Nonnull
     @Override
     @SuppressWarnings({"java:S135", "java:S1066"})
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, ExpandCompensationFunction>();
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   @Nonnull final PullUp pullUp) {
+        final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
+        final var matchedQuantifierMap = partialMatch.getMatchedQuantifierMap();
         final var matchInfo = partialMatch.getMatchInfo();
         final var predicateMap = matchInfo.getPredicateMap();
 
@@ -740,8 +746,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                 .flatMap(quantifier ->
-                        matchInfo.getChildPartialMatch(quantifier)
-                                .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap)).stream())
+                        matchInfo.getChildPartialMatchMaybe(quantifier)
+                                .map(childPartialMatch -> {
+                                    final var childPullUp =
+                                            childPartialMatch.nestPullUp(pullUp,
+                                                    quantifier.getAlias(),
+                                                    Objects.requireNonNull(matchedQuantifierMap.get(quantifier)));
+                                    return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
+                                }).stream())
                 .reduce(Compensation.noCompensation(), Compensation::union);
 
         if (childCompensation.isImpossible() ||
@@ -750,7 +762,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
-        final var unmatchedQuantifierAliases = unmatchedQuantifiers.stream().map(Quantifier::getAlias).collect(ImmutableList.toImmutableList());
+        final var unmatchedQuantifierAliases =
+                unmatchedQuantifiers.stream().map(Quantifier::getAlias).collect(ImmutableList.toImmutableList());
         boolean isImpossible = false;
 
         //
@@ -774,22 +787,32 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 // (in all reality those mappings are mappings to tautological placeholders), we do not need
                 // compensation for this query predicate at all.
                 //
-                ExpandCompensationFunction injectCompensationFunction = null;
+                PredicateCompensationFunction compensationFunction = null;
+                boolean isCompensationFunctionNeeded = true;
+                boolean isCompensationFunctionImpossible = true;
                 for (final var predicateMapping : predicateMappings) {
-                    final Optional<ExpandCompensationFunction> injectCompensationFunctionForCandidatePredicateOptional =
-                            predicateMapping
-                                    .getCompensatePredicateFunction()
-                                    .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
-
-                    if (injectCompensationFunctionForCandidatePredicateOptional.isEmpty()) {
-                        injectCompensationFunction = null;
+                    final var compensationFunctionForCandidatePredicate =
+                            predicateMapping.getPredicateCompensation()
+                                    .computeCompensationFunction(partialMatch, boundParameterPrefixMap, pullUp);
+                    if (!compensationFunctionForCandidatePredicate.isNeeded()) {
+                        isCompensationFunctionNeeded = false;
                         break;
-                    } else if (injectCompensationFunction == null) {
-                        injectCompensationFunction = injectCompensationFunctionForCandidatePredicateOptional.get();
+                    }
+
+                    if (!compensationFunctionForCandidatePredicate.isImpossible()) {
+                        isCompensationFunctionImpossible = false;
+                        if (compensationFunction == null) {
+                            compensationFunction = compensationFunctionForCandidatePredicate;
+                        }
                     }
                 }
-                if (injectCompensationFunction != null) {
-                    predicateCompensationMap.put(predicate, injectCompensationFunction);
+
+                if (isCompensationFunctionNeeded) {
+                    if (isCompensationFunctionImpossible) {
+                        isImpossible = true;
+                    } else {
+                        predicateCompensationMap.put(predicate, Objects.requireNonNull(compensationFunction));
+                    }
                 }
             }
         }
