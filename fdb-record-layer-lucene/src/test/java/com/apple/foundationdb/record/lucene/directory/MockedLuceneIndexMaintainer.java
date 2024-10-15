@@ -32,8 +32,11 @@ import java.util.concurrent.Executor;
  * the test execution.
  */
 public class MockedLuceneIndexMaintainer extends LuceneIndexMaintainer {
-    public MockedLuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull final Executor executor) {
+    public MockedLuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull final Executor executor, final InjectedFailureRepository injectedFailures) {
         super(state, executor);
+        // Setting failures has to be done here rather than via a constructor param since createDirectoryManager is called
+        // from the super constructor before we can set local state
+        ((MockedFDBDirectoryManager)getDirectoryManager()).setInjectedFailures(injectedFailures);
     }
 
     @Nonnull

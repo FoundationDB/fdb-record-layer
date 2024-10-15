@@ -32,9 +32,15 @@ import javax.annotation.Nonnull;
  * test execution.
  */
 public class MockedLuceneIndexMaintainerFactory extends LuceneIndexMaintainerFactory {
+    private InjectedFailureRepository injectedFailures;
+
+    public MockedLuceneIndexMaintainerFactory(final InjectedFailureRepository injectedFailures) {
+        this.injectedFailures = injectedFailures;
+    }
+
     @Nonnull
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-        return new MockedLuceneIndexMaintainer(state, state.context.getExecutor());
+        return new MockedLuceneIndexMaintainer(state, state.context.getExecutor(), injectedFailures);
     }
 }

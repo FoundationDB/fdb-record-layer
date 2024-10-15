@@ -20,19 +20,17 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.lucene.LuceneExceptions;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
 
 /**
  * A Testing-focused {@link FDBDirectoryManager} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryManager extends FDBDirectoryManager {
+    private InjectedFailureRepository injectedFailures;
+
     public MockedFDBDirectoryManager(@Nonnull final IndexMaintainerState state) {
         super(state);
     }
@@ -40,35 +38,21 @@ public class MockedFDBDirectoryManager extends FDBDirectoryManager {
     @Nonnull
     @Override
     protected FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
+        return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, injectedFailures);
     }
 
     /**
      * Redefining the static method to be used in mock situations.
-     * This uses the same logic as the base class but calls the mocked class constructor.
      * @param state the state to use for the manager
      * @return a cached instance of the manager if one exists, create a new one otherwise
      */
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public static FDBDirectoryManager getManager(@Nonnull IndexMaintainerState state) {
-        synchronized (state.context) {
-            FDBRecordContext context = state.context;
-            FDBDirectoryManager existing = context.getInSession(state.indexSubspace, FDBDirectoryManager.class);
-            if (existing != null) {
-                return existing;
-            }
-            FDBDirectoryManager newManager = new MockedFDBDirectoryManager(state);
-            context.putInSessionIfAbsent(state.indexSubspace, newManager);
-            context.addCommitCheck(() -> {
-                try {
-                    newManager.close();
-                } catch (IOException e) {
-                    throw LuceneExceptions.toRecordCoreException("unable to close directories", e);
-                }
-                return AsyncUtil.DONE;
-            });
-            return newManager;
-        }
+        return getOrCreateManager(state, () -> new MockedFDBDirectoryManager(state));
+    }
+
+    public void setInjectedFailures(final InjectedFailureRepository injectedFaulres) {
+        this.injectedFailures = injectedFaulres;
     }
 }
