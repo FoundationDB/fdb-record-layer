@@ -128,8 +128,19 @@ public class LuceneIndexTestValidator {
                     "group", groupingKey,
                     "expectedCount", entry.getValue().size()));
 
-            final List<Tuple> records = entry.getValue().entrySet().stream()
-                    .sorted(Map.Entry.comparingByValue())
+            final Set<Map.Entry<Tuple, Tuple>> entries = entry.getValue().entrySet();
+            final List<Tuple> records = entries.stream()
+                    // I think in theory, this should be able to be:
+                    // Map.Entry.comparingByValue().thenComparing(Map.Entry.comparingByKey())
+                    // but I could not get the types to work
+                    .sorted((c1, c2) -> {
+                        final int valueComparison = c1.getValue().compareTo(c2.getValue());
+                        if (valueComparison != 0) {
+                            return valueComparison;
+                        } else {
+                            return c1.getKey().compareTo(c2.getKey());
+                        }
+                    })
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toList());
             List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
