@@ -181,12 +181,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private CompletableFuture<Boolean> cancellAll() {
         while (!pipeline.isEmpty()) {
-            final CompletableFuture<RecordCursorResult<V>> outstanding = pipeline.poll();
-            // outstanding here, could be null if an onNext future is also being processed, and it has just removed the
-            // only future in the pipeline
-            if (outstanding != null) {
-                outstanding.cancel(false);
-            }
+            pipeline.remove().cancel(false);
         }
         final CompletableFuture<Boolean> cancelled = new CompletableFuture<>();
         cancelled.cancel(true);
