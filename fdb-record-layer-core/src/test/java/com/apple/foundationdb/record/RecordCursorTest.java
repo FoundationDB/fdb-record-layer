@@ -1280,7 +1280,7 @@ public class RecordCursorTest {
     @Test
     public void mapPipelineCloseWhileCancelling() {
         Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
-        for (int i = 0; i < 2000; i++) {
+        for (int i = 0; i < 20_000; i++) {
             try {
                 LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
                 CompletableFuture<Void> signal = new CompletableFuture<>();
