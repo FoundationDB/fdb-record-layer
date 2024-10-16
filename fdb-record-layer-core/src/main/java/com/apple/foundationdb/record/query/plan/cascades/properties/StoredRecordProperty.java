@@ -221,7 +221,7 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan element) {
-            return storedRecordsFromSingleChild(element);
+            return false;
         }
 
         @Nonnull

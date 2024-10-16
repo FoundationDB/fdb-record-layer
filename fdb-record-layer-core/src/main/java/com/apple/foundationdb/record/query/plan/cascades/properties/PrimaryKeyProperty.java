@@ -234,7 +234,7 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Nonnull
         @Override
         public Optional<List<Value>> visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
-            return primaryKeyFromSingleChild(defaultOnEmptyPlan);
+            return Optional.empty();
         }
 
         @Nonnull

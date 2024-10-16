@@ -31,8 +31,11 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+
+import java.util.LinkedHashSet;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithDefaultOnEmptyOverRef;
@@ -116,6 +119,13 @@ public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
         if (selectExpression.getQuantifiers().size() > 1) {
             return true;
         }
-        return !Iterables.getOnlyElement(selectExpression.getQuantifiers()).getAlias().equals(quantifier.getAlias());
+        if (!Iterables.getOnlyElement(selectExpression.getQuantifiers()).getAlias().equals(quantifier.getAlias())) {
+            return true;
+        }
+
+        // if all predicates are not the same, bail out, otherwise, we can pull up.
+        final var predicates = selectOnTopExpression.getPredicates();
+        final var otherPredicates = selectExpression.getPredicates();
+        return !predicates.equals(otherPredicates);
     }
 }
