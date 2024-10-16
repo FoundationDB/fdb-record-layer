@@ -559,6 +559,80 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
+    @Nullable
+    private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
+        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, needOrdering, getConfiguration().getMaxNumReplansForInToJoin());
+        if (planWithIn == null) {
+            return null;
+        }
+
+        final ScoredPlan bestPlan = planWithIn.plan;
+        final RecordQueryPlan wrapped = planWithIn.inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.getPlan(), bestPlan.includedRankComparisons, metaData));
+        ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
+        if (needOrdering) {
+            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(bestPlan.planOrderingKey, false);
+        }
+        return scoredPlan;
+    }
+
+    @Nullable
+    private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
+        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, false, getConfiguration().getMaxNumReplansForInUnion());
+        if (planWithIn != null) {
+            final ScoredPlan scoredPlan = planWithIn.plan;
+            RecordQueryPlan inner = scoredPlan.getPlan();
+            boolean distinct = false;
+            if (inner instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
+                    inner instanceof RecordQueryUnorderedDistinctPlan) {
+                inner = ((RecordQueryPlanWithChild)inner).getChild();
+                distinct = true;
+            }
+            // Compute this _after_ taking off any Distinct.
+            // While these distinct plans are just like filters in that they do not affect the ordering of results, changing
+            // forPlan to handle them that way exposes problems elsewhere in attempting to do Union / Intersection with FanOut
+            // comparison keys, which is only valid against an index entry, not an actual record.
+            scoredPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, inner, planContext.commonPrimaryKey);
+            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
+            if (scoredPlan.planOrderingKey == null) {
+                return null;
+            }
+            @Nullable final KeyExpression candidateKey;
+            boolean candidateOnly;
+            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion()) {
+                candidateKey = planContext.query.getSort();
+                candidateOnly = false;
+            } else {
+                candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
+                candidateOnly = true;
+            }
+            final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, candidateOnly);
+            if (comparisonKey == null) {
+                return null;
+            }
+            final List<InSource> valuesSources = planWithIn.inExtractor.unionSources();
+            final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
+            if (distinct) {
+                // Put back in the Distinct with the same comparison key.
+                RecordQueryPlan distinctPlan = scoredPlan.getPlan() instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ?
+                                               new RecordQueryUnorderedPrimaryKeyDistinctPlan(union) :
+                                               new RecordQueryUnorderedDistinctPlan(union, ((RecordQueryUnorderedDistinctPlan)scoredPlan.getPlan()).getComparisonKey());
+                return new ScoredPlan(scoredPlan.score, distinctPlan);
+            } else {
+                return new ScoredPlan(scoredPlan.score, union);
+            }
+        }
+        return null;
+    }
+
+    private boolean isRankInComparison(@Nonnull PlanContext planContext, @Nonnull ComponentWithComparison comparison, @Nonnull String bindingName) {
+        if (!(comparison instanceof QueryRecordFunctionWithComparison)) {
+            return false;
+        }
+        QueryRecordFunctionWithComparison asEquals = (QueryRecordFunctionWithComparison)
+                comparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
+        return planContext.rankComparisons.getPlanComparison(asEquals) != null;
+    }
+
     /**
      * Plan a query with {@link Comparisons.Type#IN IN} comparisons transformed into
      * {@link Comparisons.Type#EQUALS EQUALS} comparisons. This will call
@@ -636,80 +710,6 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         Verify.verifyNotNull(bestPlan);
         return new PlanWithInExtractor(bestPlan, inExtractor);
-    }
-
-    @Nullable
-    private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
-        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, needOrdering, getConfiguration().getMaxNumReplansForInToJoin());
-        if (planWithIn == null) {
-            return null;
-        }
-
-        final ScoredPlan bestPlan = planWithIn.plan;
-        final RecordQueryPlan wrapped = planWithIn.inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.getPlan(), bestPlan.includedRankComparisons, metaData));
-        ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
-        if (needOrdering) {
-            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(bestPlan.planOrderingKey, false);
-        }
-        return scoredPlan;
-    }
-
-    private boolean isRankInComparison(@Nonnull PlanContext planContext, @Nonnull ComponentWithComparison comparison, @Nonnull String bindingName) {
-        if (!(comparison instanceof QueryRecordFunctionWithComparison)) {
-            return false;
-        }
-        QueryRecordFunctionWithComparison asEquals = (QueryRecordFunctionWithComparison)
-                comparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
-        return planContext.rankComparisons.getPlanComparison(asEquals) != null;
-    }
-
-    @Nullable
-    private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
-        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, false, getConfiguration().getMaxNumReplansForInUnion());
-        if (planWithIn != null) {
-            final ScoredPlan scoredPlan = planWithIn.plan;
-            RecordQueryPlan inner = scoredPlan.getPlan();
-            boolean distinct = false;
-            if (inner instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
-                    inner instanceof RecordQueryUnorderedDistinctPlan) {
-                inner = ((RecordQueryPlanWithChild)inner).getChild();
-                distinct = true;
-            }
-            // Compute this _after_ taking off any Distinct.
-            // While these distinct plans are just like filters in that they do not affect the ordering of results, changing
-            // forPlan to handle them that way exposes problems elsewhere in attempting to do Union / Intersection with FanOut
-            // comparison keys, which is only valid against an index entry, not an actual record.
-            scoredPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, inner, planContext.commonPrimaryKey);
-            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
-            if (scoredPlan.planOrderingKey == null) {
-                return null;
-            }
-            @Nullable final KeyExpression candidateKey;
-            boolean candidateOnly;
-            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion()) {
-                candidateKey = planContext.query.getSort();
-                candidateOnly = false;
-            } else {
-                candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
-                candidateOnly = true;
-            }
-            final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, candidateOnly);
-            if (comparisonKey == null) {
-                return null;
-            }
-            final List<InSource> valuesSources = planWithIn.inExtractor.unionSources();
-            final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
-            if (distinct) {
-                // Put back in the Distinct with the same comparison key.
-                RecordQueryPlan distinctPlan = scoredPlan.getPlan() instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ?
-                                               new RecordQueryUnorderedPrimaryKeyDistinctPlan(union) :
-                                               new RecordQueryUnorderedDistinctPlan(union, ((RecordQueryUnorderedDistinctPlan)scoredPlan.getPlan()).getComparisonKey());
-                return new ScoredPlan(scoredPlan.score, distinctPlan);
-            } else {
-                return new ScoredPlan(scoredPlan.score, union);
-            }
-        }
-        return null;
     }
 
     /**
