@@ -559,15 +559,40 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    private PlanWithInExtractor planFilterForInWithReplans(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering, int maxNumReplansInConfig) {
-        int maxNumReplans = Math.max(maxNumReplansInConfig, 0);
-        boolean allowNonSargedInBindings = maxNumReplansInConfig < 0;
+    /**
+     * Plan a query with {@link Comparisons.Type#IN IN} comparisons transformed into
+     * {@link Comparisons.Type#EQUALS EQUALS} comparisons. This will call
+     * {@link #planExtractedInsFilterOnce(PlanContext, QueryComponent, boolean)} at least
+     * once. Depending on the value of {@code maxNumReplansConfig}, it may adjust the
+     * predicates extracted by the {@link InExtractor} and call it again. The calling method
+     * should then used the returned {@link InExtractor} to wrap the returned plan in an
+     * appropriate IN-join or IN-union plan.
+     *
+     * <p>
+     * The {@code maxNumReplansConfig} parameter should be taken from the {@link RecordQueryPlannerConfiguration}.
+     * Separate configuration values exist for IN-joins and IN-unions, mainly for plan stability
+     * reasons (they were introduced at different times, though they serve the same purpose). See
+     * the javadoc on the relevant configuration parameters for more details.
+     * </p>
+     *
+     * @param planContext the base plan context for the query
+     * @param inExtractor the original {@link InExtractor} for the query
+     * @param needOrdering whether the returned plan needs to have its ordering property set
+     * @param maxNumReplansConfig configuration property for how many times to replan the base filter
+     * @return the best plan for the filter with transformed INs along with the {@link InExtractor}
+     *    that constructed it or {@code null} if no plan is found
+     * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInToJoin()
+     * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInUnion()
+     */
+    private PlanWithInExtractor planExtractedInsFilter(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering, int maxNumReplansConfig) {
+        int maxNumReplans = Math.max(maxNumReplansConfig, 0);
+        boolean allowNonSargedInBindings = maxNumReplansConfig < 0;
 
         int numReplan = 0;
         boolean progress = true;
         ScoredPlan bestPlan = null;
         while (numReplan <= maxNumReplans) {
-            bestPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), needOrdering);
+            bestPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
             if (bestPlan == null) {
                 return null;
             }
@@ -602,7 +627,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             // We exhausted all attempts to replan with fewer number of in clauses. Replan one last time with
             // 0 in-clauses.
             inExtractor = inExtractor.filter((componentWithComparison, inBinding) -> isRankInComparison(planContext, componentWithComparison, inBinding));
-            bestPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), needOrdering);
+            bestPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
             if (bestPlan == null) {
                 // This is borderline impossible.
                 return null;
@@ -615,7 +640,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
-        final PlanWithInExtractor planWithIn = planFilterForInWithReplans(planContext, inExtractor, needOrdering, getConfiguration().getMaxNumReplansForInToJoin());
+        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, needOrdering, getConfiguration().getMaxNumReplansForInToJoin());
         if (planWithIn == null) {
             return null;
         }
@@ -640,7 +665,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
-        final PlanWithInExtractor planWithIn = planFilterForInWithReplans(planContext, inExtractor, false, getConfiguration().getMaxNumReplansForInUnion());
+        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, false, getConfiguration().getMaxNumReplansForInUnion());
         if (planWithIn != null) {
             final ScoredPlan scoredPlan = planWithIn.plan;
             RecordQueryPlan inner = scoredPlan.getPlan();
@@ -687,7 +712,22 @@ public class RecordQueryPlanner implements QueryPlanner {
         return null;
     }
 
-    private ScoredPlan planFilterForInJoin(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
+    /**
+     * Helper method for {@link #planExtractedInsFilter(PlanContext, InExtractor, boolean, int)}.
+     * The {@code filter} provided may differ from the {@link PlanContext#query}'s filter as some
+     * or all of its {@link Comparisons.Type#IN IN} comparisons may have been transformed into
+     * {@link Comparisons.Type#EQUALS EQUALS} comparisons by an {@link InExtractor}. This then
+     * plans the simpler query once. The calling method will then check to see how well the
+     * {@code IN}-comparisons have been planned, and it may issue replans if some of them have
+     * been planned suboptimally.
+     *
+     * @param planContext base context of the query planning
+     * @param filter filter to plan
+     * @param needOrdering whether the returned plan should have
+     * @return the best plan found for provided filter or {@code null} if none could be found
+     */
+    @Nullable
+    private ScoredPlan planExtractedInsFilterOnce(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;
