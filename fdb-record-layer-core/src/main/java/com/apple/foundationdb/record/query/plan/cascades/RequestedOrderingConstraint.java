@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -34,14 +35,40 @@ public class RequestedOrderingConstraint implements PlannerConstraint<Set<Reques
 
     @Nonnull
     @Override
-    public Optional<Set<RequestedOrdering>> combine(@Nonnull final Set<RequestedOrdering> currentConstraint, @Nonnull final Set<RequestedOrdering> newConstraint) {
-        if (currentConstraint.containsAll(newConstraint)) {
+    public Optional<Set<RequestedOrdering>> combine(@Nonnull final Set<RequestedOrdering> currentConstraint,
+                                                    @Nonnull final Set<RequestedOrdering> newConstraint) {
+        final var newRequestedOrderings = Sets.newLinkedHashSet(newConstraint);
+        for (final var newRequestedOrdering : newConstraint) {
+            for (final var currentRequestedOrdering : currentConstraint) {
+                // try to figure out if current already subsumes new
+                if (newRequestedOrdering.isDistinct() != currentRequestedOrdering.isDistinct()) {
+                    continue;
+                }
+                final var newOrderingParts = newRequestedOrdering.getOrderingParts();
+                final var currentOrderingParts = currentRequestedOrdering.getOrderingParts();
+
+                if (!currentRequestedOrdering.isExhaustive() && newRequestedOrdering.isExhaustive()) {
+                    continue;
+                }
+                if (currentRequestedOrdering.isExhaustive() && newOrderingParts.size() >= currentOrderingParts.size()) {
+                    if (newOrderingParts.subList(0, currentOrderingParts.size()).equals(currentOrderingParts)) {
+                        newRequestedOrderings.remove(newRequestedOrdering);
+                    }
+                    continue;
+                }
+                if (newOrderingParts.equals(currentOrderingParts)) {
+                    newRequestedOrderings.remove(newRequestedOrdering);
+                }
+            }
+        }
+
+        if (newRequestedOrderings.isEmpty()) {
             return Optional.empty();
         }
 
         return Optional.of(ImmutableSet.<RequestedOrdering>builder()
                 .addAll(currentConstraint)
-                .addAll(newConstraint)
+                .addAll(newRequestedOrderings)
                 .build());
     }
 }
