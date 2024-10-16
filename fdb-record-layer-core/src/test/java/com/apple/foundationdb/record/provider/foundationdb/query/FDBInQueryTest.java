@@ -1171,7 +1171,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 case AS_UNION:
                     config.setAttemptFailedInJoinAsOr(true);
                     config.setAttemptFailedInJoinAsUnionMaxSize(1000);
-                    // config.setMaxNumReplansForInUnion(1);
                     break;
                 case NONE:
                 default:
@@ -2633,6 +2632,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         if (useCascadesPlanner) {
             // This is a suboptimal plan!
             // In iterates over both IN-values even though only one of the associated predicate is only sargable
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/2950
             assertMatchesExactly(plan,
                     inUnionOnValuesPlan(
                             predicatesFilterPlan(
