@@ -130,7 +130,7 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
 
     @Override
     public boolean isStrictlySorted() {
-        return false;
+        return getChild().isStrictlySorted();
     }
 
     @Override

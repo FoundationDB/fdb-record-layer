@@ -163,8 +163,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             @Nonnull
             @Override
             public ForEachBuilder from(final ForEach quantifier) {
-                final var builder = withAlias(quantifier.getAlias());
-                return quantifier.isNullOnEmpty() ? builder.setNullOnEmpty(quantifier.isNullOnEmpty) : builder;
+                return withAlias(quantifier.getAlias()).setNullOnEmpty(quantifier.isNullOnEmpty());
             }
 
             @Nonnull
@@ -246,16 +245,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         public int semanticHashCode() {
-            if (isNullOnEmpty()) {
-                return Objects.hash(getShorthand(), getRangesOver().semanticHashCode(), isNullOnEmpty());
-            }
-            return Objects.hash(getShorthand(), getRangesOver().semanticHashCode());
+            return Objects.hash(getShorthand(), getRangesOver().semanticHashCode(), isNullOnEmpty());
         }
 
         @Override
         @Nonnull
         public String toString() {
-            final var isNullOnEmpty = isNullOnEmpty() ? "nullIfEmpty" : "";
+            final var isNullOnEmpty = isNullOnEmpty() ? "nOE" : "";
             return getShorthand() + "(" + getAlias() + ")" + isNullOnEmpty + " -> {" +
                     getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
                     "}";

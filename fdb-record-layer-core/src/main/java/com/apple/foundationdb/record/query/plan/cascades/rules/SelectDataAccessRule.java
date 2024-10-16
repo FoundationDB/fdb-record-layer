@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
@@ -106,10 +107,9 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                             if (!compensatedAliases.containsAll(aliases)) {
                                 return Stream.empty();
                             }
-                            final Set<Quantifier.ForEach> matchedForEachAliases =
+                            final Set<CorrelationIdentifier> matchedForEachAliases =
                                     compensatedAliases.stream()
                                             .filter(matchedAlias -> Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
-                                            .map(matchedAlias -> (Quantifier.ForEach)aliasToQuantifierMap.get(matchedAlias))
                                             .collect(ImmutableSet.toImmutableSet());
                             if (matchedForEachAliases.size() == 1) {
                                 return Stream.of(NonnullPair.of(Iterables.getOnlyElement(matchedForEachAliases), match));
@@ -123,7 +123,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
 
         // loop through all compensated alias sets and their associated match partitions
         for (final var matchPartitionByMatchAliasEntry : matchPartitionByMatchAliasMap.entrySet()) {
-            final var matchedQuantifier = matchPartitionByMatchAliasEntry.getKey();
+            final var matchedAlias = matchPartitionByMatchAliasEntry.getKey();
             final var matchPartitionForMatchedAlias = matchPartitionByMatchAliasEntry.getValue();
 
             //
@@ -131,7 +131,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
             //
             final var pushedRequestedOrderings =
                     requestedOrderings.stream()
-                            .map(requestedOrdering -> requestedOrdering.pushDown(expression.getResultValue(), matchedQuantifier.getAlias(), AliasMap.emptyMap(), correlatedTo))
+                            .map(requestedOrdering -> requestedOrdering.pushDown(expression.getResultValue(), matchedAlias, AliasMap.emptyMap(), correlatedTo))
                             .collect(ImmutableSet.toImmutableSet());
 
             //
@@ -173,6 +173,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                     continue;
                 }
 
+                final var matchedQuantifier = (Quantifier.ForEach)aliasToQuantifierMap.get(matchedAlias);
                 final var dataAccessQuantifier = Quantifier.ForEach.forEachBuilder().from(matchedQuantifier)
                         .build(call.memoizeReference(Reference.from(dataAccessExpressions)));
                 
