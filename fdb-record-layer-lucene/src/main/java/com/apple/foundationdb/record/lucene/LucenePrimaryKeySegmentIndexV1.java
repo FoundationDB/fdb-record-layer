@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -114,33 +115,41 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
      */
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public List<String> findSegments(@Nonnull Tuple primaryKey) {
-        return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
-                directory.getAgilityContext().apply(context -> {
-                    final Subspace keySubspace = subspace.subspace(primaryKey);
-                    final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
-                            .setContext(context)
-                            .setScanProperties(ScanProperties.FORWARD_SCAN)
-                            .build();
-                    return kvs.map(kv -> {
-                        final Tuple segdoc = keySubspace.unpack(kv.getKey());
-                        final long segid = segdoc.getLong(0);
-                        final String segmentName = directory.primaryKeySegmentName(segid);
-                        if (segmentName != null) {
-                            return segmentName;
-                        } else {
-                            return "#" + segid;
-                        }
-                    }).asList().whenComplete((result, err) -> kvs.close());
-                }));
+    public List<String> findSegments(@Nonnull Tuple primaryKey) throws IOException {
+        try {
+            return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+                    directory.getAgilityContext().apply(context -> {
+                        final Subspace keySubspace = subspace.subspace(primaryKey);
+                        final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
+                                .setContext(context)
+                                .setScanProperties(ScanProperties.FORWARD_SCAN)
+                                .build();
+                        return kvs.map(kv -> {
+                            final Tuple segdoc = keySubspace.unpack(kv.getKey());
+                            final long segid = segdoc.getLong(0);
+                            final String segmentName = directory.primaryKeySegmentName(segid);
+                            if (segmentName != null) {
+                                return segmentName;
+                            } else {
+                                return "#" + segid;
+                            }
+                        }).asList().whenComplete((result, err) -> kvs.close());
+                    }));
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @Override
     @Nullable
-    public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
-        final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
-        directory.getAgilityContext().accept(aContext -> findDocument(aContext, doc, directoryReader, primaryKey));
-        return doc.get();
+    public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException {
+        try {
+            final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
+            directory.getAgilityContext().accept(aContext -> findDocument(aContext, doc, directoryReader, primaryKey));
+            return doc.get();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
@@ -222,9 +231,13 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         @Override
         public void writeField(FieldInfo info, IndexableField field) throws IOException {
             inner.writeField(info, field);
-            if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
-                final byte[] primaryKey = field.binaryValue().bytes;
-                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, segmentName);
+            try {
+                if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
+                    final byte[] primaryKey = field.binaryValue().bytes;
+                    addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, segmentName);
+                }
+            } catch (RecordCoreException ex) {
+                throw LuceneExceptions.toIoException(ex, null);
             }
         }
 
@@ -233,37 +246,41 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         public int merge(MergeState mergeState) throws IOException {
             final int docCount = inner.merge(mergeState);
 
-            final int segmentCount = mergeState.storedFieldsReaders.length;
-            final PrimaryKeyVisitor visitor = new PrimaryKeyVisitor();
-            for (int i = 0; i < segmentCount; i++) {
-                final StoredFieldsReader storedFieldsReader = mergeState.storedFieldsReaders[i];
-                final SegmentInfo mergedSegmentInfo = ((StoredFieldsReaderSegmentInfo)storedFieldsReader).getSegmentInfo();
-                final long mergedSegmentId = directory.primaryKeySegmentId(mergedSegmentInfo.name, false);
-                final Bits liveDocs = mergeState.liveDocs[i];
-                final MergeState.DocMap docMap = mergeState.docMaps[i];
-                final int maxDoc = mergeState.maxDocs[i];
-                for (int j = 0; j < maxDoc; j++) {
-                    storedFieldsReader.visitDocument(j, visitor);
-                    final byte[] primaryKey = visitor.getPrimaryKey();
-                    if (primaryKey != null) {
-                        if (liveDocs == null || liveDocs.get(j)) {
-                            int docId = docMap.get(j);
-                            if (docId >= 0) {
-                                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, docId, true, segmentName);
+            try {
+                final int segmentCount = mergeState.storedFieldsReaders.length;
+                final PrimaryKeyVisitor visitor = new PrimaryKeyVisitor();
+                for (int i = 0; i < segmentCount; i++) {
+                    final StoredFieldsReader storedFieldsReader = mergeState.storedFieldsReaders[i];
+                    final SegmentInfo mergedSegmentInfo = ((StoredFieldsReaderSegmentInfo)storedFieldsReader).getSegmentInfo();
+                    final long mergedSegmentId = directory.primaryKeySegmentId(mergedSegmentInfo.name, false);
+                    final Bits liveDocs = mergeState.liveDocs[i];
+                    final MergeState.DocMap docMap = mergeState.docMaps[i];
+                    final int maxDoc = mergeState.maxDocs[i];
+                    for (int j = 0; j < maxDoc; j++) {
+                        storedFieldsReader.visitDocument(j, visitor);
+                        final byte[] primaryKey = visitor.getPrimaryKey();
+                        if (primaryKey != null) {
+                            if (liveDocs == null || liveDocs.get(j)) {
+                                int docId = docMap.get(j);
+                                if (docId >= 0) {
+                                    addOrDeletePrimaryKeyEntry(primaryKey, segmentId, docId, true, segmentName);
+                                }
                             }
+                            // Deleting the index entry at worst triggers a fallback to search.
+                            // Ordinarily, though, transaction isolation means that the entry is there along with the pre-merge segment.
+                            addOrDeletePrimaryKeyEntry(primaryKey, mergedSegmentId, j, false, segmentName);
+                            visitor.reset();
                         }
-                        // Deleting the index entry at worst triggers a fallback to search.
-                        // Ordinarily, though, transaction isolation means that the entry is there along with the pre-merge segment.
-                        addOrDeletePrimaryKeyEntry(primaryKey, mergedSegmentId, j, false, segmentName);
-                        visitor.reset();
                     }
                 }
+
+                directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
+                directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
+
+                return docCount;
+            } catch (RecordCoreException ex) {
+                throw LuceneExceptions.toIoException(ex, null);
             }
-
-            directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
-            directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
-
-            return docCount;
         }
 
         @Override

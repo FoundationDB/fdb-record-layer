@@ -224,6 +224,7 @@ public abstract class IndexingBase {
                     .addKeyAndValue(LogMessageKeys.TOTAL_MICROS, TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos));
             if (LOGGER.isWarnEnabled() && (ex != null)) {
                 message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
+                message.addKeysAndValues(throttle.logMessageKeyValues()); // this "last attempt" snapshot information can help debugging
                 LOGGER.warn(message.toString(), ex);
             } else if (LOGGER.isInfoEnabled()) {
                 message.addKeyAndValue(LogMessageKeys.RESULT, "success");

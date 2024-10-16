@@ -1985,7 +1985,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private CompletableFuture<Void> run() {
             if (evaluated == null) {
                 // no record types
-                LOGGER.warn("Tried to delete prefix with no record types");
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.of("Tried to delete prefix with no record types",
+                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                }
                 return AsyncUtil.DONE;
             }
 
@@ -3168,7 +3171,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("index state change",
                     LogMessageKeys.INDEX_NAME, indexName,
-                    LogMessageKeys.TARGET_INDEX_STATE, indexState.name()
+                    LogMessageKeys.TARGET_INDEX_STATE, indexState.name(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context)
             ));
         }
         if (recordStoreStateRef.get() == null) {
@@ -3507,6 +3511,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     message.addKeysAndValues(((LoggableException)ex).getLogInfo());
                 }
             }
+            message.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(context));
             LOGGER.warn(message.toString(), exception);
         }
     }
@@ -4226,7 +4231,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
                                 LogMessageKeys.REASON, reason.name(),
-                                subspaceProvider.logKey(), subspaceProvider.toString(context),
                                 LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey()), t);
                     }
                     // Only call method that builds in the current transaction, so never any pending work,

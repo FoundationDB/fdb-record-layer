@@ -66,15 +66,24 @@ public class RequestedOrdering {
      */
     @Nonnull
     private final List<RequestedOrderingPart> orderingParts;
-
+    @Nonnull
     private final Distinctness distinctness;
+
+    /**
+     * Boolean to indicate that we are interested in all plans satisfying this requested ordering (if {@code true})
+     * or what would be considered the best plan per requirement.
+     */
+    private final boolean isExhaustive;
 
     @Nonnull
     private final Supplier<Map<Value, RequestedSortOrder>> valueRequestedSortOrderMapSupplier;
 
-    private RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts, final Distinctness distinctness) {
+    private RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts,
+                              @Nonnull final Distinctness distinctness,
+                              final boolean isExhaustive) {
         this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
+        this.isExhaustive = isExhaustive;
         this.valueRequestedSortOrderMapSupplier = Suppliers.memoize(this::computeValueSortOrderMap);
     }
 
@@ -84,6 +93,14 @@ public class RequestedOrdering {
 
     public boolean isDistinct() {
         return distinctness == Distinctness.DISTINCT;
+    }
+
+    /**
+     * Method to return if we are interested in all plans satisfying this requested ordering (iff {@code true})
+     * or what would just be preemptively considered the best plan per given requirement.
+     */
+    public boolean isExhaustive() {
+        return isExhaustive;
     }
 
     /**
@@ -198,7 +215,7 @@ public class RequestedOrdering {
             final var rebasedOrderingValue = orderingValue.rebase(translationMap);
             pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
         }
-        return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
+        return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS, isExhaustive());
     }
 
     @Nonnull
@@ -219,7 +236,15 @@ public class RequestedOrdering {
         if (this.distinctness == distinctness) {
             return this;
         }
-        return new RequestedOrdering(orderingParts, distinctness);
+        return new RequestedOrdering(getOrderingParts(), distinctness, isExhaustive());
+    }
+
+    @Nonnull
+    public RequestedOrdering exhaustive() {
+        if (this.isExhaustive()) {
+            return this;
+        }
+        return new RequestedOrdering(getOrderingParts(), getDistinctness(), true);
     }
 
     /**
@@ -228,12 +253,13 @@ public class RequestedOrdering {
      */
     @Nonnull
     public static RequestedOrdering preserve() {
-        return new RequestedOrdering(ImmutableList.of(), Distinctness.PRESERVE_DISTINCTNESS);
+        return new RequestedOrdering(ImmutableList.of(), Distinctness.PRESERVE_DISTINCTNESS, false);
     }
 
     @Nonnull
     public static RequestedOrdering ofParts(@Nonnull final List<RequestedOrderingPart> requestedOrderingParts,
                                             @Nonnull final Distinctness distinctness,
+                                            final boolean isExhaustive,
                                             @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var primitiveRequestedOrderingParts = ImmutableList.<RequestedOrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrderingParts) {
@@ -248,17 +274,18 @@ public class RequestedOrdering {
                 primitiveRequestedOrderingParts.add(simplifiedRequestedOrderingPart);
             }
         }
-        return ofPrimitiveParts(primitiveRequestedOrderingParts.build(), distinctness);
+        return ofPrimitiveParts(primitiveRequestedOrderingParts.build(), distinctness, isExhaustive);
     }
 
     @Nonnull
     public static RequestedOrdering ofPrimitiveParts(@Nonnull final List<RequestedOrderingPart> requestedOrderingParts,
-                                                     @Nonnull final Distinctness distinctness) {
+                                                     @Nonnull final Distinctness distinctness,
+                                                     final boolean isExhaustive) {
         Debugger.sanityCheck(() -> Verify.verify(
                 requestedOrderingParts.stream()
                         .allMatch(requestedOrderingPart -> requestedOrderingPart.getValue()
                                 .getResultType().isPrimitive())));
-        return new RequestedOrdering(requestedOrderingParts, distinctness);
+        return new RequestedOrdering(requestedOrderingParts, distinctness, isExhaustive);
     }
 
     /**

@@ -102,7 +102,7 @@ public class LuceneAutoCompleteHelpers {
                 }
             }
         } catch (final IOException ioException) {
-            throw new RecordCoreException("string reader throw IOException", ioException);
+            throw LuceneExceptions.toRecordCoreException("string reader throw IOException", ioException);
         }
         return new AutoCompleteTokens(tokensBuilder.build(), prefixToken == null ? ImmutableSet.of() : ImmutableSet.of(prefixToken));
     }
@@ -167,7 +167,7 @@ public class LuceneAutoCompleteHelpers {
             }
 
         } catch (IOException ioException) {
-            throw new RecordCoreException("token stream threw an io exception", ioException);
+            throw LuceneExceptions.toRecordCoreException("token stream threw an io exception", ioException);
         }
     }
 
@@ -214,7 +214,7 @@ public class LuceneAutoCompleteHelpers {
                     .map(phraseAcceptor -> phraseAcceptor.getAcceptedPhrase(text))
                     .collect(ImmutableList.toImmutableList());
         } catch (IOException ioException) {
-            throw new RecordCoreException("token stream threw an io exception", ioException);
+            throw LuceneExceptions.toRecordCoreException("token stream threw an io exception", ioException);
         }
     }
 

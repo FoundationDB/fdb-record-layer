@@ -1060,7 +1060,7 @@ public class LucenePartitioner {
                     try {
                         indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
                     } catch (IOException e) {
-                        throw new RecordCoreException(e);
+                        throw LuceneExceptions.toRecordCoreException(e.getMessage(), e);
                     }
                 });
                 timings.deleteNanos = System.nanoTime();

@@ -499,6 +499,8 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                         segments.add(segmentName);
                     }
                 }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
     }

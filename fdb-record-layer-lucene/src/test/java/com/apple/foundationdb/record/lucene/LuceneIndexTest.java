@@ -112,6 +112,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -3515,7 +3516,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
-    void testDataLoad(IndexedType indexedType) {
+    void testDataLoad(IndexedType indexedType) throws IOException {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         FDBRecordContext context = openContext();
         if (indexedType.isSynthetic()) {
@@ -3871,20 +3872,26 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         fullDeleteHelper(indexMaintainer -> {
             FDBDirectory fdbDirectory = indexMaintainer.getDirectory(Tuple.from(), null);
             final var allFieldInfos = fdbDirectory.getFieldInfosStorage().getAllFieldInfos();
-            assertEquals(Map.of(), allFieldInfos,
-                    () -> String.join(", ", indexMaintainer.getDirectory(Tuple.from(), null).listAll()));
+            assertEquals(Map.of(), allFieldInfos, () -> listAll(indexMaintainer));
         }, indexMaintainer -> {
             FDBDirectory fdbDirectory = indexMaintainer.getDirectory(Tuple.from(), null);
             final var allFieldInfos = fdbDirectory.getFieldInfosStorage().getAllFieldInfos();
-            assertNotEquals(Map.of(), allFieldInfos,
-                    () -> String.join(", ", indexMaintainer.getDirectory(Tuple.from(), null).listAll()));
+            assertNotEquals(Map.of(), allFieldInfos, () -> listAll(indexMaintainer));
         },
                 indexedType);
     }
 
+    private static @Nonnull String listAll(final LuceneIndexMaintainer indexMaintainer) {
+        try {
+            return String.join(", ", indexMaintainer.getDirectory(Tuple.from(), null).listAll());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
-    void checkFileCountAfterMerge(IndexedType indexedType) {
+    void checkFileCountAfterMerge(IndexedType indexedType) throws IOException {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
@@ -3931,7 +3938,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource("autoMergeParams")
-    void testMultipleUpdateSegments(IndexedType indexedType, boolean autoMerge) {
+    void testMultipleUpdateSegments(IndexedType indexedType, boolean autoMerge) throws IOException {
         final Index index = indexedType.getIndex(COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
@@ -6102,7 +6109,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource("primaryKeySegmentIndexEnabledParams")
-    void manySegmentsParallelOpen(IndexedType indexedType, boolean primaryKeySegmentIndexEnabled) {
+    void manySegmentsParallelOpen(IndexedType indexedType, boolean primaryKeySegmentIndexEnabled) throws IOException {
         final Index index = indexedType.getIndex(primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY : SIMPLE_TEXT_SUFFIXES_KEY);
         for (int i = 0; i < 20; i++) {
             final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
@@ -6145,6 +6152,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Extract the segment name from the file name
             final String segmentName = segmentFile.substring(0, segmentFile.indexOf("."));
             validateIndexIntegrity(index, subspace, context, directory, segmentName);
+        } catch (Exception ex) {
+            throw new AssertionFailedError("Validation failed: " + ex.getMessage(), ex);
         }
     }
 
@@ -6157,12 +6166,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return getIndexMaintainer(index).getDirectory(groupingKey, null);
     }
 
-    private long getSegmentCount(final Index index, final Tuple groupingKey) {
+    private long getSegmentCount(final Index index, final Tuple groupingKey) throws IOException {
         final String[] files = getDirectory(index, groupingKey).listAll();
         return Arrays.stream(files).filter(FDBDirectory::isCompoundFile).count();
     }
 
-    private static void validateIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) {
+    private static void validateIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) throws IOException {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, index.getOptions()) : fdbDirectory;
         String[] allFiles = directory.listAll();
         Set<Long> usedFieldInfos = new HashSet<>();
@@ -6405,13 +6414,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             try {
                 try {
                     lock.close();
-                } catch (RuntimeException ex) {
-                    gotException = true;
+                } catch (IOException ex) {
+                    if (ex.getCause() instanceof RuntimeException) {
+                        gotException = true;
+                    }
                 }
                 try {
                     directory.close();
-                } catch (RuntimeException ex) {
-                    gotException = true;
+                } catch (IOException ex) {
+                    if (ex.getCause() instanceof RuntimeException) {
+                        gotException = true;
+                    }
                 }
                 agile.flushAndClose();
                 context.commit();

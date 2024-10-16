@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -69,8 +70,12 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     @Override
     @SuppressWarnings("PMD.CloseResource") // we extract the FDBDirectory, and that is closeable, but we aren't in charge of closing
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
-        final String fileName = getFileName(directory, segmentInfo, segmentSuffix);
-        return read(directory, fileName);
+        try {
+            final String fileName = getFileName(directory, segmentInfo, segmentSuffix);
+            return read(directory, fileName);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @VisibleForTesting
@@ -114,11 +119,15 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
 
     @Override
     public void write(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final FieldInfos infos, final IOContext context) throws IOException {
-        final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
-        // create the output so that we create the file reference, and so that it is correctly tracked in the segment
-        // info
-        directory.createOutput(fileName, context).close();
-        write(directory, infos, fileName);
+        try {
+            final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
+            // create the output so that we create the file reference, and so that it is correctly tracked in the segment
+            // info
+            directory.createOutput(fileName, context).close();
+            write(directory, infos, fileName);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @SuppressWarnings("java:S3776") // more complicated than sonarcloud wants, but not by enough to warrant creating new classes

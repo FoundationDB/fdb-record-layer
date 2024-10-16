@@ -59,7 +59,7 @@ class OrderingTest {
         final var c = ValueTestHelpers.field(qov, "c");
 
         final var requestedOrdering =
-                RequestedOrdering.ofPrimitiveParts(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
+                RequestedOrdering.ofPrimitiveParts(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false);
 
         final var providedOrdering =
                 Ordering.ofOrderingSequence(
@@ -85,7 +85,7 @@ class OrderingTest {
         final var c = ValueTestHelpers.field(qov, "c");
 
         final var requestedOrdering =
-                RequestedOrdering.ofPrimitiveParts(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
+                RequestedOrdering.ofPrimitiveParts(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false);
 
         final var providedOrdering =
                 Ordering.ofOrderingSequence(
@@ -421,7 +421,7 @@ class OrderingTest {
 
         final var requestedOrdering =
                 RequestedOrdering.ofPrimitiveParts(requested(a, b, c),
-                        RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
+                        RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, false);
 
         final var satisfyingOrderingsIterable = mergedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering);
         final var onlySatisfyingOrdering =
@@ -458,7 +458,7 @@ class OrderingTest {
                 Ordering.merge(ImmutableList.of(one, two), Ordering.UNION, (left, right) -> false);
 
         var requestedOrdering = RequestedOrdering.ofPrimitiveParts(requested(a, b, c, x),
-                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, false);
 
         final var satisfyingOrderingsIterable = mergedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering);
         final var onlySatisfyingOrdering =
@@ -495,7 +495,7 @@ class OrderingTest {
                 Ordering.merge(ImmutableList.of(one, two), Ordering.UNION, (left, right) -> false);
 
         final var requestedOrdering = RequestedOrdering.ofPrimitiveParts(requested(a, c, b, x),
-                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, false);
 
         final var satisfyingOrderingsIterable = mergedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering);
         final var onlySatisfyingOrdering =
@@ -533,7 +533,7 @@ class OrderingTest {
 
         var requestedOrdering =
                 RequestedOrdering.ofPrimitiveParts(requested(a, b, x),
-                        RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
+                        RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, false);
 
         assertFalse(mergedOrdering.satisfies(requestedOrdering));
     }

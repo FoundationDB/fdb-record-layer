@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.codec.LazyOpener;
@@ -84,19 +85,27 @@ public class FieldInfosStorage {
     }
 
     public long writeFieldInfos(LuceneFieldInfosProto.FieldInfos value) throws IOException {
-        long id;
-        if (Boolean.TRUE.equals(getAllFieldInfos().isEmpty())) {
-            id = GLOBAL_FIELD_INFOS_ID;
-        } else {
-            id = directory.getIncrement();
+        try {
+            long id;
+            if (Boolean.TRUE.equals(getAllFieldInfos().isEmpty())) {
+                id = GLOBAL_FIELD_INFOS_ID;
+            } else {
+                id = directory.getIncrement();
+            }
+            writeFieldInfos(id, value);
+            return id;
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-        writeFieldInfos(id, value);
-        return id;
     }
 
     private void writeFieldInfos(final long id, final LuceneFieldInfosProto.FieldInfos value) throws IOException {
-        directory.writeFieldInfos(id, value.toByteArray());
-        getAllFieldInfos().put(id, value);
+        try {
+            directory.writeFieldInfos(id, value.toByteArray());
+            getAllFieldInfos().put(id, value);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     public void updateGlobalFieldInfos(LuceneFieldInfosProto.FieldInfos value) throws IOException {
@@ -114,11 +123,15 @@ public class FieldInfosStorage {
 
     private void setFieldInfoId(final Directory wrappingDirectory, String fileName, long id, final ByteString bitSet)
             throws IOException {
-        // We need to sync here in case we are interacting with an NRTCachingDirectory, which is used during NRT search
-        // if we don't sync the reference won't be created on the source, and we'll fail....
-        // sync is a no-op for FDBDirectory
-        wrappingDirectory.sync(List.of(fileName));
-        this.directory.setFieldInfoId(fileName, id, bitSet);
+        try {
+            // We need to sync here in case we are interacting with an NRTCachingDirectory, which is used during NRT search
+            // if we don't sync the reference won't be created on the source, and we'll fail....
+            // sync is a no-op for FDBDirectory
+            wrappingDirectory.sync(List.of(fileName));
+            this.directory.setFieldInfoId(fileName, id, bitSet);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     void initializeReferenceCount(final ConcurrentMap<Long, AtomicInteger> fieldInfosCount) {
@@ -149,15 +162,20 @@ public class FieldInfosStorage {
 
     public static void copyFieldInfosId(Directory wrappingDirectory, final String fieldInfosFileName,
                                         final String entriesFile) throws IOException {
-        @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
-        final FDBDirectory directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(wrappingDirectory);
-        final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
-        if (fieldInfosReference == null) {
-            throw new RecordCoreException("Reference not found")
-                    .addLogInfo(LuceneLogMessageKeys.FILE_NAME, fieldInfosFileName);
+        try {
+            @SuppressWarnings("PMD.CloseResource")
+            // we don't need to close this because it is just extracting from the dir
+            final FDBDirectory directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(wrappingDirectory);
+            final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
+            if (fieldInfosReference == null) {
+                throw new RecordCoreException("Reference not found")
+                        .addLogInfo(LuceneLogMessageKeys.FILE_NAME, fieldInfosFileName);
+            }
+            directory.getFieldInfosStorage().setFieldInfoId(wrappingDirectory, entriesFile,
+                    fieldInfosReference.getFieldInfosId(),
+                    fieldInfosReference.getFieldInfosBitSet());
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
         }
-        directory.getFieldInfosStorage().setFieldInfoId(wrappingDirectory, entriesFile,
-                fieldInfosReference.getFieldInfosId(),
-                fieldInfosReference.getFieldInfosBitSet());
     }
 }

@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -83,7 +84,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
         this.state = state;
         this.key = key;
-        this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext, blockCacheMaximumSize);
+        this.directory = createFDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext, blockCacheMaximumSize);
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
@@ -313,5 +314,14 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, final Exception exceptionAtCreation) throws IOException {
         getWriter(analyzerWrapper, exceptionAtCreation).maybeMerge();
+    }
+
+    protected @Nonnull FDBDirectory createFDBDirectory(final Subspace subspace,
+                                                       final Map<String, String> options,
+                                                       final FDBDirectorySharedCacheManager sharedCacheManager,
+                                                       final Tuple sharedCacheKey,
+                                                       final boolean useCompoundFile, final AgilityContext agilityContext,
+                                                       final int blockCacheMaximumSize) {
+        return new FDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
     }
 }

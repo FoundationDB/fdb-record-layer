@@ -235,7 +235,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
             }
         } catch (IOException iOE) {
             // This cannot happen has the token stream is created on an in-memory reader.
-            throw new RecordCoreException("in-memory tokenization threw an IOException", iOE);
+            throw LuceneExceptions.toRecordCoreException("in-memory tokenization threw an IOException", iOE);
         }
         return prefixToken;
     }

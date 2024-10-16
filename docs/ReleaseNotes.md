@@ -17,7 +17,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Missing subspace provider information added to `FDBRecordStore` logs [(Issue #2936)](https://github.com/FoundationDB/fdb-record-layer/issues/2936)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -26,12 +26,12 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** avoid creating useless/redundant intersections when planning data access [(Issue #2940)](https://github.com/FoundationDB/fdb-record-layer/issues/2940)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** asyncToSync without exception mapping for Lucene [(Issue #2926)](https://github.com/FoundationDB/fdb-record-layer/issues/2926)
-* **Feature** Allow converting a single/multi target indexing session to mutual one [(Issue #2917)](https://github.com/FoundationDB/fdb-record-layer/issues/2917)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** indexer: Add information to "build index online" log message [(Issue #2946)](https://github.com/FoundationDB/fdb-record-layer/issues/2946)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -41,6 +41,15 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.549.0
+
+* **Feature** Translate IOException to/from RecordCoreException for Lucene [(Issue #2934)](https://github.com/FoundationDB/fdb-record-layer/issues/2934)
+
+### 3.4.548.0
+
+* **Feature** asyncToSync without exception mapping for Lucene [(Issue #2926)](https://github.com/FoundationDB/fdb-record-layer/issues/2926)
+* **Feature** Allow converting a single/multi target indexing session to mutual one [(Issue #2917)](https://github.com/FoundationDB/fdb-record-layer/issues/2917)
 
 ### 3.4.547.0
 
