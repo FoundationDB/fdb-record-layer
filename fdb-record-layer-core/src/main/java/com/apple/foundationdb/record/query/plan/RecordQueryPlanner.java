@@ -664,15 +664,20 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         int numReplan = 0;
         boolean progress = true;
-        ScoredPlan bestPlan = null;
+        PlanWithInExtractor bestPlanAndIn = null;
         while (numReplan <= maxNumReplans) {
-            bestPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
-            if (bestPlan == null) {
-                return null;
+            ScoredPlan currentPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
+            if (currentPlan == null) {
+                // We were unable to get a plan. If this is the first time around, then bestPlanAndIn will still be
+                // null, as we were unable to plan the query at all. If this is one of the re-plans, then it turns
+                // out that we need some of the IN-clauses to be bound to construct a plan at all. Stop trying
+                // now so that we get some plan out the door
+                break;
             }
+            bestPlanAndIn = new PlanWithInExtractor(currentPlan, inExtractor);
 
             final Set<String> inBindings = inExtractor.getInBindings();
-            final Set<String> sargedInBindings = bestPlan.getSargedInBindings();
+            final Set<String> sargedInBindings = currentPlan.getSargedInBindings();
             if (allowNonSargedInBindings || sargedInBindings.containsAll(inBindings)) {
                 break;
             }
@@ -701,15 +706,13 @@ public class RecordQueryPlanner implements QueryPlanner {
             // We exhausted all attempts to replan with fewer number of in clauses. Replan one last time with
             // 0 in-clauses.
             inExtractor = inExtractor.filter((componentWithComparison, inBinding) -> isRankInComparison(planContext, componentWithComparison, inBinding));
-            bestPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
-            if (bestPlan == null) {
-                // This is borderline impossible.
-                return null;
+            ScoredPlan nextPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
+            if (nextPlan != null) {
+                bestPlanAndIn = new PlanWithInExtractor(nextPlan, inExtractor);
             }
         }
 
-        Verify.verifyNotNull(bestPlan);
-        return new PlanWithInExtractor(bestPlan, inExtractor);
+        return bestPlanAndIn;
     }
 
     /**
