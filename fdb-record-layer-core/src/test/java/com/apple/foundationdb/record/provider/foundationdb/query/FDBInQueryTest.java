@@ -2771,8 +2771,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                     )
                             ).where(inUnionValuesSources(only(inUnionInParameter(equalsObject("str_list")))))
                     ).where(inUnionValuesSources(only(inUnionInParameter(equalsObject("nv2_list"))))));
-            assertEquals(153746388, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-249581244, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-1515083625, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1918411257, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             singleIndexScan = false;
         } else if (replans < 0 || dropNumValue3Index) {
             // Before replanning, we always end up with an intersection. Neither index alone is enough to satisfy both
