@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -84,6 +85,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         private final int timeWindowMilliseconds;
         private final byte[] fileLockKey;
         private boolean closed;
+        private final long lockStartTime;
         /**
          * When closing this lock, we set this to the current context, so that when the pre-commit hook runs we won't
          * fail to heartbeat, as it will expect the lock to be deleted.
@@ -97,6 +99,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.fileLockKey = fileLockKey;
             this.timeWindowMilliseconds = timeWindowMilliseconds;
             logSelf("FileLock: Attempt to create a file Lock");
+            lockStartTime = System.nanoTime();
             fileLockSet(false);
             agilityContext.flush();
             agilityContext.setCommitCheck(this::ensureValidIfNotClosed);
@@ -232,6 +235,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
+            agilityContext.recordEvent(LuceneEvents.Events.LUCENE_FILE_LOCK_DURATION, System.nanoTime() - lockStartTime);
             boolean flushed = false;
             try {
                 closed = true; // prevent lock stamp update
@@ -273,7 +277,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of(staticMessage,
                         LogMessageKeys.TIME_LIMIT_MILLIS, timeWindowMilliseconds,
-                        LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis,
+                        LuceneLogMessageKeys.LOCK_TIMESTAMP, Duration.ofNanos(lockStartTime).toMillis(),
                         LuceneLogMessageKeys.LOCK_UUID, selfStampUuid,
                         LogMessageKeys.KEY, ByteArrayUtil2.loggable(fileLockKey)));
             }
