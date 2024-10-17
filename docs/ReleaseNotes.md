@@ -22,10 +22,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Expand `ForEach` quantifier semantics [(Issue #2930)](https://github.com/FoundationDB/fdb-record-layer/issues/2930)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** The old planner can now be configured to avoid generating IN-union plans with IN-sources that are not pushed into the underlying scan [(Issue #2941)](https://github.com/FoundationDB/fdb-record-layer/issues/2941)
+* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -34,13 +33,19 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Planning logic for IN-joins in the old planner means that some plans may change in scenarios where no index is able to be matched to the plan. Only users who have set the maximum number of replans for in-to-join planner configuration parameter to greater than or equal to 0 should be affected [(PR #2942)](https://github.com/FoundationDB/fdb-record-layer/pull/2942)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.552.0
+
+* **Bug fix** Expand `ForEach` quantifier semantics [(Issue #2930)](https://github.com/FoundationDB/fdb-record-layer/issues/2930)
+* **Performance** The old planner can now be configured to avoid generating IN-union plans with IN-sources that are not pushed into the underlying scan [(Issue #2941)](https://github.com/FoundationDB/fdb-record-layer/issues/2941)
+* **Breaking change** Planning logic for IN-joins in the old planner means that some plans may change in scenarios where no index is able to be matched to the plan. Only users who have set the maximum number of replans for in-to-join planner configuration parameter to greater than or equal to 0 should be affected [(PR #2942)](https://github.com/FoundationDB/fdb-record-layer/pull/2942)
 
 ### 3.4.551.0
 
