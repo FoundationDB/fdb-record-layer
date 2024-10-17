@@ -328,12 +328,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 ), LuceneIndexTypes.LUCENE, options);
     }
 
-    protected static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
-            "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
-            "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
-            "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
-
-    protected static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
     private long timestamp60DaysAgo;
     private long timestamp30DaysAgo;
     private long timestamp29DaysAgo;

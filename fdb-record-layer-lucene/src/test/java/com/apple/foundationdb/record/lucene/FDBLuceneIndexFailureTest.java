@@ -41,7 +41,6 @@ import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -90,14 +89,6 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
         this.injectedFailures = new InjectedFailureRepository();
         // This registry is used in openContext
         registry.overrideFactory(new MockedLuceneIndexMaintainerFactory(injectedFailures));
-    }
-
-    @AfterEach
-    void cleanup() {
-        // Remove the exception mapping from the DB (that is singleton for the app)
-        setupExceptionMapping(false);
-        // Clean any injected failures between tests
-        injectedFailures.clear();
     }
 
     @ParameterizedTest
