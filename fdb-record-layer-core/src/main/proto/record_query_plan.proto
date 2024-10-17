@@ -1192,6 +1192,7 @@ message PRecordQueryPlan {
     PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 30;
     PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
     PRecordQueryUpdatePlan update_plan = 32;
+    PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
   }
 }
 
@@ -1332,6 +1333,14 @@ message PRecordQueryFilterPlanBase {
 // PRecordQueryFirstOrDefaultPlan
 //
 message PRecordQueryFirstOrDefaultPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PValue on_empty_result_value = 2;
+}
+
+//
+// PRecordQueryDefaultOnEmptyPlan
+//
+message PRecordQueryDefaultOnEmptyPlan {
   optional PPhysicalQuantifier inner = 1;
   optional PValue on_empty_result_value = 2;
 }

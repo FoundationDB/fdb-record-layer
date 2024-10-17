@@ -145,28 +145,50 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public static final class ForEach extends Quantifier {
         @Nonnull private final Reference rangesOver;
 
+        private final boolean isNullOnEmpty;
+
         /**
          * Builder subclass to build for-each quantifiers.
          */
         public static class ForEachBuilder extends Builder<ForEach, ForEachBuilder> {
+
+            private boolean isNullOnEmpty;
+
+            @Nonnull
+            public ForEachBuilder setNullOnEmpty(boolean isNullOnEmpty) {
+                this.isNullOnEmpty = isNullOnEmpty;
+                return this;
+            }
+
+            @Nonnull
+            @Override
+            public ForEachBuilder from(final ForEach quantifier) {
+                return withAlias(quantifier.getAlias()).setNullOnEmpty(quantifier.isNullOnEmpty());
+            }
+
             @Nonnull
             @Override
             public ForEach build(@Nonnull final Reference rangesOver) {
-                return new ForEach(alias == null ? Quantifier.uniqueID() : alias,
-                        rangesOver);
+                return new ForEach(alias == null ? Quantifier.uniqueID() : alias, rangesOver, isNullOnEmpty);
             }
         }
 
         private ForEach(@Nonnull final CorrelationIdentifier alias,
-                        @Nonnull final Reference rangesOver) {
+                        @Nonnull final Reference rangesOver,
+                        final boolean isNullOnEmpty) {
             super(alias);
             this.rangesOver = rangesOver;
+            this.isNullOnEmpty = isNullOnEmpty;
         }
 
         @Override
         @Nonnull
         public Reference getRangesOver() {
             return rangesOver;
+        }
+
+        public boolean isNullOnEmpty() {
+            return isNullOnEmpty;
         }
 
         @Override
@@ -207,6 +229,33 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                                     .when(getAlias()).then((src, quantifiedValue) -> translatedQueryValue)
                                     .build());
         }
+
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        @Override
+        public boolean semanticEqualsWithoutChildren(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || this.getClass() != o.getClass()) {
+                return false;
+            }
+            final var other = (ForEach)o;
+            return isNullOnEmpty == other.isNullOnEmpty;
+        }
+
+        @Override
+        public int semanticHashCode() {
+            return Objects.hash(getShorthand(), getRangesOver().semanticHashCode(), isNullOnEmpty());
+        }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            final var isNullOnEmpty = isNullOnEmpty() ? "nOE" : "";
+            return getShorthand() + "(" + getAlias() + ")" + isNullOnEmpty + " -> {" +
+                    getCorrelatedTo().stream().map(CorrelationIdentifier::toString).collect(Collectors.joining(", ")) +
+                    "}";
+        }
     }
 
     /**
@@ -240,6 +289,35 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                                   @Nonnull final CorrelationIdentifier alias) {
         return forEachBuilder()
                 .withAlias(alias)
+                .build(reference);
+    }
+
+    /**
+     * Shorthand to create a for-each quantifier ranging over a reference using a given alias. It returns {@code null}
+     * if the underlying {@code Reference} returns nothing.
+     * @param reference the reference
+     * @return a new for-each quantifier ranging over {@code reference}
+     */
+    @Nonnull
+    public static ForEach forEachWithNullOnEmpty(@Nonnull final Reference reference) {
+        return forEachBuilder()
+                .setNullOnEmpty(true)
+                .build(reference);
+    }
+
+    /**
+     * Shorthand to create a for-each quantifier ranging over a reference using a given alias.  It returns {@code null}
+     * if the underlying {@code Reference} returns nothing.
+     * @param reference the reference
+     * @param alias the alias to be used
+     * @return a new for-each quantifier ranging over {@code reference}
+     */
+    @Nonnull
+    public static ForEach forEachWithNullOnEmpty(@Nonnull final Reference reference,
+                                                 @Nonnull final CorrelationIdentifier alias) {
+        return forEachBuilder()
+                .withAlias(alias)
+                .setNullOnEmpty(true)
                 .build(reference);
     }
 
@@ -557,7 +635,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     @Override
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        if (!equalsOnKind(other)) {
+        if (!semanticEqualsWithoutChildren(other)) {
             return false;
         }
         final Quantifier that = (Quantifier)Objects.requireNonNull(other);
@@ -565,7 +643,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsOnKind(final Object o) {
+    public boolean semanticEqualsWithoutChildren(final Object o) {
         if (this == o) {
             return true;
         }

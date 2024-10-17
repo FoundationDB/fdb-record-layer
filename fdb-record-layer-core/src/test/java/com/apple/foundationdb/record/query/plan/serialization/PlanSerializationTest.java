@@ -26,11 +26,15 @@ import com.apple.foundationdb.record.planprotos.PPlanReference;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -80,6 +84,33 @@ public class PlanSerializationTest {
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof RecordQueryIndexPlan);
+        Assertions.assertTrue(plan.semanticEquals(parsedPlan));
+    }
+
+    @Test
+    void recordQueryDefaultOnEmptyPlanTest() throws Exception {
+        final RecordQueryIndexPlan indexPlan = new RecordQueryIndexPlan("an_index",
+                null,
+                IndexScanComparisons.byValue(),
+                IndexFetchMethod.SCAN_AND_FETCH,
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                true,
+                false,
+                Optional.empty(),
+                Type.primitiveType(Type.TypeCode.INT, true),
+                QueryPlanConstraint.tautology());
+        final var plan = new RecordQueryDefaultOnEmptyPlan(Quantifier
+                .Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
+                        Reference.of(indexPlan)
+                ), new NullValue(Type.primitiveType(Type.TypeCode.INT, true)));
+
+        PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
+        final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
+        final byte[] bytes = proto.toByteArray();
+        final PPlanReference parsedProto = PPlanReference.parseFrom(bytes);
+        planSerializationContext = PlanSerializationContext.newForCurrentMode();
+        final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
+        Verify.verify(parsedPlan instanceof RecordQueryDefaultOnEmptyPlan);
         Assertions.assertTrue(plan.semanticEquals(parsedPlan));
     }
 }
