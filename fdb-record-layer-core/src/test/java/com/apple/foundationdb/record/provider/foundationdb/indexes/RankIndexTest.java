@@ -103,6 +103,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
@@ -1503,13 +1504,20 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals("Scan(<,>) | [BasicRankedRecord] | Or([gender NOT_EQUALS M, rank(Field { 'score' None} group 1) LESS_THAN_OR_EQUALS 0])", plan.toString());
-            assertMatchesExactly(plan,
-                    filterPlan(
-                            typeFilterPlan(
-                                    scanPlan().where(scanComparisons(unbounded())))
-                                    .where(recordTypes(containsAll(ImmutableSet.of("BasicRankedRecord")))))
-                            .where(queryComponents(exactly(equalsObject(filter)))));
+            assertEquals("Unordered(Scan(<,>) | [BasicRankedRecord] | gender NOT_EQUALS M ∪ Index(BasicRankedRecord$score ([null],[0]] BY_RANK)) | UnorderedPrimaryKeyDistinct()", plan.toString());
+            assertMatchesExactly(plan, unorderedPrimaryKeyDistinctPlan(
+                    unorderedUnionPlan(
+                            filterPlan(
+                                    typeFilterPlan(
+                                            scanPlan().where(scanComparisons(unbounded()))
+                                    ).where(recordTypes(only(equalsObject("BasicRankedRecord"))))
+                            ).where(queryComponents(only(equalsObject(Query.field("gender").notEquals("M"))))),
+                            indexPlan()
+                                    .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                    .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                    .and(scanComparisons(range("([null],[0]]")))
+                    )
+            ));
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(

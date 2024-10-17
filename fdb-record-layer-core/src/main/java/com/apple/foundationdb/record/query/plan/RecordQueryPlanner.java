@@ -362,14 +362,10 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         if (plan == null) {
-            if (sort == null) {
-                plan = valueScan(new CandidateScan(planContext, null, false), null, false);
-                if (filter != null) {
-                    plan = new RecordQueryFilterPlan(plan, filter);
-                }
-            } else {
-                return null;
-            }
+            plan = scanAndFilterPlanIfPossible(planContext, filter, sort);
+        }
+        if (plan == null) {
+            return null;
         }
         if (configuration.shouldDeferFetchAfterUnionAndIntersection() || configuration.shouldDeferFetchAfterInJoinAndInUnion()) {
             plan = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(configuration, plan, metaData, indexTypes, planContext.commonPrimaryKey);
@@ -706,9 +702,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             // We exhausted all attempts to replan with fewer number of in clauses. Replan one last time with
             // 0 in-clauses.
             inExtractor = inExtractor.filter((componentWithComparison, inBinding) -> isRankInComparison(planContext, componentWithComparison, inBinding));
-            ScoredPlan nextPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
-            if (nextPlan != null) {
-                bestPlanAndIn = new PlanWithInExtractor(nextPlan, inExtractor);
+            ScoredPlan currentPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
+            if (currentPlan != null) {
+                bestPlanAndIn = new PlanWithInExtractor(currentPlan, inExtractor);
             }
         }
 
@@ -756,9 +752,17 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (bestPlan.getNumNonSargables() > 0) {
                 bestPlan = handleNonSargables(bestPlan, intersectionCandidates, planContext);
             }
-            if (needOrdering) {
-                bestPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, bestPlan.getPlan(), planContext.commonPrimaryKey);
+        }
+        if (bestPlan == null && !avoidScanPlan(planContext)) {
+            // Unable to match any of the predicates or the sort against any index or the primary range. If
+            // possible, fall back to a full scan of the entire store with a residual filter
+            RecordQueryPlan scanPlan = scanAndFilterPlanIfPossible(planContext, filter, planContext.query.getSort());
+            if (scanPlan != null) {
+                bestPlan = new ScoredPlan(0, scanPlan);
             }
+        }
+        if (bestPlan != null && needOrdering) {
+            bestPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, bestPlan.getPlan(), planContext.commonPrimaryKey);
         }
         return bestPlan;
     }
@@ -1808,6 +1812,19 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         return FetchIndexRecords.PRIMARY_KEY;
+    }
+
+    @Nullable
+    private RecordQueryPlan scanAndFilterPlanIfPossible(@Nonnull PlanContext planContext, @Nullable QueryComponent filter, @Nullable KeyExpression sort) {
+        if (sort == null) {
+            RecordQueryPlan plan = valueScan(new CandidateScan(planContext, null, false), null, false);
+            if (filter != null) {
+                plan = new RecordQueryFilterPlan(plan, filter);
+            }
+            return plan;
+        } else {
+            return null;
+        }
     }
 
     @Nonnull
