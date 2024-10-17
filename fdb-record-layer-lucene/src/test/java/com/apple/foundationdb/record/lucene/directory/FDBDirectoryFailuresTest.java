@@ -40,6 +40,12 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_DELETE_FILE_INTERNAL;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_INCREMENT;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_LIST_ALL;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_READ_BLOCK;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -53,9 +59,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
+    private InjectedFailureRepository injectedFailures;
+
     @Test
     public void testGetIncrement() throws IOException {
-        addFailure(MockedFDBDirectory.Methods.GET_INCREMENT, new IOException("Blah"), 2);
+        addFailure(LUCENE_GET_INCREMENT, new IOException("Blah"), 2);
 
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
@@ -72,7 +80,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testWriteLuceneFileReference() {
-        addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+        addFailure(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
                 new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
                 0);
 
@@ -88,7 +96,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testWriteSeekData() throws Exception {
-        addFailure(MockedFDBDirectory.Methods.READ_BLOCK,
+        addFailure(LUCENE_READ_BLOCK,
                 new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
                 0);
 
@@ -118,7 +126,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testLitAllGetFileReference() throws IOException {
-        addFailure(MockedFDBDirectory.Methods.GET_FILE_REFERENCE_CACHE_ASYNC,
+        addFailure(LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC,
                 new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
                 0);
 
@@ -129,7 +137,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testListAll() throws IOException {
-        addFailure(MockedFDBDirectory.Methods.LIST_ALL, new IOException("Blah"), 0);
+        addFailure(LUCENE_LIST_ALL, new IOException("Blah"), 0);
 
         // This call should fail with the mock exception
         assertThrows(IOException.class, () -> directory.listAll());
@@ -138,7 +146,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test3", new FDBLuceneFileReference(3, 1, 1, 1));
 
         // clear failure, listAll() should pass now
-        removeFailure(MockedFDBDirectory.Methods.LIST_ALL);
+        removeFailure(LUCENE_LIST_ALL);
         assertArrayEquals(new String[] {"test1", "test2", "test3"}, directory.listAll());
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LIST_ALL, 1);
         // Assert that the cache is loaded only once even though directory::listAll is called twice
@@ -156,7 +164,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testDeleteData() throws Exception {
-        addFailure(MockedFDBDirectory.Methods.DELETE_FILE_INTERNAL,
+        addFailure(LUCENE_DELETE_FILE_INTERNAL,
                 new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException()),
                 1);
 
@@ -175,7 +183,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testFileLength() throws Exception {
-        addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+        addFailure(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
                 new FDBExceptions.FDBStoreTransactionIsTooOldException("Blah", new FDBException("Blah", 7)),
                 0);
 
@@ -201,7 +209,7 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testRename() {
-        addFailure(MockedFDBDirectory.Methods.GET_FILE_REFERENCE_CACHE_ASYNC,
+        addFailure(LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC,
                 new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
                 0);
 
@@ -235,14 +243,17 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
     @Nonnull
     @Override
     protected FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, final Map<String, String> indexOptions) {
-        return new MockedFDBDirectory(subspace, context, indexOptions);
+        injectedFailures = new InjectedFailureRepository();
+        final MockedFDBDirectory directory = new MockedFDBDirectory(subspace, context, indexOptions);
+        directory.setInjectedFailures(injectedFailures);
+        return directory;
     }
 
-    private void addFailure(final MockedFDBDirectory.Methods method, final Exception exception, final int count) {
-        ((MockedFDBDirectory)directory).addFailure(method, exception, count);
+    private void addFailure(final InjectedFailureRepository.Methods method, final Exception exception, final int count) {
+        injectedFailures.addFailure(method, exception, count);
     }
 
-    private void removeFailure(final MockedFDBDirectory.Methods method) {
-        ((MockedFDBDirectory)directory).removeFailure(method);
+    private void removeFailure(final InjectedFailureRepository.Methods method) {
+        injectedFailures.removeFailure(method);
     }
 }

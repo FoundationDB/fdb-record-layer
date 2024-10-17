@@ -64,6 +64,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * A transaction-scoped manager of {@link FDBDirectory} objects. For a single transaction, all {@link FDBDirectory}
@@ -358,15 +359,19 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
     public static FDBDirectoryManager getManager(@Nonnull IndexMaintainerState state) {
+        return getOrCreateManager(state, () -> new FDBDirectoryManager(state));
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    protected static @Nonnull FDBDirectoryManager getOrCreateManager(final @Nonnull IndexMaintainerState state, Supplier<FDBDirectoryManager> managerSupplier) {
         synchronized (state.context) {
             FDBRecordContext context = state.context;
             FDBDirectoryManager existing = context.getInSession(state.indexSubspace, FDBDirectoryManager.class);
             if (existing != null) {
                 return existing;
             }
-            FDBDirectoryManager newManager = new FDBDirectoryManager(state);
+            FDBDirectoryManager newManager = managerSupplier.get();
             context.putInSessionIfAbsent(state.indexSubspace, newManager);
             context.addCommitCheck(() -> {
                 try {

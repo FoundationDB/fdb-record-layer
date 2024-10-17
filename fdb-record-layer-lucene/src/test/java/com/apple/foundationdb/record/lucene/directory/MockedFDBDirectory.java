@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.store.IndexInput;
@@ -30,10 +30,18 @@ import org.apache.lucene.store.IndexInput;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_DELETE_FILE_INTERNAL;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_ALL_FIELDS_INFO_STREAM;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_INCREMENT;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_LIST_ALL;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_READ_BLOCK;
 
 /**
  * An {@link FDBDirectory} used for testing. It has the ability to delegate calls to the production implementation as well as fail as needed.
@@ -41,20 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * exception is the exception that should be throws and count is the number of "clean" invocation to allow before starting to fail.
  */
 public class MockedFDBDirectory extends FDBDirectory {
-    /**
-     * The method descriptions that can fail execution.
-     */
-    public enum Methods { GET_INCREMENT,
-        GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
-        READ_BLOCK,
-        LIST_ALL,
-        GET_FILE_REFERENCE_CACHE_ASYNC,
-        DELETE_FILE_INTERNAL,
-        GET_PRIMARY_KEY_SEGMENT_INDEX
-    }
-
-    private EnumMap<Methods, FailureDescription> failureDescriptions = new EnumMap<>(Methods.class);
-    private EnumMap<Methods, AtomicLong> invocationCounts = new EnumMap<>(Methods.class);
+    private InjectedFailureRepository injectedFailures;
 
     public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
         super(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
@@ -64,18 +59,9 @@ public class MockedFDBDirectory extends FDBDirectory {
         super(subspace, context, indexOptions);
     }
 
-    public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count) {
-        failureDescriptions.put(method, new FailureDescription(method, exception, count));
-    }
-
-    public void removeFailure(@Nonnull Methods method) {
-        failureDescriptions.remove(method);
-        invocationCounts.remove(method);
-    }
-
     @Override
     public long getIncrement() throws IOException {
-        checkFailureForIoException(Methods.GET_INCREMENT);
+        injectedFailures.checkFailureForIoException(LUCENE_GET_INCREMENT);
         return super.getIncrement();
     }
 
@@ -84,7 +70,7 @@ public class MockedFDBDirectory extends FDBDirectory {
     public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReferenceAsync(@Nonnull final String name) {
         return super.getFDBLuceneFileReferenceAsync(name)
                 .thenApply(ref -> {
-                    checkFailureForCoreException(Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC);
+                    injectedFailures.checkFailureForCoreException(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC);
                     return ref;
                 });
     }
@@ -94,7 +80,7 @@ public class MockedFDBDirectory extends FDBDirectory {
     public CompletableFuture<byte[]> readBlock(@Nonnull final IndexInput requestingInput, @Nonnull final String fileName, @Nonnull final CompletableFuture<FDBLuceneFileReference> referenceFuture, final int block) {
         return super.readBlock(requestingInput, fileName, referenceFuture, block)
                 .thenApply(bytes -> {
-                    checkFailureForCoreException(Methods.READ_BLOCK);
+                    injectedFailures.checkFailureForCoreException(LUCENE_READ_BLOCK);
                     return bytes;
                 });
     }
@@ -102,7 +88,7 @@ public class MockedFDBDirectory extends FDBDirectory {
     @Nonnull
     @Override
     public String[] listAll() throws IOException {
-        checkFailureForIoException(Methods.LIST_ALL);
+        injectedFailures.checkFailureForIoException(LUCENE_LIST_ALL);
         return super.listAll();
     }
 
@@ -111,81 +97,31 @@ public class MockedFDBDirectory extends FDBDirectory {
     protected CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         return super.getFileReferenceCacheAsync()
                 .thenApply(cache -> {
-                    checkFailureForCoreException(Methods.GET_FILE_REFERENCE_CACHE_ASYNC);
+                    injectedFailures.checkFailureForCoreException(LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC);
                     return cache;
                 });
     }
 
     @Override
     protected boolean deleteFileInternal(@Nonnull final Map<String, FDBLuceneFileReference> cache, @Nonnull final String name) throws IOException {
-        checkFailureForCoreException(Methods.DELETE_FILE_INTERNAL);
+        injectedFailures.checkFailureForCoreException(LUCENE_DELETE_FILE_INTERNAL);
         return super.deleteFileInternal(cache, name);
     }
 
     @Nullable
     @Override
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
-        checkFailureForCoreException(Methods.GET_PRIMARY_KEY_SEGMENT_INDEX);
+        injectedFailures.checkFailureForCoreException(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX);
         return super.getPrimaryKeySegmentIndex();
     }
 
-    private void checkFailureForIoException(@Nonnull final Methods method) throws IOException {
-        try {
-            checkFailure(method);
-        } catch (IOException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new IllegalStateException("Expected IOException, got " + ex.getClass().getSimpleName(), ex);
-        }
+    @Override
+    Stream<NonnullPair<Long, byte[]>> getAllFieldInfosStream() {
+        injectedFailures.checkFailureForCoreException(LUCENE_GET_ALL_FIELDS_INFO_STREAM);
+        return super.getAllFieldInfosStream();
     }
 
-    private void checkFailureForCoreException(@Nonnull final Methods method) throws RecordCoreException {
-        try {
-            checkFailure(method);
-        } catch (RecordCoreException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new IllegalStateException("Expected RecordCoreException, got " + ex.getClass().getSimpleName(), ex);
-        }
-    }
-
-    private void checkFailure(@Nonnull final Methods method) throws Exception {
-        FailureDescription failureDescription = failureDescriptions.get(method);
-        if (failureDescription != null) {
-            AtomicLong count = invocationCounts.computeIfAbsent(method, m -> new AtomicLong(0));
-            long invocations = count.incrementAndGet();
-            if (invocations > failureDescription.getCount()) {
-                throw failureDescription.getException();
-            }
-        }
-    }
-
-
-    private class FailureDescription {
-        @Nonnull
-        private Methods method;
-        @Nonnull
-        private Exception exception;
-        private long count;
-
-        public FailureDescription(@Nonnull final Methods method, @Nonnull final Exception exception, final long count) {
-            this.method = method;
-            this.exception = exception;
-            this.count = count;
-        }
-
-        @Nonnull
-        public Methods getMethod() {
-            return method;
-        }
-
-        @Nonnull
-        public Exception getException() {
-            return exception;
-        }
-
-        public long getCount() {
-            return count;
-        }
+    public void setInjectedFailures(final InjectedFailureRepository injectedFailures) {
+        this.injectedFailures = injectedFailures;
     }
 }
