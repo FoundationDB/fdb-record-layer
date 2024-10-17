@@ -2520,12 +2520,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1359269242, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
-    @ParameterizedTest(name = "testInQueryWithNonSargableReplan [shouldReplan = {0}]")
-    @BooleanSource
-    void testInQueryWithNonSargableReplan(final boolean shouldReplan) throws Exception {
+    @ParameterizedTest(name = "testInQueryWithNonSargableReplan [maxReplans = {0}]")
+    @ValueSource(ints = {-1, 0, 1})
+    void testInQueryWithNonSargableReplan(final int maxReplans) throws Exception {
         complexQuerySetup(NO_HOOK);
 
-        planner.setConfiguration(planner.getConfiguration().asBuilder().setMaxNumReplansForInToJoin(shouldReplan ? 1 : 0).build());
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setMaxNumReplansForInToJoin(maxReplans).build());
         final var inListNumValue3Indexed = List.of(1, 3, 5, 7, 9);
         final var inListNumValue2 = List.of(2, 4, 6, 8);
         final var filter = Query.and(
@@ -2539,7 +2539,31 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         RecordQueryPlan plan = planQuery(query);
-        if (shouldReplan) {
+        if (maxReplans < 0) {
+            // With replanning less than 0, we allow non-sargable INs to be put into the plan.
+            assertMatchesExactly(plan,
+                    inValuesJoinPlan(
+                            inValuesJoinPlan(
+                                    filterPlan(
+                                            indexPlan()
+                                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                                    .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__1]")))
+                                    )
+                            ).where(inValuesList(equalsObject(inListNumValue3Indexed)))
+                    ).where(inValuesList(equalsObject(inListNumValue2))));
+            assertEquals(-1089392549, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(235769639, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else if (maxReplans == 0) {
+            // Without replanning but banning non-sargable IN comparison, if we cannot push all IN predicates into
+            // the index, we place all of the IN filters into the residual filter.
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            typeFilterPlan(
+                                    scanPlan().where(scanComparisons(unbounded()))))
+                            .where(queryComponents(only(equalsObject(filter)))));
+            assertEquals(-898685565, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1176593054, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
             // With replanning we plan one IN as a JOIN over an index using that IN-bound equaltiy predicate
             // and the other one as a residual IN.
             assertMatchesExactly(plan,
@@ -2552,15 +2576,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     ).where(inValuesList(equalsObject(inListNumValue3Indexed))));
             assertEquals(-440990190, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(529154549, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        } else {
-            // Without any replanning we plan with both IN predicates in a residual filter.
-            assertMatchesExactly(plan,
-                    filterPlan(
-                            typeFilterPlan(
-                                    scanPlan().where(scanComparisons(unbounded()))))
-                            .where(queryComponents(only(equalsObject(filter)))));
-            assertEquals(-898685565, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1176593054, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 
