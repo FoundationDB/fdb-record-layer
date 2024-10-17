@@ -864,7 +864,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static Stream<Arguments> threadCount() {
         return Stream.concat(
-                Stream.of(1, 10).map(Arguments::of),
+                Stream.concat(
+                        IntStream.range(0, 100).mapToObj(ig -> Arguments.of(1)),
+                        Stream.of(Arguments.of(10))),
                 RandomizedTestUtils.randomArguments(random ->
                         Arguments.of(random.nextInt(10) + 1)));
     }
@@ -906,7 +908,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 @SuppressWarnings("unused") List<Long> ignored = cursor //this is here to make sure that we iterate the cursor
                         .map(FDBQueriedRecord::getPrimaryKey)
                         .map(t -> t.getLong(0))
-                        .asList().get();
+                        .asList().get(5, TimeUnit.SECONDS);
                 assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
             }
         }
