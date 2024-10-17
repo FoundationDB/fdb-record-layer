@@ -2539,8 +2539,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         RecordQueryPlan plan = planQuery(query);
-        if (maxReplans < 0) {
-            // With replanning less than 0, we allow non-sargable INs to be put into the plan.
+        if (maxReplans <= 0) {
+            // When replans is less than 0, we allow non-sargable INs to be put into the plan.
+            // When replans is equal to 0, we'd normally not allow this plan, except that the
+            //   only other plan would require a full store scan as it's unable to push down any
+            //   predicate to an index. Given the choice between the two, we somewhat arbitrarily
+            //   choose the plan that is able to match _some_ index
             assertMatchesExactly(plan,
                     inValuesJoinPlan(
                             inValuesJoinPlan(
@@ -2553,16 +2557,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     ).where(inValuesList(equalsObject(inListNumValue2))));
             assertEquals(-1089392549, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(235769639, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        } else if (maxReplans == 0) {
-            // Without replanning but banning non-sargable IN comparison, if we cannot push all IN predicates into
-            // the index, we place all of the IN filters into the residual filter.
-            assertMatchesExactly(plan,
-                    filterPlan(
-                            typeFilterPlan(
-                                    scanPlan().where(scanComparisons(unbounded()))))
-                            .where(queryComponents(only(equalsObject(filter)))));
-            assertEquals(-898685565, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1176593054, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             // With replanning we plan one IN as a JOIN over an index using that IN-bound equaltiy predicate
             // and the other one as a residual IN.
