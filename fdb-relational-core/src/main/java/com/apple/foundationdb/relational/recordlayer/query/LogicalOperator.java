@@ -430,7 +430,7 @@ public class LogicalOperator {
                     logicalOperator.quantifier.getAlias(), Quantifier.current())
                     .collect(ImmutableList.toImmutableList());
             sortExpression = new LogicalSortExpression(
-                    RequestedOrdering.ofPrimitiveParts(orderingParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS),
+                    RequestedOrdering.ofPrimitiveParts(orderingParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, false),
                     logicalOperator.quantifier);
         }
 
