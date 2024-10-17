@@ -1887,6 +1887,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         //   the oldest partition -> newest
         // - the second int array is the resulting count of docs in each partition
         //   after merge, in the same order
+        // - the final long is the seed used for generating timestamps, and other randomness
         return Stream.concat(Stream.of(
                 // consolidate two low partitions into one
                 Arguments.of(2, 4, 3, new int[] {1, 1}, new int[] {2}, 5090921730160662578L),
@@ -2330,7 +2331,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         Map<Tuple, Map<Tuple, Tuple>> keys = new HashMap<>();
         Tuple groupingKey = Tuple.from(1L);
         keys.put(groupingKey, new HashMap<>());
-        final Set<Long> existingTimestamps = new HashSet<>();
         long startTime = 1000;
         for (int i = 0; i < docCounts.length; i++) {
             long from = startTime * (i + 1);
