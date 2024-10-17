@@ -146,6 +146,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
@@ -1886,39 +1887,43 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         //   the oldest partition -> newest
         // - the second int array is the resulting count of docs in each partition
         //   after merge, in the same order
-
-        return Stream.of(
+        // - the final long is the seed used for generating timestamps, and other randomness
+        return Stream.concat(Stream.of(
                 // consolidate two low partitions into one
-                Arguments.of(2, 4, 3, new int[] {1, 1}, new int[] {2}),
+                Arguments.of(2, 4, 3, new int[] {1, 1}, new int[] {2}, 5090921730160662578L),
                 // consolidate a partition into its previous neighbor
-                Arguments.of(2, 4, 3, new int[] {2, 2, 1}, new int[] {2, 3}),
+                Arguments.of(2, 4, 3, new int[] {2, 2, 1}, new int[] {2, 3}, 8296455389870328158L),
                 // consolidate a partition falling between two partitions with capacity into its previous neighbor
-                Arguments.of(3, 7, 3, new int[] {5, 2, 5}, new int[] {7, 5}),
+                Arguments.of(3, 7, 3, new int[] {5, 2, 5}, new int[] {7, 5}, 1881263071588622897L),
                 // consolidate a partition falling between two partitions which individually don't have enough
                 // capacity, but together they do
-                Arguments.of(3, 7, 3, new int[] {6, 2, 6}, new int[] {7, 7}),
+                Arguments.of(3, 7, 3, new int[] {6, 2, 6}, new int[] {7, 7}, -8067607788952349037L),
                 // cannot consolidate a partition that has no neighbors with capacity
-                Arguments.of(3, 7, 3, new int[] {6, 2, 7}, new int[] {6, 2, 7}),
+                Arguments.of(3, 7, 3, new int[] {6, 2, 7}, new int[] {6, 2, 7}, -6499413518552747008L),
                 // cannot consolidate a partition that has no neighbors with capacity
-                Arguments.of(3, 7, 3, new int[] {7, 2, 6}, new int[] {7, 2, 6}),
+                Arguments.of(3, 7, 3, new int[] {7, 2, 6}, new int[] {7, 2, 6}, 4964771431262174260L),
                 // cannot consolidate partitions that have no neighbors with capacity
-                Arguments.of(3, 7, 3, new int[] {6, 2, 7, 3}, new int[] {6, 2, 7, 3}),
-                Arguments.of(4, 7, 3, new int[] {6, 3, 4, 5, 5, 5, 5}, new int[] {6, 7, 5, 5, 5, 5}),
+                Arguments.of(3, 7, 3, new int[] {6, 2, 7, 3}, new int[] {6, 2, 7, 3}, -7701497187073700392L),
+                Arguments.of(4, 7, 3, new int[] {6, 3, 4, 5, 5, 5, 5}, new int[] {6, 7, 5, 5, 5, 5}, -4754040892014544273L),
                 // consolidate one partition that has a neighbor with capacity, while another
                 // that doesn't, won't be consolidated
-                Arguments.of(3, 7, 3, new int[] {6, 2, 6, 1}, new int[] {6, 2, 7}),
+                Arguments.of(3, 7, 3, new int[] {6, 2, 6, 1}, new int[] {6, 2, 7}, -1401482865167966197L),
                 // splitting one partition, removes the need to consolidate a previous low partition
-                Arguments.of(3, 7, 3, new int[] {6, 1, 8}, new int[] {6, 4, 5}),
+                Arguments.of(3, 7, 3, new int[] {6, 1, 8}, new int[] {6, 4, 5}, 5083428474768878225L),
                 // consolidating two neighboring partitions into their left and right neighbors
-                Arguments.of(3, 7, 3, new int[] {6, 1, 1, 6}, new int[] {7, 7}),
+                Arguments.of(3, 7, 3, new int[] {6, 1, 1, 6}, new int[] {7, 7}, -481285513446860421L),
                 // two low partitions merge into one
-                Arguments.of(5, 7, 3, new int[] {3, 4}, new int[] {7}),
+                Arguments.of(5, 7, 3, new int[] {3, 4}, new int[] {7}, 7075276337057098368L),
                 // multiple-stage split
-                Arguments.of(3, 7, 3, new int[] { 15 }, new int[] {6, 3, 6}),
+                Arguments.of(3, 7, 3, new int[] { 15 }, new int[] {6, 3, 6}, -1986718910463673038L),
                 // move more than 2x the repartition count
-                Arguments.of(3, 6, 2, new int[] { 13, 2 }, new int[] {6, 2, 5, 2}),
+                Arguments.of(3, 6, 2, new int[] { 13, 2 }, new int[] {6, 2, 5, 2}, -3793471484163361678L),
                 // ensure it won't move 3 from second partition to first
-                Arguments.of(10, 20, 3, new int[] {15, 8, 20}, new int[] {15, 8, 20})
+                Arguments.of(10, 20, 3, new int[] {15, 8, 20}, new int[] {15, 8, 20}, 9002508147645127223L)),
+                // Like above, but caused an issue with the validator, when multiple documents had the same timestamps
+                // at the boundary
+                LongStream.of(1358611700989865537L, -4569118774337319100L, -3377995767497306027L, 8516771127753321444L)
+                        .mapToObj(seed -> Arguments.of(3, 7, 3, new int[] { 15 }, new int[] {6, 3, 6}, seed))
         );
     }
 
@@ -1928,7 +1933,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                           int highWatermark,
                                           int repartitionCount,
                                           int[] initialPartitionCounts,
-                                          int[] expectedPartitionCounts) throws IOException {
+                                          int[] expectedPartitionCounts,
+                                          final long seed) throws IOException {
+        Random random = new Random(seed);
         boolean isSynthetic = false;
 
         Map<String, String> options = Map.of(
@@ -1949,7 +1956,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-            createdKeys = createPartitionsAndComplexDocs(index, initialPartitionCounts);
+            createdKeys = createPartitionsAndComplexDocs(index, initialPartitionCounts, random);
             context.commit();
         }
 
@@ -2316,10 +2323,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         yesterday = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
     }
 
-    Map<Tuple, Map<Tuple, Tuple>> createPartitionsAndComplexDocs(Index index, int[] docCounts) {
+    Map<Tuple, Map<Tuple, Tuple>> createPartitionsAndComplexDocs(Index index, int[] docCounts, final Random random) {
         // make partition ids not sequential relative to their from/to ranges
         List<Integer> partitionIds = IntStream.rangeClosed(0, docCounts.length - 1).boxed().collect(Collectors.toList());
-        Collections.shuffle(partitionIds);
+        Collections.shuffle(partitionIds, random);
 
         Map<Tuple, Map<Tuple, Tuple>> keys = new HashMap<>();
         Tuple groupingKey = Tuple.from(1L);
@@ -2327,12 +2334,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         long startTime = 1000;
         for (int i = 0; i < docCounts.length; i++) {
             long from = startTime * (i + 1);
-            long to = from + 999;
+            final int timestampRange = 999;
+            long to = from + timestampRange;
 
             createPartitionMetadata(index, groupingKey, partitionIds.get(i), from, to);
 
             for (int j = 0; j < docCounts[i]; j++) {
-                long timestamp = ThreadLocalRandom.current().nextLong(from, to + 1);
+                long timestamp = from + random.nextInt(timestampRange + 1);
+                assertThat(timestamp, Matchers.greaterThanOrEqualTo(from)); // sanity checks
+                assertThat(timestamp, Matchers.lessThanOrEqualTo(to)); // sanity checks
                 keys.get(groupingKey).put(recordStore.saveRecord(createComplexDocument(i * 100L + j, ENGINEER_JOKE, 1, timestamp)).getPrimaryKey(), Tuple.from(timestamp));
             }
         }
