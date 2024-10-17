@@ -173,8 +173,8 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                     continue;
                 }
 
-                final var dataAccessQuantifier = Quantifier.forEachBuilder()
-                        .withAlias(matchedAlias)
+                final var matchedQuantifier = (Quantifier.ForEach)aliasToQuantifierMap.get(matchedAlias);
+                final var dataAccessQuantifier = Quantifier.ForEach.forEachBuilder().from(matchedQuantifier)
                         .build(call.memoizeReference(Reference.from(dataAccessExpressions)));
                 
                 final var compensatedDataAccessExpression =

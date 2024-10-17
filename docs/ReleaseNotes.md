@@ -22,6 +22,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Expand `ForEach` quantifier semantics [(Issue #2930)](https://github.com/FoundationDB/fdb-record-layer/issues/2930)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** The old planner can now be configured to avoid generating IN-union plans with IN-sources that are not pushed into the underlying scan [(Issue #2941)](https://github.com/FoundationDB/fdb-record-layer/issues/2941)
