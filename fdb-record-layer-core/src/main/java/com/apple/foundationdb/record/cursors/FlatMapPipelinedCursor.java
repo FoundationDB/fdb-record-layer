@@ -56,6 +56,13 @@ import java.util.function.Function;
 @API(API.Status.MAINTAINED)
 @SuppressWarnings("PMD.CloseResource")
 public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
+    private static final CompletableFuture<Boolean> CANCELLED;
+
+    static {
+        CANCELLED = new CompletableFuture<>();
+        CANCELLED.cancel(false);
+    }
+
     @Nonnull
     private final RecordCursor<T> outerCursor;
     @Nonnull
@@ -69,11 +76,16 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     private byte[] initialInnerContinuation;
     private final int pipelineSize;
+    /**
+     * The pipeline used to add some parallelism to reads. Note this queue is not thread safe, so interactions
+     * must be in the same
+     */
     @Nonnull
     private final Queue<PipelineQueueEntry> pipeline;
     @Nullable
     private CompletableFuture<RecordCursorResult<T>> outerNextFuture;
     private boolean outerExhausted = false;
+    private boolean closed = false;
 
     @Nullable
     private RecordCursorResult<V> lastResult;
@@ -115,8 +127,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         });
     }
 
-    @Override
-    public void close() {
+    private CompletableFuture<Boolean> cancelAll() {
         while (!pipeline.isEmpty()) {
             pipeline.remove().close();
         }
@@ -124,12 +135,22 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             outerNextFuture.cancel(false);
             outerNextFuture = null;
         }
+        return CANCELLED;
+    }
+
+    @Override
+    public void close() {
+        // we don't cleanup the pipeline here, instead we clean it up in tryToFillPipeline to avoid multi-threaded
+        // access to the pipeline.
+        // It's possible that we close after one call of `tryToFillPipeline` and the inner is closed before its
+        // onNext completes
+        closed = true;
         outerCursor.close();
     }
 
     @Override
     public boolean isClosed() {
-        return pipeline.isEmpty() && outerNextFuture == null && outerCursor.isClosed();
+        return closed;
     }
 
     @Override
@@ -151,12 +172,18 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
     protected CompletableFuture<Boolean> tryToFillPipeline() {
+        if (closed) {
+            return cancelAll();
+        }
         // Clear pipeline entries left behind by exhausted inner cursors.
         while (!pipeline.isEmpty() && pipeline.peek().doesNotHaveReturnableResult()) {
             pipeline.remove().close();
         }
         
         while (!outerExhausted && pipeline.size() < pipelineSize) {
+            if (closed) {
+                return cancelAll();
+            }
             if (outerNextFuture == null) {
                 outerNextFuture = outerCursor.onNext();
             }
