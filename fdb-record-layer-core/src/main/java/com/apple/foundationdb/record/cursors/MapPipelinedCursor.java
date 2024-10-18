@@ -81,6 +81,13 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
             return CompletableFuture.completedFuture(nextResult);
         }
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor())
+                // tryToFillPipeline will either:
+                // 1. Return a cancelled future
+                // 2. Add a future to the pipeline
+                // 3. Return a `false` future when the pipeline is full
+                // Thus, the pipeline will always have an element when the two lambdas below are called
+                // pipeline is not modified other than in tryToFillPipeline, and here, so there won't be a possibility
+                // where tryToFillPipeline added entries, and they were removed before pipeline.remove below
                 .thenCompose(vignore -> pipeline.peek())
                 .thenApply(result -> {
                     if (result.hasNext()) {
