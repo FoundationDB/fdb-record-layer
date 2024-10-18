@@ -24,6 +24,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.cursors.FilterCursor;
 import com.apple.foundationdb.record.cursors.FirableCursor;
+import com.apple.foundationdb.record.cursors.FutureCursor;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.cursors.MapResultCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
@@ -60,7 +61,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -1277,27 +1277,45 @@ public class RecordCursorTest {
 
     }
 
-    @Test
-    public void mapPipelineCloseWhileCancelling() {
+    @Nonnull
+    private RecordCursor<Integer> mapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
+        return RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()))
+                .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), iteration % 19 + 2);
+    }
+
+    @Nonnull
+    private RecordCursor<String> flatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
+        return RecordCursor.flatMapPipelined(
+                outerContinuation -> RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()), outerContinuation),
+                (outerValue, innerContinuation) -> new FutureCursor<>(EXECUTOR, signal.thenApplyAsync(ignore -> String.valueOf(outerValue), EXECUTOR)),
+                null,
+                null,
+                iteration % 19 + 2
+        );
+    }
+
+    private <T> void closePipelineWhileCancelling(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<T>> cursorGenerator) {
         Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
         for (int i = 0; i < 20_000; i++) {
             try {
-                LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
+                LOGGER.info(KeyValueLogMessage.of("running pipeline close test", "iteration", i));
                 CompletableFuture<Void> signal = new CompletableFuture<>();
-                RecordCursor<Integer> cursor = RecordCursor.fromList(IntStream.range(0, i % 199).boxed().collect(Collectors.toList()))
-                        .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), i % 19 + 2);
-                CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+                RecordCursor<T> cursor = cursorGenerator.apply(i, signal);
+                CompletableFuture<RecordCursorResult<T>> resultFuture = cursor.onNext();
 
                 signal.complete(null);
                 cursor.close();
                 resultFuture.get(2, TimeUnit.SECONDS);
             } catch (Exception e) {
                 Throwable errToCount;
-                if (e instanceof CompletionException && e.getCause() != null) {
+                if (e instanceof ExecutionException && e.getCause() != null) {
                     errToCount = e.getCause();
                     errToCount.addSuppressed(e);
                 } else {
                     errToCount = e;
+                }
+                if (errToCount instanceof CancellationException) {
+                    continue;
                 }
                 LOGGER.error(KeyValueLogMessage.of("error during test"), errToCount);
                 exceptionCount.compute(errToCount.getClass(), (k, v) -> v == null ? 1 : v + 1);
@@ -1310,25 +1328,38 @@ public class RecordCursorTest {
     }
 
     @Test
-    void mapPipelinedAfterClosed() {
-        Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
+    void mapPipelineCloseWhileCancelling() {
+        closePipelineWhileCancelling(this::mapPipelinedCursorToClose);
+    }
+
+    @Test
+    void flatMapPipelineCloseWhileCancelling() {
+        closePipelineWhileCancelling(this::flatMapPipelinedCursorToClose);
+    }
+
+    private <T> void pipelinedCursorAfterClosing(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<T>> cursorGenerator) {
         for (int i = 0; i < 2000; i++) {
             LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
             CompletableFuture<Void> signal = new CompletableFuture<>();
             LOGGER.info(EXECUTOR.toString());
-            RecordCursor<Integer> cursor = RecordCursor.fromList(IntStream.range(0, i % 199).boxed().collect(Collectors.toList()))
-                    .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), i % 19 + 2);
+            RecordCursor<T> cursor = cursorGenerator.apply(i, signal);
 
             signal.complete(null);
             cursor.close();
-            CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+            CompletableFuture<RecordCursorResult<T>> resultFuture = cursor.onNext();
             final ExecutionException executionException = assertThrows(ExecutionException.class,
                     () -> resultFuture.get(2, TimeUnit.SECONDS));
             assertThat(executionException.getCause(), Matchers.instanceOf(CancellationException.class));
         }
-        KeyValueLogMessage msg = KeyValueLogMessage.build("exception counts");
-        msg.addKeysAndValues(exceptionCount);
-        LOGGER.info(msg.toString());
-        assertThat(exceptionCount, Matchers.anEmptyMap());
+    }
+
+    @Test
+    void mapPipelinedAfterClosed() {
+        pipelinedCursorAfterClosing(this::mapPipelinedCursorToClose);
+    }
+
+    @Test
+    void flatMapPipelinedAfterClosed() {
+        pipelinedCursorAfterClosing(this::flatMapPipelinedCursorToClose);
     }
 }

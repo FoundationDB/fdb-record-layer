@@ -48,6 +48,13 @@ import java.util.function.Function;
  */
 @API(API.Status.MAINTAINED)
 public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
+    private static final CompletableFuture<Boolean> CANCELLED;
+
+    static {
+        CANCELLED = new CompletableFuture<>();
+        CANCELLED.cancel(false);
+    }
+
     @Nonnull
     private final RecordCursor<T> inner;
     @Nonnull
@@ -83,6 +90,9 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor())
                 .thenCompose(vignore -> pipeline.peek())
                 .thenApply(result -> {
+                    // Result is non-null here because tryToFillPipeline will always ensure
+                    // there is at least one element in the queue (unless it completes exceptionally
+                    // in which case this callback won't be run)
                     if (result.hasNext()) {
                         pipeline.remove();
                     }
@@ -183,9 +193,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         while (!pipeline.isEmpty()) {
             pipeline.remove().cancel(false);
         }
-        final CompletableFuture<Boolean> cancelled = new CompletableFuture<>();
-        cancelled.cancel(true);
-        return cancelled;
+        return CANCELLED;
     }
 
     @Nonnull
