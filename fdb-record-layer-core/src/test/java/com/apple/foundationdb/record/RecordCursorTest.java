@@ -42,6 +42,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,6 +74,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -1277,14 +1280,37 @@ public class RecordCursorTest {
 
     }
 
+    static Stream<Arguments> pipelinedCursors() {
+        return Stream.<BiFunction<Integer, CompletableFuture<Void>, RecordCursor<?>>>of(
+                named("mapPipelined", RecordCursorTest::mapPipelinedCursorToClose),
+                named("singletonFlatMapPipelined", RecordCursorTest::singletonFlatMapPipelinedCursorToClose),
+                named("flatMapPipelined", RecordCursorTest::flatMapPipelinedCursorToClose)
+        ).map(Arguments::of);
+    }
+
+    private static <T, U, R> BiFunction<T, U, R> named(String name, BiFunction<T, U, R> inner) {
+        // TODO junit 5.8 has `Named.named` which allows adding a name for the arguments
+        return new BiFunction<>() {
+            @Override
+            public R apply(T t, U u) {
+                return inner.apply(t, u);
+            }
+
+            @Override
+            public String toString() {
+                return name;
+            }
+        };
+    }
+
     @Nonnull
-    private RecordCursor<Integer> mapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
+    private static RecordCursor<Integer> mapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
         return RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()))
                 .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), iteration % 19 + 2);
     }
 
     @Nonnull
-    private RecordCursor<String> flatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
+    private static RecordCursor<String> singletonFlatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()), outerContinuation),
                 (outerValue, innerContinuation) -> new FutureCursor<>(EXECUTOR, signal.thenApplyAsync(ignore -> String.valueOf(outerValue), EXECUTOR)),
@@ -1294,14 +1320,37 @@ public class RecordCursorTest {
         );
     }
 
-    private <T> void closePipelineWhileCancelling(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<T>> cursorGenerator) {
+    @Nonnull
+    private static RecordCursor<String> flatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
+        return RecordCursor.flatMapPipelined(
+                outerContinuation -> RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()), outerContinuation),
+                (outerValue, innerContinuation) -> {
+                    if (outerValue % 37 == 0) {
+                        return RecordCursor.empty(EXECUTOR);
+                    } else {
+                        return new LazyCursor<>(signal.thenApply(ignore ->
+                                RecordCursor.fromList(EXECUTOR, IntStream.range(0, outerValue % 37)
+                                        .mapToObj(innerValue -> outerValue + ":" + innerValue).collect(Collectors.toList()),
+                                        innerContinuation)));
+
+                    }
+                },
+                null,
+                null,
+                iteration % 19 + 2
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("pipelinedCursors")
+    void closePipelineWhileCancelling(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<?>> cursorGenerator) {
         Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
         for (int i = 0; i < 20_000; i++) {
             try {
                 LOGGER.info(KeyValueLogMessage.of("running pipeline close test", "iteration", i));
                 CompletableFuture<Void> signal = new CompletableFuture<>();
-                RecordCursor<T> cursor = cursorGenerator.apply(i, signal);
-                CompletableFuture<RecordCursorResult<T>> resultFuture = cursor.onNext();
+                RecordCursor<?> cursor = cursorGenerator.apply(i, signal);
+                CompletableFuture<? extends RecordCursorResult<?>> resultFuture = cursor.onNext();
 
                 signal.complete(null);
                 cursor.close();
@@ -1327,39 +1376,21 @@ public class RecordCursorTest {
         assertThat(exceptionCount, Matchers.anEmptyMap());
     }
 
-    @Test
-    void mapPipelineCloseWhileCancelling() {
-        closePipelineWhileCancelling(this::mapPipelinedCursorToClose);
-    }
-
-    @Test
-    void flatMapPipelineCloseWhileCancelling() {
-        closePipelineWhileCancelling(this::flatMapPipelinedCursorToClose);
-    }
-
-    private <T> void pipelinedCursorAfterClosing(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<T>> cursorGenerator) {
+    @ParameterizedTest
+    @MethodSource("pipelinedCursors")
+    void pipelinedCursorAfterClosing(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<?>> cursorGenerator) {
         for (int i = 0; i < 2000; i++) {
             LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
             CompletableFuture<Void> signal = new CompletableFuture<>();
             LOGGER.info(EXECUTOR.toString());
-            RecordCursor<T> cursor = cursorGenerator.apply(i, signal);
+            RecordCursor<?> cursor = cursorGenerator.apply(i, signal);
 
             signal.complete(null);
             cursor.close();
-            CompletableFuture<RecordCursorResult<T>> resultFuture = cursor.onNext();
+            CompletableFuture<? extends RecordCursorResult<?>> resultFuture = cursor.onNext();
             final ExecutionException executionException = assertThrows(ExecutionException.class,
                     () -> resultFuture.get(2, TimeUnit.SECONDS));
             assertThat(executionException.getCause(), Matchers.instanceOf(CancellationException.class));
         }
-    }
-
-    @Test
-    void mapPipelinedAfterClosed() {
-        pipelinedCursorAfterClosing(this::mapPipelinedCursorToClose);
-    }
-
-    @Test
-    void flatMapPipelinedAfterClosed() {
-        pipelinedCursorAfterClosing(this::flatMapPipelinedCursorToClose);
     }
 }
