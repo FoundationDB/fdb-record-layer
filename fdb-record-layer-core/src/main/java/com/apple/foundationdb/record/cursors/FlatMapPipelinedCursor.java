@@ -89,9 +89,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * methods.
      */
     @Nullable
-    private CompletableFuture<RecordCursorResult<T>> outerNextFuture;
-    private boolean outerExhausted = false;
-    private boolean closed = false;
+    private volatile CompletableFuture<RecordCursorResult<T>> outerNextFuture;
+    private volatile boolean outerExhausted = false;
+    private volatile boolean closed = false;
 
     @Nullable
     private RecordCursorResult<V> lastResult;
