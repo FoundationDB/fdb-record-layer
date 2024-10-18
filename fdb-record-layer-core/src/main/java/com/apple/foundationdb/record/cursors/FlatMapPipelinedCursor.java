@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.cursors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -57,12 +58,6 @@ import java.util.function.Function;
 @API(API.Status.MAINTAINED)
 @SuppressWarnings("PMD.CloseResource")
 public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
-    private static final CompletableFuture<Boolean> CANCELLED;
-
-    static {
-        CANCELLED = new CompletableFuture<>();
-        CANCELLED.cancel(false);
-    }
 
     @Nonnull
     private final RecordCursor<T> outerCursor;
@@ -181,7 +176,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     protected CompletableFuture<Boolean> tryToFillPipeline() {
         if (closed) {
-            return CANCELLED;
+            return MoreAsyncUtil.ALREADY_CANCELLED;
         }
         // Clear pipeline entries left behind by exhausted inner cursors.
         clearUnusedPipelineEntries();
@@ -189,7 +184,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         while (continueFillingPipeline()) {
             CompletableFuture<RecordCursorResult<T>> outerNext = ensureOuterCursorAdvanced();
             if (outerNext == null) {
-                return CANCELLED;
+                return MoreAsyncUtil.ALREADY_CANCELLED;
             }
 
             if (!outerNext.isDone()) {
@@ -245,7 +240,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         // that case.
         PipelineQueueEntry peeked = peekPipeline();
         if (peeked == null) {
-            return CANCELLED;
+            return MoreAsyncUtil.ALREADY_CANCELLED;
         }
         return peeked.getNextInnerPipelineFuture().thenApply(PipelineQueueEntry::doesNotHaveReturnableResult);
     }
