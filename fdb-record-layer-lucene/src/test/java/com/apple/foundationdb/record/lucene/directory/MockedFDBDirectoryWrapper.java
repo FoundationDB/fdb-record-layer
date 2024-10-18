@@ -31,8 +31,11 @@ import java.util.Map;
  * A Testing-focused {@link FDBDirectoryWrapper} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
-    MockedFDBDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
+    MockedFDBDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize, final InjectedFailureRepository injectedFailures) {
         super(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
+        // Set the injectedFailures at the end of the constructor since createDirectory() is called from the constructor
+        // and we can't pass the injected failures to it yet.
+        ((MockedFDBDirectory)getDirectory()).setInjectedFailures(injectedFailures);
     }
 
     @Nonnull

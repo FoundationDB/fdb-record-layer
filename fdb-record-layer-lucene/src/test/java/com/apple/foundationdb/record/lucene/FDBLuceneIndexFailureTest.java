@@ -23,49 +23,55 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
-import com.apple.foundationdb.record.lucene.directory.MockedFDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.MockedFDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository;
+import com.apple.foundationdb.record.lucene.directory.MockedLuceneIndexMaintainerFactory;
+import com.apple.foundationdb.record.lucene.directory.TestingIndexMaintainerRegistry;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
-import com.google.common.base.Verify;
-import org.apache.lucene.search.Sort;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
-import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_ALL_FIELDS_INFO_STREAM;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_LIST_ALL;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_READ_BLOCK;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -73,23 +79,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * A test that uses a few of the tests from {@link LuceneIndexTest} under a fault-injection scenario.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
+public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
+    private TestingIndexMaintainerRegistry registry;
+    private InjectedFailureRepository injectedFailures;
 
-    protected static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
-            "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
-            "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
-            "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
-    protected static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
-
-    protected static final Index COMPLEX_PARTITIONED = complexPartitionedIndex(Map.of(
-            IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-            INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-            INDEX_PARTITION_HIGH_WATERMARK, "10"));
-
-    protected static final Index COMPLEX_PARTITIONED_NOGROUP = complexPartitionedIndexNoGroup(Map.of(
-            IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-            INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-            INDEX_PARTITION_HIGH_WATERMARK, "10"));
+    @BeforeEach
+    public void setup() {
+        this.registry = new TestingIndexMaintainerRegistry();
+        this.injectedFailures = new InjectedFailureRepository();
+        // This registry is used in openContext
+        registry.overrideFactory(new MockedLuceneIndexMaintainerFactory(injectedFailures));
+    }
 
     @ParameterizedTest
     @BooleanSource
@@ -100,10 +100,9 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
             final LuceneScanBounds scanBounds = groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 2);
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, COMPLEX_PARTITIONED).getDirectory(scanBounds.groupKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
-                    new FDBExceptions.FDBStoreTransactionIsTooOldException("Blah", new FDBException("Blah", 7)),
-                    0);
+            injectedFailures.addFailure(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+                            new FDBExceptions.FDBStoreTransactionIsTooOldException("Blah", new FDBException("Blah", 7)),
+                            0);
 
             recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
             recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
@@ -128,10 +127,9 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
             final LuceneScanBounds scanBounds = fullTextSearch(COMPLEX_PARTITIONED_NOGROUP, "text:propose");
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, COMPLEX_PARTITIONED_NOGROUP).getDirectory(scanBounds.groupKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
-                    new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
-                    0);
+            injectedFailures.addFailure(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+                            new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                            0);
 
             recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
             recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
@@ -143,6 +141,158 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
                     () -> LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
                             recordStore.scanIndex(COMPLEX_PARTITIONED_NOGROUP, scanBounds, null, ScanProperties.FORWARD_SCAN).asList(),
                             context));
+        }
+    }
+
+    public static Stream<Arguments> legacySyncAndMapping() {
+        return Stream.of(true, false)
+                .flatMap(useLegacyAsyncToSync -> Stream.of(true, false)
+                        .map(useExceptionMapping -> Arguments.of(useLegacyAsyncToSync, useExceptionMapping)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("legacySyncAndMapping")
+    void repartitionGroupedTestWithExceptionMapping(boolean useLegacyAsyncToSync, boolean useExceptionMapping) throws IOException {
+        Index index = COMPLEX_PARTITIONED;
+        Tuple groupingKey = Tuple.from(1L);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
+                .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
+                .build();
+        setupExceptionMapping(useExceptionMapping);
+
+        final int totalDocCount = 20;
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        // create/save documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            long start = Instant.now().toEpochMilli();
+            for (int i = 0; i < totalDocCount; i++) {
+                recordStore.saveRecord(createComplexDocument(1000L + i, ENGINEER_JOKE, docGroupFieldValue, start + i * 100));
+            }
+            commit(context);
+        }
+
+        // initially, all documents are saved into one partition
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey, contextProps, schemaSetup);
+        assertEquals(1, partitionInfos.size());
+        assertEquals(totalDocCount, partitionInfos.get(0).getCount());
+
+        // run re-partitioning with failure
+        // When exception mapping is in place, the thrown exception is UnknownLoggableException
+        // When no exception mapping is taking place, the thrown exception is the injected one (AsyncToSyncTimeout)
+        if (useExceptionMapping) {
+            assertThrows(UnknownLoggableException.class,
+                    () -> explicitMergeIndex(index, contextProps, schemaSetup, true, 0));
+        } else {
+            assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
+                    () -> explicitMergeIndex(index, contextProps, schemaSetup, true, 0));
+        }
+
+        // run partitioning without failure - make sure the index is still in good shape
+        explicitMergeIndex(index, contextProps, schemaSetup, false, 0);
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            assertEquals(2, getCounter(context, LuceneEvents.Counts.LUCENE_REPARTITION_CALLS).getCount());
+        }
+        partitionInfos = getPartitionMeta(index, groupingKey, contextProps, schemaSetup);
+        // It should first move 6 from the most-recent to a new, older partition, then move 6 again into a partition
+        // in between the two
+        assertEquals(List.of(6, 6, 8),
+                partitionInfos.stream()
+                        .sorted(Comparator.comparing(partitionInfo -> Tuple.fromBytes(partitionInfo.getFrom().toByteArray())))
+                        .map(LucenePartitionInfoProto.LucenePartitionInfo::getCount)
+                        .collect(Collectors.toList()));
+        assertEquals(List.of(1, 2, 0),
+                partitionInfos.stream()
+                        .sorted(Comparator.comparing(partitionInfo -> Tuple.fromBytes(partitionInfo.getFrom().toByteArray())))
+                        .map(LucenePartitionInfoProto.LucenePartitionInfo::getId)
+                        .collect(Collectors.toList()));
+    }
+
+    @Tag(Tags.Slow)
+    @ParameterizedTest
+    @BooleanSource
+    void repartitionAndMerge(boolean useLegacyAsyncToSync) throws IOException {
+        Index index = COMPLEX_PARTITIONED;
+        Tuple groupingKey = Tuple.from(1);
+        int mergeSegmentsPerTier = 2;
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)mergeSegmentsPerTier)
+                .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
+                .build();
+
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        int transactionCount = 100;
+        int docsPerTransaction = 2;
+        // create/save documents
+        long id = 0;
+        List<Long> allIds = new ArrayList<>();
+        for (int i = 0; i < transactionCount; i++) {
+            try (FDBRecordContext context = openContext(contextProps)) {
+                schemaSetup.accept(context);
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+                long start = Instant.now().toEpochMilli();
+                for (int j = 0; j < docsPerTransaction; j++) {
+                    id++;
+                    recordStore.saveRecord(createComplexDocument(id, ENGINEER_JOKE, docGroupFieldValue, start + id));
+                    allIds.add(id);
+                }
+                commit(context);
+            }
+        }
+
+        // we haven't done any merges yet, or repartitioning, so each transaction should be one new segment
+        assertEquals(Map.of(0, transactionCount),
+                getSegmentCounts(index, groupingKey, contextProps, schemaSetup));
+
+        // Run a few merges with different failure points
+        assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
+                () -> explicitMergeIndex(index, contextProps, schemaSetup, true, 0));
+        assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
+                () -> explicitMergeIndex(index, contextProps, schemaSetup, true, 5));
+        assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
+                () -> explicitMergeIndex(index, contextProps, schemaSetup, true, 10));
+
+        // Continue with the regular merge and verify that index is still valid
+        timer.reset();
+        explicitMergeIndex(index, contextProps, schemaSetup, false, 0);
+        final Map<Integer, Integer> segmentCounts = getSegmentCounts(index, groupingKey, contextProps, schemaSetup);
+        final int partitionSize = 10;
+        final int partitionCount;
+        partitionCount = allIds.size() / partitionSize;
+        assertThat(segmentCounts, Matchers.aMapWithSize(partitionCount));
+        assertEquals(IntStream.range(0, partitionCount).boxed()
+                        .collect(Collectors.toMap(Function.identity(), partitionId -> 2)),
+                segmentCounts);
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            validateDocsInPartition(index, 0, groupingKey,
+                    allIds.stream()
+                            .skip(190)
+                            .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
+                            .collect(Collectors.toSet()),
+                    "text:propose");
+            for (int i = 1; i < 20; i++) {
+                // 0 should have the newest
+                // everyone else should increase
+                validateDocsInPartition(index, i, groupingKey,
+                        allIds.stream().skip((i - 1) * partitionSize)
+                                .limit(partitionSize)
+                                .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
+                                .collect(Collectors.toSet()),
+                        "text:propose");
+            }
+            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                    groupingKey, contextProps, schemaSetup);
+            assertEquals(partitionCount, partitionInfos.size());
         }
     }
 
@@ -180,10 +330,9 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 1)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 1);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
-                    new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
-                    0);
+            injectedFailures.addFailure(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX,
+                            new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                            0);
             // Save more docs - this should fail with injected exception
             assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L + totalDocCount, ENGINEER_JOKE, docGroupFieldValue, start - 1)));
@@ -193,6 +342,7 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         // they should go into partitions 1 and 2
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
+            injectedFailures.clear();
             for (int i = 0; i < 20; i++) {
                 recordStore.saveRecord(createComplexDocument(1000L + totalDocCount + i, ENGINEER_JOKE, docGroupFieldValue, start - i - 1));
             }
@@ -217,13 +367,47 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
+            injectedFailures.addFailure(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX,
                     new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
                     0);
             // this should fail with injected exception
             assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void updateDocumentFailedTest(boolean useLegacyAsyncToSync) throws IOException {
+        // This test injects a failure late in the update process, into the commit part of the update, where the updated
+        // index is written to DB
+        Index index = COMPLEX_PARTITIONED;
+        Tuple groupingKey = Tuple.from(1L);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
+                .build();
+
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        // create documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // this should fail with injected exception
+            recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1));
+            context.commit();
+        }
+        // Update documents with failure
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // Inject failures (using partition 0)
+            injectedFailures.addFailure(LUCENE_READ_BLOCK,
+                    new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                    5);
+            // this should fail with injected exception
+            recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 2));
+            assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
+                    () -> context.commit());
         }
     }
 
@@ -243,10 +427,9 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.GET_PRIMARY_KEY_SEGMENT_INDEX,
-                    new UnknownRecordCoreException("Blah"),
-                    0);
+            injectedFailures.addFailure(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX,
+                            new UnknownRecordCoreException("Blah"),
+                            0);
             // this should fail with injected exception
             assertThrows(UnknownRecordCoreException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
@@ -256,10 +439,9 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.LIST_ALL,
-                    new IOException((new UnknownRecordCoreException("Blah"))),
-                    0);
+            injectedFailures.addFailure(LUCENE_LIST_ALL,
+                            new IOException((new UnknownRecordCoreException("Blah"))),
+                            0);
             // this should fail with injected exception
             assertThrows(UnknownRecordCoreException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
@@ -269,81 +451,141 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // Inject failures (using partition 0)
-            final MockedFDBDirectory mockedDirectory = (MockedFDBDirectory)injectMockDirectoryManager(context, index).getDirectory(groupingKey, 0);
-            mockedDirectory.addFailure(MockedFDBDirectory.Methods.LIST_ALL,
-                    new IOException((new UnknownRuntimeException("Blah"))),
-                    0);
+            injectedFailures.addFailure(LUCENE_LIST_ALL,
+                            new IOException((new UnknownRuntimeException("Blah"))),
+                            0);
             // this should fail with injected exception
             assertThrows(UnknownRuntimeException.class,
                     () -> recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 1)));
         }
     }
 
-    private @Nonnull FDBDirectoryManager injectMockDirectoryManager(final FDBRecordContext context, final Index index) {
-        IndexMaintainerState state = new IndexMaintainerState(recordStore, index, IndexMaintenanceFilter.NORMAL);
-        FDBDirectoryManager manager = new MockedFDBDirectoryManager(state);
-        context.putInSessionIfAbsent(state.indexSubspace, manager);
-        return manager;
+    /**
+     * Simulate the case where the Exception injection is active.
+     * This test inserts an exception mapper into the store to verify that exception handling is working when unknown
+     * exceptions
+     * are thrown from the legacy async-to-sync mechanism
+     *
+     * @param useLegacyAsyncToSync whether to set the legacy-async-to-sync property
+     */
+    @ParameterizedTest
+    @MethodSource("legacySyncAndMapping")
+    void saveDocumentWithMappedInjectedException(boolean useLegacyAsyncToSync, boolean useExceptionMapping) {
+        Index index = COMPLEX_PARTITIONED;
+        Tuple groupingKey = Tuple.from(1L);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
+                .build();
+        setupExceptionMapping(useExceptionMapping);
+
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        // Save a document
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            recordStore.saveRecord(createComplexDocument(1000L, ENGINEER_JOKE, docGroupFieldValue, 100));
+            commit(context);
+        }
+
+        // Save another, with injected failure
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // Inject failures (using partition 0)
+            injectedFailures.addFailure(LUCENE_GET_ALL_FIELDS_INFO_STREAM,
+                            new FDBExceptions.FDBStoreTransactionIsTooOldException("Blah", new FDBException("Blah", 7)),
+                            0);
+            // For the legacy asyncToSync case, the mapper creates the instance of the UnknownLoggableException when the original
+            // error is thrown from the MockedFDBDirectory.
+            // For the non-legacy case, the MockedFDBDirectory throws the injected exception, but the call to saveRecord()
+            // calls the non-lucene asyncToSync and that gets wrapped by the mapper.
+            if (useExceptionMapping) {
+                assertThrows(UnknownLoggableException.class,
+                        () -> recordStore.saveRecord(createComplexDocument(1000L, ENGINEER_JOKE, docGroupFieldValue, 1)));
+            } else {
+                assertThrows(FDBExceptions.FDBStoreTransactionIsTooOldException.class,
+                        () -> LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD,
+                                recordStore.saveRecordAsync(createComplexDocument(1000L, ENGINEER_JOKE, docGroupFieldValue, 1)),
+                                context));
+            }
+        }
+
+        // Save using saveAsync with Lucene asyncToSync, with injected failure
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // Inject failures (using partition 0)
+            injectedFailures.addFailure(LUCENE_GET_ALL_FIELDS_INFO_STREAM,
+                            new FDBExceptions.FDBStoreTransactionIsTooOldException("Blah", new FDBException("Blah", 7)),
+                            0);
+            // For the legacy case, the mapper creates the instance of the UnknownLoggableException when the original
+            // error is thrown from the MockedFDBDirectory.
+            // For the non-legacy case, the injected exception is thrown since no mapping takes place anymore
+            if (useLegacyAsyncToSync && useExceptionMapping) {
+                assertThrows(UnknownLoggableException.class,
+                        () -> LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD,
+                                recordStore.saveRecordAsync(createComplexDocument(1000L, ENGINEER_JOKE, docGroupFieldValue, 1)),
+                                context));
+            } else {
+                assertThrows(FDBExceptions.FDBStoreTransactionIsTooOldException.class,
+                        () -> LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD,
+                                recordStore.saveRecordAsync(createComplexDocument(1000L, ENGINEER_JOKE, docGroupFieldValue, 1)),
+                                context));
+            }
+        }
     }
 
-    @Nonnull
-    static Index complexPartitionedIndex(final Map<String, String> options) {
-        return new Index("Complex$partitioned",
-                concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-                        function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
-                LuceneIndexTypes.LUCENE,
-                options);
+    private RuntimeException mapExceptions(Throwable throwable, StoreTimer.Event event) {
+        if (throwable instanceof ExecutionException) {
+            throwable = throwable.getCause();
+        }
+        return new UnknownLoggableException(throwable);
     }
 
+    /**
+     * Private utility to set up the test environment.
+     * This method creates the {@link TestingIndexMaintainerRegistry} and the {@link MockedLuceneIndexMaintainerFactory}
+     * that create the MockedDirectory* classes that allow failure injection to take place.
+     *
+     * @param context the context for the store
+     * @param document the record type
+     * @param index the index to use
+     */
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner(), registry);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
         this.recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
     }
 
-    private StoreTimer.Counter getCounter(@Nonnull final FDBRecordContext recordContext, @Nonnull final StoreTimer.Event event) {
-        return Verify.verifyNotNull(recordContext.getTimer()).getCounter(event);
-    }
-
-    private LuceneScanBounds groupedTextSearch(Index index, String search, Object group) {
-        return groupedSortedTextSearch(index, search, null, group);
-    }
-
-    private LuceneScanBounds groupedSortedTextSearch(Index index, String search, Sort sort, Object group) {
-        return LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, search, sort, group);
-    }
-
-    private LuceneScanBounds fullTextSearch(Index index, String search) {
-        return LuceneIndexTestUtils.fullTextSearch(recordStore, index, search, false);
-    }
-
-    @Nonnull
-    private static Index complexPartitionedIndexNoGroup(final Map<String, String> options) {
-        return new Index("Complex$partitioned_noGroup",
-                concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-                        function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))),
-                LuceneIndexTypes.LUCENE,
-                options);
-    }
-
-    private void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey,
-                                         Set<Tuple> expectedPrimaryKeys, final String universalSearch) throws IOException {
-        LuceneIndexTestValidator.validateDocsInPartition(recordStore, index, partitionId, groupingKey, expectedPrimaryKeys, universalSearch);
-    }
-
-    private Set<Tuple> makeKeyTuples(long group, int... ranges) {
-        int[] rangeList = Arrays.stream(ranges).toArray();
-        if (rangeList.length == 0 || rangeList.length % 2 == 1) {
-            throw new IllegalArgumentException("specify ranges as pairs of (from, to)");
-        }
-        Set<Tuple> tuples = new HashSet<>();
-        for (int i = 0; i < rangeList.length - 1; i += 2) {
-            for (int j = rangeList[i]; j <= rangeList[i + 1]; j++) {
-                tuples.add(Tuple.from(group, j));
+    private void setupExceptionMapping(boolean useExceptionMapping) {
+        try (FDBRecordContext context = openContext()) {
+            if (useExceptionMapping) {
+                context.getDatabase().setAsyncToSyncExceptionMapper(this::mapExceptions);
+            } else {
+                context.getDatabase().setAsyncToSyncExceptionMapper((ex, ev) -> FDBExceptions.wrapException(ex));
             }
         }
-        return tuples;
+    }
+
+    private void explicitMergeIndex(Index index, RecordLayerPropertyStorage contextProps, Consumer<FDBRecordContext> schemaSetup, boolean injectFailure, final int failureAtCount) {
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            if (injectFailure) {
+                injectedFailures.addFailure(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC,
+                                new LuceneConcurrency.AsyncToSyncTimeoutException("Blah", new TimeoutException("Blah")),
+                        failureAtCount); // Since the merge creates a new directory, we need global scope for the failure
+            } else {
+                injectedFailures.removeFailure(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC);
+            }
+
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.mergeIndex();
+            }
+        }
     }
 
     private class UnknownRecordCoreException extends RecordCoreException {
@@ -359,6 +601,14 @@ public class FDBLuceneIndexFailureTest extends FDBRecordStoreTestBase {
 
         public UnknownRuntimeException(@Nonnull final String msg) {
             super(msg);
+        }
+    }
+
+    private class UnknownLoggableException extends LoggableException {
+        private static final long serialVersionUID = 0L;
+
+        public UnknownLoggableException(@Nonnull final Throwable cause) {
+            super(cause);
         }
     }
 

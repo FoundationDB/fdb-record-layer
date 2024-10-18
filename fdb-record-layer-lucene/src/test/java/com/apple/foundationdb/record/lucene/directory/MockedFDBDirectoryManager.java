@@ -29,6 +29,8 @@ import javax.annotation.Nonnull;
  * A Testing-focused {@link FDBDirectoryManager} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryManager extends FDBDirectoryManager {
+    private InjectedFailureRepository injectedFailures;
+
     public MockedFDBDirectoryManager(@Nonnull final IndexMaintainerState state) {
         super(state);
     }
@@ -36,6 +38,21 @@ public class MockedFDBDirectoryManager extends FDBDirectoryManager {
     @Nonnull
     @Override
     protected FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
+        return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, injectedFailures);
+    }
+
+    /**
+     * Redefining the static method to be used in mock situations.
+     * @param state the state to use for the manager
+     * @return a cached instance of the manager if one exists, create a new one otherwise
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public static FDBDirectoryManager getManager(@Nonnull IndexMaintainerState state) {
+        return getOrCreateManager(state, () -> new MockedFDBDirectoryManager(state));
+    }
+
+    public void setInjectedFailures(final InjectedFailureRepository injectedFaulres) {
+        this.injectedFailures = injectedFaulres;
     }
 }
