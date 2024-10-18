@@ -21,8 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -33,7 +31,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -42,8 +39,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.net.URI;
 import java.sql.Array;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashSet;
@@ -68,7 +65,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     }
 
     private void run(ThrowingConsumer<? super RelationalStatement> operation) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             conn.setSchema("CATALOG");
             try (RelationalStatement statement = conn.createStatement()) {
                 operation.accept(statement);
@@ -90,7 +87,7 @@ public class DdlRecordLayerSchemaTemplateTest {
             statement.executeUpdate(createColumnStatement);
 
             //verify that it's there
-            try (ResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template")) {
+            try (final var rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE drop_template")) {
                 Assertions.assertTrue(rs.next(), "Didn't find created template!");
                 Assertions.assertEquals("DROP_TEMPLATE", rs.getString(1));
                 Assertions.assertFalse(rs.next(), "too many schema templates!");
@@ -137,7 +134,7 @@ public class DdlRecordLayerSchemaTemplateTest {
             //do a scan of template names first, to see if there are any in there. This is mostly a protection
             // against test contamination
             Set<String> oldTemplateNames = new HashSet<>();
-            try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
+            try (final var rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
                 while (rs.next()) {
                     oldTemplateNames.add(rs.getString(1));
                 }
@@ -152,7 +149,7 @@ public class DdlRecordLayerSchemaTemplateTest {
             String uniqueStatement = columnStatement.replace("<TEST_TEMPLATE>", uniqueName);
             statement.executeUpdate(uniqueStatement);
             Set<String> templateNames = new HashSet<>();
-            try (ResultSet rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
+            try (final var rs = statement.executeQuery("SHOW SCHEMA TEMPLATES")) {
                 while (rs.next()) {
                     templateNames.add(rs.getString(1));
                 }

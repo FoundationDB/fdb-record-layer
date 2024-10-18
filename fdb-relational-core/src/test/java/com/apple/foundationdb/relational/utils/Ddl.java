@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.util.Assert;
@@ -32,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class Ddl implements AutoCloseable {
@@ -93,7 +92,7 @@ public class Ddl implements AutoCloseable {
             throw e;
         }
 
-        this.connection = Relational.connect(URI.create("jdbc:embed://" + databaseRule.getDbUri()), Options.NONE);
+        this.connection = DriverManager.getConnection("jdbc:embed://" + databaseRule.getDbUri().toString()).unwrap(RelationalConnection.class);
     }
 
     @Nonnull

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -45,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Map;
@@ -63,7 +63,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
@@ -149,11 +149,11 @@ public class InsertTest {
     }
 
     @Test
-    void cannotInsertWithIncorrectTypeForRecord() throws RelationalException, SQLException {
+    void cannotInsertWithIncorrectTypeForRecord() throws SQLException {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
@@ -166,8 +166,8 @@ public class InsertTest {
     }
 
     @Test
-    void canDifferentiateNullAndDefaultValue() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+    void canDifferentiateNullAndDefaultValue() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
@@ -201,8 +201,8 @@ public class InsertTest {
     }
 
     @Test
-    void cannotInsertDuplicatePrimaryKey() throws SQLException, RelationalException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+    void cannotInsertDuplicatePrimaryKey() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 final var struct = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 0).build();
@@ -227,7 +227,7 @@ public class InsertTest {
                 FieldDescription.primitive("PRICE", Types.FLOAT, DatabaseMetaData.columnNullable)
         );
         final var itemsMetadata = RelationalArrayMetaData.ofStruct(itemMetadata, DatabaseMetaData.columnNoNulls);
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
 
@@ -285,7 +285,7 @@ public class InsertTest {
 
     @Test
     void replaceOnInsert() throws SQLException, RelationalException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct record = EmbeddedRelationalStruct.newBuilder()
@@ -312,8 +312,8 @@ public class InsertTest {
     }
 
     @Test
-    void replaceOnFirstInsert() throws SQLException, RelationalException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+    void replaceOnFirstInsert() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 0).build();

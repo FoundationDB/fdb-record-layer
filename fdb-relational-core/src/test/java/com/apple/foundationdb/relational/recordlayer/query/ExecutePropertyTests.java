@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -40,6 +40,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.sql.DriverManager;
 import java.util.List;
 
 public class ExecutePropertyTests {
@@ -98,7 +99,8 @@ public class ExecutePropertyTests {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
         Continuation continuation = ContinuationImpl.BEGIN;
         long nextCorrectResult = 10L;
-        try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(optionName, optionValue).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(optionName, optionValue).build())) {
             conn.setSchema("TEST_SCHEMA");
             while (!continuation.atEnd()) {
                 try (var ps = conn.prepareStatement("SELECT * FROM FOO WITH CONTINUATION ?")) {
@@ -132,8 +134,9 @@ public class ExecutePropertyTests {
     @Test
     public void multipleConnectionsDoNotAffectEachOthersLimit() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
-        try (var conn1 = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build());
-                var conn2 = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (var conn1 = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build());
+                var conn2 = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn1.setSchema("TEST_SCHEMA");
             conn2.setSchema("TEST_SCHEMA");
             try (var ps1 = conn1.prepareStatement("SELECT * FROM FOO");
@@ -159,7 +162,8 @@ public class ExecutePropertyTests {
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransaction() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
-        try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
             try (var ps = conn.prepareStatement("SELECT * FROM FOO")) {
@@ -185,7 +189,8 @@ public class ExecutePropertyTests {
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransactionSecondQueryFailsRightAway() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
-        try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
             try (var ps = conn.prepareStatement("SELECT * FROM FOO")) {
@@ -206,7 +211,8 @@ public class ExecutePropertyTests {
     @Test
     public void limitIsResetWithNewTransaction() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
-        try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
             try (var ps = conn.prepareStatement("SELECT * FROM FOO")) {

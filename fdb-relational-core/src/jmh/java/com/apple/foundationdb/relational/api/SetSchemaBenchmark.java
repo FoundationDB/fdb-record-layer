@@ -40,6 +40,8 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
@@ -97,11 +99,11 @@ public class SetSchemaBenchmark extends EmbeddedRelationalBenchmark {
 
     @State(Scope.Thread)
     public static class RelationalConnHolder {
-        private RelationalConnection connection;
+        private Connection connection;
 
         @Setup
-        public void init() throws RelationalException {
-            connection = Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.NONE);
+        public void init() throws SQLException {
+            connection = DriverManager.getConnection("jdbc:embed:" + dbUri.getPath());
         }
 
         @TearDown

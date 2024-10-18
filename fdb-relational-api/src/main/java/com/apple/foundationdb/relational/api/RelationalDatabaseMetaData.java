@@ -349,13 +349,13 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default String getIdentifierQuoteString() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return "\"";
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default String getSQLKeywords() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return "";
     }
 
     @Override
@@ -517,13 +517,13 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default boolean supportsANSI92EntryLevelSQL() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return true;
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default boolean supportsANSI92IntermediateSQL() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return false;
     }
 
     @Override

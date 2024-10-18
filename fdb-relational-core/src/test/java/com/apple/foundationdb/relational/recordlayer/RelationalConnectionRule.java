@@ -21,9 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.function.Supplier;
@@ -67,7 +68,8 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     @Override
     public void beforeEach(ExtensionContext context) throws RelationalException, SQLException {
         Options opt = options == null ? Options.NONE : options;
-        connection = Relational.connect(connFactory.get(), opt);
+        final var driver = (RelationalDriver) DriverManager.getDriver(connFactory.get().toString());
+        connection = driver.connect(connFactory.get(), opt);
         if (schema != null) {
             connection.setSchema(schema);
         }

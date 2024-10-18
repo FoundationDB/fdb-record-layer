@@ -27,55 +27,79 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
 
-
-/**
- * This is NOT a JDBC Driver even though it looks like one.
- * @see com.apple.foundationdb.relational.jdbc.JDBCEmbedDriver
- */
-// TODO: Perhaps integrate com.apple.foundationdb.relational.JDBCDriver and this class? Large refactor.
-// Would need to make sure we didn't break Customer usage.
 public class EmbeddedRelationalDriver implements RelationalDriver {
-    private final EmbeddedRelationalEngine engine;
 
-    public EmbeddedRelationalDriver(EmbeddedRelationalEngine engine) {
+    public static final String DRIVER_NAME = "Relational Embedded/Local JDBC Driver";
+
+    public static final String JDBC_COLON = "jdbc:";
+    public static final String JDBC_URL_PREFIX = JDBC_COLON + "embed:";
+
+    private EmbeddedRelationalEngine engine;
+
+    public EmbeddedRelationalDriver(@Nullable EmbeddedRelationalEngine engine) throws SQLException {
         this.engine = engine;
     }
 
     @Override
     public RelationalConnection connect(@Nonnull URI url,
+                                      @Nonnull Options connectionOptions) throws SQLException {
+        return connect(url, null, connectionOptions);
+    }
+
+    public RelationalConnection connect(@Nonnull URI url,
                                       @Nullable Transaction existingTransaction,
-                                      @Nonnull Options connectionOptions) throws RelationalException {
+                                      @Nonnull Options connectionOptions) throws SQLException {
+        final var urlString = url.toString();
+        if (!acceptsURL(urlString)) {
+            return null;
+        }
+        url = URI.create(urlString.substring(JDBC_URL_PREFIX.length()));
         //first, we decide which cluster this database belongs to
 
         RelationalDatabase frl = null;
-        for (StorageCluster cluster : engine.getStorageClusters()) {
-            frl = cluster.loadDatabase(url, connectionOptions);
-            if (frl != null) {
-                //we found the cluster!
-                break;
-            }
-        }
-        if (frl == null) {
-            String path = url.getPath();
-            if (path == null) {
-                //this happens if they forget a leading / in the URL designator. Find the path by getting
-                //the string and removing the authority
-                path = url.toString();
-                if (url.getScheme() != null) {
-                    path = path.replace(url.getScheme() + ":", "");
-                }
-                if (url.getAuthority() != null) {
-                    path = path.replace(url.getAuthority() + ":", "");
+        try {
+            for (StorageCluster cluster : engine.getStorageClusters()) {
+                frl = cluster.loadDatabase(url, connectionOptions);
+                if (frl != null) {
+                    //we found the cluster!
+                    break;
                 }
             }
-            throw new RelationalException("Database <" + path + "> does not exist", ErrorCode.UNDEFINED_DATABASE);
+            if (frl == null) {
+                String path = url.getPath();
+                if (path == null) {
+                    //this happens if they forget a leading / in the URL designator. Find the path by getting
+                    //the string and removing the authority
+                    path = url.toString();
+                    if (url.getScheme() != null) {
+                        path = path.replace(url.getScheme() + ":", "");
+                    }
+                    if (url.getAuthority() != null) {
+                        path = path.replace(url.getAuthority() + ":", "");
+                    }
+                }
+                throw new RelationalException("Database <" + path + "> does not exist", ErrorCode.UNDEFINED_DATABASE).toSqlException();
+            }
+            return frl.connect(existingTransaction);
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
         }
-        return frl.connect(existingTransaction);
     }
 
     @Override
-    public boolean acceptsURL(URI url) {
-        return "embed".equalsIgnoreCase(url.getScheme());
+    public Connection connect(String url, Properties info) throws SQLException {
+        if (info != null && !info.isEmpty()) {
+            throw new SQLException("connect with Properties is not supported yet. Please use connect with Options instead.", ErrorCode.INTERNAL_ERROR.getErrorCode());
+        }
+        return connect(URI.create(url), null, Options.NONE);
+    }
+
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith(JDBC_URL_PREFIX);
     }
 }

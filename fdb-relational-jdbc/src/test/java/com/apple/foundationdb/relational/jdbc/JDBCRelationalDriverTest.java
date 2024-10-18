@@ -25,8 +25,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
 import com.apple.foundationdb.relational.util.BuildVersion;
-
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -38,7 +36,6 @@ import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
-import java.util.ServiceLoader;
 
 public class JDBCRelationalDriverTest {
     /**
@@ -47,10 +44,7 @@ public class JDBCRelationalDriverTest {
     private static Driver driver;
 
     static Driver getDriver() throws SQLException {
-        // Load ServiceLoader Services.
-        for (Driver value : ServiceLoader.load(Driver.class)) {
-            // Intentionally empty
-        }
+
         // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
         // more specific about where we want to connect to.
         var driver = DriverManager.getDriver("jdbc:relational://localhost/__SYS");
@@ -66,13 +60,6 @@ public class JDBCRelationalDriverTest {
         driver = getDriver();
     }
 
-    @AfterEach
-    public void afterAll() throws SQLException {
-        // Don't deregister once registered; service loading runs once only it seems.
-        // Joys of static initializations.
-        // DriverManager.deregisterDriver(driver);
-    }
-
     @Test
     public void acceptsURL() throws SQLException {
         Assertions.assertTrue(driver.acceptsURL("jdbc:relational://127.0.0.1/db"));
@@ -85,14 +72,9 @@ public class JDBCRelationalDriverTest {
         Assertions.assertTrue(driver.acceptsURL("jdbc:relational://"));
         Assertions.assertTrue(driver.acceptsURL("jdbc:relational:///"));
         Assertions.assertTrue(driver.acceptsURL("jdbc:relational:///db"));
-        SQLException sqlException = null;
-        // Assert bad connection url throws.
-        try {
-            driver.connect("jdbc:bad_url://", null);
-        } catch (SQLException e) {
-            sqlException = e;
-        }
-        Assertions.assertNotNull(sqlException);
+        // Assert bad connection returns null.
+        var connection = driver.connect("jdbc:bad_url://", null);
+        Assertions.assertNull(connection);
     }
 
     @Test

@@ -20,9 +20,7 @@
 
 package sqlline;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import org.jline.reader.Completer;
 
 import java.sql.SQLException;
@@ -50,8 +48,7 @@ public class SetSchema extends AbstractCommandHandler {
             return;
         }
         try {
-            this.sqlLine.getDatabaseConnection().getConnection()
-                    .unwrap(RelationalConnection.class).setSchema(schemaName);
+            this.sqlLine.getDatabaseConnection().getConnection().setSchema(schemaName);
             dispatchCallback.setToSuccess();
         } catch (SQLException e) {
             dispatchCallback.setToFailure();

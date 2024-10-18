@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -128,7 +129,8 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionOptionPreparedStatement() throws Exception {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
                 ps.setLong(1, 0);
@@ -148,7 +150,8 @@ public class QueryLoggingTest {
 
     @Test
     void testRelationalConnectionOptionExplicitlyDisabled() throws Exception {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
                 ps.setLong(1, 0);
@@ -182,7 +185,8 @@ public class QueryLoggingTest {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM RESTAURANT")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -199,7 +203,8 @@ public class QueryLoggingTest {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM RESTAURANT WHERE \"NAME\" = 'restaurant 1'")) {
                 try (ResultSet rs = ps.executeQuery()) {

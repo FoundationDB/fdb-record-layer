@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -29,7 +27,6 @@ import com.apple.foundationdb.relational.recordlayer.BasicMetadataTest;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
@@ -38,6 +35,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.sql.DriverManager;
 import java.util.Map;
 
 public class SqlInsertTest {
@@ -56,7 +54,7 @@ public class SqlInsertTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void canInsertUsingSqlSyntaxAndSingleQuotes(boolean useNamed) throws Exception {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {
@@ -76,7 +74,7 @@ public class SqlInsertTest {
 
     @Test
     void canInsertStructUnnamed() throws Exception {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {
@@ -96,7 +94,7 @@ public class SqlInsertTest {
 
     @Test
     void canInsertStructNamed() throws Exception {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {
@@ -117,7 +115,7 @@ public class SqlInsertTest {
     @Test
     @Disabled()
     void canInsertStructWithStructFieldsNamed() throws Exception {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
 
             try (RelationalStatement stmt = conn.createStatement()) {

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.relational.api.ArrayMetaData;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
@@ -53,6 +54,7 @@ import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.Ex
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.util.Supplier;
 
@@ -65,6 +67,7 @@ import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.sql.SQLWarning;
 import java.sql.Struct;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -85,6 +88,14 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public class EmbeddedRelationalConnection implements RelationalConnection {
+
+    /**
+     * Chose a transaction level that we *pretend* to support (Rather than throw an exception that stops
+     * all processing).
+     * TODO: Implement.
+     */
+    private static final int DEFAULT_TRANSACTION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
+
     private boolean isClosed;
     @Nonnull
     private final AbstractDatabase frl;
@@ -133,6 +144,13 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
         checkOpen();
         return new EmbeddedRelationalPreparedStatement(sql, this);
+    }
+
+    @ExcludeFromJacocoGeneratedReport
+    @Override
+    public void setReadOnly(boolean readOnly) throws SQLException {
+        // Do nothing. Swallow rather than return useless complaint about not being implemented
+        // which stops all processing.
     }
 
     @Override
@@ -310,7 +328,27 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
-        return new CatalogMetaData(this, backingCatalog);
+        return new CatalogMetaData(this, this.backingCatalog) {
+            @Override
+            public String getDriverName() {
+                return EmbeddedRelationalDriver.DRIVER_NAME;
+            }
+
+            @Override
+            public int getDefaultTransactionIsolation() {
+                return DEFAULT_TRANSACTION_LEVEL;
+            }
+
+            @Override
+            public boolean supportsTransactionIsolationLevel(int level) {
+                return getDefaultTransactionIsolation() == level;
+            }
+
+            @Override
+            public String getCatalogTerm() {
+                return RelationalKeyspaceProvider.CATALOG;
+            }
+        };
     }
 
     @Override
@@ -321,6 +359,13 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Override
     public int getTransactionIsolation() throws SQLException {
         return transactionIsolation;
+    }
+
+    @ExcludeFromJacocoGeneratedReport
+    @Override
+    public SQLWarning getWarnings() throws SQLException {
+        // Return null for now until we implement Warnings. Returning an exception breaks processing.
+        return null;
     }
 
     @Override

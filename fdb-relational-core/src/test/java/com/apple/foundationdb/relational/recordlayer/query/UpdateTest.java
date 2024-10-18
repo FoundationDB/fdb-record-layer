@@ -24,8 +24,8 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
@@ -45,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opentest4j.AssertionFailedError;
 
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
@@ -164,7 +164,7 @@ public class UpdateTest {
     }
 
     public void insertRecords(int numRecords) throws RelationalException, SQLException {
-        try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString())) {
             con.setSchema(database.getSchemaName());
             final var builder = new StringBuilder("INSERT INTO RestaurantReviewer(id) VALUES");
             for (int i = 0; i < numRecords; i++) {
@@ -190,8 +190,8 @@ public class UpdateTest {
         }
     }
 
-    private void verifyUpdates(String updatedField, Object expectedValue, int updatedUpTill) throws RelationalException, SQLException {
-        try (final var con = (EmbeddedRelationalConnection) Relational.connect(database.getConnectionUri(), Options.NONE)) {
+    private void verifyUpdates(String updatedField, Object expectedValue, int updatedUpTill) throws SQLException {
+        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             con.setSchema(database.getSchemaName());
             final var statement = con.prepareStatement("SELECT id, " + updatedField + " from RestaurantReviewer WHERE id >= 0");
             try (final var resultSet = statement.executeQuery()) {
@@ -222,7 +222,8 @@ public class UpdateTest {
                                                                Options options) throws SQLException, RelationalException {
         var continuation = continuationAndNumUpdated.getLeft();
         var updatedUpTill = continuationAndNumUpdated.getRight();
-        try (final var con = (EmbeddedRelationalConnection) Relational.connect(database.getConnectionUri(), options)) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (final var con = (EmbeddedRelationalConnection) driver.connect(database.getConnectionUri(), options)) {
             con.setSchema(database.getSchemaName());
             final var statement = prepareUpdate(con, fieldToUpdate, updateValue.apply(con), continuation);
             try (final var resultSet = statement.executeQuery()) {

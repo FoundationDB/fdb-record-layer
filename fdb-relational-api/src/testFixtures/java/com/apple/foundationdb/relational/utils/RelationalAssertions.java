@@ -91,6 +91,17 @@ public final class RelationalAssertions {
             extracting(se -> ErrorCode.get(se.getSQLState())).isEqualTo(errorCode);
             return this;
         }
+
+        public SQLExceptionAssert containsInMessage(String text) {
+            extracting(SQLException::getMessage, StringAssert::new).contains(text);
+            return this;
+        }
+
+        public SQLExceptionAssert doesNotContainInMessage(String text) {
+            extracting(SQLException::getMessage, StringAssert::new).doesNotContain(text);
+            return this;
+        }
+
     }
 
     private RelationalAssertions() {

@@ -26,8 +26,8 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -37,12 +37,12 @@ import com.apple.foundationdb.relational.utils.ResultSetTestUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,7 +84,7 @@ public class CursorTest {
                         statement.setMaxRows(1);
                         try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", new KeySet(),
                                 Options.builder().withOption(Options.Name.CONTINUATION, cont).build())) {
-                            metaData = resultSet.getMetaData().unwrap(StructMetaData.class);
+                            metaData = resultSet.getMetaData();
                             while (resultSet.next()) {
                                 actual.add(ResultSetTestUtils.currentRow(resultSet));
                             }
@@ -109,7 +109,7 @@ public class CursorTest {
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertEquals(ContinuationImpl.BEGIN, continuation, "Incorrect starting continuation!");
 
-                StructMetaData smd = resultSet.getMetaData().unwrap(StructMetaData.class);
+                StructMetaData smd = resultSet.getMetaData();
                 boolean called = false;
                 while (resultSet.next()) {
                     called = true;
@@ -202,7 +202,8 @@ public class CursorTest {
         Continuation continuation;
         int numRowsReturned = 0;
         // 1. Iterate over and count the rows returned before the scan rows limit is hit
-        try (final var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (final var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn.setSchema(database.getSchemaName());
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
                 Assertions.assertTrue(resultSet.getContinuation().atBeginning());
@@ -218,7 +219,7 @@ public class CursorTest {
             }
         }
         // 2. Further count the rows in other execution without limits and see if total number of rows is 10
-        try (final var conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema(database.getSchemaName());
             try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
@@ -243,15 +244,15 @@ public class CursorTest {
     private void insertRecordsAndTest(int numRecords,
                                       BiConsumer<List<RelationalStruct>, RelationalConnection> test) throws SQLException, RelationalException {
         final var records = insertAndReturnRecords(numRecords);
-        try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             con.setSchema(database.getSchemaName());
             test.accept(records, con);
         }
     }
 
-    private List<RelationalStruct> insertAndReturnRecords(int numRecords) throws SQLException, RelationalException {
+    private List<RelationalStruct> insertAndReturnRecords(int numRecords) throws SQLException {
         List<RelationalStruct> records;
-        try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (final var con = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             con.setSchema(database.getSchemaName());
             final var statement = con.createStatement();
             records = Utils.generateRestaurantRecords(numRecords);

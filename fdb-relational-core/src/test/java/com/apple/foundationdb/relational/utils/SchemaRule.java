@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -30,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.net.URI;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.Statement;
 
 public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
@@ -60,7 +59,7 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     private void setup() throws Exception {
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
@@ -69,7 +68,7 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     private void tearDown() throws Exception {
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("DROP SCHEMA \"" + dbUri.getPath() + "/" + schemaName + "\"");

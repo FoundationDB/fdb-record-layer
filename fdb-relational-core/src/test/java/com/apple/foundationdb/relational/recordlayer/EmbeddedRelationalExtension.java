@@ -24,19 +24,22 @@ import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
-
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.function.Supplier;
 
@@ -44,6 +47,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
     private final KeySpace keySpace;
     private final Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactoryBuilder;
+    private RelationalDriver driver;
     private EmbeddedRelationalEngine engine;
     private final MetricRegistry storeTimer = new MetricRegistry();
 
@@ -60,9 +64,9 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        if (engine != null) {
-            engine.deregisterDriver();
-            engine = null;
+        if (driver != null) {
+            DriverManager.deregisterDriver(driver);
+            driver = null;
         }
     }
 
@@ -71,10 +75,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         setup();
     }
 
-    private void setup() throws RelationalException {
-        if (engine != null) {
-            return; //nothing to do
-        }
+    private void setup() throws RelationalException, SQLException {
         RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
         //here we are extending the StorageCluster so that we can track which internal Databases were
         // connected to and we can validate that they were all closed properly
@@ -102,11 +103,15 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
                 storeTimer,
                 ddlFactory,
                 RelationalPlanCache.buildWithDefaults());
-        engine.registerDriver(); //register the engine driver
+        driver = new EmbeddedRelationalDriver(engine);
+        DriverManager.registerDriver(driver);
     }
 
     public EmbeddedRelationalEngine getEngine() {
         return engine;
     }
 
+    public RelationalDriver getDriver() {
+        return driver;
+    }
 }

@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
@@ -34,13 +34,12 @@ import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
     private final DatabaseMetaDataResponse pbDatabaseMetaDataResponse;
-    private final Connection connection;
+    private final RelationalConnection connection;
 
-    JDBCRelationalDatabaseMetaData(Connection connection,
+    JDBCRelationalDatabaseMetaData(RelationalConnection connection,
                                  DatabaseMetaDataResponse pbDatabaseMetaDataResponse) {
         this.pbDatabaseMetaDataResponse = pbDatabaseMetaDataResponse;
         this.connection = connection;
@@ -127,10 +126,8 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
     @Override
     public RelationalResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types) throws SQLException {
         // TODO: We are returning databases here, not Tables (per @alacurie). For dbeaver. FIX.
-        try (Statement statement = this.connection.createStatement()) {
-            try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                return relationalStatement.unwrap(RelationalStatement.class).executeQuery("select * from databases");
-            }
+        try (var statement = this.connection.createStatement()) {
+            return statement.executeQuery("select * from databases");
         }
     }
 

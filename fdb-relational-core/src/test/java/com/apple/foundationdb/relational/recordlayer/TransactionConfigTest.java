@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -35,6 +34,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class TransactionConfigTest {
@@ -48,7 +48,7 @@ public class TransactionConfigTest {
 
     @Disabled // TODO (Bug: sporadic failure in `testRecordInsertionWithTimeOutInConfig`)
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             conn.setOption(Options.Name.TRANSACTION_TIMEOUT, 1L);
             try (RelationalStatement s = conn.createStatement()) {

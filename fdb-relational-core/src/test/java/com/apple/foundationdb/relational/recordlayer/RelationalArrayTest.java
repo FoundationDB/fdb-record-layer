@@ -21,16 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
-
 import org.junit.Assert;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -39,6 +33,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -77,10 +72,10 @@ public class RelationalArrayTest {
             "primary key(pk))";
 
     public void insertQuery(@Nonnull String q) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
-            try (RelationalStatement s = conn.createStatement()) {
+            try (final var s = conn.createStatement()) {
                 assertEquals(1, s.executeUpdate(q));
             }
         }
@@ -155,11 +150,11 @@ public class RelationalArrayTest {
     }
 
     private void testArrays(int nullArrayIdx, int nonNullArrayIdx, List<Object> nullArrayElements,
-                            List<Object> nonNullArrayElements, int sqlType, int pk) throws SQLException, RelationalException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+                            List<Object> nonNullArrayElements, int sqlType, int pk) throws SQLException {
+        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
             conn.setSchema(database.getSchemaName());
-            try (RelationalStatement s = conn.createStatement()) {
-                try (RelationalResultSet rs = s.executeQuery("SELECT * from T where pk = " + pk)) {
+            try (final var s = conn.createStatement()) {
+                try (final var rs = s.executeQuery("SELECT * from T where pk = " + pk)) {
                     assertTrue(rs.next());
                     assertEquals(ResultSetMetaData.columnNullable, rs.getMetaData().isNullable(nullArrayIdx));
                     final var nullArray = rs.getArray(nullArrayIdx);

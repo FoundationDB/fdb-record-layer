@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.autotest.cases;
 
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -48,6 +47,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -81,8 +81,8 @@ public class KnownPkGetTest {
     @Connection
     public Connector relationalConnector = new Connector() {
         @Override
-        public RelationalConnection connect(URI dbUri) throws RelationalException {
-            return Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.NONE);
+        public RelationalConnection connect(URI dbUri) throws SQLException {
+            return DriverManager.getConnection("jdbc:embed:" + dbUri.getPath()).unwrap(RelationalConnection.class);
         }
 
         @Override

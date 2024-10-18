@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -32,13 +31,13 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
@@ -149,7 +148,7 @@ public class CaseSensitiveDbObjectsTest {
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
-        try (RelationalConnection caseInsensitiveConn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection caseInsensitiveConn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             caseInsensitiveConn.setSchema("TEST_SCHEMA");
             try (RelationalStatement caseInsensitiveStatement = caseInsensitiveConn.createStatement()) {
                 try (RelationalResultSet resultSet = caseInsensitiveStatement.executeQuery("select \"id\" from \"t1\" where \"group\" = 1 options (log query)")) {

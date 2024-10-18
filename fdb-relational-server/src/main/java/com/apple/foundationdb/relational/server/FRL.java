@@ -24,18 +24,16 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
@@ -55,7 +53,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.PreparedStatement;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
@@ -75,8 +73,7 @@ import java.util.Optional;
 // Needs to be public so can be used by sub-packages; i.e. the JDBCService
 public class FRL implements AutoCloseable {
     private final FdbConnection fdbDatabase;
-    private final EmbeddedRelationalEngine engine;
-    private static final String JDBC_EMBED_PREFIX = "jdbc:embed:";
+    private final RelationalDriver driver;
     private boolean registeredJDBCEmbedDriver;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
@@ -104,33 +101,29 @@ public class FRL implements AutoCloseable {
                 .setBaseKeySpace(keySpace)
                 .setStoreCatalog(storeCatalog).build();
 
-        this.engine = RecordLayerEngine.makeEngine(
-                rlConfig,
-                Collections.singletonList(fdbDb),
-                keySpace,
-                storeCatalog,
-                null,
-                ddlFactory,
-                RelationalPlanCache.newRelationalCacheBuilder()
-                        .setTtl(options.getOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS))
-                        .setSecondaryTtl(options.getOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS))
-                        .setTertiaryTtl(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS))
-                        .build());
-
-        // Throws ErrorCode.PROTOCOL_VIOLATION if driver already registered.
-        // TODO: Clean up driver registration/get registered driver. Should it register w/ DriverManager?
         try {
-            this.engine.registerDriver();
+            this.driver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
+                    rlConfig,
+                    Collections.singletonList(fdbDb),
+                    keySpace,
+                    storeCatalog,
+                    null,
+                    ddlFactory,
+                    RelationalPlanCache.newRelationalCacheBuilder()
+                            .setTtl(options.getOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS))
+                            .setSecondaryTtl(options.getOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS))
+                            .setTertiaryTtl(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS))
+                            .build()));
+
+            DriverManager.registerDriver(this.driver);
             this.registeredJDBCEmbedDriver = true;
-        } catch (RelationalException ve) {
-            if (!ve.getErrorCode().equals(ErrorCode.PROTOCOL_VIOLATION)) {
-                throw ve;
-            }
+        } catch (SQLException ve) {
+            throw new RelationalException(ve);
         }
     }
 
-    private static URI createEmbeddedJDBCURI(String database, String schema)  {
-        return URI.create(JDBC_EMBED_PREFIX + database + (schema != null ? "?schema=" + schema : ""));
+    private static String createEmbeddedJDBCURI(String database, String schema)  {
+        return EmbeddedRelationalDriver.JDBC_URL_PREFIX + database + (schema != null ? "?schema=" + schema : "");
     }
 
     public static final class Response {
@@ -189,25 +182,23 @@ public class FRL implements AutoCloseable {
         // work inside here including reading all out of the ResultSet while under transaction else callers who try
         // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
         // TODO: Transaction handling.
-        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), options)) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
+        try (var connection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options)) {
             ResultSet resultSet = null;
             if (parameters != null) {
                 // If parameters, it's a prepared statement.
-                try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    try (RelationalPreparedStatement relationalStatement =
-                            statement.unwrap(RelationalPreparedStatement.class)) {
-                        int index = 1; // Parameter position is one-based.
-                        for (Parameter parameter : parameters) {
-                            addPreparedStatementParameter(relationalStatement, parameter, index++);
+                try (RelationalPreparedStatement statement = connection.prepareStatement(sql)) {
+                    int index = 1; // Parameter position is one-based.
+                    for (Parameter parameter : parameters) {
+                        addPreparedStatementParameter(statement, parameter, index++);
+                    }
+                    if (statement.execute()) {
+                        try (RelationalResultSet rs = statement.getResultSet()) {
+                            resultSet = TypeConversion.toProtobuf(rs);
+                            return Response.query(resultSet);
                         }
-                        if (relationalStatement.execute()) {
-                            try (RelationalResultSet rs = relationalStatement.getResultSet()) {
-                                resultSet = TypeConversion.toProtobuf(rs);
-                                return Response.query(resultSet);
-                            }
-                        } else {
-                            return Response.mutation(relationalStatement.getUpdateCount());
-                        }
+                    } else {
+                        return Response.mutation(statement.getUpdateCount());
                     }
                 }
             } else {
@@ -224,8 +215,6 @@ public class FRL implements AutoCloseable {
                     }
                 }
             }
-        } catch (RelationalException e) {
-            throw e.toSqlException();
         }
     }
 
@@ -257,53 +246,43 @@ public class FRL implements AutoCloseable {
     }
 
     public int update(String database, String schema, String sql) throws SQLException {
-        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
+        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
             try (Statement statement = connection.createStatement()) {
-                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                    return relationalStatement.executeUpdate(sql);
-                }
+                return statement.executeUpdate(sql);
             }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
         }
     }
 
     public int insert(String database, String schema, String tableName, List<RelationalStruct> data)
             throws SQLException {
-        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
+        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeInsert(tableName, data, Options.NONE);
                 }
             }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
         }
     }
 
     public RelationalResultSet get(String database, String schema, String tableName, KeySet keySet)
             throws SQLException {
-        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
+        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeGet(tableName, keySet, Options.NONE);
                 }
             }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
         }
     }
 
     public RelationalResultSet scan(String database, String schema, String tableName, KeySet keySet)
             throws SQLException {
-        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
+        try (var connection = DriverManager.getConnection(createEmbeddedJDBCURI(database, schema))) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeScan(tableName, keySet, Options.NONE);
                 }
             }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
         }
     }
 
@@ -316,7 +295,7 @@ public class FRL implements AutoCloseable {
         }
         // We registered the Relational embed driver... cleanup.
         if (this.registeredJDBCEmbedDriver) {
-            this.engine.deregisterDriver();
+            DriverManager.deregisterDriver(driver);
         }
     }
 }

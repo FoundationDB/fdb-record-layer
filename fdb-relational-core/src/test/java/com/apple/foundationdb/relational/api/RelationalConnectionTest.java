@@ -21,17 +21,15 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.net.URI;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 
 class RelationalConnectionTest {
@@ -42,25 +40,25 @@ class RelationalConnectionTest {
 
     @Test
     void wrongScheme() {
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("foo"), Options.NONE))
-                .hasErrorCode(ErrorCode.INVALID_PATH);
-
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("foo:foo"), Options.NONE))
-                .hasErrorCode(ErrorCode.INVALID_PATH);
-
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:foo"), Options.NONE))
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("foo"))
                 .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
 
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed"), Options.NONE))
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("foo:foo"))
                 .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
 
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/i_am_not_a_database"), Options.NONE))
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("jdbc:foo"))
+                .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
+
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("jdbc:embed"))
+                .hasErrorCode(ErrorCode.UNABLE_TO_ESTABLISH_SQL_CONNECTION);
+
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("jdbc:embed:/i_am_not_a_database"))
                 .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
     }
 
     @Test
     void missingLeadingSlash() {
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:i_am_not_a_database"), Options.NONE))
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("jdbc:embed:i_am_not_a_database"))
                 .hasErrorCode(ErrorCode.UNDEFINED_DATABASE)
                 .containsInMessage("<i_am_not_a_database>")
                 .doesNotContainInMessage("<null>")
@@ -69,35 +67,35 @@ class RelationalConnectionTest {
     }
 
     @Test
-    void setWrongSchema() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+    void setWrongSchema() throws SQLException {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             RelationalAssertions.assertThrowsSqlException(() -> conn.setSchema("foo"))
                     .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
         }
     }
 
     @Test
-    void canConnectDirectlyToSchema() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"), Options.NONE)) {
+    void canConnectDirectlyToSchema() throws SQLException {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS?schema=CATALOG")) {
             Assertions.assertThat(conn.getSchema()).isEqualTo("CATALOG");
         }
     }
 
     @Test
-    void connectDirectlyToNonexistentDatabaseBlowsUp() throws RelationalException, SQLException {
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/notADatabase?schema=CATALOG"), Options.NONE))
+    void connectDirectlyToNonexistentDatabaseBlowsUp() {
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("jdbc:embed:/notADatabase?schema=CATALOG"))
                 .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
     }
 
     @Test
-    void connectDirectlyToNonexistentSchemaBlowsUp() throws RelationalException, SQLException {
-        RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/__SYS?schema=noSuchSchema"), Options.NONE))
+    void connectDirectlyToNonexistentSchemaBlowsUp() {
+        RelationalAssertions.assertThrowsSqlException(() -> DriverManager.getConnection("jdbc:embed:/__SYS?schema=noSuchSchema"))
                 .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
     }
 
     @Test
-    void setIsolationLevel() throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+    void setIsolationLevel() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/__SYS").unwrap(RelationalConnection.class)) {
             // Default isolation level
             Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
 

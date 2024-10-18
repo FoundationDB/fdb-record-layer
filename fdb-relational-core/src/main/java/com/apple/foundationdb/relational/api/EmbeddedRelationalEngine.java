@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
@@ -35,8 +34,6 @@ import java.util.List;
 public class EmbeddedRelationalEngine {
     private final List<StorageCluster> clusters;
 
-    private final EmbeddedRelationalDriver driver;
-
     private final MetricRegistry metricRegistry;
 
     //TODO(bfines) eventually we need to move StoreCatalog into StorageCluster
@@ -48,15 +45,6 @@ public class EmbeddedRelationalEngine {
         }
         this.clusters = fdbClusters;
         this.metricRegistry = metricRegistry;
-        this.driver = new EmbeddedRelationalDriver(this);
-    }
-
-    public void registerDriver() throws RelationalException {
-        Relational.registerDriver(driver);
-    }
-
-    public void deregisterDriver() throws RelationalException {
-        Relational.deregisterDriver(driver);
     }
 
     public Collection<StorageCluster> getStorageClusters() {

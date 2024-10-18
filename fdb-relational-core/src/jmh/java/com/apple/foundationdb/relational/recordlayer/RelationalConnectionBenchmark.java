@@ -20,9 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -43,6 +40,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.net.URI;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
@@ -84,14 +82,14 @@ public class RelationalConnectionBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     @Benchmark
-    public String connect() throws RelationalException, SQLException {
-        URI connUri;
+    public String connect() throws SQLException {
+        String connUri;
         if (setSchemaAtConnTime) {
-            connUri = URI.create("jdbc:embed:" + dbUri.getPath() + "?schema=" + schemaName);
+            connUri = "jdbc:embed:" + dbUri.getPath() + "?schema=" + schemaName;
         } else {
-            connUri = URI.create("jdbc:embed:" + dbUri.getPath());
+            connUri = "jdbc:embed:" + dbUri.getPath();
         }
-        try (RelationalConnection vc = Relational.connect(connUri, Options.NONE)) {
+        try (final var vc = DriverManager.getConnection(connUri)) {
             if (!setSchemaAtConnTime) {
                 vc.setSchema(schemaName);
             }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
@@ -64,6 +63,9 @@ public class AutoCommitTests {
             .withSchema("TEST_SCHEMA");
 
     private EmbeddedRelationalDriver alternateDriver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
+
+    public AutoCommitTests() throws SQLException {
+    }
 
     @BeforeEach
     public void setup() throws SQLException {
@@ -681,7 +683,7 @@ public class AutoCommitTests {
         }
     }
 
-    private static EmbeddedRelationalConnection getConnectionWithExistingTransaction(@Nonnull EmbeddedRelationalConnection connection, @Nonnull URI uri, @Nonnull RelationalDriver alternateDriver) throws SQLException, RelationalException {
+    private static EmbeddedRelationalConnection getConnectionWithExistingTransaction(@Nonnull EmbeddedRelationalConnection connection, @Nonnull URI uri, @Nonnull EmbeddedRelationalDriver alternateDriver) throws SQLException, RelationalException {
         final var store = TransactionBoundDatabaseTest.getStore(connection);
         final var schemaTemplate = TransactionBoundDatabaseTest.getSchemaTemplate(connection);
 

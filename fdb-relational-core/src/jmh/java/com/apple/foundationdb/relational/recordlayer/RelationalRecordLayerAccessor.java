@@ -21,15 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
 
 import java.net.URI;
-import java.sql.SQLException;
 
 public class RelationalRecordLayerAccessor {
 
@@ -41,14 +36,6 @@ public class RelationalRecordLayerAccessor {
         this.driver = driver;
         this.dbName = dbName;
         this.schemaName = schemaName;
-    }
-
-    public RelationalConnection connect() throws RelationalException, SQLException {
-        final URI url = URI.create("jdbc:embed:" + dbName.getPath());
-        System.err.println(url);
-        final RelationalConnection connect = Relational.connect(url, Options.NONE);
-        connect.setSchema(schemaName);
-        return connect;
     }
 
     public RecordMetaDataProvider getProvider(Transaction transaction) {

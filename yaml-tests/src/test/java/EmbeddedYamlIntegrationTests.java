@@ -1,5 +1,5 @@
 /*
- * YamlIntegrationTests.java
+ * EmbeddedYamlIntegrationTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,10 +18,19 @@
  * limitations under the License.
  */
 
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-public class YamlIntegrationTests extends YamlTestBase {
+import java.sql.DriverManager;
+
+public class EmbeddedYamlIntegrationTests extends YamlTestBase {
+
+    YamlRunner.YamlConnectionFactory createConnectionFactory() {
+        return connectPath -> DriverManager.getConnection(connectPath.toString()).unwrap(RelationalConnection.class);
+    }
+
     @Test
     public void showcasingTests() throws Exception {
         doRun("showcasing-tests.yamsql");

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
@@ -30,8 +28,8 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nullable;
-import java.net.URI;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -85,7 +83,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     public void afterEach(ExtensionContext context) throws Exception {
         final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE \"").append(templateName).append("\"");
 
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(dropStatement.toString());
@@ -97,7 +95,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     public void beforeEach(ExtensionContext context) throws Exception {
         final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE IF EXISTS\"").append(templateName).append("\"");
 
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(dropStatement.toString());
@@ -111,7 +109,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
             createStatement.append(options.getOptionsString());
         }
 
-        try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(createStatement.toString());

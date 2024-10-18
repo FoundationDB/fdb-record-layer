@@ -20,21 +20,21 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.BuildVersion;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
+import com.apple.foundationdb.relational.util.Assert;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
-import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Locale;
 import java.util.Properties;
-import java.util.logging.Logger;
 
 /**
  * JDBC Relational Driver.
@@ -42,7 +42,7 @@ import java.util.logging.Logger;
  */
 @SuppressWarnings({"PMD.SystemPrintln"}) // Used in extreme when a failure to register Driver
 // TODO: Implement RelationalDriver after it inherits from Driver.
-public class JDBCRelationalDriver implements Driver {
+public class JDBCRelationalDriver implements RelationalDriver {
     /**
      * Needed by {@link JDBCRelationalDatabaseMetaData#getDriverName()}.
      */
@@ -60,8 +60,9 @@ public class JDBCRelationalDriver implements Driver {
 
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
+        Assert.thatUnchecked(info == null || info.isEmpty(), "connect with Properties is not supported yet. Please use connect with Options instead.");
         if (!acceptsURL(url)) {
-            throw new SQLException("Not an acceptable relational JDBC url: " + url);
+            return null;
         }
         // Parse the url String as a URI; makes it easy to pull out the pieces.
         URI uri;
@@ -84,36 +85,12 @@ public class JDBCRelationalDriver implements Driver {
     }
 
     @Override
-    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
+    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
         return new DriverPropertyInfo[0];
     }
 
     @Override
-    public int getMajorVersion() {
-        try {
-            return BuildVersion.getInstance().getMajorVersion();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
-        }
-    }
-
-    @Override
-    public int getMinorVersion() {
-        try {
-            return BuildVersion.getInstance().getMinorVersion();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
-        }
-    }
-
-    @Override
-    public boolean jdbcCompliant() {
-        return false;
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+    public RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented");
     }
 }

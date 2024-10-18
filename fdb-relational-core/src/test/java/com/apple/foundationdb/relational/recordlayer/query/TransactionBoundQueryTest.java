@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -63,6 +63,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -92,8 +94,8 @@ public class TransactionBoundQueryTest {
     }
 
     @Nonnull
-    private EmbeddedRelationalConnection connectEmbedded() throws SQLException, RelationalException {
-        RelationalConnection connection = Relational.connect(databaseRule.getConnectionUri(), Options.NONE);
+    private EmbeddedRelationalConnection connectEmbedded() throws SQLException {
+        Connection connection = DriverManager.getConnection(databaseRule.getConnectionUri().toString());
         connection.setSchema(databaseRule.getSchemaName());
         return connection.unwrap(EmbeddedRelationalConnection.class);
     }
@@ -123,17 +125,19 @@ public class TransactionBoundQueryTest {
                     .setContext(context)
                     .open();
 
-            embeddedExtension.getEngine().deregisterDriver();
-            var engine = new TransactionBoundEmbeddedRelationalEngine(engineOptions());
-            engine.registerDriver();
+            final var originalDriver = embeddedExtension.getDriver();
+            DriverManager.deregisterDriver(originalDriver);
+            var newDriver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine(engineOptions()));
+            DriverManager.registerDriver(newDriver);
+            final var driver = (EmbeddedRelationalDriver) DriverManager.getDriver(databaseRule.getConnectionUri().toString());
             try {
-                RelationalConnection transactionBoundConnection = Relational.connect(databaseRule.getConnectionUri(),
+                RelationalConnection transactionBoundConnection = driver.connect(databaseRule.getConnectionUri(),
                         new RecordStoreAndRecordContextTransaction(newStore, context, RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(), metaData.getVersion())), Options.NONE);
                 transactionBoundConnection.setSchema(databaseRule.getSchemaName());
                 return transactionBoundConnection.unwrap(EmbeddedRelationalConnection.class);
             } finally {
-                engine.deregisterDriver();
-                embeddedExtension.getEngine().registerDriver();
+                DriverManager.deregisterDriver(newDriver);
+                DriverManager.registerDriver(originalDriver);
             }
         }
     }

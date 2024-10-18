@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,7 +93,8 @@ public class QueryPropertiesTest {
     }
 
     List<Long> testScan(Options options, long firstRestNo) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), options)) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), options)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 for (long i = 0; i < 2; i++) {

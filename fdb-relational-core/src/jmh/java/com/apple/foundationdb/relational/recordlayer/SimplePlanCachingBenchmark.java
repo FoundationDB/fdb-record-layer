@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -50,6 +49,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.net.URI;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -109,12 +109,12 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     @Benchmark
-    public void repeatedRead(Blackhole bh) throws SQLException, RelationalException {
+    public void repeatedRead(Blackhole bh) throws SQLException {
         long dbId = ThreadLocalRandom.current().nextInt(0, dbCount);
-        try (RelationalConnection dbConn = Relational.connect(getUri(dbName(dbId), true), com.apple.foundationdb.relational.api.Options.NONE)) {
+        try (final var dbConn = DriverManager.getConnection(getUri(dbName(dbId), true).toString())) {
             dbConn.setSchema(cacheSchema);
             long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
-            try (RelationalStatement stmt = dbConn.createStatement();
+            try (final var stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("EXPLAIN SELECT * from \"RestaurantRecord\" where \"rest_no\" = " + restId)) {
                 resultSet.next();
                 bh.consume(resultSet.getString(1));
@@ -138,7 +138,7 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void populateDatabase(URI uri) {
-        try (RelationalConnection dbConn = Relational.connect(uri, com.apple.foundationdb.relational.api.Options.NONE)) {
+        try (RelationalConnection dbConn = DriverManager.getConnection(uri.toString()).unwrap(RelationalConnection.class)) {
             dbConn.setSchema(cacheSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(
@@ -147,8 +147,6 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
             }
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
         }
     }
 

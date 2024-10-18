@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -51,6 +50,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -94,7 +95,7 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void scan(Blackhole bh, RelationalConnHolder connHolder) throws RelationalException, SQLException {
-        try (RelationalStatement stmt = connHolder.connection.createStatement()) {
+        try (final var stmt = connHolder.connection.createStatement().unwrap(RelationalStatement.class)) {
 
             final Options scanOpts = Options.NONE; //Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
             List<Map.Entry<String, byte[]>> data = new ArrayList<>();
@@ -147,9 +148,9 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    public void insertData(@Nonnull DataSet dataSet) throws RelationalException, SQLException {
+    public void insertData(@Nonnull DataSet dataSet) throws SQLException {
         //insert about 10 records
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.NONE)) {
+        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:" + dbUri).unwrap(RelationalConnection.class)) {
             conn.setSchema(schema);
             try (RelationalStatement vs = conn.createStatement()) {
                 final RelationalStructBuilder builder = EmbeddedRelationalStruct.newBuilder();
@@ -177,11 +178,11 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
 
     @State(Scope.Thread)
     public static class RelationalConnHolder {
-        private RelationalConnection connection;
+        private Connection connection;
 
         @Setup
-        public void init() throws RelationalException, SQLException {
-            connection = Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.NONE);
+        public void init() throws SQLException {
+            connection = DriverManager.getConnection("jdbc:embed:" + dbUri);
             connection.setSchema(schema);
         }
 

@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -58,7 +57,7 @@ public class JDBCSimpleStatementTest {
     }
 
     @AfterAll
-    public static void afterAll() throws IOException, SQLException {
+    public static void afterAll() throws IOException {
         if (relationalServer != null) {
             relationalServer.close();
         }

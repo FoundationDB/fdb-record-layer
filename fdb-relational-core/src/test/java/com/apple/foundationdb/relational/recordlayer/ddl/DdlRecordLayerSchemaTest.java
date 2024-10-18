@@ -20,11 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.DatabaseRule;
@@ -33,7 +29,6 @@ import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.TableDefinition;
 import com.apple.foundationdb.relational.utils.TypeDefinition;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -41,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.Array;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collections;
@@ -65,14 +61,14 @@ public class DdlRecordLayerSchemaTest {
 
     @Test
     void canCreateSchema() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
-            try (RelationalStatement statement = conn.createStatement()) {
+            try (final var statement = conn.createStatement()) {
                 //create a schema
                 final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getTemplateName();
                 statement.executeUpdate(createStatement);
                 //now describe the schema
-                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA")) {
+                try (final var resultSet = statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA")) {
                     while (resultSet.next()) {
                         Assertions.assertEquals(db.getDbUri().getPath(), resultSet.getString("DATABASE_PATH"), "Incorrect database name!");
                         Assertions.assertEquals("TEST_SCHEMA", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");
@@ -91,7 +87,7 @@ public class DdlRecordLayerSchemaTest {
 
     @Test
     void canCreateSchemaTemplateWhenConnectedToNonCatalogSchema() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
@@ -101,7 +97,7 @@ public class DdlRecordLayerSchemaTest {
             }
         }
         //now create a new schema in the same db but using a different connection
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:" + db.getDbUri()), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:" + db.getDbUri())) {
             conn.setSchema("TEST_SCHEMA");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
@@ -113,7 +109,7 @@ public class DdlRecordLayerSchemaTest {
 
     @Test
     void cannotCreateSchemaTwice() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
 
@@ -129,9 +125,9 @@ public class DdlRecordLayerSchemaTest {
 
     @Test
     void dropSchema() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
-            try (RelationalStatement statement = conn.createStatement()) {
+            try (final var statement = conn.createStatement()) {
 
                 //create a schema
                 final String createStatement = "CREATE SCHEMA \"" + db.getDbUri() + "/TEST_SCHEMA\" WITH TEMPLATE " + baseTemplate.getTemplateName();
@@ -139,7 +135,7 @@ public class DdlRecordLayerSchemaTest {
 
                 //make sure it's there
                 //now describe the schema
-                try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA")) {
+                try (final var resultSet = statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA")) {
                     while (resultSet.next()) {
                         Assertions.assertEquals(db.getDbUri().getPath(), resultSet.getString("DATABASE_PATH"), "Incorrect database name!");
                         Assertions.assertEquals("TEST_SCHEMA", resultSet.getString("SCHEMA_NAME"), "Incorrect schema name!");

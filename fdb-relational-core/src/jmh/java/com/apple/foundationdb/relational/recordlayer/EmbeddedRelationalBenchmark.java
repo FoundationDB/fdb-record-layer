@@ -23,11 +23,10 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -44,8 +43,8 @@ import org.openjdk.jmh.annotations.TearDown;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -72,7 +71,7 @@ public abstract class EmbeddedRelationalBenchmark {
     static final String schemaTemplateName = "RestaurantTemplate";
 
     public static class Driver {
-        EmbeddedRelationalEngine engine;
+        RelationalDriver driver;
         KeySpace keySpace;
         FdbConnection fdbDatabase;
 
@@ -120,15 +119,15 @@ public abstract class EmbeddedRelationalBenchmark {
                     .setRlConfig(rlConfig)
                     .setBaseKeySpace(keySpace)
                     .setStoreCatalog(catalog).build();
-            engine = RecordLayerEngine.makeEngine(
+            this.driver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
                     rlConfig,
                     Collections.singletonList(fdbDb),
                     keySpace,
                     catalog,
                     null,
                     ddlFactory,
-                    planCache);
-            engine.registerDriver();
+                    planCache));
+            DriverManager.registerDriver(driver);
 
             createSchemaTemplate();
         }
@@ -138,10 +137,10 @@ public abstract class EmbeddedRelationalBenchmark {
             // engine.deregisterDriver();
         }
 
-        private void createSchemaTemplate() throws RelationalException, SQLException {
-            try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        private void createSchemaTemplate() throws SQLException {
+            try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
                 conn.setSchema("CATALOG");
-                try (Statement statement = conn.createStatement()) {
+                try (final var statement = conn.createStatement()) {
                     statement.executeUpdate("CREATE SCHEMA TEMPLATE \"" + templateName + "\" " + templateDef);
                 }
             }
@@ -210,21 +209,21 @@ public abstract class EmbeddedRelationalBenchmark {
     }
 
     private static void createDatabase(DatabaseTemplate dbTemplate, URI dbUri) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
-                statement.executeUpdate("CREATE DATABASE \"" + dbUri.getPath() + "\"");
+            try (final var statement = conn.createStatement()) {
+                statement.executeUpdate("CREATE DATABASE \"" + dbUri + "\"");
                 for (Map.Entry<String, String> schemaTemplateEntry : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
-                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schemaTemplateEntry.getKey() + "\" WITH TEMPLATE \"" + schemaTemplateEntry.getValue() + "\"");
+                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri + "/" + schemaTemplateEntry.getKey() + "\" WITH TEMPLATE \"" + schemaTemplateEntry.getValue() + "\"");
                 }
             }
         }
     }
 
     public static void createDatabase(@Nonnull URI dbUri, String templateName, String... schemas) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
+            try (final var statement = conn.createStatement()) {
                 try {
                     statement.executeUpdate("CREATE DATABASE \"" + dbUri.getPath() + "\"");
                 } catch (SQLException se) {
@@ -236,17 +235,17 @@ public abstract class EmbeddedRelationalBenchmark {
                     }
                 }
                 for (String schema : schemas) {
-                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri.getPath() + "/" + schema + "\" WITH TEMPLATE \"" + templateName + "\"");
+                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri + "/" + schema + "\" WITH TEMPLATE \"" + templateName + "\"");
                 }
             }
         }
     }
 
     public static void deleteDatabase(URI dbUri) throws RelationalException, SQLException {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
-                statement.executeUpdate("DROP DATABASE \"" + dbUri.getPath() + "\"");
+            try (final var statement = conn.createStatement()) {
+                statement.executeUpdate("DROP DATABASE \"" + dbUri + "\"");
             }
         }
     }

@@ -21,19 +21,19 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -54,7 +54,8 @@ public class OptionScopeTest {
 
     @Test
     public void optionTakenFromConnection() throws SQLException, RelationalException {
-        try (Connection conn = Relational.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, true).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
+        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, true).build())) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
                 Assertions.assertThat(statement.executeUpdate(INSERT_QUERY)).isOne();
@@ -66,8 +67,8 @@ public class OptionScopeTest {
     }
 
     @Test
-    public void optionTakenFromQuery() throws SQLException, RelationalException {
-        try (Connection conn = Relational.connect(db.getConnectionUri(), Options.NONE)) {
+    public void optionTakenFromQuery() throws SQLException {
+        try (Connection conn = DriverManager.getConnection(db.getConnectionUri().toString())) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
                 Assertions.assertThat(statement.executeUpdate(INSERT_QUERY_DRY_RUN)).isOne();
@@ -80,7 +81,8 @@ public class OptionScopeTest {
 
     @Test
     public void optionSetInConnectionButOverriddenInQuery() throws SQLException, RelationalException {
-        try (Connection conn = Relational.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, false).build())) {
+        final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
+        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, false).build())) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
                 Assertions.assertThat(statement.executeUpdate(INSERT_QUERY_DRY_RUN)).isOne();

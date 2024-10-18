@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
@@ -34,27 +33,21 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.Driver;
 import java.sql.DriverManager;
 
 /**
- * Like {@link YamlIntegrationTests} only it runs the YAML via the fdb-relational-jdbc client
+ * Like {@link EmbeddedYamlIntegrationTests} only it runs the YAML via the fdb-relational-jdbc client
  * talking to an in-process Relational Server.
  */
-public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
+public class JDBCYamlIntegrationTests extends EmbeddedYamlIntegrationTests {
     private static final Logger LOG = LogManager.getLogger(JDBCYamlIntegrationTests.class);
 
-    @Nullable
-    private static Driver driver;
     @Nullable
     private static InProcessRelationalServer server;
 
     @BeforeAll
     public static void beforeAll() {
-        // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
-        // more specific about where we want to connect to.
         try {
-            driver = DriverManager.getDriver("jdbc:relational:///");
             server = new InProcessRelationalServer().start();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -71,8 +64,6 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
                 throw new RelationalException(e.getMessage(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
             }
         }
-        driver = null;
-
     }
 
     @Override
@@ -82,7 +73,7 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
             URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
             String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
             LOG.info("Rewrote {} as {}", connectPath, uriStr);
-            return driver.connect(uriStr, null).unwrap(RelationalConnection.class);
+            return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
         };
     }
 
