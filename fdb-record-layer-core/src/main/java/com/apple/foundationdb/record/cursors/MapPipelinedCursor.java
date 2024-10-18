@@ -53,9 +53,13 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final Function<T, CompletableFuture<V>> func;
     private final int pipelineSize;
+    /**
+     * The pipeline, note this queue is not thread safe, so interactions must be in the same future pipeline.
+     */
     @Nonnull
     private final Queue<CompletableFuture<RecordCursorResult<V>>> pipeline;
     private boolean innerExhausted = false;
+    private volatile boolean closed = false;
 
     @Nullable
     private CompletableFuture<RecordCursorResult<T>> waitInnerFuture = null;
@@ -77,8 +81,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
             return CompletableFuture.completedFuture(nextResult);
         }
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor())
-                // pipeline will necessarily contain something if we stopped looping, so pipeline.remove() is nonnull
-                .thenCompose(vignore -> pipeline.peek()) // future should already be (nearly) ready if we stopped looping
+                .thenCompose(vignore -> pipeline.peek())
                 .thenApply(result -> {
                     if (result.hasNext()) {
                         pipeline.remove();
@@ -90,15 +93,17 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Override
     public void close() {
-        while (!pipeline.isEmpty()) {
-            pipeline.remove().cancel(false);
-        }
+        closed = true;
+        // we don't cleanup the pipeline here, instead we clean it up in tryToFillPipeline to avoid multi-threaded
+        // access to the pipeline.
+        // It's possible that we close after one call of `tryToFillPipeline` and the inner is closed before its
+        // onNext completes
         inner.close();
     }
 
     @Override
     public boolean isClosed() {
-        return pipeline.isEmpty() && inner.isClosed();
+        return closed;
     }
 
     @Nonnull
@@ -120,7 +125,13 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
     protected CompletableFuture<Boolean> tryToFillPipeline() {
+        if (closed) {
+            return cancellAll();
+        }
         while (!innerExhausted && pipeline.size() < pipelineSize) {
+            if (closed) {
+                return cancellAll();
+            }
             // try to add a future to the pipeline
             if (waitInnerFuture == null) {
                 waitInnerFuture = inner.onNext();
@@ -142,6 +153,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
             if (innerResult.hasNext()) { // just added something to the pipeline, so pipeline will contain an entry
                 waitInnerFuture = null; // done with this future, should advanced cursor next time
+                // Note: this is not necessarily the one from `innerResult`
                 if (pipeline.peek().isDone()) { //
                     return AsyncUtil.READY_FALSE; // next entry ready, don't loop
                 }
@@ -155,15 +167,25 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
                     // Cannot do this for the very first entry, because do not have a continuation before that.
                     RecordCursorContinuation lastFinishedContinuation = cancelPendingFutures();
                     pipeline.add(CompletableFuture.completedFuture(
-                            RecordCursorResult.withoutNextValue(lastFinishedContinuation, NoNextReason.TIME_LIMIT_REACHED)));
+                                        RecordCursorResult.withoutNextValue(lastFinishedContinuation, NoNextReason.TIME_LIMIT_REACHED)));
                 }
                 // Wait for next entry, as if pipeline were full
                 break;
             }
         }
 
-        // just added something to the pipeline, so pipeline will contain an entry
+        // just added something to the pipeline, or the pipeline is full, so pipeline will contain an entry
         return pipeline.peek().thenApply(vignore -> false); // the next result is ready
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> cancellAll() {
+        while (!pipeline.isEmpty()) {
+            pipeline.remove().cancel(false);
+        }
+        final CompletableFuture<Boolean> cancelled = new CompletableFuture<>();
+        cancelled.cancel(true);
+        return cancelled;
     }
 
     @Nonnull

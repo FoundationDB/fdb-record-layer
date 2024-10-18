@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.cursors.MapResultCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.test.TestExecutors;
@@ -40,6 +41,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,12 +51,16 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -84,7 +91,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link RecordCursor}.
  */
 public class RecordCursorTest {
+
     static final Executor EXECUTOR = TestExecutors.defaultThreadPool();
+    private static final Logger LOGGER = LoggerFactory.getLogger(RecordCursorTest.class);
 
     Timer timer;
 
@@ -1268,4 +1277,58 @@ public class RecordCursorTest {
 
     }
 
+    @Test
+    public void mapPipelineCloseWhileCancelling() {
+        Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
+        for (int i = 0; i < 20_000; i++) {
+            try {
+                LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
+                CompletableFuture<Void> signal = new CompletableFuture<>();
+                RecordCursor<Integer> cursor = RecordCursor.fromList(IntStream.range(0, i % 199).boxed().collect(Collectors.toList()))
+                        .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), i % 19 + 2);
+                CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+
+                signal.complete(null);
+                cursor.close();
+                resultFuture.get(2, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                Throwable errToCount;
+                if (e instanceof CompletionException && e.getCause() != null) {
+                    errToCount = e.getCause();
+                    errToCount.addSuppressed(e);
+                } else {
+                    errToCount = e;
+                }
+                LOGGER.error(KeyValueLogMessage.of("error during test"), errToCount);
+                exceptionCount.compute(errToCount.getClass(), (k, v) -> v == null ? 1 : v + 1);
+            }
+        }
+        KeyValueLogMessage msg = KeyValueLogMessage.build("exception counts");
+        msg.addKeysAndValues(exceptionCount);
+        LOGGER.info(msg.toString());
+        assertThat(exceptionCount, Matchers.anEmptyMap());
+    }
+
+    @Test
+    void mapPipelinedAfterClosed() {
+        Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
+        for (int i = 0; i < 2000; i++) {
+            LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
+            CompletableFuture<Void> signal = new CompletableFuture<>();
+            LOGGER.info(EXECUTOR.toString());
+            RecordCursor<Integer> cursor = RecordCursor.fromList(IntStream.range(0, i % 199).boxed().collect(Collectors.toList()))
+                    .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), i % 19 + 2);
+
+            signal.complete(null);
+            cursor.close();
+            CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+            final ExecutionException executionException = assertThrows(ExecutionException.class,
+                    () -> resultFuture.get(2, TimeUnit.SECONDS));
+            assertThat(executionException.getCause(), Matchers.instanceOf(CancellationException.class));
+        }
+        KeyValueLogMessage msg = KeyValueLogMessage.build("exception counts");
+        msg.addKeysAndValues(exceptionCount);
+        LOGGER.info(msg.toString());
+        assertThat(exceptionCount, Matchers.anEmptyMap());
+    }
 }
