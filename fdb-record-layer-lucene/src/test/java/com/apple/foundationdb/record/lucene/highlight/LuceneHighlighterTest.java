@@ -113,23 +113,37 @@ public class LuceneHighlighterTest {
 
         UAX29URLEmailAnalyzer noStopWords = new UAX29URLEmailAnalyzer(CharArraySet.EMPTY_SET);
         noStopWords.setMaxTokenLength(30);
-        final Analyzer standardAnalyzer = LuceneAnalyzerWrapper.getStandardAnalyzerWrapper().getAnalyzer();
-        final Analyzer acjkNoSynonyms = new AlphanumericCjkAnalyzer(stopWords, 1, 30, true, null);
+        final AnalyzerSupplier standardAnalyzerSupplier = () -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper().getAnalyzer();
+        final AnalyzerSupplier acjkNoSynonymsSupplier = () -> new AlphanumericCjkAnalyzer(stopWords, 1, 30, true, null);
+        final Analyzer acjkNoSynonyms1 = acjkNoSynonymsSupplier.get();
+        final SynonymAnalyzer customSynonymAnalyzer = new SynonymAnalyzer(stopWords, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME, 30);
+        final Analyzer standardAnalyzer1 = standardAnalyzerSupplier.get();
+        final NgramAnalyzer ngramAnalyzer = new NgramAnalyzer(stopWords, 3, 30, false);
+        // junit auto-closes anything implementing AutoCloseable, and so we need to make sure each set of Arguments
+        // has a new instance, or it will be closed for the second run
         return Stream.of(
-                Arguments.of("Standard", standardAnalyzer, standardAnalyzer),
-                Arguments.of("Synonym", new SynonymAnalyzer(stopWords, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME, 30), standardAnalyzer),
-                Arguments.of("Ngram", standardAnalyzer, new NgramAnalyzer(stopWords, 3, 30, false)),
-                Arguments.of("AlphaCjk-NoSynonyms", acjkNoSynonyms, acjkNoSynonyms),
-                Arguments.of("AlphaCjk-Synonyms", acjkWithSynonyms, acjkNoSynonyms),
+                Arguments.of("Standard", standardAnalyzer1, standardAnalyzer1),
+                Arguments.of("Synonym", customSynonymAnalyzer, standardAnalyzerSupplier.get()),
+                Arguments.of("Ngram", standardAnalyzerSupplier.get(), ngramAnalyzer),
+                Arguments.of("AlphaCjk-NoSynonyms", acjkNoSynonyms1, acjkNoSynonyms1),
+                Arguments.of("AlphaCjk-Synonyms", acjkWithSynonyms, acjkNoSynonymsSupplier.get()),
                 Arguments.of("Standard-noStopWords", noStopWords, noStopWords)
         );
     }
 
-    public static Stream<Arguments> specialCharacterAnalyzerCombinations() throws IOException {
-        return analyzers().flatMap(args -> {
-            Object[] analyzerArgs = args.get();
-            return Utf8Chars.getUnusualTokenizableChars().map(ch -> Arguments.of(analyzerArgs[0], analyzerArgs[1], analyzerArgs[2], ch, Integer.toHexString(ch.codePointAt(0))));
-        });
+    public static Stream<Arguments> specialCharacterAnalyzerCombinations() {
+        // junit auto-closes anything implementing AutoCloseable, and so we need to make sure each set of Arguments
+        // has a new instance, or it will be closed for the second run
+        return Utf8Chars.getUnusualTokenizableChars().flatMap(ch ->
+                Assertions.assertDoesNotThrow(LuceneHighlighterTest::analyzers).map(args -> {
+                    Object[] analyzerArgs = args.get();
+                    return Arguments.of(analyzerArgs[0], analyzerArgs[1], analyzerArgs[2],
+                            ch, Integer.toHexString(ch.codePointAt(0)));
+                }));
+    }
+
+    private interface AnalyzerSupplier {
+        Analyzer get() throws IOException;
     }
 
     @MethodSource("analyzers")
