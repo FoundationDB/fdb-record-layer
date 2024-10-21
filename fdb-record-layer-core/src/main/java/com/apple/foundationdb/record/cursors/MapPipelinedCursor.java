@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -48,12 +49,6 @@ import java.util.function.Function;
  */
 @API(API.Status.MAINTAINED)
 public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
-    private static final CompletableFuture<Boolean> CANCELLED;
-
-    static {
-        CANCELLED = new CompletableFuture<>();
-        CANCELLED.cancel(false);
-    }
 
     @Nonnull
     private final RecordCursor<T> inner;
@@ -193,7 +188,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         while (!pipeline.isEmpty()) {
             pipeline.remove().cancel(false);
         }
-        return CANCELLED;
+        return MoreAsyncUtil.ALREADY_CANCELLED;
     }
 
     @Nonnull

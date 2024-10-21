@@ -59,9 +59,14 @@ public class MoreAsyncUtil {
     private static ScheduledThreadPoolExecutor scheduledThreadPoolExecutor
             = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder().setDaemon(true).build());
 
+    public static final CompletableFuture<Boolean> ALREADY_CANCELLED;
+
     static {
         scheduledThreadPoolExecutor.setKeepAliveTime(30, TimeUnit.SECONDS);
         scheduledThreadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        ALREADY_CANCELLED = new CompletableFuture<>();
+        ALREADY_CANCELLED.cancel(false);
     }
 
     @Nonnull
