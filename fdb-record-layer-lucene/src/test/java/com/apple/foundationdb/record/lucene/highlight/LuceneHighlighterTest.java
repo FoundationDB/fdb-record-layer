@@ -99,7 +99,7 @@ public class LuceneHighlighterTest {
 
     private static final CharArraySet stopWords = EnglishAnalyzer.ENGLISH_STOP_WORDS_SET;
 
-    public static Stream<Arguments> analyzers() throws IOException {
+    public static Stream<Arguments.ArgumentSet> analyzers() throws IOException {
         //use a custom analyzer to build an Alphanumeric CJK analyzer
         Analyzer acjkWithSynonyms = CustomAnalyzer.builder()
                 .withTokenizer(UAX29URLEmailTokenizerFactory.class, new HashMap<>(Map.of("maxTokenLength", "30")))
@@ -122,12 +122,12 @@ public class LuceneHighlighterTest {
         // junit auto-closes anything implementing AutoCloseable, and so we need to make sure each set of Arguments
         // has a new instance, or it will be closed for the second run
         return Stream.of(
-                Arguments.of("Standard", standardAnalyzer1, standardAnalyzer1),
-                Arguments.of("Synonym", customSynonymAnalyzer, standardAnalyzerSupplier.get()),
-                Arguments.of("Ngram", standardAnalyzerSupplier.get(), ngramAnalyzer),
-                Arguments.of("AlphaCjk-NoSynonyms", acjkNoSynonyms1, acjkNoSynonyms1),
-                Arguments.of("AlphaCjk-Synonyms", acjkWithSynonyms, acjkNoSynonymsSupplier.get()),
-                Arguments.of("Standard-noStopWords", noStopWords, noStopWords)
+                Arguments.argumentSet("Standard", standardAnalyzer1, standardAnalyzer1),
+                Arguments.argumentSet("Synonym", customSynonymAnalyzer, standardAnalyzerSupplier.get()),
+                Arguments.argumentSet("Ngram", standardAnalyzerSupplier.get(), ngramAnalyzer),
+                Arguments.argumentSet("AlphaCjk-NoSynonyms", acjkNoSynonyms1, acjkNoSynonyms1),
+                Arguments.argumentSet("AlphaCjk-Synonyms", acjkWithSynonyms, acjkNoSynonymsSupplier.get()),
+                Arguments.argumentSet("Standard-noStopWords", noStopWords, noStopWords)
         );
     }
 
@@ -137,7 +137,8 @@ public class LuceneHighlighterTest {
         return Utf8Chars.getUnusualTokenizableChars().flatMap(ch ->
                 Assertions.assertDoesNotThrow(LuceneHighlighterTest::analyzers).map(args -> {
                     Object[] analyzerArgs = args.get();
-                    return Arguments.of(analyzerArgs[0], analyzerArgs[1], analyzerArgs[2],
+                    final String name = args.getName();
+                    return Arguments.argumentSet(name + ":" + ch, analyzerArgs[0], analyzerArgs[1],
                             ch, Integer.toHexString(ch.codePointAt(0)));
                 }));
     }
@@ -147,16 +148,16 @@ public class LuceneHighlighterTest {
     }
 
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightsSimpleTextWithNoSnippets(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException { //the first string is the analyzer name
+    @ParameterizedTest
+    void highlightsSimpleTextWithNoSnippets(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException { //the first string is the analyzer name
         String text = "Hello record layer";
         HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:hello", -1);
         assertHighlightCorrect(new HighlightedTerm("text", text, new int[] {0}, new int[] {5}), result);
     }
 
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightsSynonyms(String ignore, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException { //the first string is the analyzer name
+    @ParameterizedTest
+    void highlightsSynonyms(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException { //the first string is the analyzer name
         String text = "apple apple apple apple park apple apple";
 
         if (isSynonymAnalyzer(queryAnalyzer)) {
@@ -169,8 +170,8 @@ public class LuceneHighlighterTest {
     }
 
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void ngramHighlightsNgrams(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException {
+    @ParameterizedTest
+    void ngramHighlightsNgrams(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException {
         //only the ngram analyzer will pick these up as a match, all others will treat them as full-word queries
         //and won't return results
         Assumptions.assumeTrue(indexAnalyzer instanceof NgramAnalyzer, "Only care about Ngram analyzers");
@@ -185,8 +186,8 @@ public class LuceneHighlighterTest {
     }
 
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightsSimpleTextWithSnippets(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException { //the first string is the analyzer name
+    @ParameterizedTest
+    void highlightsSimpleTextWithSnippets(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException { //the first string is the analyzer name
         String text = "Good Morning From Apple News It?s Monday, July 11. Here?s what you need to know. ";
 
         final HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:appl*");
@@ -195,8 +196,8 @@ public class LuceneHighlighterTest {
     }
 
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightsSimpleTextWithWildcardSnippetsInsideHtml(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException {
+    @ParameterizedTest
+    void highlightsSimpleTextWithWildcardSnippetsInsideHtml(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws IOException {
         String link = "https://apple.news/AgZ7a_IT4TpKFF3kAyZsvUg";
         String text = "Good Morning From Apple News It?s Monday, July 11. Here?s what you need to know. " +
                       "Top Stories Former Trump adviser Steve Bannon agreed to testify to the January 6 committee " +
@@ -220,9 +221,9 @@ public class LuceneHighlighterTest {
         }
     }
 
+    @ParameterizedTest
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightTextWithMultipleTermMatches(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightTextWithMultipleTermMatches(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
 
         final HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, ROSE_BY_ANY_OTHER_NAME, "text:name");
         String correctString;
@@ -243,18 +244,18 @@ public class LuceneHighlighterTest {
     }
 
 
+    @ParameterizedTest
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightMultiplePrefixMatches(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightMultiplePrefixMatches(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
 
         final HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, ROSE_BY_ANY_OTHER_NAME, "text:monta*");
         String correctString = "...though not a Montague.\nWhat's Montague? It is...";
         assertHighlightCorrect(new HighlightedTerm("text", correctString, new int[] {16, 33}, new int[] {24, 41}), result);
     }
 
+    @ParameterizedTest
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightLinesUp(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightLinesUp(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         /*
          * A test to ensure that every analyzer's start and end points actually line up by automatically
          * checking the string. This is a slight variation on the other tests, where the offsets were manually
@@ -278,9 +279,9 @@ public class LuceneHighlighterTest {
         }
     }
 
+    @ParameterizedTest
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightEmailsInTermQueries(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightEmailsInTermQueries(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         /*
          * Email addresses should be tokenized as a single token. However, The NgramAnalyzer tokenized
          */
@@ -307,9 +308,9 @@ public class LuceneHighlighterTest {
         }
     }
 
+    @ParameterizedTest
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightEmailsInPrefixQueries(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightEmailsInPrefixQueries(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         /*
          * Email addresses should be tokenized as a single token. However, The NgramAnalyzer tokenized
          */
@@ -346,9 +347,9 @@ public class LuceneHighlighterTest {
         }
     }
 
+    @ParameterizedTest
     @MethodSource("analyzers")
-    @ParameterizedTest(name = "{0}")
-    void highlightEmailsInWildcardQueries(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightEmailsInWildcardQueries(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         /*
          * Email addresses should be tokenized as a single token. However, The NgramAnalyzer tokenized
          */
@@ -383,8 +384,8 @@ public class LuceneHighlighterTest {
 
 
     @MethodSource("specialCharacterAnalyzerCombinations")
-    @ParameterizedTest(name = "{0},{3}")
-    void highlightsSpecialCharacterPrefixSearch(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
+    @ParameterizedTest
+    void highlightsSpecialCharacterPrefixSearch(Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
         String text = specialCharacterText(specialCharacter);
 
         HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + specialCharacter.toLowerCase(Locale.ROOT) + "*", 1);
@@ -401,8 +402,8 @@ public class LuceneHighlighterTest {
     }
 
     @MethodSource("specialCharacterAnalyzerCombinations")
-    @ParameterizedTest(name = "{0},{3}")
-    void highlightsSpecialCharacterTerm(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
+    @ParameterizedTest
+    void highlightsSpecialCharacterTerm(Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
         String text = specialCharacterText(specialCharacter);
 
         HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + specialCharacter.toLowerCase(Locale.ROOT), 1);
@@ -416,9 +417,9 @@ public class LuceneHighlighterTest {
         }
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest
     @MethodSource("analyzers")
-    void highlightsReallyLongTermsTermQuery(String name, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightsReallyLongTermsTermQuery(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         /*
          * Checks the behavior of highlighting when given really long term queries
          */
@@ -428,7 +429,7 @@ public class LuceneHighlighterTest {
         int maxTokenSize = getMaxTokenSize(queryAnalyzer);
         HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + longTerm.toLowerCase(Locale.ROOT).substring(0, maxTokenSize - 1) + "*", 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
-        if ("Ngram".equals(name)) {
+        if (indexAnalyzer instanceof NgramAnalyzer) {
             Assertions.assertEquals("...a " + longTerm + "  ...", result.getSummarizedText(), "Incorrect summary string!");
             for (int i = 0; i < result.getNumHighlights(); i++) {
                 int s = result.getHighlightStart(i);
@@ -447,9 +448,9 @@ public class LuceneHighlighterTest {
         }
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest
     @MethodSource("analyzers")
-    void highlightsReallyLongTermsPartialPrefix(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightsReallyLongTermsPartialPrefix(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         /*
          * Checks the behavior of highlighting when given really long term queries
          */
@@ -485,9 +486,9 @@ public class LuceneHighlighterTest {
         }
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest
     @MethodSource("analyzers")
-    void highlightsReallyLongTermsFullPrefix(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightsReallyLongTermsFullPrefix(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         /*
          * Checks the behavior of highlighting when given really long term queries
          */
@@ -516,9 +517,9 @@ public class LuceneHighlighterTest {
         }
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest
     @MethodSource("analyzers")
-    void highlightsCjkQueryTerms(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
+    void highlightsCjkQueryTerms(Analyzer queryAnalyzer, Analyzer indexAnalyzer) throws Exception {
         String input = "water水水물-of的の의。house屋家집\nyou你君너";
 
         HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, input, "text:家", 1);
