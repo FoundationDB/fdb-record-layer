@@ -120,3 +120,7 @@ message MultidimensionalIndexScanContinuation {
     optional bytes lastHilbertValue = 1;
     optional bytes lastKey = 2;
 }
+
+message InMemoryQueueContinuation {
+    repeated bytes elements = 1;
+}

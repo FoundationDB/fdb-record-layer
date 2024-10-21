@@ -233,6 +233,10 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return result;
     }
 
+    public static <T> LiteralValue<T> ofScalar(final T value, Type type) {
+        return new LiteralValue<>(type, value);
+    }
+
     public static <T> LiteralValue<List<T>> ofList(@Nonnull final List<T> listValue) {
         Type resolvedElementType = null;
         for (final var elementValue : listValue) {

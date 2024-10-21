@@ -1724,3 +1724,13 @@ message PRecordQueryUnionPlanBase {
 message PRecordQueryUpdatePlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
 }
+
+//
+// PTypedQueryResult
+//
+message PQueryResult {
+  oneof datum {
+    PComparableObject primitive = 1;
+    bytes complex = 2;
+  }
+}
