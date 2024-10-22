@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -60,12 +61,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class InMemoryQueueCursorTest {
 
     private static final int seed = 42;
+
+    @Nonnull
     private static final Random random = new Random(seed);
 
     private void validateNoNextReason(@Nonnull RecordCursor<?> cursor) {
         RecordCursorResult<?> noNextResult = cursor.getNext();
         assertFalse(noNextResult.hasNext());
-        Assertions.assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
+        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
         if (RecordCursor.NoNextReason.SOURCE_EXHAUSTED.isSourceExhausted()) {
             assertTrue(noNextResult.getContinuation().isEnd());
             assertNull(noNextResult.getContinuation().toBytes());
@@ -86,8 +89,8 @@ public class InMemoryQueueCursorTest {
     void singleItemCursor() {
         final var executor = TestExecutors.defaultThreadPool();
         final var cursor = new InMemoryQueueCursor(executor);
-        cursor.add(randomInteger(42));
-        assertEquals(ImmutableList.of(randomInteger(42)), cursor.asList().join(), false);
+        cursor.add(integer(42));
+        assertQueryResults(ImmutableList.of(integer(42)), cursor.asList().join(), false);
         validateNoNextReason(cursor);
     }
 
@@ -95,8 +98,8 @@ public class InMemoryQueueCursorTest {
     void multiItemCursor() {
         final var executor = TestExecutors.defaultThreadPool();
         final var cursor = new InMemoryQueueCursor(executor);
-        cursor.add(randomInteger(42), randomInteger(44), randomInteger(46), randomInteger(48));
-        assertEquals(ImmutableList.of(randomInteger(42), randomInteger(44), randomInteger(46), randomInteger(48)), cursor.asList().join(), false);
+        cursor.add(integer(42), integer(44), integer(46), integer(48));
+        assertQueryResults(ImmutableList.of(integer(42), integer(44), integer(46), integer(48)), cursor.asList().join(), false);
         validateNoNextReason(cursor);
     }
 
@@ -105,12 +108,12 @@ public class InMemoryQueueCursorTest {
         final var executor = TestExecutors.defaultThreadPool();
         final RecordCursorResult<QueryResult> cursorResult;
         try (var cursor = new InMemoryQueueCursor(executor)) {
-            cursor.add(randomInteger(42), randomInteger(44), randomInteger(46), randomInteger(48));
+            cursor.add(integer(42), integer(44), integer(46), integer(48));
             cursorResult = cursor.getNext();
-            Assertions.assertEquals(42, Objects.requireNonNull(cursorResult.get()).getDatum());
+            assertEquals(42, Objects.requireNonNull(cursorResult.get()).getDatum());
             final var continuation = (InMemoryQueueCursor.Continuation)cursorResult.getContinuation();
             final var resumedCursor = new InMemoryQueueCursor(continuation);
-            assertEquals(ImmutableList.of(randomInteger(44), randomInteger(46), randomInteger(48)), resumedCursor.asList().join(), false);
+            assertQueryResults(ImmutableList.of(integer(44), integer(46), integer(48)), resumedCursor.asList().join(), false);
             validateNoNextReason(resumedCursor);
         }
     }
@@ -120,13 +123,13 @@ public class InMemoryQueueCursorTest {
         final var executor = TestExecutors.defaultThreadPool();
         final RecordCursorResult<QueryResult> cursorResult;
         try (var cursor = new InMemoryQueueCursor(executor)) {
-            cursor.add(randomInteger(42), randomInteger(44), randomInteger(46), randomInteger(48));
+            cursor.add(integer(42), integer(44), integer(46), integer(48));
             cursorResult = cursor.getNext();
-            Assertions.assertEquals(42, Objects.requireNonNull(cursorResult.get()).getDatum());
+            assertEquals(42, Objects.requireNonNull(cursorResult.get()).getDatum());
             final var continuationBytes = cursorResult.getContinuation().toBytes();
             assertNotNull(continuationBytes);
             final var resumedCursor = new InMemoryQueueCursor(InMemoryQueueCursor.Continuation.from(continuationBytes));
-            assertEquals(ImmutableList.of(randomInteger(44), randomInteger(46), randomInteger(48)), resumedCursor.asList().join(), false);
+            assertQueryResults(ImmutableList.of(integer(44), integer(46), integer(48)), resumedCursor.asList().join(), false);
             validateNoNextReason(resumedCursor);
         }
     }
@@ -141,11 +144,11 @@ public class InMemoryQueueCursorTest {
         try (var cursor = new InMemoryQueueCursor(executor)) {
             cursor.add(firstRecord, secondRecord, thirdRecord);
             cursorResult = cursor.getNext();
-            Assertions.assertEquals(firstRecord, cursorResult.get());
+            assertEquals(firstRecord, cursorResult.get());
             final var continuationBytes = cursorResult.getContinuation().toBytes();
             assertNotNull(continuationBytes);
             final var resumedCursor = new InMemoryQueueCursor(InMemoryQueueCursor.Continuation.from(TestRecords4WrapperProto.RestaurantRecord.getDescriptor(), continuationBytes));
-            assertEquals(ImmutableList.of(secondRecord, thirdRecord), resumedCursor.asList().join(), true);
+            assertQueryResults(ImmutableList.of(secondRecord, thirdRecord), resumedCursor.asList().join(), true);
             validateNoNextReason(resumedCursor);
         }
     }
@@ -160,11 +163,11 @@ public class InMemoryQueueCursorTest {
         try (var cursor = new InMemoryQueueCursor(executor)) {
             cursor.add(firstRecord, secondRecord, thirdRecord);
             cursorResult = cursor.getNext();
-            Assertions.assertEquals(firstRecord, cursorResult.get());
+            assertEquals(firstRecord, cursorResult.get());
             final var continuationBytes = cursorResult.getContinuation().toBytes();
             assertNotNull(continuationBytes);
             final var resumedCursor = new InMemoryQueueCursor(InMemoryQueueCursor.Continuation.from(TestRecords4WrapperProto.RestaurantRecord.getDescriptor(), continuationBytes));
-            assertEquals(ImmutableList.of(secondRecord, thirdRecord), resumedCursor.asList().join(), true);
+            assertQueryResults(ImmutableList.of(secondRecord, thirdRecord), resumedCursor.asList().join(), true);
             validateNoNextReason(resumedCursor);
         }
     }
@@ -179,11 +182,11 @@ public class InMemoryQueueCursorTest {
         try (var cursor = new InMemoryQueueCursor(executor)) {
             cursor.add(firstRecord, secondRecord, thirdRecord);
             cursorResult = cursor.getNext();
-            Assertions.assertEquals(firstRecord, cursorResult.get());
+            assertEquals(firstRecord, cursorResult.get());
             final var continuationBytes = cursorResult.getContinuation().toBytes();
             assertNotNull(continuationBytes);
             final var resumedCursor = new InMemoryQueueCursor(InMemoryQueueCursor.Continuation.from(TestRecords4WrapperProto.RestaurantRecord.getDescriptor(), continuationBytes));
-            assertEquals(ImmutableList.of(secondRecord, thirdRecord), resumedCursor.asList().join(), true);
+            assertQueryResults(ImmutableList.of(secondRecord, thirdRecord), resumedCursor.asList().join(), true);
             validateNoNextReason(resumedCursor);
         }
     }
@@ -198,9 +201,57 @@ public class InMemoryQueueCursorTest {
             cursor.add(record);
             cursorResult = cursor.getNext();
         }
-        Assertions.assertEquals(record, cursorResult.get());
+        assertEquals(record, cursorResult.get());
         final var continuation = cursorResult.getContinuation();
         assertSame(continuation.toByteString(), continuation.toByteString());
+    }
+
+    @Test
+    void recursionWorksCorrectly() {
+        final var executor = TestExecutors.defaultThreadPool();
+        /*
+         *                1
+         *             /     \
+         *            10      20
+         *          / |  \    /  \
+         *         14 15 16  17  [18] <--- find path to root.
+         */
+        final var hierarchy = ImmutableMap.of(
+                    1, -1, // -1 is a sentinel indicating that the current row represents the root.
+                    10, 1,
+                    20, 1,
+                    14, 10,
+                    15, 10,
+                    16, 10,
+                    17, 20,
+                    18, 20
+        );
+        final ImmutableList.Builder<Integer> builder = ImmutableList.builder();
+        try (var cursor1 = new InMemoryQueueCursor(executor); var cursor2 = new InMemoryQueueCursor(executor)) {
+            var reader = cursor1;
+            var writer = cursor2;
+
+            // seeding recursion, this represents the left leg of the recursive union
+            writer.add(integer(18));
+
+            boolean reachedRoot = false;
+            while (!reachedRoot) {
+                while (!reader.isClosed()) {
+                    final var value = (Integer)Objects.requireNonNull(reader.getNext().get()).getDatum();
+                    builder.add(value);
+                    if (value == -1) {
+                        reachedRoot = true;
+                        break;
+                    }
+                    writer.add(integer(hierarchy.get(value))); // this is the join condition
+                }
+                // flip the double buffer
+                var temp = reader;
+                reader = writer;
+                writer = temp;
+            }
+        }
+        assertEquals(ImmutableList.of(18, 20, 1, -1), builder.build());
     }
 
     private static class RandomRecordBuilder {
@@ -313,12 +364,12 @@ public class InMemoryQueueCursorTest {
     }
 
     @Nonnull
-    private static QueryResult randomInteger(int i) {
+    private static QueryResult integer(int i) {
         return QueryResult.ofComputed(i);
     }
 
-    private void assertEquals(final ImmutableList<QueryResult> expected, final List<QueryResult> actual, boolean verifyMessage) {
-        Assertions.assertEquals(expected.stream().map(queryResult -> verifyMessage ? queryResult.getMessage() : queryResult.getDatum()).collect(ImmutableList.toImmutableList()),
+    private void assertQueryResults(final ImmutableList<QueryResult> expected, final List<QueryResult> actual, boolean verifyMessage) {
+        assertEquals(expected.stream().map(queryResult -> verifyMessage ? queryResult.getMessage() : queryResult.getDatum()).collect(ImmutableList.toImmutableList()),
                 actual.stream().map(queryResult -> verifyMessage ? queryResult.getMessage() : queryResult.getDatum()).collect(ImmutableList.toImmutableList()));
     }
 
