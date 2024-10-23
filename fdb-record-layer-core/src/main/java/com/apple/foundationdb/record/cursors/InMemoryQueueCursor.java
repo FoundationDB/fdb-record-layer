@@ -55,10 +55,9 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
     private final Executor executor;
 
     @Nonnull
-    private final Queue<CompletableFuture<QueryResult>> elements;
+    private final Queue<QueryResult> elements;
 
-    @Nullable
-    private CompletableFuture<QueryResult> itemInFlight;
+    private boolean isClosed;
 
     public InMemoryQueueCursor(@Nullable Continuation continuation) {
         this(ForkJoinPool.commonPool(), continuation);
@@ -74,6 +73,7 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
         if (continuation != null) {
             elements.addAll(continuation.elements);
         }
+        isClosed = false;
     }
 
     /**
@@ -81,7 +81,7 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
      * @param element the new element to be added.
      */
     public void add(@Nonnull QueryResult element) {
-        elements.add(CompletableFuture.completedFuture(element));
+        elements.add(element);
     }
 
     /**
@@ -89,23 +89,15 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
      * @param elements the new elements to be added.
      */
     public void add(@Nonnull QueryResult... elements) {
-        Arrays.stream(elements).forEach(element -> add(CompletableFuture.completedFuture(element)));
-    }
-
-    /**
-     * Add a future that produces a new {@link QueryResult} element.
-     * @param element a future {@link QueryResult}.
-     */
-    public void add(@Nonnull CompletableFuture<QueryResult> element) {
-        elements.add(element);
+        Arrays.stream(elements).forEach(this::add);
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         if (!elements.isEmpty()) {
-            itemInFlight = elements.poll();
-            return itemInFlight.thenApply(result -> RecordCursorResult.withNextValue(result, new Continuation(elements)));
+            return CompletableFuture.completedFuture(RecordCursorResult.withNextValue(elements.poll(),
+                    new Continuation(ImmutableList.copyOf(elements))));
         } else {
             return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
         }
@@ -113,19 +105,16 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
 
     @Override
     public void close() {
-        // cancel items being processed.
-        if (itemInFlight != null) {
-            itemInFlight.cancel(false);
+        if (isClosed()) {
+            return;
         }
-        // and cancel any remaining items.
-        while (!elements.isEmpty()) {
-            elements.remove().cancel(false);
-        }
+        isClosed = true;
+        elements.clear();
     }
 
     @Override
     public boolean isClosed() {
-        return elements.isEmpty() && (itemInFlight == null || itemInFlight.isDone());
+        return isClosed;
     }
 
     @Nonnull
@@ -146,7 +135,7 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
      */
     public static class Continuation implements RecordCursorContinuation {
         @Nonnull
-        private final Collection<CompletableFuture<QueryResult>> elements;
+        private final Collection<QueryResult> elements;
 
         @Nullable
         private ByteString cachedByteString;
@@ -154,7 +143,7 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
         @Nullable
         private byte[] cachedBytes;
 
-        private Continuation(@Nonnull Collection<CompletableFuture<QueryResult>> elements) {
+        private Continuation(@Nonnull Collection<QueryResult> elements) {
             this.elements = elements;
         }
 
@@ -172,7 +161,7 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
             if (cachedByteString == null) {
                 final var builder = RecordCursorProto.InMemoryQueueContinuation.newBuilder();
                 for (final var element : elements) {
-                    builder.addElements(ZeroCopyByteString.wrap(element.join().serialize()));
+                    builder.addElements(ZeroCopyByteString.wrap(element.serialize()));
                 }
                 cachedByteString = builder.build().toByteString();
             }
@@ -211,8 +200,8 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
                         .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
             }
             return new Continuation(inMemoryQueueContinuation.getElementsList().stream()
-                    .map(element -> CompletableFuture.completedFuture(QueryResult.deserialize(descriptor,
-                            element.toByteArray()))).collect(ImmutableList.toImmutableList()));
+                    .map(element -> QueryResult.deserialize(descriptor,
+                            element.toByteArray())).collect(ImmutableList.toImmutableList()));
         }
     }
 }

@@ -40,7 +40,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -236,14 +235,16 @@ public class InMemoryQueueCursorTest {
 
             boolean reachedRoot = false;
             while (!reachedRoot) {
-                while (!reader.isClosed()) {
-                    final var value = (Integer)Objects.requireNonNull(reader.getNext().get()).getDatum();
+                RecordCursorResult<QueryResult> item = reader.getNext();
+                while (item.hasNext()) {
+                    final var value = (Integer)Objects.requireNonNull(item.get()).getDatum();
                     builder.add(value);
                     if (value == -1) {
                         reachedRoot = true;
                         break;
                     }
                     writer.add(integer(hierarchy.get(value))); // this is the join condition
+                    item = reader.getNext();
                 }
                 // flip the double buffer
                 var temp = reader;
@@ -252,6 +253,39 @@ public class InMemoryQueueCursorTest {
             }
         }
         assertEquals(ImmutableList.of(18, 20, 1, -1), builder.build());
+    }
+
+    @Test
+    void continuationIsValidAfterClosingTheCursor() {
+        final var executor = TestExecutors.defaultThreadPool();
+        final RecordCursorResult<QueryResult> cursorResult;
+        try (var cursor = new InMemoryQueueCursor(executor)) {
+            cursor.add(integer(42), integer(44), integer(46), integer(48));
+            cursorResult = cursor.getNext();
+        } // cursor closed
+        final var continuationBytes = cursorResult.getContinuation().toBytes();
+        assertNotNull(continuationBytes);
+        assertEquals(42, Objects.requireNonNull(cursorResult.get()).getDatum());
+        final var resumedCursor = new InMemoryQueueCursor(InMemoryQueueCursor.Continuation.from(continuationBytes));
+        assertQueryResults(ImmutableList.of(integer(44), integer(46), integer(48)), resumedCursor.asList().join(), false);
+        validateNoNextReason(resumedCursor);
+    }
+
+    @Test
+    void continuationDoesNotChangeStateAfterCursorAdvances() {
+        final var executor = TestExecutors.defaultThreadPool();
+        final RecordCursorResult<QueryResult> cursorResult;
+        try (var cursor = new InMemoryQueueCursor(executor)) {
+            cursor.add(integer(42), integer(44), integer(46), integer(48));
+            cursorResult = cursor.getNext();
+            cursor.add(integer(1000)); // this is not part of the previous continuation, i.e. a continuation is a true snapshot.
+        } // cursor closed
+        final var continuationBytes = cursorResult.getContinuation().toBytes();
+        assertNotNull(continuationBytes);
+        assertEquals(42, Objects.requireNonNull(cursorResult.get()).getDatum());
+        final var resumedCursor = new InMemoryQueueCursor(InMemoryQueueCursor.Continuation.from(continuationBytes));
+        assertQueryResults(ImmutableList.of(integer(44), integer(46), integer(48)), resumedCursor.asList().join(), false);
+        validateNoNextReason(resumedCursor);
     }
 
     private static class RandomRecordBuilder {
