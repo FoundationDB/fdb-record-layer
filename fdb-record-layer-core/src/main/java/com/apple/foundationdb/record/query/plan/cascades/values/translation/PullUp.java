@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +44,8 @@ import java.util.Set;
  * Chain to pull up {@link Value} trees through a series of relational expressions.
  */
 public class PullUp {
+    @Nullable
+    private final PullUp parentPullUp;
     @Nonnull
     private final CorrelationIdentifier baseAlias;
     @Nonnull
@@ -50,8 +53,11 @@ public class PullUp {
     @Nonnull
     private final Set<CorrelationIdentifier> constantAliases;
 
-    private PullUp(@Nonnull final CorrelationIdentifier baseAlias,
-                   @Nonnull final Value pullThroughValue, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    private PullUp(@Nullable PullUp parentPullUp,
+                   @Nonnull final CorrelationIdentifier baseAlias,
+                   @Nonnull final Value pullThroughValue,
+                   @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        this.parentPullUp = parentPullUp;
         this.baseAlias = baseAlias;
         this.pullThroughValue = pullThroughValue;
         this.constantAliases = ImmutableSet.copyOf(constantAliases);

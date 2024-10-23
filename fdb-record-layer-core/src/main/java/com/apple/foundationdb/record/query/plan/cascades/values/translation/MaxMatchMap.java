@@ -23,18 +23,14 @@ package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MaxMatchMapSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.util.pair.Pair;
-import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
@@ -43,7 +39,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -276,43 +271,27 @@ public class MaxMatchMap {
             return new RecursionResult(ImmutableBiMap.of(), resultCurrentValue, QueryPlanConstraint.tautology());
         }
 
-        //
-        // Try to match this 'modified' current query value again.
-        //
-        currentMatchingPair =
-                findMatchingCandidateValue(resultCurrentValue,
-                        candidateResultValue,
-                        valueEquivalence);
-        isFound = currentMatchingPair.getKey();
-        if (isFound.isTrue()) {
-            queryPlanConstraintsBuilder.add(isFound.getConstraint());
+        if (!areAllChildrenSame) {
             //
-            // We found a match to the candidate side, this supersedes everything that was already found in the
-            // subtree recursion.
+            // Try to match this 'modified' current query value again.
             //
-            return new RecursionResult(ImmutableBiMap.of(resultCurrentValue, Objects.requireNonNull(currentMatchingPair.getValue())),
-                    resultCurrentValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+            currentMatchingPair =
+                    findMatchingCandidateValue(resultCurrentValue,
+                            candidateResultValue,
+                            valueEquivalence);
+            isFound = currentMatchingPair.getKey();
+            if (isFound.isTrue()) {
+                queryPlanConstraintsBuilder.add(isFound.getConstraint());
+                //
+                // We found a match to the candidate side, this supersedes everything that was already found in the
+                // subtree recursion.
+                //
+                return new RecursionResult(ImmutableBiMap.of(resultCurrentValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+                        resultCurrentValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+            }
         }
-
         return new RecursionResult(resultValueMap, resultCurrentValue,
                 QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
-    }
-
-    @Nonnull
-    private static RecordConstructorValue expandValueToRcvOverFields(@Nonnull final Value quantifiedValue) {
-        final var resultType = quantifiedValue.getResultType();
-        Verify.verify(resultType.isRecord());
-        Verify.verify(resultType instanceof Type.Record);
-        final Type.Record resultRecordType = (Type.Record)resultType;
-
-        final List<Type.Record.Field> fields = Objects.requireNonNull(resultRecordType.getFields());
-        final var resultBuilder = ImmutableList.<Column<? extends Value>>builder();
-        for (int i = 0; i < fields.size(); i++) {
-            //final var field = fields.get(i);
-            resultBuilder.add(Column.unnamedOf(FieldValue.ofOrdinalNumberAndFuseIfPossible(quantifiedValue, i)));
-            //resultBuilder.add(Column.of(field, FieldValue.ofOrdinalNumberAndFuseIfPossible(quantifiedValue, i)));
-        }
-        return RecordConstructorValue.ofColumns(resultBuilder.build());
     }
 
     @Nonnull
