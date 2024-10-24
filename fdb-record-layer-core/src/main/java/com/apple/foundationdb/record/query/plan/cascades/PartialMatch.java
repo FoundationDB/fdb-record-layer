@@ -327,10 +327,10 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public PullUp nestPullUp(@Nonnull final PullUp pullUp, @Nonnull final CorrelationIdentifier baseAlias,
+    public PullUp nestPullUp(@Nonnull final PullUp pullUp,
                              @Nonnull final Quantifier nestingQuantifier) {
         final var candidateExpression = candidateRef.get();
-        final var pullUpVisitor = PullUp.nestingVisitor(pullUp, baseAlias, nestingQuantifier);
+        final var pullUpVisitor = PullUp.nestingVisitor(pullUp, nestingQuantifier);
         return pullUpVisitor.visit(candidateExpression);
     }
 

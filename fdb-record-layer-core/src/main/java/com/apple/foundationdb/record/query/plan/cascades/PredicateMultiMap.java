@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -84,7 +83,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -103,7 +102,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -114,10 +113,10 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
-        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull TranslationMap translationMap);
+        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull CorrelationIdentifier baseAlias);
 
         @Nonnull
-        static PredicateCompensationFunction of(@Nonnull final Function<TranslationMap, Set<QueryPredicate>> compensationFunction) {
+        static PredicateCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
             return new PredicateCompensationFunction() {
                 @Override
                 public boolean isNeeded() {
@@ -131,8 +130,8 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
-                    return compensationFunction.apply(translationMap);
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                    return compensationFunction.apply(baseAlias);
                 }
             };
         }

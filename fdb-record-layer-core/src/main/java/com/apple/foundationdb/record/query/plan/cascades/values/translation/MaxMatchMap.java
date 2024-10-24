@@ -104,19 +104,19 @@ public class MaxMatchMap {
     }
 
     @Nonnull
-    public Optional<Value> translateQueryValueMaybe(@Nonnull final CorrelationIdentifier candidateCorrelation) {
+    public Optional<Value> translateQueryValueMaybe(@Nonnull final CorrelationIdentifier candidateAlias) {
         final var candidateResultValue = getCandidateResultValue();
         final var pulledUpCandidateSide =
                 candidateResultValue.pullUp(mapping.values(),
                         AliasMap.emptyMap(),
-                        ImmutableSet.of(), candidateCorrelation);
+                        ImmutableSet.of(), candidateAlias);
         //
         // We now have the right side pulled up, specifically we have a map from each candidate value below,
-        // to a candidate value pulled up along the candidateCorrelation. We also have this max match map, which
+        // to a candidate value pulled up along the candidateAlias. We also have this max match map, which
         // encapsulates a map from query values to candidate value.
         // In other words we have in this max match map m1 := MAP(queryValues over q -> candidateValues over q') and
-        // we just computed m2 := MAP(candidateValues over p' -> candidateValues over candidateCorrelation). We now
-        // chain these two maps to get m1 ○ m2 := MAP(queryValues over q -> candidateValues over candidateCorrelation).
+        // we just computed m2 := MAP(candidateValues over p' -> candidateValues over candidateAlias). We now
+        // chain these two maps to get m1 ○ m2 := MAP(queryValues over q -> candidateValues over candidateAlias).
         // As we will use this map in the subsequent step to look up values over semantic equivalency using
         // equivalencesMap, we immediately create m1 ○ m2 using a boundEquivalence based on equivalencesMap.
         //
