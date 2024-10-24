@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -308,6 +309,12 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return commonPrimaryKeyFromChildren(unorderedUnionPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
+            return commonPrimaryKeyFromChildren(recursiveUnorderedUnionPlan);
         }
 
         @Nonnull

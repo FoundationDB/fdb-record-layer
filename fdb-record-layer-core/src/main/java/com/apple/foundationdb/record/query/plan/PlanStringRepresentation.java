@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -505,6 +506,10 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
         return appendItems(element.getChildren(), element.getDelimiter());
     }
 
+    @Nonnull PlanStringRepresentation visitRecursiveUnionPlan(@Nonnull RecordQueryRecursiveUnorderedUnionPlan element) {
+        return appendItems(element.getChildren(), " ↻∪ "); // U+21BB U+222A
+    }
+
     @Nonnull
     @Override
     public PlanStringRepresentation visitUnionOnKeyExpressionPlan(@Nonnull RecordQueryUnionOnKeyExpressionPlan element) {
@@ -538,6 +543,14 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     public PlanStringRepresentation visitUnorderedUnionPlan(@Nonnull RecordQueryUnorderedUnionPlan element) {
         return append("Unordered(")
                 .visitUnionPlan(element)
+                .append(")");
+    }
+
+    @Nonnull
+    @Override
+    public PlanStringRepresentation visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
+        return append("RecursiveUnordered(")
+                .visitRecursiveUnorderedUnionPlan(recursiveUnorderedUnionPlan)
                 .append(")");
     }
 

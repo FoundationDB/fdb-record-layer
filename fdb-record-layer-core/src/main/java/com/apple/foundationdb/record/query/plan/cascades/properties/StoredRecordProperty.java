@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -295,6 +296,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return storedRecordsFromChildren(unorderedUnionPlan).stream().allMatch(s -> s);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
+            return storedRecordsFromChildren(recursiveUnorderedUnionPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull

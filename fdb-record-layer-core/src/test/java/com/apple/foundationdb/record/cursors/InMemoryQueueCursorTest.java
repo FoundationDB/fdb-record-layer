@@ -256,6 +256,51 @@ public class InMemoryQueueCursorTest {
     }
 
     @Test
+    void recursionUsingDoubleBufferCursorWorksCorrectly() {
+        final var executor = TestExecutors.defaultThreadPool();
+        /*
+         *                1
+         *             /     \
+         *            10      20
+         *          / |  \    /  \
+         *         14 15 16  17  [18] <--- find path to root.
+         */
+        final var hierarchy = ImmutableMap.of(
+                1, -1, // -1 is a sentinel indicating that the current row represents the root.
+                10, 1,
+                20, 1,
+                14, 10,
+                15, 10,
+                16, 10,
+                17, 20,
+                18, 20
+        );
+        final ImmutableList.Builder<Integer> builder = ImmutableList.builder();
+        try (final var cursor = new DoubleBufferCursor(executor)) {
+
+            // seeding recursion, this represents the left leg of the recursive union
+            cursor.add(integer(18));
+
+            boolean reachedRoot = false;
+            while (!reachedRoot) {
+                RecordCursorResult<QueryResult> item = cursor.getNext();
+                while (item.hasNext()) {
+                    final var value = (Integer)Objects.requireNonNull(item.get()).getDatum();
+                    builder.add(value);
+                    if (value == -1) {
+                        reachedRoot = true;
+                        break;
+                    }
+                    cursor.add(integer(hierarchy.get(value))); // this is the join condition
+                    item = cursor.getNext();
+                }
+                cursor.flip();
+            }
+        }
+        assertEquals(ImmutableList.of(18, 20, 1, -1), builder.build());
+    }
+
+    @Test
     void continuationIsValidAfterClosingTheCursor() {
         final var executor = TestExecutors.defaultThreadPool();
         final RecordCursorResult<QueryResult> cursorResult;

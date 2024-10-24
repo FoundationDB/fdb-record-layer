@@ -65,6 +65,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -427,6 +428,8 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             return orderingFromSingleChild(unorderedPrimaryKeyDistinctPlan);
         }
 
+
+
         @Nonnull
         @Override
         public Ordering visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
@@ -548,6 +551,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
+            return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan element) {
             return Ordering.empty();
         }
 

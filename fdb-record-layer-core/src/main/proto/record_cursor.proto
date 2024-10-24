@@ -124,3 +124,9 @@ message MultidimensionalIndexScanContinuation {
 message InMemoryQueueContinuation {
     repeated bytes elements = 1;
 }
+
+message DoubleBufferContinuation {
+    optional bool firstIsReadBuffer = 1;
+    optional bytes firstContinuation = 2;
+    optional bytes secondContinuation = 3;
+}

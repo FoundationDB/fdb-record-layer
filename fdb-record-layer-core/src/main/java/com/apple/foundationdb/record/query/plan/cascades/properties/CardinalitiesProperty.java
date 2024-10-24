@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
@@ -76,6 +77,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -425,6 +427,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitRecordQueryUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
         return unionCardinalities(fromChildren(unorderedUnionPlan));
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
+        return new Cardinalities(unionCardinalities(fromChildren(recursiveUnorderedUnionPlan)).getMinCardinality(), Cardinality.unknownCardinality());
     }
 
     @Nonnull

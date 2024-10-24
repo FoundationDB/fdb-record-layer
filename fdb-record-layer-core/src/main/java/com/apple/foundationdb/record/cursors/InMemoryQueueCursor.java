@@ -182,22 +182,32 @@ public class InMemoryQueueCursor implements RecordCursor<QueryResult> {
 
         @Nonnull
         public static Continuation from(@Nonnull byte[] bytes) {
-            return fromInternal(null, bytes);
+            return from(ZeroCopyByteString.wrap(bytes));
+        }
+
+        @Nonnull
+        public static Continuation from(@Nonnull ByteString byteString) {
+            return fromInternal(null, byteString);
         }
 
         @Nonnull
         public static Continuation from(@Nonnull Descriptors.Descriptor descriptor, @Nonnull byte[] bytes) {
-            return fromInternal(descriptor, bytes);
+            return fromInternal(descriptor, ZeroCopyByteString.wrap(bytes));
         }
 
         @Nonnull
-        private static Continuation fromInternal(@Nullable Descriptors.Descriptor descriptor, @Nonnull byte[] bytes) {
+        public static Continuation from(@Nonnull Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
+            return fromInternal(descriptor, byteString);
+        }
+
+        @Nonnull
+        private static Continuation fromInternal(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString bytes) {
             final RecordCursorProto.InMemoryQueueContinuation inMemoryQueueContinuation;
             try {
                 inMemoryQueueContinuation = RecordCursorProto.InMemoryQueueContinuation.parseFrom(bytes);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid continuation", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes.toByteArray()));
             }
             return new Continuation(inMemoryQueueContinuation.getElementsList().stream()
                     .map(element -> QueryResult.deserialize(descriptor,
