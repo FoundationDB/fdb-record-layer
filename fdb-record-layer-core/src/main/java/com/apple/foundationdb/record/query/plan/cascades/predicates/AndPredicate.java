@@ -137,9 +137,10 @@ public class AndPredicate extends AndOrPredicate {
         }
 
         return PredicateCompensationFunction.of(
-                translationMap -> childrenResults.stream()
+                baseAlias -> childrenResults.stream()
                         .filter(PredicateCompensationFunction::isNeeded)
-                        .flatMap(compensationFunction -> compensationFunction.applyCompensationForPredicate(translationMap).stream())
+                        .flatMap(predicateCompensationFunction ->
+                                predicateCompensationFunction.applyCompensationForPredicate(baseAlias).stream())
                         .collect(LinkedIdentitySet.toLinkedIdentitySet()));
     }
 

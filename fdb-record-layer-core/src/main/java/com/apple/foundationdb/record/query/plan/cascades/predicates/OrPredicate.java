@@ -368,11 +368,11 @@ public class OrPredicate extends AndOrPredicate {
             return PredicateCompensationFunction.noCompensationNeeded();
         }
 
-        return PredicateCompensationFunction.of(translationMap -> {
+        return PredicateCompensationFunction.of(baseAlias -> {
             final var childPredicatesList =
                     childrenResults.stream()
                             .filter(PredicateCompensationFunction::isNeeded)
-                            .map(compensationFunction -> compensationFunction.applyCompensationForPredicate(translationMap))
+                            .map(predicateCompensationFunction -> predicateCompensationFunction.applyCompensationForPredicate(baseAlias))
                             .collect(ImmutableList.toImmutableList());
             // take the predicates from each individual expansion, "and" them, and then "or" them
             final var predicates = LinkedIdentitySet.<QueryPredicate>of();

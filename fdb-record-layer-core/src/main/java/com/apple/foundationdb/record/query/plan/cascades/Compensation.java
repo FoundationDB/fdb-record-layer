@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -729,7 +728,7 @@ public interface Compensation {
         /**
          * When applied to a reference this method returns a {@link RelationalExpression} consuming the
          * reference passed in that applies additional predicates as expressed by the predicate compensation map.
-         * @param memoizer the the memoizer for new {@link Reference}s
+         * @param memoizer the memoizer for new {@link Reference}s
          * @param relationalExpression root of graph to apply compensation to
          * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
          * filters and/or transformations
@@ -758,10 +757,14 @@ public interface Compensation {
 
             Verify.verify(matchedForEachQuantifierAliases.size() <= 1);
 
+            final var matchedForEachQuantifierAlias =
+                    Iterables.getOnlyElement(matchedForEachQuantifierAliases);
+
             final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
             final var injectCompensationFunctions = predicateCompensationMap.values();
-            for (final var injectCompensationFunction : injectCompensationFunctions) {
-                compensatedPredicates.addAll(injectCompensationFunction.applyCompensationForPredicate(TranslationMap.empty()));
+            for (final var predicateCompensationFunction : injectCompensationFunctions) {
+                // TODO construct a translation map using matchedForEachQuantifierAlias as target
+                compensatedPredicates.addAll(predicateCompensationFunction.applyCompensationForPredicate(matchedForEachQuantifierAlias));
             }
 
             final var compensatedPredicatesCorrelatedTo =
@@ -811,8 +814,6 @@ public interface Compensation {
             //
             // At this point we definitely need a new SELECT expression.
             //
-            final var matchedForEachQuantifierAlias =
-                    Iterables.getOnlyElement(matchedForEachQuantifierAliases);
             final var newBaseQuantifier =
                     Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
                             matchedForEachQuantifierAlias);

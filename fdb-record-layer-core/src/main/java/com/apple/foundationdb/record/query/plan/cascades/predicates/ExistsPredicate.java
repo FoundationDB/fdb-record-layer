@@ -37,10 +37,12 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
@@ -211,6 +213,15 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
         return computeCompensationFunction(partialMatch, boundParameterPrefixMap, pullUp);
     }
 
+    /**
+     * Compute compensation function. Note that this method needs to compute the original existential alias prior
+     * to translation to the index side which all predicates undergo during the matching process. For more details see
+     * {@link com.apple.foundationdb.record.query.plan.cascades.Compensation.ForMatch#apply(Memoizer, RelationalExpression)}.
+     * @param partialMatch partial match to compute the compensation for
+     * @param boundParameterPrefixMap the bound parameter prefix map
+     * @param pullUp the pull-up to be applied to the predicate.
+     * @return a new {@link PredicateCompensationFunction}
+     */
     @Nonnull
     private PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
@@ -221,13 +232,15 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                 childPartialMatchOptional.map(childPartialMatch ->
                         childPartialMatch.compensate(boundParameterPrefixMap, childPartialMatch.topPullUp()));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
+            // compute the query-side existential quantifier -- this is NOT the base quantifier of the compensation
+            // but one of the additionally pulled up quantifiers
             final var inverseMatchedAliasMap =
                     partialMatch.getMatchedAliasMap().inverse();
             final var queryExistentialAlias = inverseMatchedAliasMap.get(getExistentialAlias());
             if (queryExistentialAlias == null) {
                 return PredicateCompensationFunction.impossibleCompensation();
             }
-            return PredicateCompensationFunction.of(translationMap -> LinkedIdentitySet.of(new ExistsPredicate(queryExistentialAlias)));
+            return PredicateCompensationFunction.of(baseAlias -> LinkedIdentitySet.of(new ExistsPredicate(queryExistentialAlias)));
         }
         return PredicateCompensationFunction.noCompensationNeeded();
     }

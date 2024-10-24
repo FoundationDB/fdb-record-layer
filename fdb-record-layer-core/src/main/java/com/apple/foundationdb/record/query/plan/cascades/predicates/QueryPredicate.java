@@ -214,7 +214,9 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (childrenResults.stream().anyMatch(PredicateCompensationFunction::isImpossible)) {
             return PredicateCompensationFunction.impossibleCompensation();
         }
-        return PredicateCompensationFunction.of(translationMap -> LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(translationMap)));
+        return PredicateCompensationFunction.of(baseAlias ->
+                LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(
+                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias))));
     }
 
     /**
