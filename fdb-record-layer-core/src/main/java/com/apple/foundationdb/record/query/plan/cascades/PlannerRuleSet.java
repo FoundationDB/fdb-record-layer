@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLo
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTableQueueUnorderedScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUnorderedUnionRule;
@@ -134,6 +135,7 @@ public class PlannerRuleSet {
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
+            new ImplementTableQueueUnorderedScanRule(),
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),

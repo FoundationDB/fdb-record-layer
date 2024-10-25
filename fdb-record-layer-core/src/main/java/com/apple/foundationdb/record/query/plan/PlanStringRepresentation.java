@@ -58,6 +58,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -577,6 +578,14 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
         return visit(element.getChild())
                 .append(" ORDER BY ")
                 .append(element.getKey());
+    }
+
+    @Nonnull
+    @Override
+    public PlanStringRepresentation visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+        return append("TableQueue([")
+                .append(element.getResultValue())
+                .append("])");
     }
 
     @Nonnull

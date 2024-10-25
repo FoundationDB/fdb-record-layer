@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -179,6 +180,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
+            return false;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
             return false;
         }
 

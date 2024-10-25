@@ -1192,6 +1192,7 @@ message PRecordQueryPlan {
     PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 30;
     PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
     PRecordQueryUpdatePlan update_plan = 32;
+    PRecordQueryTableQueuePlan table_queue_plan = 33;
   }
 }
 
@@ -1359,6 +1360,19 @@ message PRecordQueryIndexPlan {
   optional bool strictly_sorted = 7;
   optional PType result_type = 8;
   optional PQueryPlanConstraint constraint = 9;
+}
+
+//
+// PRecordQueryTableQueuePlan
+//
+message PRecordQueryTableQueuePlan {
+  message PTableQueue {
+    optional bool firstIsReadBuffer = 1;
+    repeated bytes firstBuffer = 2;
+    repeated bytes secondBuffer = 3;
+  }
+  optional PType result_type = 1;
+  optional PTableQueue table_queue = 2;
 }
 
 message PIndexScanParameters {

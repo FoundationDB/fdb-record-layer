@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PQueryResult;
@@ -37,6 +38,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,6 +70,10 @@ public class QueryResult {
     //       the primary key from it correctly.
     @Nullable
     private final Tuple primaryKey;
+
+    // transient field that amortizes the calculation of the serialized form of this immutable object.
+    @Nullable
+    private ByteString cachedByteString;
 
     // transient field that amortizes the calculation of the serialized form of this immutable object.
     @Nullable
@@ -184,8 +190,8 @@ public class QueryResult {
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    public <M extends Message> byte[] serialize() {
-        if (cachedBytes == null) {
+    public <M extends Message> ByteString toByteString() {
+        if (cachedByteString == null) {
             final var builder = PQueryResult.newBuilder();
             if (datum instanceof FDBQueriedRecord) {
                 builder.setComplex(((FDBQueriedRecord<M>)datum).getRecord().toByteString());
@@ -194,21 +200,36 @@ public class QueryResult {
             } else {
                 builder.setPrimitive(PlanSerialization.valueObjectToProto(datum));
             }
-            cachedBytes = builder.build().toByteArray();
+            cachedByteString = builder.build().toByteString();
+        }
+        return cachedByteString;
+    }
+
+    @Nonnull
+    public byte[] toBytes() {
+        if (cachedBytes == null) {
+            cachedBytes = toByteString().toByteArray();
         }
         return cachedBytes;
     }
 
+
+
     @Nonnull
     public static QueryResult deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull byte[] bytes) {
+        return deserialize(descriptor, ZeroCopyByteString.wrap(bytes));
+    }
+
+    @Nonnull
+    public static QueryResult deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
         final PQueryResult parsed;
         try {
-            parsed = PQueryResult.parseFrom(bytes);
+            parsed = PQueryResult.parseFrom(byteString);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
         } catch (RecordCoreArgumentException ex) {
-            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
         }
         if (parsed.hasPrimitive()) {
             return QueryResult.ofComputed(PlanSerialization.protoToValueObject(parsed.getPrimitive()));
@@ -217,9 +238,9 @@ public class QueryResult {
                 return QueryResult.ofComputed(DynamicMessage.parseFrom(Verify.verifyNotNull(descriptor), parsed.getComplex()));
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid bytes", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
             } catch (RecordCoreArgumentException ex) {
-                throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
             }
         }
     }

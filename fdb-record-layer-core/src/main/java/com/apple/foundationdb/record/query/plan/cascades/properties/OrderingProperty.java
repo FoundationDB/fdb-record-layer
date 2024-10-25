@@ -70,6 +70,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -279,6 +280,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     PartiallyOrderedSet.of(
                             ImmutableSet.of(resultValue),
                             ImmutableSetMultimap.of()), true);
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+            return Ordering.empty();
         }
 
         @Nonnull

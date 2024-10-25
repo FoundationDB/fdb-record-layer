@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -75,6 +74,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -294,6 +294,12 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         public Derivations visitRangePlan(@Nonnull final RecordQueryRangePlan rangePlan) {
             final var values = ImmutableList.of(rangePlan.getResultValue());
             return new Derivations(values, values);
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan tableQueuePlan) {
+            return new Derivations(ImmutableList.of(tableQueuePlan.getResultValue()), ImmutableList.of());
         }
 
         @Nonnull

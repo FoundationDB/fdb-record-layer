@@ -114,6 +114,11 @@ public class NodeInfo {
             NodeIcon.DATA_ACCESS_OPERATOR,
             "Scan",
             "A scan operator loads a set of records from the database that are within the given range of primary keys.");
+    public static final NodeInfo TEMPORARY_TABLE = new NodeInfo(
+            "TemporaryTableOperator",
+            NodeIcon.DATA_ACCESS_OPERATOR,
+            "Scan",
+            "A scan operator loads a set of records from an in-memory temporary table.");
     public static final NodeInfo SCORE_FOR_RANK_OPERATOR = new NodeInfo(
             "ScoreForRankOperator",
             NodeIcon.DATA_ACCESS_OPERATOR,

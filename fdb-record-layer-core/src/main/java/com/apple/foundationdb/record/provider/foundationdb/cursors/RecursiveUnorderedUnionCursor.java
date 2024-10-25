@@ -23,11 +23,9 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.cursors.DoubleBufferCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,38 +33,49 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
  * TODO.
+ * @param <T>  the type of the parameter.
  */
-public class RecursiveUnorderedUnionCursor extends UnorderedUnionCursor<QueryResult> {
-    protected RecursiveUnorderedUnionCursor(@Nonnull List<MergeCursorState<QueryResult>> cursorStates,
+public class RecursiveUnorderedUnionCursor<T> extends UnorderedUnionCursor<T> {
+
+    @Nonnull
+    private final Consumer<RecordCursorProto.RecursiveUnionContinuation> continuationConsumer;
+
+    @Nonnull
+    private final Function<RecordCursorProto.UnionContinuation, RecordCursorProto.RecursiveUnionContinuation> continuationProducer;
+
+    protected RecursiveUnorderedUnionCursor(@Nonnull Consumer<RecordCursorProto.RecursiveUnionContinuation> continuationConsumer,
+                                            @Nonnull Function<RecordCursorProto.UnionContinuation, RecordCursorProto.RecursiveUnionContinuation> continuationProducer,
+                                            @Nonnull List<MergeCursorState<T>> cursorStates,
                                             @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
+        this.continuationConsumer = continuationConsumer;
+        this.continuationProducer = continuationProducer;
     }
 
     @Nonnull
     @Override
-    protected CompletableFuture<List<MergeCursorState<QueryResult>>> computeNextResultStates() {
+    protected CompletableFuture<List<MergeCursorState<T>>> computeNextResultStates() {
         final long startComputingStateTime = System.currentTimeMillis();
-        final List<MergeCursorState<QueryResult>> cursorStates = getCursorStates();
+        final List<MergeCursorState<T>> cursorStates = getCursorStates();
         final var recursionBaseCursorStates = cursorStates.subList(0, cursorStates.size() - 1);
-        AtomicReference<MergeCursorState<QueryResult>> nextStateRef = new AtomicReference<>();
-        final var recursiveCursor = (DoubleBufferCursor)cursorStates.get(1).getCursor();
+        AtomicReference<MergeCursorState<T>> nextStateRef = new AtomicReference<>();
         final var recursionCursorState = cursorStates.get(cursorStates.size() - 1);
         return AsyncUtil.whileTrue(() -> whenAny(recursionBaseCursorStates).thenApply(vignore -> {
             checkNextStateTimeout(startComputingStateTime);
-            MergeCursorState<QueryResult> nextState = null;
+            MergeCursorState<T> nextState = null;
             boolean allDone = true;
-            for (MergeCursorState<QueryResult> cursorState : cursorStates) {
+            for (MergeCursorState<T> cursorState : cursorStates) {
                 if (!MoreAsyncUtil.isCompletedNormally(cursorState.getOnNextFuture())) {
                     allDone = false;
                     continue;
                 }
-                final RecordCursorResult<QueryResult> result = cursorState.getResult();
+                final RecordCursorResult<T> result = cursorState.getResult();
                 if (result.hasNext()) {
-                    recursiveCursor.add(result.get());
                     // Found a cursor with an element.
                     allDone = false;
                     nextState = cursorState;
@@ -83,8 +92,8 @@ public class RecursiveUnorderedUnionCursor extends UnorderedUnionCursor<QueryRes
                         return  AsyncUtil.READY_FALSE;
                     }
                     final var result = recursionCursorState.getResult();
-                    if (!result.hasNext()) {
-                        recursiveCursor.flip();
+                    if (result.hasNext()) {
+                        nextStateRef.set(recursionCursorState);
                     }
                     return  AsyncUtil.READY_TRUE;
                 })
@@ -98,16 +107,13 @@ public class RecursiveUnorderedUnionCursor extends UnorderedUnionCursor<QueryRes
     }
 
     @Nonnull
-    public static RecursiveUnorderedUnionCursor create(
-            @Nonnull List<Function<byte[], RecordCursor<QueryResult>>> baseRecursionCursors,
-            @Nonnull Function<byte[] , RecordCursor<QueryResult>> recursiveCursor,
+    public static <T> RecursiveUnorderedUnionCursor<T> create(
+            @Nonnull Consumer<RecordCursorProto.RecursiveUnionContinuation> continuationConsumer,
+            @Nonnull Function<RecordCursorProto.UnionContinuation, RecordCursorProto.RecursiveUnionContinuation> continuationProducer,
+            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
-        final ImmutableList.Builder<Function<byte[], RecordCursor<QueryResult>>> cursorFunctionsBuilder = ImmutableList.builder();
-        cursorFunctionsBuilder.addAll(baseRecursionCursors);
-        cursorFunctionsBuilder.add(recursiveCursor);
-        final var cursorFunctions = cursorFunctionsBuilder.build();
         final var cursorStates = createCursorStates(cursorFunctions, continuation);
-        return new RecursiveUnorderedUnionCursor(cursorStates, timer);
+        return new RecursiveUnorderedUnionCursor<>(continuationConsumer, continuationProducer, cursorStates, timer);
     }
 }

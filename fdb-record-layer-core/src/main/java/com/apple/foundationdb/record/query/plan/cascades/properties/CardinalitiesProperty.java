@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
@@ -48,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableQueueScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
@@ -82,6 +82,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -559,6 +560,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
+    public Cardinalities visitTableQueueScanExpression(@Nonnull final TableQueueScanExpression element) {
+        return Cardinalities.unknownMaxCardinality();
+    }
+
+    @Nonnull
+    @Override
     public Cardinalities visitGroupByExpression(@Nonnull final GroupByExpression element) {
         // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
         // and return a single row comprising the aggregation(s) result
@@ -600,6 +607,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitRecordQuerySortPlan(@Nonnull final RecordQuerySortPlan querySortPlan) {
         return fromChild(querySortPlan);
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+        return Cardinalities.unknownMaxCardinality();
     }
 
     @Nonnull

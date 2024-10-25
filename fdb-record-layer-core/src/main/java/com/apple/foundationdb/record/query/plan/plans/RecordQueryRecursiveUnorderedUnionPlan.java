@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.cursors.RecursiveUnorderedUnionCursor;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -49,8 +48,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -93,27 +90,7 @@ public class RecordQueryRecursiveUnorderedUnionPlan implements RecordQueryPlanWi
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final ExecuteProperties childExecuteProperties;
-        // Can pass the limit down to all sides, since that is the most we'll take total.
-        if (executeProperties.getSkip() > 0) {
-            childExecuteProperties = executeProperties.clearSkipAndAdjustLimit();
-        } else {
-            childExecuteProperties = executeProperties;
-        }
-        final List<Function<byte[], RecordCursor<QueryResult>>> baseRecursionFunctions = baseRecursionQuantifiers.stream()
-                .map(Quantifier.Physical::getRangesOverPlan)
-                .map(childPlan -> (Function<byte[], RecordCursor<QueryResult>>)
-                        ((byte[] childContinuation) -> childPlan
-                                .executePlan(store, context, childContinuation, childExecuteProperties)))
-                .collect(Collectors.toList());
-        final Function<byte[], RecordCursor<QueryResult>> recursiveFunction =
-                ((byte[] childContinuation) -> recursiveQuantifier.getRangesOverPlan().executePlan(store, context, childContinuation, childExecuteProperties));
-
-        return RecursiveUnorderedUnionCursor.create(baseRecursionFunctions, recursiveFunction, continuation, store.getTimer())
-                ;
-//                .map(result -> {
-//                    recursiveQuantifier.getRangesOverPlan()
-//                });
+        return null;
     }
 
     @Nonnull
