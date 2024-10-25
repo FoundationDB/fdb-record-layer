@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  */
 public class NullableArrayTypeUtils {
     @Nonnull
-    private static final String REPEATED_FIELD_NAME = "values";
+    private static final String REPEATED_FIELD_NAME = "non_null_repeated_field_identifier";
 
     private NullableArrayTypeUtils() {
         throw new IllegalStateException("Utility class");
