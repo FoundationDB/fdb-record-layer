@@ -77,17 +77,17 @@ class TypeTest {
                             "TestRecords4WrapperProto.RestaurantRecord", TestRecords4WrapperProto.RestaurantRecord.newBuilder()
                                     .setRestNo(random.nextLong())
                                     .setName("randomString" + random.nextInt())
-                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build())
-                                    .setReviews(TestRecords4WrapperProto.RestaurantReviewList.newBuilder().addValues(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt()).build()).build())
+                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllNonNullRepeatedField(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build())
+                                    .setReviews(TestRecords4WrapperProto.RestaurantReviewList.newBuilder().addNonNullRepeatedField(TestRecords4WrapperProto.RestaurantReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt()).build()).build())
                                     .build()),
                     Arguments.of(
                             "TestRecords4WrapperProto.RestaurantComplexRecord", TestRecords4WrapperProto.RestaurantComplexRecord.newBuilder()
                                     .setRestNo(random.nextLong())
                                     .setName("randomString" + random.nextInt())
-                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build())
-                                    .setReviews(TestRecords4WrapperProto.RestaurantComplexReviewList.newBuilder().addValues(TestRecords4WrapperProto.RestaurantComplexReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt())
+                                    .setCustomer(TestRecords4WrapperProto.StringList.newBuilder().addAllNonNullRepeatedField(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt(), "randomString" + random.nextInt())).build())
+                                    .setReviews(TestRecords4WrapperProto.RestaurantComplexReviewList.newBuilder().addNonNullRepeatedField(TestRecords4WrapperProto.RestaurantComplexReview.newBuilder().setReviewer(random.nextInt()).setRating(random.nextInt())
                                             .setEndorsements(TestRecords4WrapperProto.ReviewerEndorsementsList.newBuilder()
-                                                    .addValues(TestRecords4WrapperProto.ReviewerEndorsements.newBuilder().setEndorsementId(random.nextInt()).setEndorsementText(TestRecords4WrapperProto.StringList.newBuilder().addAllValues(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt())))))))
+                                                    .addValues(TestRecords4WrapperProto.ReviewerEndorsements.newBuilder().setEndorsementId(random.nextInt()).setEndorsementText(TestRecords4WrapperProto.StringList.newBuilder().addAllNonNullRepeatedField(List.of("randomString" + random.nextInt(), "randomString" + random.nextInt())))))))
                                     .build()),
                     Arguments.of(
                             "TestRecords1Proto.MySimpleRecord", TestRecords1Proto.MySimpleRecord.newBuilder()

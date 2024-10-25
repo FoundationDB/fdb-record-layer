@@ -67,19 +67,19 @@ message RestaurantTag {
 }
 
 message StringList {
-  repeated string values = 1;
+  repeated string non_null_repeated_field = 1;
 }
 
 message RestaurantTagList {
-  repeated RestaurantTag values = 1;
+  repeated RestaurantTag non_null_repeated_field = 1;
 }
 
 message RestaurantReviewList {
-  repeated RestaurantReview values = 1;
+  repeated RestaurantReview non_null_repeated_field = 1;
 }
 
 message RestaurantComplexReviewList {
-  repeated RestaurantComplexReview values = 1;
+  repeated RestaurantComplexReview non_null_repeated_field = 1;
 }
 
 message RestaurantRecord {

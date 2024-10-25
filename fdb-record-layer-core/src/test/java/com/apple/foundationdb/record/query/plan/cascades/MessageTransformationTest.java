@@ -661,7 +661,7 @@ class MessageTransformationTest {
         Assertions.assertEquals("McDonald's", typedResult.getName());
         Assertions.assertEquals(1000L, typedResult.getRestNo());
         Assertions.assertTrue(typedResult.hasReviews());
-        final var reviews = typedResult.getReviews().getValuesList();
+        final var reviews = typedResult.getReviews().getNonNullRepeatedFieldList();
         Assertions.assertEquals(3, reviews.size());
         Assertions.assertEquals(1L, reviews.get(0).getReviewer());
         Assertions.assertEquals(10, reviews.get(0).getRating());
@@ -671,7 +671,7 @@ class MessageTransformationTest {
         Assertions.assertEquals(30, reviews.get(2).getRating());
         Assertions.assertFalse(typedResult.hasTags());
         Assertions.assertTrue(typedResult.hasCustomer());
-        final var customers = typedResult.getCustomer().getValuesList();
+        final var customers = typedResult.getCustomer().getNonNullRepeatedFieldList();
         Assertions.assertEquals("George", customers.get(0));
         Assertions.assertEquals("Charles", customers.get(1));
         Assertions.assertEquals("William", customers.get(2));
@@ -704,7 +704,7 @@ class MessageTransformationTest {
         Assertions.assertEquals("McDonald's", typedResult.getName());
         Assertions.assertEquals(1000L, typedResult.getRestNo());
         Assertions.assertTrue(typedResult.hasReviews());
-        final var reviews = typedResult.getReviews().getValuesList();
+        final var reviews = typedResult.getReviews().getNonNullRepeatedFieldList();
         Assertions.assertEquals(3, reviews.size());
         Assertions.assertEquals(1L, reviews.get(0).getReviewer());
         Assertions.assertEquals(10, reviews.get(0).getRating());
@@ -713,9 +713,9 @@ class MessageTransformationTest {
         Assertions.assertEquals(3L, reviews.get(2).getReviewer());
         Assertions.assertEquals(30, reviews.get(2).getRating());
         Assertions.assertTrue(typedResult.hasTags());
-        Assertions.assertTrue(typedResult.getTags().getValuesList().isEmpty());
+        Assertions.assertTrue(typedResult.getTags().getNonNullRepeatedFieldList().isEmpty());
         Assertions.assertTrue(typedResult.hasCustomer());
-        Assertions.assertTrue(typedResult.getCustomer().getValuesList().isEmpty());
+        Assertions.assertTrue(typedResult.getCustomer().getNonNullRepeatedFieldList().isEmpty());
     }
 
     /**
