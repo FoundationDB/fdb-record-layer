@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +44,7 @@ class DriverManagerTest {
     @BeforeEach
     public void beforeEach() throws SQLException {
         // Cleanup old drivers, if any,
-        final var oldDrivers = DriverManager.drivers().toList();
+        final var oldDrivers = DriverManager.drivers().collect(ImmutableList.toImmutableList());
         for (final var driver: oldDrivers) {
             DriverManager.deregisterDriver(driver);
         }
