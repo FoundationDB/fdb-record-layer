@@ -547,21 +547,137 @@ public class RecordQueryPlanner implements QueryPlanner {
         return withInJoin;
     }
 
+    private static final class PlanWithInExtractor {
+        @Nonnull
+        private final ScoredPlan plan;
+        @Nonnull
+        private final InExtractor inExtractor;
+
+        PlanWithInExtractor(@Nonnull ScoredPlan plan, @Nonnull InExtractor inExtractor) {
+            this.plan = plan;
+            this.inExtractor = inExtractor;
+        }
+    }
+
     @Nullable
     private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
-        int maxNumReplans = Math.max(getConfiguration().getMaxNumReplansForInToJoin(), 0);
-        boolean allowNonSargedInBindings = getConfiguration().getMaxNumReplansForInToJoin() < 0;
-        int numReplan = 0;
-        boolean progress = true;
-        ScoredPlan bestPlan = null;
-        while (numReplan <= maxNumReplans) {
-            bestPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), needOrdering);
-            if (bestPlan == null) {
+        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, needOrdering, getConfiguration().getMaxNumReplansForInToJoin());
+        if (planWithIn == null) {
+            return null;
+        }
+
+        final ScoredPlan bestPlan = planWithIn.plan;
+        final RecordQueryPlan wrapped = planWithIn.inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.getPlan(), bestPlan.includedRankComparisons, metaData));
+        ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
+        if (needOrdering) {
+            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(bestPlan.planOrderingKey, false);
+        }
+        return scoredPlan;
+    }
+
+    @Nullable
+    private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
+        final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, false, getConfiguration().getMaxNumReplansForInUnion());
+        if (planWithIn != null) {
+            final ScoredPlan scoredPlan = planWithIn.plan;
+            RecordQueryPlan inner = scoredPlan.getPlan();
+            boolean distinct = false;
+            if (inner instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
+                    inner instanceof RecordQueryUnorderedDistinctPlan) {
+                inner = ((RecordQueryPlanWithChild)inner).getChild();
+                distinct = true;
+            }
+            // Compute this _after_ taking off any Distinct.
+            // While these distinct plans are just like filters in that they do not affect the ordering of results, changing
+            // forPlan to handle them that way exposes problems elsewhere in attempting to do Union / Intersection with FanOut
+            // comparison keys, which is only valid against an index entry, not an actual record.
+            scoredPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, inner, planContext.commonPrimaryKey);
+            scoredPlan.planOrderingKey = planWithIn.inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
+            if (scoredPlan.planOrderingKey == null) {
                 return null;
             }
-            
+            @Nullable final KeyExpression candidateKey;
+            boolean candidateOnly;
+            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion()) {
+                candidateKey = planContext.query.getSort();
+                candidateOnly = false;
+            } else {
+                candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
+                candidateOnly = true;
+            }
+            final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, candidateOnly);
+            if (comparisonKey == null) {
+                return null;
+            }
+            final List<InSource> valuesSources = planWithIn.inExtractor.unionSources();
+            final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
+            if (distinct) {
+                // Put back in the Distinct with the same comparison key.
+                RecordQueryPlan distinctPlan = scoredPlan.getPlan() instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ?
+                                               new RecordQueryUnorderedPrimaryKeyDistinctPlan(union) :
+                                               new RecordQueryUnorderedDistinctPlan(union, ((RecordQueryUnorderedDistinctPlan)scoredPlan.getPlan()).getComparisonKey());
+                return new ScoredPlan(scoredPlan.score, distinctPlan);
+            } else {
+                return new ScoredPlan(scoredPlan.score, union);
+            }
+        }
+        return null;
+    }
+
+    private boolean isRankInComparison(@Nonnull PlanContext planContext, @Nonnull ComponentWithComparison comparison, @Nonnull String bindingName) {
+        if (!(comparison instanceof QueryRecordFunctionWithComparison)) {
+            return false;
+        }
+        QueryRecordFunctionWithComparison asEquals = (QueryRecordFunctionWithComparison)
+                comparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
+        return planContext.rankComparisons.getPlanComparison(asEquals) != null;
+    }
+
+    /**
+     * Plan a query with {@link Comparisons.Type#IN IN} comparisons transformed into
+     * {@link Comparisons.Type#EQUALS EQUALS} comparisons. This will call
+     * {@link #planExtractedInsFilterOnce(PlanContext, QueryComponent, boolean)} at least
+     * once. Depending on the value of {@code maxNumReplansConfig}, it may adjust the
+     * predicates extracted by the {@link InExtractor} and call it again. The calling method
+     * should then used the returned {@link InExtractor} to wrap the returned plan in an
+     * appropriate IN-join or IN-union plan.
+     *
+     * <p>
+     * The {@code maxNumReplansConfig} parameter should be taken from the {@link RecordQueryPlannerConfiguration}.
+     * Separate configuration values exist for IN-joins and IN-unions, mainly for plan stability
+     * reasons (they were introduced at different times, though they serve the same purpose). See
+     * the javadoc on the relevant configuration parameters for more details.
+     * </p>
+     *
+     * @param planContext the base plan context for the query
+     * @param inExtractor the original {@link InExtractor} for the query
+     * @param needOrdering whether the returned plan needs to have its ordering property set
+     * @param maxNumReplansConfig configuration property for how many times to replan the base filter
+     * @return the best plan for the filter with transformed INs along with the {@link InExtractor}
+     *    that constructed it or {@code null} if no plan is found
+     * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInToJoin()
+     * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInUnion()
+     */
+    private PlanWithInExtractor planExtractedInsFilter(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering, int maxNumReplansConfig) {
+        int maxNumReplans = Math.max(maxNumReplansConfig, 0);
+        boolean allowNonSargedInBindings = maxNumReplansConfig < 0;
+
+        int numReplan = 0;
+        boolean progress = true;
+        PlanWithInExtractor bestPlanAndIn = null;
+        while (numReplan <= maxNumReplans) {
+            ScoredPlan currentPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
+            if (currentPlan == null) {
+                // We were unable to get a plan. If this is the first time around, then bestPlanAndIn will still be
+                // null, as we were unable to plan the query at all. If this is one of the re-plans, then it turns
+                // out that we need some of the IN-clauses to be bound to construct a plan at all. Stop trying
+                // now so that we get some plan out the door
+                break;
+            }
+            bestPlanAndIn = new PlanWithInExtractor(currentPlan, inExtractor);
+
             final Set<String> inBindings = inExtractor.getInBindings();
-            final Set<String> sargedInBindings = bestPlan.getSargedInBindings();
+            final Set<String> sargedInBindings = currentPlan.getSargedInBindings();
             if (allowNonSargedInBindings || sargedInBindings.containsAll(inBindings)) {
                 break;
             }
@@ -580,91 +696,41 @@ public class RecordQueryPlanner implements QueryPlanner {
                 progress = false;
                 break;
             }
-                
+
             // Continue to re-plan with fewer in-clauses or exit the loop.
             numReplan ++;
-        }  
-        
+        }
+
         if (!progress || numReplan > maxNumReplans) {
             //
             // We exhausted all attempts to replan with fewer number of in clauses. Replan one last time with
             // 0 in-clauses.
             inExtractor = inExtractor.filter((componentWithComparison, inBinding) -> isRankInComparison(planContext, componentWithComparison, inBinding));
-            bestPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), needOrdering);
-            if (bestPlan == null) {
-                // This is borderline impossible.
-                return null;
+            ScoredPlan nextPlan = planExtractedInsFilterOnce(planContext, inExtractor.subFilter(), needOrdering);
+            if (nextPlan != null) {
+                bestPlanAndIn = new PlanWithInExtractor(nextPlan, inExtractor);
             }
         }
 
-        Verify.verifyNotNull(bestPlan);
-        
-        final RecordQueryPlan wrapped = inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.getPlan(), bestPlan.includedRankComparisons, metaData));
-        final ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
-        if (needOrdering) {
-            scoredPlan.planOrderingKey = inExtractor.adjustOrdering(bestPlan.planOrderingKey, false);
-        }
-        return scoredPlan;
+        return bestPlanAndIn;
     }
 
-    private boolean isRankInComparison(@Nonnull PlanContext planContext, @Nonnull ComponentWithComparison comparison, @Nonnull String bindingName) {
-        if (!(comparison instanceof QueryRecordFunctionWithComparison)) {
-            return false;
-        }
-        QueryRecordFunctionWithComparison asEquals = (QueryRecordFunctionWithComparison)
-                comparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
-        return planContext.rankComparisons.getPlanComparison(asEquals) != null;
-    }
-
+    /**
+     * Helper method for {@link #planExtractedInsFilter(PlanContext, InExtractor, boolean, int)}.
+     * The {@code filter} provided may differ from the {@link PlanContext#query}'s filter as some
+     * or all of its {@link Comparisons.Type#IN IN} comparisons may have been transformed into
+     * {@link Comparisons.Type#EQUALS EQUALS} comparisons by an {@link InExtractor}. This then
+     * plans the simpler query once. The calling method will then check to see how well the
+     * {@code IN}-comparisons have been planned, and it may issue replans if some of them have
+     * been planned suboptimally.
+     *
+     * @param planContext base context of the query planning
+     * @param filter filter to plan
+     * @param needOrdering whether the returned plan should have
+     * @return the best plan found for provided filter or {@code null} if none could be found
+     */
     @Nullable
-    private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
-        final ScoredPlan scoredPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), false);
-        if (scoredPlan != null) {
-            RecordQueryPlan inner = scoredPlan.getPlan();
-            boolean distinct = false;
-            if (inner instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
-                    inner instanceof RecordQueryUnorderedDistinctPlan) {
-                inner = ((RecordQueryPlanWithChild)inner).getChild();
-                distinct = true;
-            }
-            // Compute this _after_ taking off any Distinct.
-            // While these distinct plans are just like filters in that they do not affect the ordering of results, changing
-            // forPlan to handle them that way exposes problems elsewhere in attempting to do Union / Intersection with FanOut
-            // comparison keys, which is only valid against an index entry, not an actual record.
-            scoredPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, inner, planContext.commonPrimaryKey);
-            scoredPlan.planOrderingKey = inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
-            if (scoredPlan.planOrderingKey == null) {
-                return null;
-            }
-            @Nullable final KeyExpression candidateKey;
-            boolean candidateOnly;
-            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion()) {
-                candidateKey = planContext.query.getSort();
-                candidateOnly = false;
-            } else {
-                candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
-                candidateOnly = true;
-            }
-            final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, candidateOnly);
-            if (comparisonKey == null) {
-                return null;
-            }
-            final List<InSource> valuesSources = inExtractor.unionSources();
-            final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
-            if (distinct) {
-                // Put back in the Distinct with the same comparison key.
-                RecordQueryPlan distinctPlan = scoredPlan.getPlan() instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ?
-                                               new RecordQueryUnorderedPrimaryKeyDistinctPlan(union) :
-                                               new RecordQueryUnorderedDistinctPlan(union, ((RecordQueryUnorderedDistinctPlan)scoredPlan.getPlan()).getComparisonKey());
-                return new ScoredPlan(scoredPlan.score, distinctPlan);
-            } else {
-                return new ScoredPlan(scoredPlan.score, union);
-            }
-        }
-        return null;
-    }
-
-    private ScoredPlan planFilterForInJoin(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
+    private ScoredPlan planExtractedInsFilterOnce(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;

@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -374,6 +375,24 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
             final var childDerivations = derivationsFromSingleChild(firstOrDefaultPlan);
             final var childResultValues = childDerivations.getResultValues();
             final var onEmptyResultValue = firstOrDefaultPlan.getOnEmptyResultValue();
+            final var localValuesBuilder = ImmutableList.<Value>builder();
+            localValuesBuilder.addAll(childDerivations.getLocalValues());
+            for (final var childResultValue : childResultValues) {
+                final var resultsTranslationMap = TranslationMap.builder()
+                        .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
+                        .build();
+                localValuesBuilder.add(onEmptyResultValue.translateCorrelationsAndSimplify(resultsTranslationMap));
+            }
+            return new Derivations(childDerivations.getResultValues(), localValuesBuilder.build());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
+            final Quantifier rangesOver = Iterables.getOnlyElement(defaultOnEmptyPlan.getQuantifiers());
+            final var childDerivations = derivationsFromSingleChild(defaultOnEmptyPlan);
+            final var childResultValues = childDerivations.getResultValues();
+            final var onEmptyResultValue = defaultOnEmptyPlan.getOnEmptyResultValue();
             final var localValuesBuilder = ImmutableList.<Value>builder();
             localValuesBuilder.addAll(childDerivations.getLocalValues());
             for (final var childResultValue : childResultValues) {

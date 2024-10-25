@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -304,6 +305,13 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitRecordQueryFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
         return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
+        final var cardinalitiesFromChild = fromChild(defaultOnEmptyPlan);
+        return new Cardinalities(Cardinality.ofCardinality(1), cardinalitiesFromChild.maxCardinality);
     }
 
     @Nonnull

@@ -17,20 +17,20 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Missing subspace provider information added to `FDBRecordStore` logs [(Issue #2936)](https://github.com/FoundationDB/fdb-record-layer/issues/2936)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix concurrency issues with `MapPipelinedCursor.close` [(Issue #548)](https://github.com/FoundationDB/fdb-record-layer/issues/548)
+* **Bug fix** Fix concurrency issues with `FlatMapPipelinedCursor.close` [(Issue #2953)](https://github.com/FoundationDB/fdb-record-layer/issues/2953)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** avoid creating useless/redundant intersections when planning data access [(Issue #2940)](https://github.com/FoundationDB/fdb-record-layer/issues/2940)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Add more lucene exception handling tests [(Issue #2939)](https://github.com/FoundationDB/fdb-record-layer/issues/2939)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** indexer: Add information to "build index online" log message [(Issue #2946)](https://github.com/FoundationDB/fdb-record-layer/issues/2946)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,19 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.552.0
+
+* **Bug fix** Expand `ForEach` quantifier semantics [(Issue #2930)](https://github.com/FoundationDB/fdb-record-layer/issues/2930)
+* **Performance** The old planner can now be configured to avoid generating IN-union plans with IN-sources that are not pushed into the underlying scan [(Issue #2941)](https://github.com/FoundationDB/fdb-record-layer/issues/2941)
+* **Breaking change** Planning logic for IN-joins in the old planner means that some plans may change in scenarios where no index is able to be matched to the plan. Only users who have set the maximum number of replans for in-to-join planner configuration parameter to greater than or equal to 0 should be affected [(PR #2942)](https://github.com/FoundationDB/fdb-record-layer/pull/2942)
+
+### 3.4.551.0
+
+* **Bug fix** Missing subspace provider information added to `FDBRecordStore` logs [(Issue #2936)](https://github.com/FoundationDB/fdb-record-layer/issues/2936)
+* **Performance** avoid creating useless/redundant intersections when planning data access [(Issue #2940)](https://github.com/FoundationDB/fdb-record-layer/issues/2940)
+* **Feature** Add Lucene lock duration to store timer [(Issue #2951)](https://github.com/FoundationDB/fdb-record-layer/issues/2951)
+* **Feature** indexer: Add information to "build index online" log message [(Issue #2946)](https://github.com/FoundationDB/fdb-record-layer/issues/2946)
 
 ### 3.4.549.0
 

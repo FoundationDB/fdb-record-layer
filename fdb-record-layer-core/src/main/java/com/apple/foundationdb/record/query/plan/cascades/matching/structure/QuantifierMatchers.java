@@ -25,12 +25,14 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.members;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
 /**
  * Matchers for {@link Quantifier}s.
@@ -47,14 +49,14 @@ public class QuantifierMatchers {
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOver(@Nonnull final Class<Q> bindableClass,
                                                                              @Nonnull final BindingMatcher<? extends Collection<? extends RelationalExpression>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
+        return typedWithDownstream(bindableClass,
                 Extractor.of(q -> q.getRangesOver().getMembers(), name -> "rangesOver(getMembers(" + name + "))"),
                 downstream);
     }
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOverRef(@Nonnull final Class<Q> bindableClass,
                                                                                 @Nonnull final BindingMatcher<? extends Reference> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
+        return typedWithDownstream(bindableClass,
                 Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
                 downstream);
     }
@@ -115,8 +117,29 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmpty() {
+        return typedWithDownstream(Quantifier.ForEach.class,
+                Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
+                PrimitiveMatchers.equalsObject(true));
+    }
+
+    @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return ofTypeRangingOverRef(Quantifier.ForEach.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return typedWithDownstream(Quantifier.ForEach.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(Quantifier.ForEach.class,
+                        ImmutableList.of(
+                                typedWithDownstream(Quantifier.ForEach.class,
+                                        Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
+                                        PrimitiveMatchers.equalsObject(true)),
+                                typedWithDownstream(Quantifier.ForEach.class,
+                                        Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
+                                        downstream))));
     }
 
     @Nonnull

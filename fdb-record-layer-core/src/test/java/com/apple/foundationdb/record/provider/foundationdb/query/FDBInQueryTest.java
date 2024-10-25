@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -82,6 +83,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -92,7 +94,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.PlanHashable.CURRENT_FOR_CONTINUATION;
@@ -112,8 +117,10 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparison;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.notPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
@@ -140,6 +147,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnExpressionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnValuesPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.isNotReverse;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.isReverse;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
@@ -153,6 +162,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -2510,12 +2520,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1359269242, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
-    @ParameterizedTest(name = "testInQueryWithNonSargableReplan [shouldReplan = {0}]")
-    @BooleanSource
-    void testInQueryWithNonSargableReplan(final boolean shouldReplan) throws Exception {
+    @ParameterizedTest(name = "testInQueryWithNonSargableReplan [maxReplans = {0}]")
+    @ValueSource(ints = {-1, 0, 1})
+    void testInQueryWithNonSargableReplan(final int maxReplans) throws Exception {
         complexQuerySetup(NO_HOOK);
 
-        planner.setConfiguration(planner.getConfiguration().asBuilder().setMaxNumReplansForInToJoin(shouldReplan ? 1 : 0).build());
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setMaxNumReplansForInToJoin(maxReplans).build());
         final var inListNumValue3Indexed = List.of(1, 3, 5, 7, 9);
         final var inListNumValue2 = List.of(2, 4, 6, 8);
         final var filter = Query.and(
@@ -2529,7 +2539,25 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         RecordQueryPlan plan = planQuery(query);
-        if (shouldReplan) {
+        if (maxReplans <= 0) {
+            // When replans is less than 0, we allow non-sargable INs to be put into the plan.
+            // When replans is equal to 0, we'd normally not allow this plan, except that the
+            //   only other plan would require a full store scan as it's unable to push down any
+            //   predicate to an index. Given the choice between the two, we somewhat arbitrarily
+            //   choose the plan that is able to match _some_ index
+            assertMatchesExactly(plan,
+                    inValuesJoinPlan(
+                            inValuesJoinPlan(
+                                    filterPlan(
+                                            indexPlan()
+                                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                                    .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__1]")))
+                                    )
+                            ).where(inValuesList(equalsObject(inListNumValue3Indexed)))
+                    ).where(inValuesList(equalsObject(inListNumValue2))));
+            assertEquals(-1089392549, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(235769639, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
             // With replanning we plan one IN as a JOIN over an index using that IN-bound equaltiy predicate
             // and the other one as a residual IN.
             assertMatchesExactly(plan,
@@ -2542,15 +2570,280 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     ).where(inValuesList(equalsObject(inListNumValue3Indexed))));
             assertEquals(-440990190, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(529154549, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest(name = "testInUnionWithNonSargable[replans={0}]")
+    @ValueSource(ints = {-1, 0, 1})
+    void testInUnionWithNonSargable(int replans) throws Exception {
+        complexQuerySetup(NO_HOOK);
+
+        planner.setConfiguration(planner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsUnionMaxSize(100)
+                .setOmitPrimaryKeyInOrderingKeyForInUnion(true)
+                .setMaxNumReplansForInUnion(replans)
+                .build());
+        final var inFilter = Query.field("num_value_2").in(List.of(1, 3, 5, 7, 9));
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(inFilter)
+                .setSort(field("num_value_3_indexed"))
+                .build();
+
+        RecordQueryPlan plan = planQuery(query);
+
+        // Make sure we do not plan the IN as a union and that we don't fall back to a primary scan but use an
+        // index.
+        if (useCascadesPlanner) {
+            assertMatchesExactly(plan,
+                    predicatesFilterPlan(
+                            indexPlan()
+                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                    .and(scanComparisons(unbounded())))
+                            .where(predicates(only(valuePredicate(anyValue(), new Comparisons.ListComparison(Comparisons.Type.IN, List.of(1, 3, 5, 7, 9)))))));
+            assertEquals(-441605751, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1552275015, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
-            // Without any replanning we plan with both IN predicates in a residual filter.
             assertMatchesExactly(plan,
                     filterPlan(
-                            typeFilterPlan(
-                                    scanPlan().where(scanComparisons(unbounded()))))
-                            .where(queryComponents(only(equalsObject(filter)))));
-            assertEquals(-898685565, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1176593054, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                            indexPlan()
+                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                    .and(scanComparisons(unbounded())))
+                            .where(queryComponents(only(equalsObject(inFilter)))));
+            assertEquals(1975903190, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1012163023, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest(name = "testInUnionWithSomeSargable[replans={0}]")
+    @ValueSource(ints = {-2, -1, 0, 1})
+    void testInUnionWithSomeSargable(int replans) throws Exception {
+        final Index numValue2Then3Index = new Index("numValue2NumValue3", concatenateFields("num_value_2", "num_value_3_indexed"));
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", numValue2Then3Index);
+        complexQuerySetup(hook);
+
+        var plannerConfigBuilder = planner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsUnionMaxSize(100)
+                .setOmitPrimaryKeyInOrderingKeyForInUnion(true)
+                .setMaxNumReplansForInUnion(replans);
+        planner.setConfiguration(plannerConfigBuilder.build());
+        final var inFilter1 = Query.field("num_value_2").in("nv2_list");
+        final var inFilter2 = Query.field("str_value_indexed").in("str_list");
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(inFilter1, inFilter2))
+                .setSort(field("num_value_3_indexed"))
+                .build();
+
+        RecordQueryPlan plan = planQuery(query);
+
+        if (useCascadesPlanner) {
+            // This is a suboptimal plan!
+            // In iterates over both IN-values even though only one of the associated predicate is only sargable
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/2950
+            assertMatchesExactly(plan,
+                    inUnionOnValuesPlan(
+                            predicatesFilterPlan(
+                                    indexPlan()
+                                            .where(indexName(numValue2Then3Index.getName()))
+                                            .and(scanComparisons(equalities(only(anyComparison())))))
+                                    .where(predicates(only(anyObject()))))
+                            .where(inUnionValuesSources(exactly(inUnionInParameter(equalsObject("nv2_list")), inUnionInParameter(equalsObject("str_list"))))));
+            assertEquals(1054186198, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1446801539, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else if (replans < 0) {
+            // This is a suboptimal plan!
+            // In iterates over both IN-values even though only one of the associated predicate is only sargable
+            assertMatchesExactly(plan,
+                    inUnionOnExpressionPlan(
+                            filterPlan(
+                                    indexPlan()
+                                            .where(indexName(numValue2Then3Index.getName()))
+                                            .and(scanComparisons(equalities(only(anyComparison())))))
+                                    .where(queryComponents(only(anyObject()))))
+                            .where(inUnionValuesSources(exactly(inUnionInParameter(equalsObject("nv2_list")), inUnionInParameter(equalsObject("str_list"))))));
+            assertEquals(-973899527, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-800664582, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else if (replans == 0) {
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            indexPlan()
+                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                    .and(scanComparisons(unbounded())))
+                            .where(queryComponents(exactly(equalsObject(inFilter1), equalsObject(inFilter2)))));
+            assertEquals(1049316343, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(339484528, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
+            // This is the optimal plan. It pushes down the sargable IN-predicate into the index, and then it
+            // uses a single filter for the non-sargable IN-union predicate
+            assertMatchesExactly(plan,
+                    inUnionOnExpressionPlan(
+                            filterPlan(
+                                    indexPlan()
+                                            .where(indexName(numValue2Then3Index.getName()))
+                                            .and(scanComparisons(equalities(only(anyComparison())))))
+                                    .where(queryComponents(only(equalsObject(inFilter2)))))
+                            .where(inUnionValuesSources(only(inUnionInParameter(equalsObject("nv2_list"))))));
+            assertEquals(-273024096, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1756350645, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+
+        final List<Integer> nv2List = List.of(0, 2);
+        final Consumer<TestRecords1Proto.MySimpleRecord> numValue2Check = simpleRecord -> assertThat(simpleRecord.getNumValue2(), in(nv2List));
+        final Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey = simpleRecord -> Tuple.from(simpleRecord.getNumValue3Indexed());
+        final Bindings base = Bindings.newBuilder().set("nv2_list", nv2List).build();
+        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(UsedTypesProperty.evaluate(plan)).build();
+        assertEquals(34,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even")).build(), typeRepository),
+                        simpleRecord -> {
+                            numValue2Check.accept(simpleRecord);
+                            assertEquals("even", simpleRecord.getStrValueIndexed());
+                        },
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(!useCascadesPlanner && replans == 0 ? 66 : 33, context))
+        );
+        assertEquals(33,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("odd")).build(), typeRepository),
+                        simpleRecord -> {
+                            numValue2Check.accept(simpleRecord);
+                            assertEquals("odd", simpleRecord.getStrValueIndexed());
+                        },
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(!useCascadesPlanner && replans == 0 ? 68 : 34, context))
+        );
+        assertEquals(67,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even", "odd", "other")).build(), typeRepository),
+                        numValue2Check::accept,
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(!useCascadesPlanner && replans > 0 ? 0 : 134, context))
+        );
+    }
+
+    @Nonnull
+    static Stream<Arguments> testInUnionWithIntersectionOnTwoPredicates() {
+        return IntStream.range(-1, 2).boxed().flatMap(replans ->
+                Stream.of(false, true).map(dropNumValue3Index ->
+                        Arguments.of(replans, dropNumValue3Index)));
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest(name = "testInUnionWithSomeSargable[replans={0}, dropNumValue3Index={1}]")
+    @MethodSource
+    void testInUnionWithIntersectionOnTwoPredicates(int replans, boolean dropNumValue3Index) throws Exception {
+        final Index numValue2Then3Index = new Index("numValue2NumValue3", concatenateFields("num_value_2", "num_value_3_indexed"));
+        final Index strValueThen3Index = new Index("strValueNumValue3", concatenateFields("str_value_indexed", "num_value_3_indexed"));
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex("MySimpleRecord", numValue2Then3Index);
+            metaDataBuilder.addIndex("MySimpleRecord", strValueThen3Index);
+            if (dropNumValue3Index) {
+                metaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
+            }
+        };
+        complexQuerySetup(hook);
+
+        var plannerConfigBuilder = planner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsUnionMaxSize(100)
+                .setOmitPrimaryKeyInOrderingKeyForInUnion(true)
+                .setMaxNumReplansForInUnion(replans);
+        planner.setConfiguration(plannerConfigBuilder.build());
+        final var inFilter1 = Query.field("num_value_2").in("nv2_list");
+        final var inFilter2 = Query.field("str_value_indexed").in("str_list");
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(inFilter1, inFilter2))
+                .setSort(field("num_value_3_indexed"))
+                .build();
+
+        RecordQueryPlan plan = planQuery(query);
+        boolean singleIndexScan;
+
+        if (useCascadesPlanner) {
+            // The Cascades planner always goes with the union. Note that it splits the in-union in twain rather than
+            //
+            assertMatchesExactly(plan,
+                    inUnionOnValuesPlan(
+                            inUnionOnValuesPlan(
+                                    fetchFromPartialRecordPlan(
+                                            intersectionOnValuesPlan(
+                                                    coveringIndexPlan().where(indexPlanOf(
+                                                            indexPlan().where(indexName(numValue2Then3Index.getName())).and(scanComparisons(equalities(only(anyComparison()))))
+                                                    )),
+                                                    coveringIndexPlan().where(indexPlanOf(
+                                                            indexPlan().where(indexName(strValueThen3Index.getName())).and(scanComparisons(equalities(only(anyComparison()))))
+                                                    ))
+                                            )
+                                    )
+                            ).where(inUnionValuesSources(only(inUnionInParameter(equalsObject("str_list")))))
+                    ).where(inUnionValuesSources(only(inUnionInParameter(equalsObject("nv2_list"))))));
+            assertEquals(-1515083625, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1918411257, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            singleIndexScan = false;
+        } else if (replans < 0 || dropNumValue3Index) {
+            // Before replanning, we always end up with an intersection. Neither index alone is enough to satisfy both
+            // predicates, so both IN comparisons are marked as not sargable.
+            // If the num_value_3 index has been dropped, then we do not have any good way of satisfying, so we have
+            // to go with the original plan.
+            assertMatchesExactly(plan,
+                    inUnionOnExpressionPlan(
+                            intersectionOnExpressionPlan(
+                                    indexPlan().where(indexName(numValue2Then3Index.getName())).and(scanComparisons(equalities(only(anyComparison())))),
+                                    indexPlan().where(indexName(strValueThen3Index.getName())).and(scanComparisons(equalities(only(anyComparison()))))
+                            )
+                    ).where(inUnionValuesSources(exactly(inUnionInParameter(equalsObject("nv2_list")), inUnionInParameter(equalsObject("str_list"))))));
+            assertEquals(588134458, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1963741158, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            singleIndexScan = false;
+        } else {
+            // If we have the num_value_3_indexed index available, we should use it.
+            // This is one of those times where we have trouble determining which plan is actually better, and
+            // it may depend on the actual shape of the data.
+            assertMatchesExactly(plan,
+                    filterPlan(
+                            indexPlan()
+                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                    .and(scanComparisons(unbounded())))
+                            .where(queryComponents(exactly(equalsObject(inFilter1), equalsObject(inFilter2)))));
+            assertEquals(1049316343, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(339484528, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            singleIndexScan = true;
+        }
+
+        final List<Integer> nv2List = List.of(0, 2);
+        final Consumer<TestRecords1Proto.MySimpleRecord> numValue2Check = simpleRecord -> assertThat(simpleRecord.getNumValue2(), in(nv2List));
+        final Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey = simpleRecord -> Tuple.from(simpleRecord.getNumValue3Indexed());
+        final Bindings base = Bindings.newBuilder().set("nv2_list", nv2List).build();
+        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(UsedTypesProperty.evaluate(plan)).build();
+        assertEquals(34,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even")).build(), typeRepository),
+                        simpleRecord -> {
+                            numValue2Check.accept(simpleRecord);
+                            assertEquals("even", simpleRecord.getStrValueIndexed());
+                        },
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(singleIndexScan ? 66 : 97, context))
+        );
+        assertEquals(33,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("odd")).build(), typeRepository),
+                        simpleRecord -> {
+                            numValue2Check.accept(simpleRecord);
+                            assertEquals("odd", simpleRecord.getStrValueIndexed());
+                        },
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(singleIndexScan ? 67 : 100, context))
+        );
+        assertEquals(67,
+                querySimpleRecordStore(hook, plan,
+                        () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even", "odd", "other")).build(), typeRepository),
+                        numValue2Check::accept,
+                        sortKey, false,
+                        context -> TestHelpers.assertDiscardedAtMost(singleIndexScan ? 33 : 197, context))
+        );
     }
 }
