@@ -236,14 +236,21 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                 childPartialMatchOptional.map(childPartialMatch ->
                         childPartialMatch.compensate(boundParameterPrefixMap, childPartialMatch.topPullUp()));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-            // compute the query-side existential quantifier -- this is NOT the base quantifier of the compensation
-            // but one of the additionally pulled up quantifiers
+            //
+            // Compute the query-side existential quantifier -- this is NOT the base quantifier of the compensation
+            // but one of the additionally pulled up quantifiers.
+            //
             final var inverseMatchedAliasMap =
                     partialMatch.getMatchedAliasMap().inverse();
             final var queryExistentialAlias = inverseMatchedAliasMap.get(getExistentialAlias());
             if (queryExistentialAlias == null) {
                 return PredicateCompensationFunction.impossibleCompensation();
             }
+
+            //
+            // Note that this predicate does NOT need to be pulled up as the existential quantifier is separately
+            // added in.
+            //
             return PredicateCompensationFunction.of(baseAlias -> LinkedIdentitySet.of(new ExistsPredicate(queryExistentialAlias)));
         }
         return PredicateCompensationFunction.noCompensationNeeded();

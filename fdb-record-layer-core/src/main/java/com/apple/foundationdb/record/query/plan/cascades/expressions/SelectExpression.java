@@ -750,7 +750,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 .map(childPartialMatch -> {
                                     final var childPullUp =
                                             childPartialMatch.nestPullUp(pullUp,
-                                                    quantifier.getAlias(),
                                                     Objects.requireNonNull(matchedQuantifierMap.get(quantifier)));
                                     return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
                                 }).stream())

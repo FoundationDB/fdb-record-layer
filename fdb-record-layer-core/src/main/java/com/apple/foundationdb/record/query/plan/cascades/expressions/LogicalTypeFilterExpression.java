@@ -154,7 +154,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                         .getChildPartialMatchMaybe(inner)
                         .orElseThrow(() -> new RecordCoreException("expected a match child")));
         final var childPullUp =
-                childPartialMatch.nestPullUp(pullUp, inner.getAlias(),
+                childPartialMatch.nestPullUp(pullUp,
                         Objects.requireNonNull(partialMatch.getMatchedQuantifierMap().get(inner)));
         return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
     }

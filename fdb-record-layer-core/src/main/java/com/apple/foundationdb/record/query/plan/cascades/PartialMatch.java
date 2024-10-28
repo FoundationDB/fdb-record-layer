@@ -321,7 +321,6 @@ public class PartialMatch {
     @Nonnull
     public PullUp topPullUp() {
         final var candidateExpression = candidateRef.get();
-        // TODO
         final var pullUpVisitor = PullUp.topVisitor(CorrelationIdentifier.uniqueID());
         return pullUpVisitor.visit(candidateExpression);
     }

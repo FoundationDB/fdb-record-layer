@@ -118,7 +118,6 @@ public class PullUp {
 
     @Nonnull
     public Optional<Value> pullUp(@Nonnull final Value value) {
-
         //
         // The following loop would probably be more self-explanatory if it were written as a recursion but
         // this unrolled version probably performs better as this may prove to be a tight loop.
@@ -132,10 +131,11 @@ public class PullUp {
             if (currentValueOptional.isEmpty()) {
                 return Optional.empty();
             }
-            currentValue = currentValueOptional.get();
+            currentValue = currentValueOptional.get()
+                    .simplify(AliasMap.emptyMap(), currentPullUp.getConstantAliases());
 
             if (currentPullUp.getParentPullUp() == null) {
-                return Optional.of(currentValue.simplify(AliasMap.emptyMap(), currentPullUp.getConstantAliases()));
+                return Optional.of(currentValue);
             }
             currentPullUp = currentPullUp.getParentPullUp();
         }
