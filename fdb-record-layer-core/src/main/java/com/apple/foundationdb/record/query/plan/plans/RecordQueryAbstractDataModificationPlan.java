@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -193,6 +192,11 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
+    protected <M extends Message> Descriptors.Descriptor getTargetDescriptor(@Nonnull final FDBRecordStoreBase<M> store) {
+        return store.getRecordMetaData().getRecordType(targetRecordType).getDescriptor();
+    }
+
+    @Nonnull
     @Override
     @SuppressWarnings({"PMD.CloseResource", "resource"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -201,17 +205,17 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
-        final var targetDescriptor = store.getRecordMetaData().getRecordType(targetRecordType).getDescriptor();
+        final var targetDescriptor = getTargetDescriptor(store);
         return results
                 .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult, targetDescriptor)))
                 .mapPipelined(pair -> saveRecordAsync(store, pair.getRight(), executeProperties.isDryRun())
-                                .thenApply(storedRecord -> {
+                                .thenApply(queryResult -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(inner.getAlias(), pair.getLeft()) // pre-mutation
-                                            .setBinding(currentModifiedRecordAlias, storedRecord.getRecord()) // post-mutation
+                                            .setBinding(currentModifiedRecordAlias, queryResult.getMessage()) // post-mutation
                                             .build(context.getTypeRepository());
                                     final var result = computationValue.eval(store, nestedContext);
-                                    return QueryResult.ofComputed(result, storedRecord.getPrimaryKey());
+                                    return QueryResult.ofComputed(result, queryResult.getPrimaryKey());
                                 }),
                         store.getPipelineSize(getPipelineOperation()));
     }
@@ -235,7 +239,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message, boolean isDryRun);
+    public abstract <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message, boolean isDryRun);
 
     @Override
     public boolean isReverse() {

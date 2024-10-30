@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TqInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
@@ -38,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScan
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableQueueScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TqScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -275,12 +276,17 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<TqInsertExpression> tqInsertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(TqInsertExpression.class, only(downstream));
+    }
+
+    @Nonnull
     public static BindingMatcher<UpdateExpression> updateExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(UpdateExpression.class, only(downstream));
     }
 
     @Nonnull
-    public static BindingMatcher<TableQueueScanExpression> tableQueueExpression() {
-        return ofTypeOwning(TableQueueScanExpression.class, CollectionMatcher.empty());
+    public static BindingMatcher<TqScanExpression> tqScanExpression() {
+        return ofTypeOwning(TqScanExpression.class, CollectionMatcher.empty());
     }
 }

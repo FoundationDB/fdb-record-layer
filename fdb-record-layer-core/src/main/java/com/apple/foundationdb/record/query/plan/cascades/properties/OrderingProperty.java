@@ -58,6 +58,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -66,12 +67,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -285,7 +285,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+        public Ordering visitTqScanPlan(@Nonnull final TqScanPlan element) {
             return Ordering.empty();
         }
 
@@ -298,6 +298,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+            return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitTqInsertPlan(@Nonnull final TqInsertPlan insertTableQueuePlan) {
             return Ordering.empty();
         }
 
@@ -565,12 +571,6 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
-            return Ordering.empty();
-        }
-
-        @Nonnull
-        @Override
-        public Ordering visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan element) {
             return Ordering.empty();
         }
 

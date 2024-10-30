@@ -1194,6 +1194,7 @@ message PRecordQueryPlan {
     PRecordQueryUpdatePlan update_plan = 32;
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
     PRecordQueryTableQueuePlan table_queue_plan = 34;
+    PRecordQueryInsertTableQueuePlan insert_table_query_plan = 35;
   }
 }
 
@@ -1375,13 +1376,13 @@ message PRecordQueryIndexPlan {
 // PRecordQueryTableQueuePlan
 //
 message PRecordQueryTableQueuePlan {
-  message PTableQueue {
-    optional bool firstIsReadBuffer = 1;
-    repeated bytes firstBuffer = 2;
-    repeated bytes secondBuffer = 3;
-  }
   optional PType result_type = 1;
   optional PTableQueue table_queue = 2;
+}
+
+message PTableQueue {
+  optional string name = 1;
+  repeated bytes bufferItems = 2;
 }
 
 message PIndexScanParameters {
@@ -1514,6 +1515,14 @@ message PRecordQueryInParameterJoinPlan {
 //
 message PRecordQueryInsertPlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+//
+// PRecordQueryInsertTableQueuePlan
+//
+message PRecordQueryInsertTableQueuePlan {
+  optional PRecordQueryAbstractDataModificationPlan super = 1;
+  optional PTableQueue table_queue = 2;
 }
 
 //

@@ -388,6 +388,26 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
+     * Node class for temporary data objects.
+     */
+    public static class TemporaryDataNodeWithInfo extends DataNodeWithInfo {
+
+        public TemporaryDataNodeWithInfo(@Nonnull final Type type, @Nullable final List<String> sources) {
+            super(NodeInfo.TEMPORARY_BUFFER_DATA, type, sources);
+        }
+
+        public TemporaryDataNodeWithInfo(@Nonnull Type type, @Nullable final List<String> sources, @Nonnull final Map<String, Attribute> additionalAttributes) {
+            super(NodeInfo.TEMPORARY_BUFFER_DATA, type, sources, additionalAttributes);
+        }
+
+        @Nonnull
+        @Override
+        public String getFillColor() {
+            return "goldenrod2";
+        }
+    }
+
+    /**
      * Node class for actual plan operators.
      */
     @SuppressWarnings("squid:S2160")

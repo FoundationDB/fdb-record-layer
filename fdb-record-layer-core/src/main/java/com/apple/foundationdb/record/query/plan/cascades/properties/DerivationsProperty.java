@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -69,13 +70,12 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithCompari
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -299,7 +299,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
-        public Derivations visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan tableQueuePlan) {
+        public Derivations visitTqScanPlan(@Nonnull final TqScanPlan tableQueuePlan) {
             return new Derivations(ImmutableList.of(tableQueuePlan.getResultValue()), ImmutableList.of());
         }
 
@@ -317,6 +317,28 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Nonnull
         @Override
         public Derivations visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+            final Quantifier rangesOver = Iterables.getOnlyElement(insertPlan.getQuantifiers());
+            final var childDerivations = derivationsFromQuantifier(rangesOver);
+            final var childResultValues = childDerivations.getResultValues();
+            final var computationValue = insertPlan.getComputationValue();
+
+            final var resultValuesBuilder = ImmutableList.<Value>builder();
+            final var localValuesBuilder = ImmutableList.<Value>builder();
+            localValuesBuilder.addAll(childDerivations.getLocalValues());
+            for (final var childResultValue : childResultValues) {
+                final var resultsTranslationMap = TranslationMap.builder()
+                        .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
+                        .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(insertPlan.getTargetRecordType())))
+                        .build();
+                resultValuesBuilder.add(computationValue.translateCorrelationsAndSimplify(resultsTranslationMap));
+            }
+            return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitTqInsertPlan(@Nonnull final TqInsertPlan insertPlan) {
+            // this is copied from visitInsertPlan.
             final Quantifier rangesOver = Iterables.getOnlyElement(insertPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
             final var childResultValues = childDerivations.getResultValues();
@@ -660,12 +682,6 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Override
         public Derivations visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return visitSetPlan(unorderedUnionPlan);
-        }
-
-        @Nonnull
-        @Override
-        public Derivations visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
-            return visitSetPlan(recursiveUnorderedUnionPlan);
         }
 
         @Nonnull

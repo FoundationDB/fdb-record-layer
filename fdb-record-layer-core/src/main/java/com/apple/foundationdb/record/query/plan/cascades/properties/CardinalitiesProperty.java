@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TqInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
@@ -47,7 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableQueueScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TqScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
@@ -72,18 +73,18 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -243,6 +244,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitRecordQueryInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
         return fromChild(insertPlan);
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitTqInsertPlan(@Nonnull final TqInsertPlan insertTableQueuePlan) {
+        return fromChild(insertTableQueuePlan);
     }
 
     @Nonnull
@@ -440,12 +447,6 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitRecordQueryRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
-        return new Cardinalities(unionCardinalities(fromChildren(recursiveUnorderedUnionPlan)).getMinCardinality(), Cardinality.unknownCardinality());
-    }
-
-    @Nonnull
-    @Override
     public Cardinalities visitRecordQueryScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
         final var matchCandidateOptional = scanPlan.getMatchCandidateMaybe();
         if (matchCandidateOptional.isEmpty()) {
@@ -500,6 +501,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitInsertExpression(@Nonnull final InsertExpression insertExpression) {
         return fromChild(insertExpression);
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitTqInsertExpression(@Nonnull final TqInsertExpression insertTableQueue) {
+        return fromChild(insertTableQueue);
     }
 
     @Nonnull
@@ -568,7 +575,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitTableQueueScanExpression(@Nonnull final TableQueueScanExpression element) {
+    public Cardinalities visitTqScanExpression(@Nonnull final TqScanExpression element) {
         return Cardinalities.unknownMaxCardinality();
     }
 
@@ -619,7 +626,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitRecordQueryTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+    public Cardinalities visitTqScanPlan(@Nonnull final TqScanPlan element) {
         return Cardinalities.unknownMaxCardinality();
     }
 

@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -55,12 +56,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -198,7 +198,7 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
-        public Optional<List<Value>> visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+        public Optional<List<Value>> visitTqScanPlan(@Nonnull final TqScanPlan element) {
             return Optional.empty();
         }
 
@@ -212,6 +212,13 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
             // TODO make better
+            return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitTqInsertPlan(@Nonnull final TqInsertPlan insertTableQueuePlan) {
+            // table queues do not support primary key currently.
             return Optional.empty();
         }
 
@@ -323,12 +330,6 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return commonPrimaryKeyFromChildren(unorderedUnionPlan);
-        }
-
-        @Nonnull
-        @Override
-        public Optional<List<Value>> visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
-            return commonPrimaryKeyFromChildren(recursiveUnorderedUnionPlan);
         }
 
         @Nonnull

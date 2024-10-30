@@ -1,5 +1,5 @@
 /*
- * TableQueueUnorderedScanExpression.java
+ * TqScanExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -51,33 +50,26 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * TODO expand documentation.
+ * A logical expression for scanning from a temporary memory buffer {@link TableQueue}.
+ * This expression is used to implement a corresponding {@link com.apple.foundationdb.record.query.plan.plans.TqScanPlan} operator that
+ * does exactly that.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TableQueueScanExpression implements RelationalExpression, PlannerGraphRewritable {
+public class TqScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
     private final Type flowedType;
 
     @Nonnull
-    private final AccessHints accessHints;
-
-    @Nonnull
     private final TableQueue tableQueue;
 
-    public TableQueueScanExpression(@Nonnull final Type flowedType, @Nonnull final AccessHints accessHints) {
-        this(flowedType, accessHints, TableQueue.newInstance());
+    public TqScanExpression(@Nonnull final Type flowedType) {
+        this(flowedType, TableQueue.newInstance());
     }
 
-    public TableQueueScanExpression(@Nonnull final Type flowedType, @Nonnull final AccessHints accessHints,
-                                    @Nonnull final TableQueue tableQueue) {
+    public TqScanExpression(@Nonnull final Type flowedType,
+                            @Nonnull final TableQueue tableQueue) {
         this.flowedType = flowedType;
-        this.accessHints = accessHints;
         this.tableQueue = tableQueue;
-    }
-
-    @Nonnull
-    public AccessHints getAccessHints() {
-        return accessHints;
     }
 
     @Nonnull
@@ -105,8 +97,8 @@ public class TableQueueScanExpression implements RelationalExpression, PlannerGr
 
     @Nonnull
     @Override
-    public TableQueueScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public TqScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
@@ -144,16 +136,6 @@ public class TableQueueScanExpression implements RelationalExpression, PlannerGr
         return "TableQueueUnorderedScan";
     }
 
-    @Nonnull
-    @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap bindingAliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                          @Nonnull final EvaluationContext evaluationContext) {
-        // no match.
-        return ImmutableList.of();
-    }
-
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         return Compensation.noCompensation();
@@ -165,12 +147,12 @@ public class TableQueueScanExpression implements RelationalExpression, PlannerGr
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
-                getResultType(), ImmutableList.of());
+        final var tableQueueName = tableQueue.getName() == null ? "(TQ " + getResultValue().getResultType() + ")" : tableQueue.getName();
+        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueueName));
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                        NodeInfo.TEMPORARY_TABLE,
+                        NodeInfo.TABLE_QUEUE_SCAN,
                         ImmutableList.of(),
                         ImmutableMap.of()),
                 ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(

@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -52,12 +53,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -186,7 +186,7 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+        public Boolean visitTqScanPlan(@Nonnull final TqScanPlan element) {
             return false;
         }
 
@@ -200,6 +200,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitInsertPlan(@Nonnull final RecordQueryInsertPlan element) {
             return true;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitTqInsertPlan(@Nonnull final TqInsertPlan element) {
+            return false;
         }
 
         @Nonnull
@@ -310,12 +316,6 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return storedRecordsFromChildren(unorderedUnionPlan).stream().allMatch(s -> s);
-        }
-
-        @Nonnull
-        @Override
-        public Boolean visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
-            return storedRecordsFromChildren(recursiveUnorderedUnionPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull

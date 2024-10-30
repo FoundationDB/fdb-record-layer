@@ -34,12 +34,13 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTqInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTableQueueUnorderedScanRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTqScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUnorderedUnionRule;
@@ -137,7 +138,7 @@ public class PlannerRuleSet {
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
-            new ImplementTableQueueUnorderedScanRule(),
+            new ImplementTqScanRule(),
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
@@ -171,6 +172,7 @@ public class PlannerRuleSet {
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),
             new ImplementInsertRule(),
+            new ImplementTqInsertRule(),
             new ImplementUpdateRule()
     );
 

@@ -23,11 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.planprotos.PRecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.planprotos.PTableQueue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
@@ -41,33 +39,39 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.function.Supplier;
 
 /**
- * Represents a table queue.
+ * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
+ * placeholder for computation results produced by some physical operator, but can be leveraged to represent, for example, temporary
+ * tables as well.
  */
 public class TableQueue {
 
     @Nonnull
-    private final Queue<QueryResult> firstBuffer;
+    private final Queue<QueryResult> underlyingBuffer;
 
-    @Nonnull
-    private final Queue<QueryResult> secondBuffer;
-
-    private boolean firstIsReadBuffer;
+    /**
+     * An optional name, used mainly for debugging purposes.
+     */
+    @Nullable
+    private final String name;
 
     private TableQueue() {
-        this(true, new LinkedList<>(), new LinkedList<>());
+        this(null);
     }
 
-    private TableQueue(boolean firstIsReadBuffer,
-                       @Nonnull Queue<QueryResult> firstBuffer,
-                       @Nonnull Queue<QueryResult> secondBuffer) {
-        this.firstIsReadBuffer = firstIsReadBuffer;
-        this.firstBuffer = firstBuffer;
-        this.secondBuffer = secondBuffer;
+    private TableQueue(@Nullable String name) {
+        this(new LinkedList<>(), name);
+    }
+
+    private TableQueue(@Nonnull Queue<QueryResult> buffer, @Nullable String name) {
+        this.underlyingBuffer = buffer;
+        this.name = name;
+    }
+
+    @Nullable
+    public String getName() {
+        return name;
     }
 
     /**
@@ -75,7 +79,7 @@ public class TableQueue {
      * @param element the new element to be added.
      */
     public void add(@Nonnull QueryResult element) {
-        getWriteBuffer().add(element);
+        underlyingBuffer.add(element);
     }
 
     /**
@@ -89,97 +93,29 @@ public class TableQueue {
 
     @Nonnull
     public Queue<QueryResult> getReadBuffer() {
-        return firstIsReadBuffer ? firstBuffer : secondBuffer;
-    }
-
-    @Nonnull
-    public Queue<QueryResult> getWriteBuffer() {
-        return firstIsReadBuffer ? secondBuffer : firstBuffer;
+        return underlyingBuffer;
     }
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    private RecordCursor<QueryResult> getReadCursor(@Nullable byte[] continuation) {
+    public RecordCursor<QueryResult> getReadCursor(@Nullable byte[] continuation) {
         return new ListCursor<>((List<QueryResult>)getReadBuffer(), continuation);
     }
 
-    /**
-     * TODO. expand documentation.
-     * @param <T> type of parameter.
-     */
-    public static class VolatileListCursor<T> implements RecordCursor<T> {
-
-        @Nonnull
-        private final Supplier<List<T>> listSupplier;
-
-        @Nonnull
-        private List<T> underlyingList;
-
-        @Nonnull
-        private ListCursor<T> underlyingListCursor;
-
-        public VolatileListCursor(@Nonnull Supplier<List<T>> listSupplier, final byte[] continuation) {
-            this.listSupplier = listSupplier;
-            underlyingList = listSupplier.get();
-            underlyingListCursor = new ListCursor<>(underlyingList, continuation);
-        }
-
-        @Nonnull
-        @Override
-        public CompletableFuture<RecordCursorResult<T>> onNext() {
-            final var potentiallyNewList = listSupplier.get();
-            if (potentiallyNewList != underlyingList) {
-                underlyingList = potentiallyNewList;
-                underlyingListCursor = new ListCursor<>(underlyingList, null);
-            }
-            return underlyingListCursor.onNext();
-        }
-
-        @Override
-        public void close() {
-            underlyingListCursor.close();
-        }
-
-        @Override
-        public boolean isClosed() {
-            return underlyingListCursor.isClosed();
-        }
-
-        @Nonnull
-        @Override
-        public Executor getExecutor() {
-            return underlyingListCursor.getExecutor();
-        }
-
-        @Override
-        public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
-            return underlyingListCursor.accept(visitor);
-        }
-    }
-
-    public void flip() {
-        firstIsReadBuffer = !firstIsReadBuffer;
-    }
-
-    private void serializeBuffer(@Nonnull PRecordQueryTableQueuePlan.PTableQueue.Builder protoMessageBuilder,
-                                 boolean serializeFirstBuffer) {
-        final var bufferToSerialize = serializeFirstBuffer ? firstBuffer : secondBuffer;
-        for (final var element : bufferToSerialize) {
+    private void serializeBuffer(@Nonnull PTableQueue.Builder protoMessageBuilder) {
+        for (final var element : underlyingBuffer) {
             final var elementByteString = element.toByteString();
-            if (serializeFirstBuffer) {
-                protoMessageBuilder.addFirstBuffer(elementByteString);
-            } else {
-                protoMessageBuilder.addSecondBuffer(elementByteString);
-            }
+            protoMessageBuilder.addBufferItems(elementByteString);
         }
     }
 
     @Nonnull
-    public PRecordQueryTableQueuePlan.PTableQueue toProto() {
-        final var tableQueueProtoBuilder = PRecordQueryTableQueuePlan.PTableQueue.newBuilder();
-        tableQueueProtoBuilder.setFirstIsReadBuffer(firstIsReadBuffer);
-        serializeBuffer(tableQueueProtoBuilder, true);
-        serializeBuffer(tableQueueProtoBuilder, false);
+    public PTableQueue toProto() {
+        final var tableQueueProtoBuilder = PTableQueue.newBuilder();
+        if (getName() != null) {
+            tableQueueProtoBuilder.setName(getName());
+        }
+        serializeBuffer(tableQueueProtoBuilder);
         return tableQueueProtoBuilder.build();
     }
 
@@ -200,9 +136,9 @@ public class TableQueue {
 
     @Nonnull
     public static TableQueue deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
-        final PRecordQueryTableQueuePlan.PTableQueue tableQueueProto;
+        final PTableQueue tableQueueProto;
         try {
-            tableQueueProto = PRecordQueryTableQueuePlan.PTableQueue.parseFrom(byteString);
+            tableQueueProto = PTableQueue.parseFrom(byteString);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
@@ -213,23 +149,23 @@ public class TableQueue {
     }
 
     @Nonnull
-    public static TableQueue fromProto(@Nonnull final PRecordQueryTableQueuePlan.PTableQueue tableQueueProto,
+    public static TableQueue fromProto(@Nonnull final PTableQueue tableQueueProto,
                                        @Nullable Descriptors.Descriptor descriptor) {
-        // deserialize first buffer
-        final var firstBuffer = new LinkedList<QueryResult>();
-        for (final var element : tableQueueProto.getFirstBufferList()) {
-            firstBuffer.add(QueryResult.deserialize(descriptor, element));
+        final var underlyingBuffer = new LinkedList<QueryResult>();
+        @Nullable final var name = tableQueueProto.hasName() ? tableQueueProto.getName() : null;
+        for (final var element : tableQueueProto.getBufferItemsList()) {
+            underlyingBuffer.add(QueryResult.deserialize(descriptor, element));
         }
-        // deserialize second buffer
-        final var secondBuffer = new LinkedList<QueryResult>();
-        for (final var element : tableQueueProto.getFirstBufferList()) {
-            secondBuffer.add(QueryResult.deserialize(descriptor, element));
-        }
-        return new TableQueue(tableQueueProto.getFirstIsReadBuffer(), firstBuffer, secondBuffer);
+        return new TableQueue(underlyingBuffer, name);
     }
 
     @Nonnull
     public static TableQueue newInstance() {
         return new TableQueue();
+    }
+
+    @Nonnull
+    public static TableQueue newInstance(@Nonnull String name) {
+        return new TableQueue(name);
     }
 }

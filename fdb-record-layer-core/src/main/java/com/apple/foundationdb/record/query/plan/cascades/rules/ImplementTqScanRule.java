@@ -1,5 +1,5 @@
 /*
- * ImplementTableQueueUnorderedScanRule.java
+ * ImplementTqScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,30 +22,30 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableQueueScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TqScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableQueueExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tqScanExpression;
 
 /**
- * TODO, expand documentation.
+ * A rule that implements a {@link TqScanExpression} producing a {@link TqScanPlan} operator.
  */
-public class ImplementTableQueueUnorderedScanRule extends CascadesRule<TableQueueScanExpression> {
+public class ImplementTqScanRule extends CascadesRule<TqScanExpression> {
 
     @Nonnull
-    private static final BindingMatcher<TableQueueScanExpression> root = tableQueueExpression();
+    private static final BindingMatcher<TqScanExpression> root = tqScanExpression();
 
-    public ImplementTableQueueUnorderedScanRule() {
+    public ImplementTqScanRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var tableQueueScanExpression = call.get(root);
-        call.yieldExpression(new RecordQueryTableQueuePlan(tableQueueScanExpression.getTableQueue(),
-                tableQueueScanExpression.getResultType()));
+        call.yieldExpression(new TqScanPlan(tableQueueScanExpression.getTableQueue(),
+                tableQueueScanExpression.getResultValue().getResultType()));
     }
 }

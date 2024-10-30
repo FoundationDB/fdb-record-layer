@@ -120,24 +120,3 @@ message MultidimensionalIndexScanContinuation {
     optional bytes lastHilbertValue = 1;
     optional bytes lastKey = 2;
 }
-
-message InMemoryQueueContinuation {
-    repeated bytes elements = 1;
-}
-
-// todo: remove
-message DoubleBufferContinuation {
-    optional bool firstIsReadBuffer = 1;
-    optional bytes firstContinuation = 2;
-    optional bytes secondContinuation = 3;
-}
-
-message RecursiveUnionContinuation {
-    message DoubleBuffer {
-        optional bool firstIsReadBuffer = 1;
-        optional bytes firstContinuation = 2;
-        optional bytes secondContinuation = 3;
-    }
-    optional DoubleBuffer doubleBuffer = 1;
-    optional UnionContinuation unionContinuation = 2;
-}

@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -54,12 +55,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableQueuePlan;
+import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -406,6 +406,14 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     }
 
     @Nonnull
+    @Override
+    public PlanStringRepresentation visitTqInsertPlan(@Nonnull final TqInsertPlan element) {
+        return visit(element.getChild())
+                .append(" | TQINSERT INTO ")
+                .append(element.getTargetRecordType());
+    }
+
+    @Nonnull
     private PlanStringRepresentation visitIntersectionPlan(@Nonnull RecordQueryIntersectionPlan element) {
         return appendItems(element.getChildren(), " ∩ ");
     }
@@ -518,10 +526,6 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
         return appendItems(element.getChildren(), element.getDelimiter());
     }
 
-    @Nonnull PlanStringRepresentation visitRecursiveUnionPlan(@Nonnull RecordQueryRecursiveUnorderedUnionPlan element) {
-        return appendItems(element.getChildren(), " ↻∪ "); // U+21BB U+222A
-    }
-
     @Nonnull
     @Override
     public PlanStringRepresentation visitUnionOnKeyExpressionPlan(@Nonnull RecordQueryUnionOnKeyExpressionPlan element) {
@@ -560,14 +564,6 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitRecursiveUnorderedUnionPlan(@Nonnull final RecordQueryRecursiveUnorderedUnionPlan recursiveUnorderedUnionPlan) {
-        return append("RecursiveUnordered(")
-                .visitRecursiveUnorderedUnionPlan(recursiveUnorderedUnionPlan)
-                .append(")");
-    }
-
-    @Nonnull
-    @Override
     public PlanStringRepresentation visitUpdatePlan(@Nonnull RecordQueryUpdatePlan element) {
         // TODO provide proper explain
         return visit(element.getInnerPlan())
@@ -593,7 +589,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitTableQueuePlan(@Nonnull final RecordQueryTableQueuePlan element) {
+    public PlanStringRepresentation visitTqScanPlan(@Nonnull final TqScanPlan element) {
         return append("TableQueue([")
                 .append(element.getResultValue())
                 .append("])");

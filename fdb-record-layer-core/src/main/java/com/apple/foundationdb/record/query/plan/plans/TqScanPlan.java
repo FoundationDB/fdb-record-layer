@@ -1,5 +1,5 @@
 /*
- * RecordQueryTableQueuePlan.java
+ * TqScanPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -59,11 +59,11 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * TODO: expand doc.
+ * Scans records from a temporary in-memory buffer {@link TableQueue}.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Table-Queue-Plan");
+public class TqScanPlan implements RecordQueryPlanWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tq-Scan-Plan");
 
     @Nonnull
     private final TableQueue tableQueue;
@@ -71,11 +71,11 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
     @Nonnull
     private final Type resultType;
 
-    public RecordQueryTableQueuePlan(final Type resultType) {
+    public TqScanPlan(final Type resultType) {
         this(TableQueue.newInstance(), resultType);
     }
 
-    public RecordQueryTableQueuePlan(@Nonnull TableQueue tableQueue, @Nonnull Type resultType) {
+    public TqScanPlan(@Nonnull TableQueue tableQueue, @Nonnull Type resultType) {
         this.tableQueue = tableQueue;
         this.resultType = resultType;
     }
@@ -87,7 +87,7 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        return new TableQueue.VolatileListCursor(tableQueue::getReadBuffer, continuation);
+        return tableQueue.getReadCursor(continuation);
     }
 
     @Nonnull
@@ -99,8 +99,8 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryTableQueuePlan translateCorrelations(@Nonnull TranslationMap translationMap,
-                                                           @Nonnull List<? extends Quantifier> translatedQuantifiers) {
+    public TqScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
+                                            @Nonnull List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
@@ -110,7 +110,7 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
     }
 
     @Override
-    public RecordQueryTableQueuePlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public TqScanPlan strictlySorted(@Nonnull Memoizer memoizer) {
         return this;
     }
 
@@ -175,7 +175,7 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final var otherTableQueuePlan =  (RecordQueryTableQueuePlan)otherExpression;
+        final var otherTableQueuePlan =  (TqScanPlan)otherExpression;
 
         return otherTableQueuePlan.resultType.equals(resultType);
     }
@@ -220,10 +220,12 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+
+        final var tableQueueName = tableQueue.getName() == null ? "(TQ " + getResultValue().getResultType() + ")" : tableQueue.getName();
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
-                        NodeInfo.VALUE_COMPUTATION_OPERATOR,
-                        ImmutableList.of()),
+                        NodeInfo.TABLE_QUEUE_SCAN,
+                        ImmutableList.of(tableQueueName)),
                 childGraphs);
     }
 
@@ -242,22 +244,22 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
     }
 
     @Nonnull
-    public static RecordQueryTableQueuePlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                                      @Nonnull PRecordQueryTableQueuePlan tableQueuePlanProto) {
+    public static TqScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                       @Nonnull PRecordQueryTableQueuePlan tableQueuePlanProto) {
         final Type resultType = Type.fromTypeProto(serializationContext, tableQueuePlanProto.getResultType());
         // we need to deserialize the type right now, ideally we should have access to a TypeRepository that we can
         // (re)use but we do not at the moment.
         TypeRepository temporaryTypeRepository = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build();
         @Nullable final var descriptor = temporaryTypeRepository.getMessageDescriptor(resultType);
         final TableQueue tableQueue = TableQueue.fromProto(tableQueuePlanProto.getTableQueue(), descriptor);
-        return new RecordQueryTableQueuePlan(tableQueue, resultType);
+        return new TqScanPlan(tableQueue, resultType);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecordQueryTableQueuePlan, RecordQueryTableQueuePlan> {
+    public static class Deserializer implements PlanDeserializer<PRecordQueryTableQueuePlan, TqScanPlan> {
         @Nonnull
         @Override
         public Class<PRecordQueryTableQueuePlan> getProtoMessageClass() {
@@ -266,9 +268,9 @@ public class RecordQueryTableQueuePlan implements RecordQueryPlanWithNoChildren 
 
         @Nonnull
         @Override
-        public RecordQueryTableQueuePlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                                   @Nonnull PRecordQueryTableQueuePlan recordQueryTableQueuePlan) {
-            return RecordQueryTableQueuePlan.fromProto(serializationContext, recordQueryTableQueuePlan);
+        public TqScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                    @Nonnull PRecordQueryTableQueuePlan recordQueryTableQueuePlan) {
+            return TqScanPlan.fromProto(serializationContext, recordQueryTableQueuePlan);
         }
     }
 }
