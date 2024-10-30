@@ -1001,6 +1001,7 @@ message PParameterComparison {
     RANK = 2;
     CORRELATION = 3;
     CONSTANT = 4;
+    TABLE_QUEUE = 5;
   }
 
   optional PComparison.PComparisonType type = 1;
@@ -1193,8 +1194,8 @@ message PRecordQueryPlan {
     PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
     PRecordQueryUpdatePlan update_plan = 32;
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
-    PRecordQueryTableQueuePlan table_queue_plan = 34;
-    PRecordQueryInsertTableQueuePlan insert_table_query_plan = 35;
+    PTqScanPlan tq_scan_plan = 34;
+    PTqInsertPlan tq_insert_plan = 35;
   }
 }
 
@@ -1373,11 +1374,11 @@ message PRecordQueryIndexPlan {
 }
 
 //
-// PRecordQueryTableQueuePlan
+// PTqScanPlan
 //
-message PRecordQueryTableQueuePlan {
+message PTqScanPlan {
   optional PType result_type = 1;
-  optional PTableQueue table_queue = 2;
+  optional string table_queue_name = 2;
 }
 
 message PTableQueue {
@@ -1518,11 +1519,11 @@ message PRecordQueryInsertPlan {
 }
 
 //
-// PRecordQueryInsertTableQueuePlan
+// PTqInsertPlan
 //
-message PRecordQueryInsertTableQueuePlan {
+message PTqInsertPlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
-  optional PTableQueue table_queue = 2;
+  optional string table_queue_name = 2;
 }
 
 //

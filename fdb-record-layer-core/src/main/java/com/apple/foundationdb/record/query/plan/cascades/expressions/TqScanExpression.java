@@ -21,13 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
-import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TableQueue;
@@ -60,16 +57,12 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
     private final Type flowedType;
 
     @Nonnull
-    private final TableQueue tableQueue;
-
-    public TqScanExpression(@Nonnull final Type flowedType) {
-        this(flowedType, TableQueue.newInstance());
-    }
+    private final String tableQueueName;
 
     public TqScanExpression(@Nonnull final Type flowedType,
-                            @Nonnull final TableQueue tableQueue) {
+                            @Nonnull final String tableQueueName) {
         this.flowedType = flowedType;
-        this.tableQueue = tableQueue;
+        this.tableQueueName = tableQueueName;
     }
 
     @Nonnull
@@ -79,8 +72,8 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
     }
 
     @Nonnull
-    public TableQueue getTableQueue() {
-        return tableQueue;
+    public String getTableQueueName() {
+        return tableQueueName;
     }
 
     @Nonnull
@@ -147,7 +140,6 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        final var tableQueueName = tableQueue.getName() == null ? "(TQ " + getResultValue().getResultType() + ")" : tableQueue.getName();
         dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueueName));
 
         return PlannerGraph.fromNodeAndChildGraphs(

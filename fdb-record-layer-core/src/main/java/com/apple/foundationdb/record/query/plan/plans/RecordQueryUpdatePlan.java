@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -95,14 +96,14 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message, final boolean isDryRun) {
+    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, final @Nonnull EvaluationContext context, @Nonnull final M message, final boolean isDryRun) {
         final CompletableFuture<FDBStoredRecord<M>> result;
         if (isDryRun) {
             result = store.dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
         } else {
             result = store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
         }
-        return result.thenApply(record -> QueryResult.ofComputed(record, record.getPrimaryKey()));
+        return result.thenApply(fdbStoredRecord -> QueryResult.ofComputed(fdbStoredRecord.getRecord(), fdbStoredRecord.getPrimaryKey()));
     }
 
     @Nonnull

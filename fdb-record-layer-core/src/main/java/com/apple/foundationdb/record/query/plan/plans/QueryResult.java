@@ -22,9 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PQueryResult;
@@ -42,6 +40,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -125,7 +124,7 @@ public class QueryResult {
      */
     @Nonnull
     public <T> T get(@Nonnull final Class<? extends T> clazz) {
-        return clazz.cast(datum);
+        return Objects.requireNonNull(clazz.cast(datum));
     }
 
     /**
@@ -222,26 +221,16 @@ public class QueryResult {
 
     @Nonnull
     public static QueryResult deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
-        final PQueryResult parsed;
         try {
-            parsed = PQueryResult.parseFrom(byteString);
+            final var parsed = PQueryResult.parseFrom(byteString);
+            if (parsed.hasPrimitive()) {
+                return QueryResult.ofComputed(PlanSerialization.protoToValueObject(parsed.getPrimitive()));
+            } else {
+                return QueryResult.ofComputed(DynamicMessage.parseFrom(Verify.verifyNotNull(descriptor), parsed.getComplex()));
+            }
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
-        } catch (RecordCoreArgumentException ex) {
-            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
-        }
-        if (parsed.hasPrimitive()) {
-            return QueryResult.ofComputed(PlanSerialization.protoToValueObject(parsed.getPrimitive()));
-        } else {
-            try {
-                return QueryResult.ofComputed(DynamicMessage.parseFrom(Verify.verifyNotNull(descriptor), parsed.getComplex()));
-            } catch (InvalidProtocolBufferException ex) {
-                throw new RecordCoreException("invalid bytes", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
-            } catch (RecordCoreArgumentException ex) {
-                throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
-            }
         }
     }
 

@@ -48,7 +48,8 @@ public class Bindings {
         IN("__in_"),
         RANK("__rank_"),
         CORRELATION("__corr_"),
-        CONSTANT("__const_");
+        CONSTANT("__const_"),
+        TABLE_QUEUE("__tq_");
 
         public static final String PREFIX = "__";
         private final String value;
@@ -87,6 +88,8 @@ public class Bindings {
                     return PBindingKind.CONSTANT;
                 case CORRELATION:
                     return PBindingKind.CORRELATION;
+                case TABLE_QUEUE:
+                    return PBindingKind.TABLE_QUEUE;
                 default:
                     throw new RecordCoreException("unknown binding mapping. did you forget to map it?");
             }
@@ -104,6 +107,8 @@ public class Bindings {
                     return CONSTANT;
                 case CORRELATION:
                     return CORRELATION;
+                case TABLE_QUEUE:
+                    return TABLE_QUEUE;
                 default:
                     throw new RecordCoreException("unknown binding mapping. did you forget to map it?");
             }

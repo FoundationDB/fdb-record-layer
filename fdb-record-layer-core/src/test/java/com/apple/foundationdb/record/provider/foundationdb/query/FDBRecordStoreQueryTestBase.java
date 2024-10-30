@@ -418,9 +418,18 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
                                             TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
+        return fetchResultValues(context, plan, rowHandler, EvaluationContext.empty(), checkDiscarded, executeProperties);
+    }
+
+    protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
+                                            EvaluationContext extraEvaluationContext,
+                                            TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
         final var usedTypes = UsedTypesProperty.evaluate(plan);
         List<T> result = new ArrayList<>();
-        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        for (final var binding : extraEvaluationContext.getBindings().asMappingList()) {
+            evaluationContext = evaluationContext.withBinding(binding.getKey(), binding.getValue());
+        }
         try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, executeProperties).asIterator()) {
             while (cursor.hasNext()) {
                 Message message = Verify.verifyNotNull(cursor.next()).getMessage();

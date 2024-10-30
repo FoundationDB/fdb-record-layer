@@ -45,7 +45,7 @@ public class ImplementTqScanRule extends CascadesRule<TqScanExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var tableQueueScanExpression = call.get(root);
-        call.yieldExpression(new TqScanPlan(tableQueueScanExpression.getTableQueue(),
+        call.yieldExpression(new TqScanPlan(tableQueueScanExpression.getTableQueueName(),
                 tableQueueScanExpression.getResultValue().getResultType()));
     }
 }

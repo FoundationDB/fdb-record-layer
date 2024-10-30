@@ -21,13 +21,14 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PRecordQueryInsertTableQueuePlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PTqInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -66,20 +67,12 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
     public static final Logger LOGGER = LoggerFactory.getLogger(TqInsertPlan.class);
 
     @Nonnull
-    private final TableQueue tableQueue;
+    private final String tableQueueName;
 
     protected TqInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
-                           @Nonnull final PRecordQueryInsertTableQueuePlan recordQueryInsertPlanProto) {
-        super(serializationContext, Objects.requireNonNull(recordQueryInsertPlanProto.getSuper()));
-        // we need to deserialize the type right now, ideally we should have access to a TypeRepository that we can
-        // (re)use but we do not at the moment.
-        if (super.getResultType().getInnerType() != null) {
-            TypeRepository temporaryTypeRepository = TypeRepository.newBuilder().addTypeIfNeeded(super.getResultType().getInnerType()).build();
-            @Nullable final var descriptor = temporaryTypeRepository.getMessageDescriptor(super.getResultType().getInnerType());
-            this.tableQueue = TableQueue.fromProto(recordQueryInsertPlanProto.getTableQueue(), descriptor);
-        } else {
-            this.tableQueue = TableQueue.fromProto(recordQueryInsertPlanProto.getTableQueue(), null);
-        }
+                           @Nonnull final PTqInsertPlan tqInsertPlanProto) {
+        super(serializationContext, Objects.requireNonNull(tqInsertPlanProto.getSuper()));
+        this.tableQueueName = tqInsertPlanProto.getTableQueueName();
     }
 
     private TqInsertPlan(@Nonnull final Quantifier.Physical inner,
@@ -87,9 +80,9 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                          @Nonnull final Type.Record targetType,
                          @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                          @Nonnull final Value computationValue,
-                         @Nonnull final TableQueue tableQueue) {
+                         @Nonnull final String tableQueueName) {
         super(inner, recordType, targetType, null, coercionsTrie, computationValue, currentModifiedRecordAlias());
-        this.tableQueue = tableQueue;
+        this.tableQueueName = tableQueueName;
     }
 
     @Override
@@ -105,9 +98,13 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
     }
 
     @Override
-    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message, final boolean isDryRun) {
+    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store,
+                                                                                       @Nonnull EvaluationContext context,
+                                                                                       @Nonnull M message,
+                                                                                       boolean isDryRun) {
         // dry run is ignored since inserting into a table queue has no storage side effects.
         final var queryResult = QueryResult.ofComputed(message);
+        final var tableQueue = context.getTableQueue(tableQueueName);
         tableQueue.add(queryResult);
         return CompletableFuture.completedFuture(queryResult);
     }
@@ -122,7 +119,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                 getTargetType(),
                 getCoercionTrie(),
                 getComputationValue(),
-                tableQueue);
+                tableQueueName);
     }
 
     @Nonnull
@@ -133,7 +130,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                 getTargetType(),
                 getCoercionTrie(),
                 getComputationValue(),
-                tableQueue);
+                tableQueueName);
     }
 
     @Override
@@ -164,7 +161,6 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
 
-        final var tableQueueName = tableQueue.getName() == null ? "(TQ " + getTargetRecordType() + ")" : tableQueue.getName();
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.TemporaryDataNodeWithInfo(getTargetType(), ImmutableList.of(tableQueueName)),
@@ -180,20 +176,20 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
 
     @Nonnull
     @Override
-    public PRecordQueryInsertTableQueuePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryInsertTableQueuePlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
+    public PTqInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PTqInsertPlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setInsertTableQueryPlan(toProto(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setTqInsertPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static TqInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PRecordQueryInsertTableQueuePlan recordQueryInsertPlanProto) {
-        return new TqInsertPlan(serializationContext, recordQueryInsertPlanProto);
+                                         @Nonnull final PTqInsertPlan tqInsertPlanProto) {
+        return new TqInsertPlan(serializationContext, tqInsertPlanProto);
     }
 
     /**
@@ -212,31 +208,31 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                                           @Nonnull final String recordType,
                                           @Nonnull final Type.Record targetType,
                                           @Nonnull final Value computationValue,
-                                          @Nonnull final TableQueue tableQueue) {
+                                          @Nonnull final String tableQueueName) {
         return new TqInsertPlan(inner,
                 recordType,
                 targetType,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
                 computationValue,
-                tableQueue);
+                tableQueueName);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecordQueryInsertTableQueuePlan, TqInsertPlan> {
+    public static class Deserializer implements PlanDeserializer<PTqInsertPlan, TqInsertPlan> {
         @Nonnull
         @Override
-        public Class<PRecordQueryInsertTableQueuePlan> getProtoMessageClass() {
-            return PRecordQueryInsertTableQueuePlan.class;
+        public Class<PTqInsertPlan> getProtoMessageClass() {
+            return PTqInsertPlan.class;
         }
 
         @Nonnull
         @Override
         public TqInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PRecordQueryInsertTableQueuePlan recordQueryInsertPlanProto) {
-            return TqInsertPlan.fromProto(serializationContext, recordQueryInsertPlanProto);
+                                      @Nonnull final PTqInsertPlan tqInsertPlanProto) {
+            return TqInsertPlan.fromProto(serializationContext, tqInsertPlanProto);
         }
     }
 }

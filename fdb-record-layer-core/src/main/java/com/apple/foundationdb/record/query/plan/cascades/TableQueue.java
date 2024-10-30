@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
@@ -50,26 +49,19 @@ public class TableQueue {
     @Nonnull
     private final Queue<QueryResult> underlyingBuffer;
 
-    /**
-     * An optional name, used mainly for debugging purposes.
-     */
-    @Nullable
+    @Nonnull
     private final String name;
 
-    private TableQueue() {
-        this(null);
-    }
-
-    private TableQueue(@Nullable String name) {
+    private TableQueue(@Nonnull String name) {
         this(new LinkedList<>(), name);
     }
 
-    private TableQueue(@Nonnull Queue<QueryResult> buffer, @Nullable String name) {
+    private TableQueue(@Nonnull Queue<QueryResult> buffer, @Nonnull String name) {
         this.underlyingBuffer = buffer;
         this.name = name;
     }
 
-    @Nullable
+    @Nonnull
     public String getName() {
         return name;
     }
@@ -111,10 +103,8 @@ public class TableQueue {
 
     @Nonnull
     public PTableQueue toProto() {
-        final var tableQueueProtoBuilder = PTableQueue.newBuilder();
-        if (getName() != null) {
-            tableQueueProtoBuilder.setName(getName());
-        }
+        final var tableQueueProtoBuilder = PTableQueue.newBuilder()
+                .setName(getName());
         serializeBuffer(tableQueueProtoBuilder);
         return tableQueueProtoBuilder.build();
     }
@@ -142,8 +132,6 @@ public class TableQueue {
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
-        } catch (RecordCoreArgumentException ex) {
-            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
         }
         return fromProto(tableQueueProto, descriptor);
     }
@@ -152,16 +140,11 @@ public class TableQueue {
     public static TableQueue fromProto(@Nonnull final PTableQueue tableQueueProto,
                                        @Nullable Descriptors.Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
-        @Nullable final var name = tableQueueProto.hasName() ? tableQueueProto.getName() : null;
+        final var name = tableQueueProto.getName();
         for (final var element : tableQueueProto.getBufferItemsList()) {
             underlyingBuffer.add(QueryResult.deserialize(descriptor, element));
         }
         return new TableQueue(underlyingBuffer, name);
-    }
-
-    @Nonnull
-    public static TableQueue newInstance() {
-        return new TableQueue();
     }
 
     @Nonnull

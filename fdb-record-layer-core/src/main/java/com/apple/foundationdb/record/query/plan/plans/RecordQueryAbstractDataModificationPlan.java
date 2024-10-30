@@ -208,7 +208,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         final var targetDescriptor = getTargetDescriptor(store);
         return results
                 .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult, targetDescriptor)))
-                .mapPipelined(pair -> saveRecordAsync(store, pair.getRight(), executeProperties.isDryRun())
+                .mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
                                 .thenApply(queryResult -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(inner.getAlias(), pair.getLeft()) // pre-mutation
@@ -239,7 +239,9 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public abstract <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message, boolean isDryRun);
+    public abstract <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store,
+                                                                                       @Nonnull EvaluationContext context,
+                                                                                       @Nonnull M message, boolean isDryRun);
 
     @Override
     public boolean isReverse() {
