@@ -290,12 +290,14 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
     @Override
     public Reference rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Nonnull
-    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        final var translatedRefs = References.translateCorrelations(ImmutableList.of(this), translationMap);
+    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                           final boolean shouldSimplifyValues) {
+        final var translatedRefs =
+                References.translateCorrelations(ImmutableList.of(this), translationMap, shouldSimplifyValues);
         return Iterables.getOnlyElement(translatedRefs);
     }
 

@@ -121,7 +121,9 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
 
     @Nonnull
     @Override
-    public RecordQueryUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                              final boolean shouldSimplifyValues,
+                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 comparisonKeyOrderingParts,
                 getComparisonKeyValues(),

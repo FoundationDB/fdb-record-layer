@@ -706,7 +706,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         Verify.verify(!candidateExpression.canCorrelate());
         Verify.verify(candidateExpression.getQuantifiers().size() <= 1);
 
-        final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+        final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
         final var maxMatchMap =
                 MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
                         ValueEquivalence.fromAliasMap(bindingAliasMap));
@@ -794,15 +794,18 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
         if (getCorrelatedTo().stream().anyMatch(aliasMap::containsSource)) {
             final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
-            final var newQuantifiers =  Quantifiers.translateCorrelations(getQuantifiers(), translationMap);
-            return translateCorrelations(translationMap, newQuantifiers);
+            final var newQuantifiers =
+                    Quantifiers.translateCorrelations(getQuantifiers(), translationMap, false);
+            return translateCorrelations(translationMap, false, newQuantifiers);
         } else {
             return this;
         }
     }
 
     @Nonnull
-    RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
+    RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap,
+                                               final boolean shouldSimplifyValues,
+                                               @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     @Nonnull
     default Set<Quantifier> getMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {

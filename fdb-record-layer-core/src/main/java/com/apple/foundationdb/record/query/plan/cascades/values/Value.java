@@ -280,9 +280,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nonnull
-    default Value translateCorrelationsAndSimplify(@Nonnull final TranslationMap translationMap) {
+    default Value translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
         final var newValue = translateCorrelations(translationMap);
-        return newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo());
+        return shouldSimplify ? newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo()) : newValue;
     }
 
     @Nonnull
@@ -648,13 +648,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                         Simplification.compute(this, orderingPartCreator, aliasMap, constantAliases,
                                 ruleSet));
         return resultPair.getValue();
-    }
-
-    @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
-        // delegate to semanticEquals()
-        return semanticEquals(other, valueEquivalence);
     }
 
     /**

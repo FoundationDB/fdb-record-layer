@@ -108,7 +108,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ExistsPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+    public ExistsPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         final var quantifiedObjectValue =
                 QuantifiedObjectValue.of(existentialAlias, Type.any());
 

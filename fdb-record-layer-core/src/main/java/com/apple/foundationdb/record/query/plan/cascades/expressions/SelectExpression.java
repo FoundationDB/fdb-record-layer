@@ -167,9 +167,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
     @Nonnull
     @Override
-    public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        List<QueryPredicate> translatedPredicates = predicates.stream().map(p -> p.translateCorrelations(translationMap)).collect(Collectors.toList());
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
+    public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                  final boolean shouldSimplifyValues,
+                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        List<QueryPredicate> translatedPredicates =
+                predicates.stream()
+                        .map(p -> p.translateCorrelations(translationMap, shouldSimplifyValues))
+                        .collect(Collectors.toList());
+        final Value translatedResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
     }
 
@@ -477,7 +482,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 }
             }
 
-            final var translatedPredicate = predicate.translateCorrelations(translationMap);
+            final var translatedPredicate =
+                    predicate.translateCorrelations(translationMap, true);
             final Iterable<PredicateMapping> impliedMappingsForPredicate =
                     translatedPredicate.findImpliedMappings(bindingValueEquivalence, predicate,
                             candidateSelectExpression.getPredicates(), evaluationContext);
@@ -558,7 +564,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     private MaxMatchMap computeMaxMatchMap(final @Nonnull RelationalExpression candidateExpression,
                                            final @Nonnull TranslationMap translationMap,
                                            @Nonnull final ValueEquivalence valueEquivalence) {
-        final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+        final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
         return MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(), valueEquivalence);
     }
 
@@ -581,7 +587,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 return Optional.empty();
             }
         }
-        return Optional.of(childMatchInfo);
+
+        final var maxMatchMap = partialMatch.getMatchInfo().getMaxMatchMap();
+        final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
+        final var adjustedMaxMatchMap = maxMatchMap.adjust(getResultValue(), innerQuantifier.getAlias());
+
+        return Optional.of(childMatchInfo.withMaxMatchMap(adjustedMaxMatchMap));
     }
 
     @Nonnull

@@ -92,7 +92,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         // add the value for the flow of records
-        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
+        allExpansionsBuilder.add(GraphExpansion.builder().pullUpQuantifier(baseQuantifier).build());
 
         var rootExpression = index.getRootExpression();
 

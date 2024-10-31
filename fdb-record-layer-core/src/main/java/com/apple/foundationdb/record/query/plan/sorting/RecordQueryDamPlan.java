@@ -168,7 +168,9 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public RecordQueryDamPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryDamPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                    final boolean shouldSimplifyValues,
+                                                    @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryDamPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers), key);
     }
 

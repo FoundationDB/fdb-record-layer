@@ -121,7 +121,9 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
 
     @Nonnull
     @Override
-    public RecordQueryIntersectionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryIntersectionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                     final boolean shouldSimplifyValues,
+                                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryIntersectionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 comparisonKeyOrderingParts,
                 getComparisonKeyValues(),

@@ -141,8 +141,12 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nonnull
     @Override
-    public RecordQueryPredicatesFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedPredicates = predicates.stream().map(queryPredicate -> queryPredicate.translateCorrelations(translationMap)).collect(ImmutableList.toImmutableList());
+    public RecordQueryPredicatesFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                 final boolean shouldSimplifyValues,
+                                                                 @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var translatedPredicates =
+                predicates.stream().map(queryPredicate -> queryPredicate.translateCorrelations(translationMap, shouldSimplifyValues))
+                        .collect(ImmutableList.toImmutableList());
         return new RecordQueryPredicatesFilterPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 translatedPredicates);

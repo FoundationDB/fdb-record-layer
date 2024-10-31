@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -267,6 +268,32 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    @Override
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        if (hashCode() != other.hashCode()) { // as the hashcode is memoized
+            return BooleanWithConstraint.falseValue();
+        }
+
+        final var superEqualsWithoutChildren = super.equalsWithoutChildren(other);
+        if (superEqualsWithoutChildren.isFalse()) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        final var otherColumns = ((RecordConstructorValue)other).getColumns();
+        Verify.verify(columns.size() == otherColumns.size()); // guaranteed by the mechanics of semanticEquals
+
+        for (int i = 0; i < columns.size(); i++) {
+            final var column = columns.get(i);
+            final var otherColumn = otherColumns.get(i);
+            if (!column.getField().equals(otherColumn.getField())) {
+                return BooleanWithConstraint.falseValue();
+            }
+        }
+
+        return superEqualsWithoutChildren;
     }
 
     @Nonnull

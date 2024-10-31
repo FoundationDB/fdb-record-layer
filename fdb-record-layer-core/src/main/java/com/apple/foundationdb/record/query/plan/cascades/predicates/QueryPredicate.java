@@ -219,7 +219,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         }
         return PredicateCompensationFunction.of(baseAlias ->
                 LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(
-                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias))));
+                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false)));
     }
 
     /**
@@ -416,17 +416,18 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @Override
     default QueryPredicate rebase(@Nonnull final AliasMap aliasMap) {
         final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
-        return translateCorrelations(translationMap);
+        return translateCorrelations(translationMap, false);
     }
 
     @Nonnull
-    default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+    default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify))
+                .orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nullable
     @SuppressWarnings("unused")
-    default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+    default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
         throw new RecordCoreException("implementor must override");
     }
 
@@ -460,11 +461,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @Nonnull
     static List<QueryPredicate> translatePredicates(@Nonnull final TranslationMap translationMap,
-                                                    @Nonnull final List<QueryPredicate> predicates) {
+                                                    @Nonnull final List<QueryPredicate> predicates,
+                                                    final boolean shouldSimplifyValues) {
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         for (final var predicate : predicates) {
             final var newOuterInnerPredicate =
-                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap))
+                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, shouldSimplifyValues))
                             .orElseThrow(() -> new RecordCoreException("unable to translate predicate"));
             resultPredicatesBuilder.add(newOuterInnerPredicate);
         }

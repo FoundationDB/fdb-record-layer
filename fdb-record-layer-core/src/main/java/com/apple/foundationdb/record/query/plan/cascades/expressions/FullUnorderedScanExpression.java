@@ -110,6 +110,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     @Override
     public FullUnorderedScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                             final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }

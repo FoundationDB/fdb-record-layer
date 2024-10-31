@@ -205,6 +205,18 @@ public class MatchInfo {
     }
 
     @Nonnull
+    public MatchInfo withMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap) {
+        return new MatchInfo(parameterBindingMap,
+                quantifierToPartialMatchMap,
+                predicateMap,
+                accumulatedPredicateMap,
+                matchedOrderingParts,
+                remainingComputationValueOptional,
+                maxMatchMap,
+                additionalPlanConstraint);
+    }
+
+    @Nonnull
     private QueryPlanConstraint computeConstraints() {
         final var childConstraints = quantifierToPartialMatchMap.values().stream().map(
                 partialMatch -> partialMatch.get().getMatchInfo().getConstraint()).collect(Collectors.toList());

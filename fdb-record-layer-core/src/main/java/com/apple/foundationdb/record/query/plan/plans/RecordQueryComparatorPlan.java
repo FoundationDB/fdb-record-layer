@@ -188,7 +188,9 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     @Nonnull
     @Override
-    public RecordQueryComparatorPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryComparatorPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                           final boolean shouldSimplifyValues,
+                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryComparatorPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 getComparisonKey(), referencePlanIndex, abortOnComparisonFailure);

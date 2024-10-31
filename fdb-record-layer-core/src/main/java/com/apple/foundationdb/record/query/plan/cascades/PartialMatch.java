@@ -25,11 +25,11 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -196,13 +196,21 @@ public class PartialMatch {
                 final var traversal = matchCandidate.getTraversal();
                 boolean found = false;
                 for (final var parentRefPath : traversal.getParentRefPaths(childPartialMatch.getCandidateRef())) {
-                    if (parentRefPath.getExpression() == queryExpression) {
+                    if (parentRefPath.getReference() == getCandidateRef()) {
                         found = true;
                         matchedQuantifierMapBuilder.put(queryQuantifier, parentRefPath.getQuantifier());
                         break;
                     }
                 }
-                Verify.verify(found);
+                if (!found) {
+                    //
+                    // Adjusted matches. Adjusted matches have only one quantifier on the candidate side.
+                    //
+                    final var candidateExpression =
+                            Iterables.getOnlyElement(getCandidateRef().getMembers());
+                    final var candidateQuantifier = Iterables.getOnlyElement(candidateExpression.getQuantifiers());
+                    matchedQuantifierMapBuilder.put(queryQuantifier, candidateQuantifier);
+                }
             }
         }
 

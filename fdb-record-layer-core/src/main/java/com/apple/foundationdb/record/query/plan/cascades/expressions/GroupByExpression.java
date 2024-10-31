@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -179,9 +180,14 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final AggregateValue translatedAggregateValue = (AggregateValue)getAggregateValue().translateCorrelations(translationMap);
-        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap);
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final AggregateValue translatedAggregateValue =
+                (AggregateValue)getAggregateValue().translateCorrelations(translationMap, shouldSimplifyValues);
+        final Value translatedGroupingValue = getGroupingValue() == null
+                ? null
+                : getGroupingValue().translateCorrelations(translationMap, shouldSimplifyValues);
         Verify.verify(translatedGroupingValue instanceof FieldValue);
         if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
             return new GroupByExpression(translatedGroupingValue, translatedAggregateValue, resultValueFunction,
@@ -293,7 +299,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
-        final var subsumedBy = aggregateValue.subsumedBy(otherAggregateValue, valueEquivalence)
+        final var translatedAggregateValue = aggregateValue.translateCorrelations(translationMap, true);
+        final var subsumedBy = translatedAggregateValue.semanticEquals(otherAggregateValue, valueEquivalence)
                 .compose(ignored -> {
                     if (groupingValue == null && otherGroupingValue == null) {
                         return BooleanWithConstraint.alwaysTrue();
@@ -302,11 +309,26 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                         return BooleanWithConstraint.falseValue();
                     }
 
-                    return groupingValue.subsumedBy(otherGroupingValue, valueEquivalence);
+                    final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap);
+                    final var groupingValues =
+                            Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
+                                            () -> translatedGroupingValue).stream()
+                                    .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                            ImmutableSet.of()))
+                                    .collect(ImmutableSet.toImmutableSet());
+
+                    final var otherGroupingValues =
+                            Values.primitiveAccessorsForType(otherGroupingValue.getResultType(),
+                                            () -> otherGroupingValue).stream()
+                                    .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                            ImmutableSet.of()))
+                                    .collect(ImmutableSet.toImmutableSet());
+
+                    return valueEquivalence.semanticEquals(groupingValues, otherGroupingValues);
                 });
 
         if (subsumedBy.isTrue()) {
-            final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+            final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
             final var maxMatchMap =
                     MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(), valueEquivalence);
             final var queryPlanConstraint =

@@ -132,7 +132,9 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryInUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                final boolean shouldSimplifyValues,
+                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInUnionOnValuesPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getInSources(),
                 comparisonKeyOrderingParts,

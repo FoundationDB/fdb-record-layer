@@ -141,6 +141,19 @@ public class MaxMatchMap {
         return Optional.of(translatedQueryResultValue);
     }
 
+    @Nonnull
+    public MaxMatchMap adjust(@Nonnull final Value upperCandidateResultValue,
+                              @Nonnull final CorrelationIdentifier upperCandidateAlias) {
+        final var translationMap =
+                TranslationMap.builder()
+                        .when(upperCandidateAlias).then((ignored1, ignored2) -> candidateResultValue)
+                        .build();
+        final var newCandidateValue =
+                upperCandidateResultValue.translateCorrelations(translationMap, true);
+
+        return calculate(queryResultValue, newCandidateValue, valueEquivalence);
+    }
+
     /**
      * Calculates the maximum sub-{@link Value}s in {@code queryResultValue} that has an exact match in the
      * {@code candidateValue}.
@@ -148,7 +161,7 @@ public class MaxMatchMap {
      * @param queryResultValue the query result {@code Value}.
      * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
      *
-     * @return a {@link  MaxMatchMap} of all maximum matches.
+     * @return a {@link MaxMatchMap} of all maximum matches.
      */
     @Nonnull
     public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,

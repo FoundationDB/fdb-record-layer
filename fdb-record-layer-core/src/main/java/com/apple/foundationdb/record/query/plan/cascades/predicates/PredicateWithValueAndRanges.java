@@ -225,9 +225,10 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     @Override
-    public PredicateWithValueAndRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+    public PredicateWithValueAndRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap),
-                ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
+                ranges.stream().map(range -> range.translateCorrelations(translationMap, shouldSimplifyValues))
+                        .collect(ImmutableSet.toImmutableSet()));
     }
 
     @Nonnull
@@ -447,7 +448,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 .map(queryPredicate ->
                         PredicateCompensationFunction.of(baseAlias ->
                                 LinkedIdentitySet.of(queryPredicate.translateCorrelations(
-                                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias)))))
+                                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
                 .orElse(PredicateCompensationFunction.impossibleCompensation());
     }
 

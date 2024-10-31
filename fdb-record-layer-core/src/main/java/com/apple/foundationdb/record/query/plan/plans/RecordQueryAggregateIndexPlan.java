@@ -257,8 +257,11 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
+    public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                               final boolean shouldSimplifyValues,
+                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap,
+                shouldSimplifyValues, translatedQuantifiers);
         final var maybeNewResult = resultValue.translateCorrelations(translationMap);
         if (translatedIndexPlan != indexPlan || maybeNewResult != resultValue) {
             return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, maybeNewResult);

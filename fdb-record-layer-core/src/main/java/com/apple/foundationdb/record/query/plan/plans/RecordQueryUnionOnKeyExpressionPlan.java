@@ -77,7 +77,9 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
 
     @Nonnull
     @Override
-    public RecordQueryUnionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryUnionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                     final boolean shouldSimplifyValues,
+                                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 getComparisonKeyExpression(),
                 isReverse(),

@@ -74,7 +74,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         true))));
 
         final var allExpansions =
-                GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansion);
+                GraphExpansion.ofOthers(GraphExpansion.builder().pullUpQuantifier(baseQuantifier).build(), graphExpansion);
 
         final var parameters = allExpansions.getPlaceholderAliases();
 
