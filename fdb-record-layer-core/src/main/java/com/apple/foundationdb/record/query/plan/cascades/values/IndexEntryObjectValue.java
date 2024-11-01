@@ -123,7 +123,7 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(indexEntryAlias));
+        final var indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(Bindings.BindingType.CORRELATION, indexEntryAlias));
 
         final var tuple = (source == TupleSource.KEY ? indexEntry.getKey() : indexEntry.getValue());
         var value = getForOrdinalPath(tuple, ordinalPath);
@@ -183,7 +183,7 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
 
     @Nonnull
     public static String bindingName() {
-        return Bindings.Internal.CORRELATION.bindingName(Quantifier.current().getId());
+        return Bindings.BindingType.CORRELATION.bindingName(Quantifier.current().getId());
     }
 
     @Nonnull

@@ -194,8 +194,8 @@ public class RankComparisons {
                 String bindingName = null;
                 final Comparisons.Type comparisonType = comparison.getComparison().getType();
                 if (!operand.createsDuplicates() && !comparisonType.isUnary()) {
-                    bindingName = Bindings.Internal.RANK.bindingName(Integer.toString(counter.getAndIncrement()));
-                    Comparisons.Comparison substituteComparison = new Comparisons.ParameterComparison(comparisonType, bindingName, Bindings.Internal.RANK);
+                    bindingName = Bindings.BindingType.RANK.bindingName(Integer.toString(counter.getAndIncrement()));
+                    Comparisons.Comparison substituteComparison = new Comparisons.ParameterComparison(comparisonType, bindingName, Bindings.BindingType.RANK);
                     final KeyExpression grouped = operand.getGroupedSubKey();
                     if (grouped instanceof FieldKeyExpression) {
                         substitute = new FieldWithComparison(((FieldKeyExpression)grouped).getFieldName(), substituteComparison);

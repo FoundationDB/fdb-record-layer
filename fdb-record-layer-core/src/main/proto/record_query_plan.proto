@@ -1194,7 +1194,7 @@ message PRecordQueryPlan {
     PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
     PRecordQueryUpdatePlan update_plan = 32;
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
-    PTqScanPlan tq_scan_plan = 34;
+    PTempTableScanPlan temp_table_scan_plan = 34;
     PTqInsertPlan tq_insert_plan = 35;
   }
 }
@@ -1374,11 +1374,11 @@ message PRecordQueryIndexPlan {
 }
 
 //
-// PTqScanPlan
+// PTempTableScanPlan
 //
-message PTqScanPlan {
+message PTempTableScanPlan {
   optional PType result_type = 1;
-  optional string table_queue_name = 2;
+  optional string table_queue_id = 2;
 }
 
 message PTableQueue {

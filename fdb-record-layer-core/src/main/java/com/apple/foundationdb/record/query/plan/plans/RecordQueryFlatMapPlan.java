@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -119,12 +120,12 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                 outerContinuation ->
                         outerQuantifier.getRangesOverPlan().executePlan(store, context, outerContinuation, nestedExecuteProperties),
                 (outerResult, innerContinuation) -> {
-                    final EvaluationContext fromOuterContext = context.withBinding(outerQuantifier.getAlias(), outerResult);
+                    final EvaluationContext fromOuterContext = context.withBinding(Bindings.BindingType.CORRELATION, outerQuantifier.getAlias(), outerResult);
 
                     return innerQuantifier.getRangesOverPlan().executePlan(store, fromOuterContext, innerContinuation, nestedExecuteProperties)
                             .map(innerResult -> {
                                 final EvaluationContext nestedContext =
-                                        fromOuterContext.withBinding(innerQuantifier.getAlias(), innerResult);
+                                        fromOuterContext.withBinding(Bindings.BindingType.CORRELATION, innerQuantifier.getAlias(), innerResult);
                                 final var computed = resultValue.eval(store, nestedContext);
                                 return inheritOuterRecordProperties
                                        ? outerResult.withComputed(computed)

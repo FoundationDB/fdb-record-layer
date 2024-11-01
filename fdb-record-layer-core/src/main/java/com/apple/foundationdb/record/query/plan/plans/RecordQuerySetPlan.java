@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
@@ -395,7 +396,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             @Override
             public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
                 return queryResult -> {
-                    final var nestedContext = evaluationContext.withBinding(baseAlias, queryResult);
+                    final var nestedContext = evaluationContext.withBinding(Bindings.BindingType.CORRELATION, baseAlias, queryResult);
                     final var resultList = Lists.newArrayList();
                     for (final Value comparisonKeyValue : comparisonKeyValues) {
                         resultList.add(comparisonKeyValue.eval(store, nestedContext));

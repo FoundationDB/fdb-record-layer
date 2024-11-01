@@ -209,7 +209,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
                 new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, false),
                 "in_num",
-                Bindings.Internal.IN,
+                Bindings.BindingType.IN,
                 Arrays.asList(2, 4), false, false);
         compareSkipsAndCursors(plan);
     }

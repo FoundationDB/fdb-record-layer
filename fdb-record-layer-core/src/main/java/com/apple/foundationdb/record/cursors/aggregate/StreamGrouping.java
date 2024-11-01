@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -183,13 +184,13 @@ public class StreamGrouping<M extends Message> {
     }
 
     private void accumulate(@Nullable Object currentObject) {
-        EvaluationContext nestedContext = context.withBinding(alias, currentObject);
+        EvaluationContext nestedContext = context.withBinding(Bindings.BindingType.CORRELATION, alias, currentObject);
         final Object partial = aggregateValue.evalToPartial(store, nestedContext);
         accumulator.accumulate(partial);
     }
 
     private Object evalGroupingKey(@Nullable final Object currentObject) {
-        final EvaluationContext nestedContext = context.withBinding(alias, currentObject);
+        final EvaluationContext nestedContext = context.withBinding(Bindings.BindingType.CORRELATION, alias, currentObject);
         return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext);
     }
 

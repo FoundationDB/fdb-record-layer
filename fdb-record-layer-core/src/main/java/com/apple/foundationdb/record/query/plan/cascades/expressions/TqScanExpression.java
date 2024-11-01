@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +49,7 @@ import java.util.Set;
 
 /**
  * A logical expression for scanning from a temporary memory buffer {@link TableQueue}.
- * This expression is used to implement a corresponding {@link com.apple.foundationdb.record.query.plan.plans.TqScanPlan} operator that
+ * This expression is used to implement a corresponding {@link TempTableScanPlan} operator that
  * does exactly that.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -57,12 +58,12 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
     private final Type flowedType;
 
     @Nonnull
-    private final String tableQueueName;
+    private final CorrelationIdentifier tableQueue;
 
     public TqScanExpression(@Nonnull final Type flowedType,
-                            @Nonnull final String tableQueueName) {
+                            @Nonnull final CorrelationIdentifier tableQueue) {
         this.flowedType = flowedType;
-        this.tableQueueName = tableQueueName;
+        this.tableQueue = tableQueue;
     }
 
     @Nonnull
@@ -72,8 +73,8 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
     }
 
     @Nonnull
-    public String getTableQueueName() {
-        return tableQueueName;
+    public CorrelationIdentifier getTableQueue() {
+        return tableQueue;
     }
 
     @Nonnull
@@ -140,11 +141,11 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueueName));
+        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueue.getId()));
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                        NodeInfo.TABLE_QUEUE_SCAN,
+                        NodeInfo.TEMP_TABLE_SCAN_OPERATOR,
                         ImmutableList.of(),
                         ImmutableMap.of()),
                 ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(

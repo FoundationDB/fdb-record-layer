@@ -75,7 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -299,7 +299,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
-        public Derivations visitTqScanPlan(@Nonnull final TqScanPlan tableQueuePlan) {
+        public Derivations visitTempTableScanPlan(@Nonnull final TempTableScanPlan tableQueuePlan) {
             return new Derivations(ImmutableList.of(tableQueuePlan.getResultValue()), ImmutableList.of());
         }
 

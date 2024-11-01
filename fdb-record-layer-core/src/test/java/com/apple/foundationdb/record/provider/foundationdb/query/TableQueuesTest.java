@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -148,7 +149,7 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
             final var cascadesPlanner = (CascadesPlanner)planner;
             var plan = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
             assertMatchesExactly(plan,  tqInsertPlan(explodePlan()).where(target(equalsObject("MySimpleRecord"))));
-            final var evaluationContext = EvaluationContext.empty().withBinding(tableQueue.getName(), tableQueue);
+            final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingType.TABLE_QUEUE, tableQueue.getName(), tableQueue);
             fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { }, ExecuteProperties.SERIAL_EXECUTE);
 
             // select rec_no, str_value_indexed from tq1 | tq1 is a TableQueue.
@@ -162,7 +163,7 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
     private Set<Pair<Long, String>> collectResults(@Nonnull FDBRecordContext context, @Nonnull RecordQueryPlan plan,
                                                    @Nonnull TableQueue tableQueue) throws Exception {
         ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
-        final var evaluationContext = EvaluationContext.empty().withBinding(tableQueue.getName(), tableQueue);
+        final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingType.TABLE_QUEUE, tableQueue.getName(), tableQueue);
         fetchResultValues(context, plan, record -> {
             final Descriptors.Descriptor recDescriptor = record.getDescriptorForType();
             Long recNo = (long) record.getField(recDescriptor.findFieldByName("rec_no"));

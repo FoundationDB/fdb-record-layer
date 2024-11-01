@@ -610,7 +610,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 return null;
             }
             final List<InSource> valuesSources = planWithIn.inExtractor.unionSources();
-            final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
+            final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.BindingType.IN);
             if (distinct) {
                 // Put back in the Distinct with the same comparison key.
                 RecordQueryPlan distinctPlan = scoredPlan.getPlan() instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ?
@@ -629,7 +629,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return false;
         }
         QueryRecordFunctionWithComparison asEquals = (QueryRecordFunctionWithComparison)
-                comparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
+                comparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.BindingType.IN));
         return planContext.rankComparisons.getPlanComparison(asEquals) != null;
     }
 
@@ -2333,7 +2333,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     .filter(comparison -> comparison.getType() == Comparisons.Type.EQUALS &&
                                           comparison instanceof Comparisons.ParameterComparison)
                     .map(comparison -> (Comparisons.ParameterComparison)comparison)
-                    .filter(parameterComparison -> Bindings.Internal.IN.isOfType(parameterComparison.getParameter()))
+                    .filter(parameterComparison -> Bindings.BindingType.IN.isOfType(parameterComparison.getParameter()))
                     .map(Comparisons.ParameterComparison::getParameter)
                     .collect(ImmutableSet.toImmutableSet());
         }

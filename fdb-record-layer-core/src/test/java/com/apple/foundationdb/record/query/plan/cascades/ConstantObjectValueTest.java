@@ -126,7 +126,7 @@ public class ConstantObjectValueTest {
     @ParameterizedTest
     @MethodSource("argumentsProvider")
     public void testEval(@Nonnull Type covResultType, boolean expectedSuccess, @Nullable Object bindingObject, @Nullable Object expectedObject) {
-        final var alias = Bindings.Internal.CONSTANT.bindingName("blah");
+        final var alias = Bindings.BindingType.CONSTANT.bindingName("blah");
         final var bindingMap = new HashMap<String, Object>();
         bindingMap.put("key", bindingObject);
         final var ctx = EvaluationContext.forBindings(Bindings.newBuilder().set(alias, bindingMap).build());

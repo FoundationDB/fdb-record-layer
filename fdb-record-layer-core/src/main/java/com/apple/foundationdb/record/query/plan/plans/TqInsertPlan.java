@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PTqInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.TableQueue;
@@ -67,12 +69,12 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
     public static final Logger LOGGER = LoggerFactory.getLogger(TqInsertPlan.class);
 
     @Nonnull
-    private final String tableQueueName;
+    private final CorrelationIdentifier tableQueue;
 
     protected TqInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
                            @Nonnull final PTqInsertPlan tqInsertPlanProto) {
         super(serializationContext, Objects.requireNonNull(tqInsertPlanProto.getSuper()));
-        this.tableQueueName = tqInsertPlanProto.getTableQueueName();
+        this.tableQueue = CorrelationIdentifier.of(tqInsertPlanProto.getTableQueueName());
     }
 
     private TqInsertPlan(@Nonnull final Quantifier.Physical inner,
@@ -80,9 +82,9 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                          @Nonnull final Type.Record targetType,
                          @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                          @Nonnull final Value computationValue,
-                         @Nonnull final String tableQueueName) {
+                         @Nonnull final CorrelationIdentifier tableQueue) {
         super(inner, recordType, targetType, null, coercionsTrie, computationValue, currentModifiedRecordAlias());
-        this.tableQueueName = tableQueueName;
+        this.tableQueue = tableQueue;
     }
 
     @Override
@@ -104,7 +106,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                                                                                        boolean isDryRun) {
         // dry run is ignored since inserting into a table queue has no storage side effects.
         final var queryResult = QueryResult.ofComputed(message);
-        final var tableQueue = context.getTableQueue(tableQueueName);
+        final var tableQueue = (TableQueue)context.getBinding(Bindings.BindingType.TABLE_QUEUE, this.tableQueue);
         tableQueue.add(queryResult);
         return CompletableFuture.completedFuture(queryResult);
     }
@@ -119,7 +121,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                 getTargetType(),
                 getCoercionTrie(),
                 getComputationValue(),
-                tableQueueName);
+                tableQueue);
     }
 
     @Nonnull
@@ -130,7 +132,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                 getTargetType(),
                 getCoercionTrie(),
                 getComputationValue(),
-                tableQueueName);
+                tableQueue);
     }
 
     @Override
@@ -163,7 +165,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
-                        new PlannerGraph.TemporaryDataNodeWithInfo(getTargetType(), ImmutableList.of(tableQueueName)),
+                        new PlannerGraph.TemporaryDataNodeWithInfo(getTargetType(), ImmutableList.of(tableQueue.toString())),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(
@@ -200,6 +202,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
      * @param targetType a target type to coerce the current record to prior to the update
      * @param computationValue a value to be computed based on the {@code inner} and
      * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
+     * @param tableQueue The table queue identifier to insert into.
      *
      * @return a newly created {@link TqInsertPlan}
      */
@@ -208,13 +211,13 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                                           @Nonnull final String recordType,
                                           @Nonnull final Type.Record targetType,
                                           @Nonnull final Value computationValue,
-                                          @Nonnull final String tableQueueName) {
+                                          @Nonnull final CorrelationIdentifier tableQueue) {
         return new TqInsertPlan(inner,
                 recordType,
                 targetType,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
                 computationValue,
-                tableQueueName);
+                tableQueue);
     }
 
     /**

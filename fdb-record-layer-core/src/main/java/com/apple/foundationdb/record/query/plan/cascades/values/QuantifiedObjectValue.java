@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -88,7 +89,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO this "if" can be encoded in encapsulation code implementing type promotion rules
-        final var binding = (QueryResult)context.getBinding(alias);
+        final var binding = (QueryResult)context.getBinding(Bindings.BindingType.CORRELATION, alias);
         if (resultType.isRecord()) {
             return binding.getDatum() == null ? null : binding.getMessage();
         } else {

@@ -52,7 +52,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
+import static com.apple.foundationdb.record.Bindings.BindingType.CORRELATION;
 
 /**
  * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner}.

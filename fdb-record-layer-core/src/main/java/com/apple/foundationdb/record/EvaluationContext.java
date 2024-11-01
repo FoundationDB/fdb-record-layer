@@ -23,7 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.TableQueue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
@@ -128,21 +127,13 @@ public class EvaluationContext {
     /**
      * Get the value bound to a single parameter.
      *
+     * @param type the type of the parameter
      * @param alias the correlation identifier
+     *
      * @return the value bound to the given parameter
      */
-    public Object getBinding(@Nonnull CorrelationIdentifier alias) {
-        return bindings.get(Bindings.Internal.CORRELATION.bindingName(alias.getId()));
-    }
-
-    /**
-     * Get a {@link com.apple.foundationdb.record.query.plan.cascades.TableQueue} object bound to the given argument.
-     *
-     * @param name the name of the table queue.
-     * @return the {@link TableQueue} object bound to the given {@code name}.
-     */
-    public TableQueue getTableQueue(@Nonnull String name) {
-        return (TableQueue)bindings.get(Bindings.Internal.TABLE_QUEUE.bindingName(name));
+    public Object getBinding(@Nonnull Bindings.BindingType type, @Nonnull CorrelationIdentifier alias) {
+        return bindings.get(type.bindingName(alias.getId()));
     }
 
     /**
@@ -155,7 +146,7 @@ public class EvaluationContext {
     @SuppressWarnings("unchecked")
     @Nullable
     public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
-        final var constantsMap = (Map<String, ?>)bindings.get(Bindings.Internal.CONSTANT.bindingName(alias.getId()));
+        final var constantsMap = (Map<String, ?>)bindings.get(Bindings.BindingType.CONSTANT.bindingName(alias.getId()));
         if (constantsMap == null) {
             throw new RecordCoreException("could not find constant in the evaluation context")
                     .addLogInfo(LogMessageKeys.KEY, "'" + alias.getId() + "' - '" + constantId + "'");
@@ -212,25 +203,13 @@ public class EvaluationContext {
      * context included all bindings except that it will bind an additional
      * parameter to an additional value.
      *
+     * @param type the type of the binding.
      * @param alias the alias determining the binding name to add
      * @param value the value to bind the name to
-     * @return a new <code>EvaluationContext</code> with the new binding
-     */
-    public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build(typeRepository);
-    }
-
-    /**
-     * Create a new <code>EvaluationContext</code> with an additional {@link TableQueue} binding.
-     * The returned context will have the same state as the curren context except that it will bind
-     * an additional parameter to an additional value.
      *
-     * @param tableQueueName the name of the {@link TableQueue} to add.
-     * @param tableQueue the {@link TableQueue} object to add.
      * @return a new <code>EvaluationContext</code> with the new binding
      */
-    @Nonnull
-    public EvaluationContext withBinding(@Nonnull String tableQueueName, @Nullable TableQueue tableQueue) {
-        return childBuilder().setBinding(Bindings.Internal.TABLE_QUEUE.bindingName(tableQueueName), tableQueue).build(typeRepository);
+    public EvaluationContext withBinding(final Bindings.BindingType type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+        return childBuilder().setBinding(type.bindingName(alias.getId()), value).build(typeRepository);
     }
 }

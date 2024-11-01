@@ -24,14 +24,14 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TqScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.plans.TqScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tqScanExpression;
 
 /**
- * A rule that implements a {@link TqScanExpression} producing a {@link TqScanPlan} operator.
+ * A rule that implements a {@link TqScanExpression} producing a {@link TempTableScanPlan} operator.
  */
 public class ImplementTqScanRule extends CascadesRule<TqScanExpression> {
 
@@ -45,7 +45,7 @@ public class ImplementTqScanRule extends CascadesRule<TqScanExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var tableQueueScanExpression = call.get(root);
-        call.yieldExpression(new TqScanPlan(tableQueueScanExpression.getTableQueueName(),
+        call.yieldExpression(new TempTableScanPlan(tableQueueScanExpression.getTableQueue(),
                 tableQueueScanExpression.getResultValue().getResultType()));
     }
 }

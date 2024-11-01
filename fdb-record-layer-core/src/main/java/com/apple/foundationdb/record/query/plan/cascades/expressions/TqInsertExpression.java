@@ -64,17 +64,17 @@ public class TqInsertExpression implements RelationalExpressionWithChildren, Pla
     @Nonnull
     private final Value resultValue;
     @Nonnull
-    private final String tableQueueName;
+    private final CorrelationIdentifier tableQueue;
 
     public TqInsertExpression(@Nonnull final Quantifier.ForEach inner,
                               @Nonnull final String targetRecordType,
                               @Nonnull final Type.Record targetType,
-                              @Nonnull final String tableQueueName) {
+                              @Nonnull final CorrelationIdentifier tableQueue) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
         this.resultValue = new QueriedValue(targetType);
-        this.tableQueueName = tableQueueName;
+        this.tableQueue = tableQueue;
     }
 
     @Override
@@ -115,7 +115,7 @@ public class TqInsertExpression implements RelationalExpressionWithChildren, Pla
                 targetRecordType,
                 targetType,
                 makeComputationValue(targetType),
-                tableQueueName);
+                tableQueue);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class TqInsertExpression implements RelationalExpressionWithChildren, Pla
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
-                        new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueueName)),
+                        new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueue.getId())),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(

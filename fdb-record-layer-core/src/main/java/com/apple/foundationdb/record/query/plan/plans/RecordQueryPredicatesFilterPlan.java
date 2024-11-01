@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -109,14 +110,14 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nullable
     @Override
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
-        final var nestedContext = context.withBinding(getInner().getAlias(), queryResult);
+        final var nestedContext = context.withBinding(Bindings.BindingType.CORRELATION, getInner().getAlias(), queryResult);
         return conjunctedPredicate.eval(store, nestedContext);
     }
 
     @Nullable
     @Override
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
-        final var nestedContext = context.withBinding(getInner().getAlias(), queryResult);
+        final var nestedContext = context.withBinding(Bindings.BindingType.CORRELATION, getInner().getAlias(), queryResult);
 
         return new AsyncBoolean<>(false,
                 getPredicates(),

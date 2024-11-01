@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -228,7 +229,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                               @Nonnull final QueryResult queryResult, @Nonnull final Descriptors.Descriptor targetDescriptor) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
         return (M)MessageHelpers.transformMessage(store,
-                context.withBinding(inner.getAlias(), queryResult),
+                context.withBinding(Bindings.BindingType.CORRELATION, inner.getAlias(), queryResult),
                 transformationsTrie,
                 coercionTrie,
                 targetType,

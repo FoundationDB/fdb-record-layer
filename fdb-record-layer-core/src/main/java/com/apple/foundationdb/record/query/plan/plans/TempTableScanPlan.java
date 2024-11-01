@@ -1,5 +1,5 @@
 /*
- * TqScanPlan.java
+ * TempTableScanPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -28,7 +29,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.planprotos.PTqScanPlan;
+import com.apple.foundationdb.record.planprotos.PTempTableScanPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -61,17 +62,17 @@ import java.util.Set;
  * Scans records from a temporary in-memory buffer {@link TableQueue}.
  */
 @API(API.Status.INTERNAL)
-public class TqScanPlan implements RecordQueryPlanWithNoChildren {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tq-Scan-Plan");
+public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Scan-Plan");
 
     @Nonnull
-    private final String tableQueueName;
+    private final CorrelationIdentifier tableQueue;
 
     @Nonnull
     private final Type resultType;
 
-    public TqScanPlan(@Nonnull String tableQueueName, @Nonnull Type resultType) {
-        this.tableQueueName = tableQueueName;
+    public TempTableScanPlan(@Nonnull CorrelationIdentifier tableQueue, @Nonnull Type resultType) {
+        this.tableQueue = tableQueue;
         this.resultType = resultType;
     }
 
@@ -81,7 +82,7 @@ public class TqScanPlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        final var tableQueue = context.getTableQueue(tableQueueName);
+        final var tableQueue = (TableQueue)context.getBinding(Bindings.BindingType.TABLE_QUEUE, this.tableQueue);
         return tableQueue.getReadCursor(continuation);
     }
 
@@ -94,8 +95,8 @@ public class TqScanPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TqScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
-                                            @Nonnull List<? extends Quantifier> translatedQuantifiers) {
+    public TempTableScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
+                                                   @Nonnull List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
@@ -105,7 +106,7 @@ public class TqScanPlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public TqScanPlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public TempTableScanPlan strictlySorted(@Nonnull Memoizer memoizer) {
         return this;
     }
 
@@ -170,7 +171,7 @@ public class TqScanPlan implements RecordQueryPlanWithNoChildren {
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final var otherTableQueuePlan =  (TqScanPlan)otherExpression;
+        final var otherTableQueuePlan =  (TempTableScanPlan)otherExpression;
 
         return otherTableQueuePlan.resultType.equals(resultType);
     }
@@ -217,50 +218,50 @@ public class TqScanPlan implements RecordQueryPlanWithNoChildren {
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
-                        NodeInfo.TABLE_QUEUE_SCAN,
-                        ImmutableList.of(tableQueueName)),
+                        NodeInfo.TEMP_TABLE_SCAN_OPERATOR,
+                        ImmutableList.of(tableQueue.toString())),
                 childGraphs);
     }
 
     @Nonnull
     @Override
-    public PTqScanPlan toProto(@Nonnull PlanSerializationContext serializationContext) {
-        return PTqScanPlan.newBuilder()
+    public PTempTableScanPlan toProto(@Nonnull PlanSerializationContext serializationContext) {
+        return PTempTableScanPlan.newBuilder()
                 .setResultType(getResultValue().getResultType().toTypeProto(serializationContext))
-                .setTableQueueName(tableQueueName)
+                .setTableQueueId(tableQueue.getId())
                 .build();
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setTqScanPlan(toProto(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setTempTableScanPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static TqScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                       @Nonnull PTqScanPlan tqScanPlanProto) {
-        final Type resultType = Type.fromTypeProto(serializationContext, tqScanPlanProto.getResultType());
-        final var tableQueueName = tqScanPlanProto.getTableQueueName();
-        return new TqScanPlan(tableQueueName, resultType);
+    public static TempTableScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                              @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
+        final Type resultType = Type.fromTypeProto(serializationContext, tempTableScanPlanProto.getResultType());
+        final var tableQueueId = tempTableScanPlanProto.getTableQueueId();
+        return new TempTableScanPlan(CorrelationIdentifier.of(tableQueueId), resultType);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PTqScanPlan, TqScanPlan> {
+    public static class Deserializer implements PlanDeserializer<PTempTableScanPlan, TempTableScanPlan> {
         @Nonnull
         @Override
-        public Class<PTqScanPlan> getProtoMessageClass() {
-            return PTqScanPlan.class;
+        public Class<PTempTableScanPlan> getProtoMessageClass() {
+            return PTempTableScanPlan.class;
         }
 
         @Nonnull
         @Override
-        public TqScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                    @Nonnull PTqScanPlan tqScanPlanProto) {
-            return TqScanPlan.fromProto(serializationContext, tqScanPlanProto);
+        public TempTableScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                           @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
+            return TempTableScanPlan.fromProto(serializationContext, tempTableScanPlanProto);
         }
     }
 }

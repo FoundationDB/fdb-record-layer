@@ -50,19 +50,19 @@ public class TableQueue {
     private final Queue<QueryResult> underlyingBuffer;
 
     @Nonnull
-    private final String name;
+    private final CorrelationIdentifier name;
 
-    private TableQueue(@Nonnull String name) {
+    private TableQueue(@Nonnull CorrelationIdentifier name) {
         this(new LinkedList<>(), name);
     }
 
-    private TableQueue(@Nonnull Queue<QueryResult> buffer, @Nonnull String name) {
+    private TableQueue(@Nonnull Queue<QueryResult> buffer, @Nonnull CorrelationIdentifier name) {
         this.underlyingBuffer = buffer;
         this.name = name;
     }
 
     @Nonnull
-    public String getName() {
+    public CorrelationIdentifier getName() {
         return name;
     }
 
@@ -104,7 +104,7 @@ public class TableQueue {
     @Nonnull
     public PTableQueue toProto() {
         final var tableQueueProtoBuilder = PTableQueue.newBuilder()
-                .setName(getName());
+                .setName(getName().getId());
         serializeBuffer(tableQueueProtoBuilder);
         return tableQueueProtoBuilder.build();
     }
@@ -144,11 +144,16 @@ public class TableQueue {
         for (final var element : tableQueueProto.getBufferItemsList()) {
             underlyingBuffer.add(QueryResult.deserialize(descriptor, element));
         }
-        return new TableQueue(underlyingBuffer, name);
+        return new TableQueue(underlyingBuffer, CorrelationIdentifier.of(name));
     }
 
     @Nonnull
     public static TableQueue newInstance(@Nonnull String name) {
+        return new TableQueue(CorrelationIdentifier.of(name));
+    }
+
+    @Nonnull
+    public static TableQueue newInstance(@Nonnull CorrelationIdentifier name) {
         return new TableQueue(name);
     }
 }

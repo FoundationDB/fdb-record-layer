@@ -44,7 +44,7 @@ public class Bindings {
     /**
      * Bindings slots used internally by plan operators.
      */
-    public enum Internal {
+    public enum BindingType {
         IN("__in_"),
         RANK("__rank_"),
         CORRELATION("__corr_"),
@@ -55,7 +55,7 @@ public class Bindings {
         private final String value;
 
 
-        Internal(String value) {
+        BindingType(String value) {
             this.value = value;
         }
 
@@ -89,7 +89,7 @@ public class Bindings {
                 case CORRELATION:
                     return PBindingKind.CORRELATION;
                 case TABLE_QUEUE:
-                    return PBindingKind.TABLE_QUEUE;
+                    return PBindingKind.TABLE_QUEUE; // TEMP_TABLE
                 default:
                     throw new RecordCoreException("unknown binding mapping. did you forget to map it?");
             }
@@ -97,7 +97,7 @@ public class Bindings {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static Internal fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBindingKind bindingKindProto) {
+        public static BindingType fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBindingKind bindingKindProto) {
             switch (bindingKindProto) {
                 case IN:
                     return IN;

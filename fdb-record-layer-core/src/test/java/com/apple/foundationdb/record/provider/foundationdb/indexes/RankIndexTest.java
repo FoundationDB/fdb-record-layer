@@ -213,7 +213,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                                              @Nonnull Comparisons.Type type,
                                              @Nonnull String rankParameter) {
         return new FieldWithComparison(fieldName,
-                new Comparisons.ParameterComparison(type, rankParameter, Bindings.Internal.RANK));
+                new Comparisons.ParameterComparison(type, rankParameter, Bindings.BindingType.RANK));
     }
 
     @DualPlannerTest
@@ -1292,7 +1292,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, scoreForRank(contains(
                         hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank_else_skip(3)")),
                 fetch(filter(new FieldWithComparison("score",
-                                new Comparisons.ParameterComparison(Comparisons.Type.LESS_THAN, "__rank_0", Bindings.Internal.RANK)),
+                                new Comparisons.ParameterComparison(Comparisons.Type.LESS_THAN, "__rank_0", Bindings.BindingType.RANK)),
                         coveringIndexScan(indexScan(allOf(indexName("rank_by_gender"), bounds(hasTupleString("[[M, 1],[M, 1]]")))))))));
 
         try (FDBRecordContext context = openContext()) {

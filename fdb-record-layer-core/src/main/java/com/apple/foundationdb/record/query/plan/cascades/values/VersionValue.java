@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -68,7 +69,7 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        QueryResult binding = (QueryResult) context.getBinding(baseAlias);
+        QueryResult binding = (QueryResult) context.getBinding(Bindings.BindingType.CORRELATION, baseAlias);
         return binding.getQueriedRecordMaybe()
                 .map(FDBRecord::getVersion)
                 .orElse(null);
