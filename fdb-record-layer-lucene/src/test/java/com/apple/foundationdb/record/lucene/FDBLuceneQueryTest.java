@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -871,6 +872,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
+    @SuperSlow
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         // limit the FJP size to try and force the # segments to exceed the # threads
