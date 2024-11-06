@@ -52,9 +52,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 class AsyncLoadingCacheTest {
     private final Random random = new Random();
 
+    private static <K, V> AsyncLoadingCache<K, V> createCache(long refreshTimeMillis) {
+        return new AsyncLoadingCache<>(refreshTimeMillis, AsyncLoadingCache.DEFAULT_DEADLINE_TIME_MILLIS, AsyncLoadingCache.UNLIMITED, MoreAsyncUtil.getDefaultScheduledExecutor());
+    }
+
     @Test
     public void testRefreshTime() {
-        AsyncLoadingCache<String, Boolean> cachedResult = new AsyncLoadingCache<>(100);
+        AsyncLoadingCache<String, Boolean> cachedResult = createCache(100);
         final AtomicBoolean called = new AtomicBoolean(false);
 
         Supplier<CompletableFuture<Boolean>> supplier = () -> CompletableFuture.completedFuture(called.getAndSet(true));
@@ -69,7 +73,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void testSupplierExceptionDoesNotCacheValue() {
-        AsyncLoadingCache<Integer, Boolean> cachedResult = new AsyncLoadingCache<>(30000);
+        AsyncLoadingCache<Integer, Boolean> cachedResult = createCache(30000);
         final AtomicInteger counter = new AtomicInteger();
         final Supplier<CompletableFuture<Boolean>> supplier = () -> {
             counter.incrementAndGet();
@@ -91,7 +95,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void testGettingAsyncFailures() {
-        AsyncLoadingCache<Integer, Boolean> cachedResult = new AsyncLoadingCache<>(30000);
+        AsyncLoadingCache<Integer, Boolean> cachedResult = createCache(30000);
         final AtomicInteger callCount = new AtomicInteger();
         final Supplier<CompletableFuture<Boolean>> supplier = () ->
                 MoreAsyncUtil.delayedFuture(1 + random.nextInt(5), TimeUnit.MILLISECONDS).thenApply(ignore -> {
@@ -118,7 +122,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void testGettingImmediateFailure() {
-        AsyncLoadingCache<Integer, Boolean> cachedResult = new AsyncLoadingCache<>(30000);
+        AsyncLoadingCache<Integer, Boolean> cachedResult = createCache(30000);
         final AtomicInteger callCount = new AtomicInteger();
         final Supplier<CompletableFuture<Boolean>> supplier = () -> {
             int count = callCount.getAndIncrement();
@@ -147,7 +151,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void testReloadFailedGets() throws Exception {
-        AsyncLoadingCache<String, Integer> cachedResult = new AsyncLoadingCache<>(250);
+        AsyncLoadingCache<String, Integer> cachedResult = createCache(250);
         AtomicInteger counter1 = new AtomicInteger();
         AtomicInteger counter2 = new AtomicInteger();
 
@@ -173,7 +177,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void testClear() {
-        AsyncLoadingCache<String, Integer> cachedResult = new AsyncLoadingCache<>(30000);
+        AsyncLoadingCache<String, Integer> cachedResult = createCache(30000);
         AtomicInteger value = new AtomicInteger(111);
         Supplier<CompletableFuture<Integer>> supplier = () -> CompletableFuture.supplyAsync(value::get);
 
@@ -186,7 +190,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void testParallelGets() {
-        AsyncLoadingCache<String, Boolean> cachedResult = new AsyncLoadingCache<>(100);
+        AsyncLoadingCache<String, Boolean> cachedResult = createCache(100);
         final AtomicInteger counter = new AtomicInteger();
         CompletableFuture<Void> signal = new CompletableFuture<>();
         final Supplier<CompletableFuture<Boolean>> supplier = () -> {
@@ -224,7 +228,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void cacheNulls() {
-        AsyncLoadingCache<String, String> cache = new AsyncLoadingCache<>(100);
+        AsyncLoadingCache<String, String> cache = createCache(100);
         final AtomicInteger counter = new AtomicInteger();
         CompletableFuture<Void> signal = new CompletableFuture<>();
         final Supplier<CompletableFuture<String>> supplier = () -> {
@@ -246,7 +250,7 @@ class AsyncLoadingCacheTest {
 
     @Test
     public void testDeadline() {
-        AsyncLoadingCache<String, Integer> cachedResult = new AsyncLoadingCache<>(100, 10);
+        AsyncLoadingCache<String, Integer> cachedResult = new AsyncLoadingCache<>(100, 10, AsyncLoadingCache.UNLIMITED, MoreAsyncUtil.getDefaultScheduledExecutor());
         final Supplier<CompletableFuture<Integer>> tooLateSupplier = () -> MoreAsyncUtil.delayedFuture(1, TimeUnit.SECONDS)
                 .thenApply(ignore -> 2);
         final Supplier<CompletableFuture<Integer>> onTimeSupplier = () -> MoreAsyncUtil.delayedFuture(5, TimeUnit.MILLISECONDS)

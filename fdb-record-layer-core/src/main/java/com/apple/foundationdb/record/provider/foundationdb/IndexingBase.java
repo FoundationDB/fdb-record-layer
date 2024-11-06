@@ -669,7 +669,7 @@ public abstract class IndexingBase {
 
         validateTimeLimit(toWait);
 
-        CompletableFuture<Boolean> delay = MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
+        CompletableFuture<Boolean> delay = MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS, common.getRunner().getScheduledExecutor()).thenApply(vignore3 -> true);
         if (getRunner().getTimer() != null) {
             delay = getRunner().getTimer().instrument(FDBStoreTimer.Events.INDEXER_DELAY, delay, getRunner().getExecutor());
         }
