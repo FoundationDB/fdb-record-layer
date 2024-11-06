@@ -37,6 +37,9 @@ public class Tags {
      * <p>
      *     Note: the time here may be decreased in the future as more tests are added.
      * </p>
+     * <p>
+     *     Note: This tag does not actually enforce a timeout on the test (see issue #2454).
+     * </p>
      */
     public static final String Slow = "Slow";
     /**
