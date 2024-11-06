@@ -228,7 +228,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             Index index2 = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique");
 
             AtomicBoolean check1Run = new AtomicBoolean(false);
-            CompletableFuture<Void> check1 = MoreAsyncUtil.delayedFuture(1L, TimeUnit.MILLISECONDS)
+            CompletableFuture<Void> check1 = MoreAsyncUtil.delayedFuture(1L, TimeUnit.MILLISECONDS, context.getScheduledExecutor())
                     .thenRun(() -> check1Run.set(true));
             recordStore.addIndexUniquenessCommitCheck(index1, recordStore.indexSubspace(index1), check1);
 
@@ -261,7 +261,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             Index index = firstStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
 
             AtomicBoolean check1Run = new AtomicBoolean(false);
-            CompletableFuture<Void> check1 = MoreAsyncUtil.delayedFuture(1L, TimeUnit.MILLISECONDS)
+            CompletableFuture<Void> check1 = MoreAsyncUtil.delayedFuture(1L, TimeUnit.MILLISECONDS, context.getScheduledExecutor())
                     .thenRun(() -> check1Run.set(true));
             firstStore.addIndexUniquenessCommitCheck(index, firstStore.indexSubspace(index), check1);
 

@@ -28,6 +28,7 @@ import com.google.common.cache.CacheBuilder;
 import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -55,19 +56,22 @@ public class AsyncLoadingCache<K, V> {
     private final long refreshTimeMillis;
     private final long deadlineTimeMillis;
     private final long maxSize;
+    @Nonnull
+    private final ScheduledExecutorService scheduledExecutor;
 
-    public AsyncLoadingCache(long refreshTimeMillis) {
-        this(refreshTimeMillis, DEFAULT_DEADLINE_TIME_MILLIS);
-    }
-
-    public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis) {
-        this(refreshTimeMillis, deadlineTimeMillis, UNLIMITED);
-    }
-
-    public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis, long maxSize) {
+    /**
+     * Create a new cache that loads items asynchronously.
+     *
+     * @param refreshTimeMillis the amount of time to let cache entries sit in the cache before reloading them
+     * @param deadlineTimeMillis the maximum amount of time in milliseconds that loading a cache element can take
+     * @param maxSize the maximum number of elements in the cache
+     * @param scheduledExecutor a scheduled executor used to manage asynchronous deadlines
+     */
+    public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis, long maxSize, @Nonnull ScheduledExecutorService scheduledExecutor) {
         this.refreshTimeMillis = refreshTimeMillis;
         this.deadlineTimeMillis = deadlineTimeMillis;
         this.maxSize = maxSize;
+        this.scheduledExecutor = scheduledExecutor;
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(this.refreshTimeMillis, TimeUnit.MILLISECONDS);
         if (maxSize != UNLIMITED) {
@@ -95,7 +99,7 @@ public class AsyncLoadingCache<K, V> {
         try {
             Optional<V> cachedValue = cache.getIfPresent(key);
             if (cachedValue == null) {
-                return MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier).thenApply(value -> {
+                return MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier, scheduledExecutor).thenApply(value -> {
                     // Only insert the computed value into the cache if a concurrent caller hasn't.
                     // Return the value that wound up in the cache.
                     final Optional<V> existingValue = cache.asMap().putIfAbsent(key, Optional.ofNullable(value));
@@ -109,8 +113,34 @@ public class AsyncLoadingCache<K, V> {
         }
     }
 
+    /**
+     * Get the amount of time between cache refreshes in seconds.
+     *
+     * @return the cache refresh time in seconds
+     */
     public long getRefreshTimeSeconds() {
         return TimeUnit.MILLISECONDS.toSeconds(refreshTimeMillis);
+    }
+
+    /**
+     * Get the amount of time between cache refreshes in milliseconds.
+     *
+     * @return the cache refresh time in milliseconds
+     */
+    public long getRefreshTimeMillis() {
+        return refreshTimeMillis;
+    }
+
+    /**
+     * Get the deadline time imposed on cache loading in milliseconds. This is used by
+     * {@link #orElseGet(Object, Supplier)} to avoid futures hanging during cache loading.
+     * If a future takes longer than the returned number of milliseconds to complete, the cache
+     * loading operation is failed with a {@link com.apple.foundationdb.async.MoreAsyncUtil.DeadlineExceededException}.
+     *
+     * @return the cache loading deadline time in milliseconds
+     */
+    public long getDeadlineTimeMillis() {
+        return deadlineTimeMillis;
     }
 
     /**

@@ -242,7 +242,7 @@ class FDBDatabaseTest {
         } else {
             FDBDatabase database2 = factory.getDatabase();
             TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_FOR_FUTURE_MESSAGE, () -> {
-                long val = database2.joinNow(MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS)
+                long val = database2.joinNow(MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS, database2.getScheduledExecutor())
                         .thenApply(vignore -> 1066L));
                 assertEquals(1066L, val);
                 return null;

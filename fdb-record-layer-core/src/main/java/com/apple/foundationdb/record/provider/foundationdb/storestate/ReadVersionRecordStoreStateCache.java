@@ -63,7 +63,7 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
 
     ReadVersionRecordStoreStateCache(@Nonnull FDBDatabase database, long refreshTimeMillis, long deadlineTimeMillis, long maxSize) {
         this.database = database;
-        this.cache = new AsyncLoadingCache<>(refreshTimeMillis, deadlineTimeMillis, maxSize);
+        this.cache = new AsyncLoadingCache<>(refreshTimeMillis, deadlineTimeMillis, maxSize, database.getScheduledExecutor());
     }
 
     @Nonnull
