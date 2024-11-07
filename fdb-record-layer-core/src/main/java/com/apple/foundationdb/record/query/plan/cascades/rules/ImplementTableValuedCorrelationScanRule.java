@@ -1,5 +1,5 @@
 /*
- * ImplementTqScanRule.java
+ * ImplementTableValuedCorrelationScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,30 +22,30 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TqScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableValuedCorrelationScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tqScanExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tempTableScanExpression;
 
 /**
- * A rule that implements a {@link TqScanExpression} producing a {@link TempTableScanPlan} operator.
+ * A rule that implements a {@link TableValuedCorrelationScanExpression} producing a {@link TableValuedCorrelationScanPlan} operator.
  */
-public class ImplementTqScanRule extends CascadesRule<TqScanExpression> {
+public class ImplementTableValuedCorrelationScanRule extends CascadesRule<TableValuedCorrelationScanExpression> {
 
     @Nonnull
-    private static final BindingMatcher<TqScanExpression> root = tqScanExpression();
+    private static final BindingMatcher<TableValuedCorrelationScanExpression> root = tempTableScanExpression();
 
-    public ImplementTqScanRule() {
+    public ImplementTableValuedCorrelationScanRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var tableQueueScanExpression = call.get(root);
-        call.yieldExpression(new TempTableScanPlan(tableQueueScanExpression.getTableQueue(),
-                tableQueueScanExpression.getResultValue().getResultType()));
+        final var tempTableScanExpression = call.get(root);
+        call.yieldExpression(new TableValuedCorrelationScanPlan(tempTableScanExpression.getTableQueue(),
+                tempTableScanExpression.getResultValue().getResultType()));
     }
 }

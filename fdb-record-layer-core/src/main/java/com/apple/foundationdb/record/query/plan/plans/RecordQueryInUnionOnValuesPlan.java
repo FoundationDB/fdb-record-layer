@@ -72,13 +72,13 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                                           @Nonnull final List<? extends Value> comparisonKeyValues,
                                           final boolean isReverse,
                                           final int maxNumberOfValuesAllowed,
-                                          @Nonnull final Bindings.BindingType bindingType) {
+                                          @Nonnull final Bindings.BindingKind bindingKind) {
         super(inner,
                 inSources,
                 new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
                 isReverse,
                 maxNumberOfValuesAllowed,
-                bindingType);
+                bindingKind);
         this.comparisonKeyOrderingParts =
                 comparisonKeyOrderingParts == null
                 ? null
@@ -139,7 +139,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                 getComparisonKeyValues(),
                 reverse,
                 maxNumberOfValuesAllowed,
-                bindingType);
+                bindingKind);
     }
 
     @Nonnull
@@ -151,7 +151,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                 getComparisonKeyValues(),
                 reverse,
                 maxNumberOfValuesAllowed,
-                bindingType);
+                bindingKind);
     }
 
     @Nonnull
@@ -180,14 +180,14 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                                                          @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                          final boolean isReverse,
                                                          final int maxNumberOfValuesAllowed,
-                                                         @Nonnull final Bindings.BindingType bindingType) {
+                                                         @Nonnull final Bindings.BindingKind bindingKind) {
         return new RecordQueryInUnionOnValuesPlan(inner,
                 inSources,
                 comparisonKeyOrderingParts,
                 ProvidedOrderingPart.comparisonKeyValues(comparisonKeyOrderingParts, isReverse),
                 isReverse,
                 maxNumberOfValuesAllowed,
-                bindingType);
+                bindingKind);
     }
 
     /**

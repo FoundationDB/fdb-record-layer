@@ -273,7 +273,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
         Bindings.Builder bindingsBuilder = Bindings.newBuilder();
         for (Map.Entry<CorrelationIdentifier, ImmutableMap.Builder<String, Object>> aliasEntry : byAlias.entrySet()) {
-            bindingsBuilder.set(Bindings.BindingType.CONSTANT.bindingName(aliasEntry.getKey().getId()), aliasEntry.getValue().build());
+            bindingsBuilder.set(Bindings.BindingKind.CONSTANT.bindingName(aliasEntry.getKey().getId()), aliasEntry.getValue().build());
         }
         return bindingsBuilder.build();
     }

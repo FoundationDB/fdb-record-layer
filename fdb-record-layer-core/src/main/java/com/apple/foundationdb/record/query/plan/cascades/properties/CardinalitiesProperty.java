@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TqInsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
@@ -48,7 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TqScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableValuedCorrelationScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
@@ -73,8 +73,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -248,7 +248,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitTqInsertPlan(@Nonnull final TqInsertPlan insertTableQueuePlan) {
+    public Cardinalities visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertTableQueuePlan) {
         return fromChild(insertTableQueuePlan);
     }
 
@@ -505,7 +505,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitTqInsertExpression(@Nonnull final TqInsertExpression insertTableQueue) {
+    public Cardinalities visitTempTableInsertExpression(@Nonnull final TempTableInsertExpression insertTableQueue) {
         return fromChild(insertTableQueue);
     }
 
@@ -575,7 +575,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitTqScanExpression(@Nonnull final TqScanExpression element) {
+    public Cardinalities visitTableValuedCorrelationScanExpression(@Nonnull final TableValuedCorrelationScanExpression element) {
         return Cardinalities.unknownMaxCardinality();
     }
 
@@ -626,7 +626,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+    public Cardinalities visitTableValuedCorrelationScanPlan(@Nonnull final TableValuedCorrelationScanPlan element) {
         return Cardinalities.unknownMaxCardinality();
     }
 

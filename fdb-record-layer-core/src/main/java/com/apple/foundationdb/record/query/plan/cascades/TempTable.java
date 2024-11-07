@@ -1,5 +1,5 @@
 /*
- * TableQueue.java
+ * TempTable.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -41,10 +41,10 @@ import java.util.Queue;
 
 /**
  * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
- * placeholder for computation results produced by some physical operator, but can be leveraged to represent, for example, temporary
- * tables as well.
+ * placeholder for computation results produced by some physical operator, but can be leveraged to represent, for example,
+ * a SQL temporary tables as well.
  */
-public class TableQueue {
+public class TempTable {
 
     @Nonnull
     private final Queue<QueryResult> underlyingBuffer;
@@ -52,11 +52,11 @@ public class TableQueue {
     @Nonnull
     private final CorrelationIdentifier name;
 
-    private TableQueue(@Nonnull CorrelationIdentifier name) {
+    private TempTable(@Nonnull CorrelationIdentifier name) {
         this(new LinkedList<>(), name);
     }
 
-    private TableQueue(@Nonnull Queue<QueryResult> buffer, @Nonnull CorrelationIdentifier name) {
+    private TempTable(@Nonnull Queue<QueryResult> buffer, @Nonnull CorrelationIdentifier name) {
         this.underlyingBuffer = buffer;
         this.name = name;
     }
@@ -120,12 +120,12 @@ public class TableQueue {
     }
 
     @Nonnull
-    public static TableQueue deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull byte[]bytes) {
+    public static TempTable deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull byte[]bytes) {
         return deserialize(descriptor, ZeroCopyByteString.wrap(bytes));
     }
 
     @Nonnull
-    public static TableQueue deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
+    public static TempTable deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
         final PTableQueue tableQueueProto;
         try {
             tableQueueProto = PTableQueue.parseFrom(byteString);
@@ -137,23 +137,23 @@ public class TableQueue {
     }
 
     @Nonnull
-    public static TableQueue fromProto(@Nonnull final PTableQueue tableQueueProto,
-                                       @Nullable Descriptors.Descriptor descriptor) {
+    public static TempTable fromProto(@Nonnull final PTableQueue tableQueueProto,
+                                      @Nullable Descriptors.Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
         final var name = tableQueueProto.getName();
         for (final var element : tableQueueProto.getBufferItemsList()) {
             underlyingBuffer.add(QueryResult.deserialize(descriptor, element));
         }
-        return new TableQueue(underlyingBuffer, CorrelationIdentifier.of(name));
+        return new TempTable(underlyingBuffer, CorrelationIdentifier.of(name));
     }
 
     @Nonnull
-    public static TableQueue newInstance(@Nonnull String name) {
-        return new TableQueue(CorrelationIdentifier.of(name));
+    public static TempTable newInstance(@Nonnull String name) {
+        return new TempTable(CorrelationIdentifier.of(name));
     }
 
     @Nonnull
-    public static TableQueue newInstance(@Nonnull CorrelationIdentifier name) {
-        return new TableQueue(name);
+    public static TempTable newInstance(@Nonnull CorrelationIdentifier name) {
+        return new TempTable(name);
     }
 }

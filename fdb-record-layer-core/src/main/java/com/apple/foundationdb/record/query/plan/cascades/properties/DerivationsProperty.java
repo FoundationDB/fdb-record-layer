@@ -59,7 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -75,7 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -299,7 +299,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
-        public Derivations visitTempTableScanPlan(@Nonnull final TempTableScanPlan tableQueuePlan) {
+        public Derivations visitTableValuedCorrelationScanPlan(@Nonnull final TableValuedCorrelationScanPlan tableQueuePlan) {
             return new Derivations(ImmutableList.of(tableQueuePlan.getResultValue()), ImmutableList.of());
         }
 
@@ -337,7 +337,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
-        public Derivations visitTqInsertPlan(@Nonnull final TqInsertPlan insertPlan) {
+        public Derivations visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertPlan) {
             // this is copied from visitInsertPlan.
             final Quantifier rangesOver = Iterables.getOnlyElement(insertPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);

@@ -60,7 +60,7 @@ class LikeOperatorValueTest {
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
-    private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.BindingType.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
+    private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.BindingKind.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
 
     static class InvalidInputArgumentsProvider implements ArgumentsProvider {
         @Override

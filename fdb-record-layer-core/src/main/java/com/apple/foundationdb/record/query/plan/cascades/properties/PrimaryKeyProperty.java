@@ -47,8 +47,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -198,7 +198,7 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
-        public Optional<List<Value>> visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        public Optional<List<Value>> visitTableValuedCorrelationScanPlan(@Nonnull final TableValuedCorrelationScanPlan element) {
             return Optional.empty();
         }
 
@@ -217,7 +217,7 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         @Nonnull
         @Override
-        public Optional<List<Value>> visitTqInsertPlan(@Nonnull final TqInsertPlan insertTableQueuePlan) {
+        public Optional<List<Value>> visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertTableQueuePlan) {
             // table queues do not support primary key currently.
             return Optional.empty();
         }

@@ -329,7 +329,7 @@ public class PlanStringRepresentationTest {
         double choice = r.nextDouble();
         boolean sortValues = r.nextBoolean();
         boolean sortReverse = r.nextBoolean();
-        String innerParam = Bindings.BindingType.IN.bindingName(randomParameterName(r));
+        String innerParam = Bindings.BindingKind.IN.bindingName(randomParameterName(r));
 
         List<Long> values = new ArrayList<>();
         int objCount = r.nextInt(7);
@@ -344,10 +344,10 @@ public class PlanStringRepresentationTest {
         RecordQueryInJoinPlan inJoinPlan;
         String valueString;
         if (choice < 0.33) {
-            inJoinPlan = new RecordQueryInParameterJoinPlan(childPlan.getLeft(), innerParam, Bindings.BindingType.IN, outerParamName, sortValues, sortReverse);
+            inJoinPlan = new RecordQueryInParameterJoinPlan(childPlan.getLeft(), innerParam, Bindings.BindingKind.IN, outerParamName, sortValues, sortReverse);
             valueString = "$" + outerParamName;
         } else if (choice < 0.67) {
-            inJoinPlan = new RecordQueryInValuesJoinPlan(childPlan.getLeft(), innerParam, Bindings.BindingType.IN, ImmutableList.copyOf(values), sortValues, sortReverse);
+            inJoinPlan = new RecordQueryInValuesJoinPlan(childPlan.getLeft(), innerParam, Bindings.BindingKind.IN, ImmutableList.copyOf(values), sortValues, sortReverse);
             valueString = values.toString();
         } else {
             Comparisons.Comparison comparison;
@@ -358,7 +358,7 @@ public class PlanStringRepresentationTest {
                 comparison = new Comparisons.ParameterComparison(Comparisons.Type.IN, outerParamName);
                 valueString = "$" + outerParamName;
             }
-            inJoinPlan = new RecordQueryInComparandJoinPlan(childPlan.getLeft(), innerParam, Bindings.BindingType.IN, comparison, sortValues, sortReverse);
+            inJoinPlan = new RecordQueryInComparandJoinPlan(childPlan.getLeft(), innerParam, Bindings.BindingKind.IN, comparison, sortValues, sortReverse);
         }
 
         return NonnullPair.of(inJoinPlan, String.format("%s WHERE %s IN %s%s%s", childPlan.getRight(), innerParam, valueString, sortValues ? " SORTED" : "", sortValues && sortReverse ? " DESC" : ""));

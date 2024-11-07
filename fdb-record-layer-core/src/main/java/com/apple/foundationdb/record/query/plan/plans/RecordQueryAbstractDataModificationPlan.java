@@ -229,7 +229,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                               @Nonnull final QueryResult queryResult, @Nonnull final Descriptors.Descriptor targetDescriptor) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
         return (M)MessageHelpers.transformMessage(store,
-                context.withBinding(Bindings.BindingType.CORRELATION, inner.getAlias(), queryResult),
+                context.withBinding(Bindings.BindingKind.CORRELATION, inner.getAlias(), queryResult),
                 transformationsTrie,
                 coercionTrie,
                 targetType,

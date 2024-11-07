@@ -98,7 +98,7 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return context.getBinding(Bindings.BindingType.CORRELATION, alias);
+        return context.getBinding(Bindings.BindingKind.CORRELATION, alias);
     }
 
     @Nonnull

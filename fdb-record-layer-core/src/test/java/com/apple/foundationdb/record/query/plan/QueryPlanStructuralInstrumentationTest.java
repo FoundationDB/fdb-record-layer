@@ -95,7 +95,7 @@ public class QueryPlanStructuralInstrumentationTest {
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
                 new RecordQueryIndexPlan(indexName, scan, false),
                 "another_field",
-                Bindings.BindingType.IN,
+                Bindings.BindingKind.IN,
                 Arrays.asList(2, 4),
                 false,
                 false);

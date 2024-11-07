@@ -1,5 +1,5 @@
 /*
- * TqScanExpression.java
+ * TableValuedCorrelationScanExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,13 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TableQueue;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
@@ -35,7 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,20 +49,21 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A logical expression for scanning from a temporary memory buffer {@link TableQueue}.
- * This expression is used to implement a corresponding {@link TempTableScanPlan} operator that
+ * A logical expression for scanning from a table-valued {@link Bindings.BindingKind#CORRELATION}
+ * that can correspond to a temporary memory buffer, i.e. a {@link TempTable}.
+ * This expression is used to implement a corresponding {@link TableValuedCorrelationScanPlan} operator that
  * does exactly that.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TqScanExpression implements RelationalExpression, PlannerGraphRewritable {
+public class TableValuedCorrelationScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
     private final Type flowedType;
 
     @Nonnull
     private final CorrelationIdentifier tableQueue;
 
-    public TqScanExpression(@Nonnull final Type flowedType,
-                            @Nonnull final CorrelationIdentifier tableQueue) {
+    public TableValuedCorrelationScanExpression(@Nonnull final Type flowedType,
+                                                @Nonnull final CorrelationIdentifier tableQueue) {
         this.flowedType = flowedType;
         this.tableQueue = tableQueue;
     }
@@ -91,8 +93,8 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
 
     @Nonnull
     @Override
-    public TqScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public TableValuedCorrelationScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
@@ -127,7 +129,7 @@ public class TqScanExpression implements RelationalExpression, PlannerGraphRewri
 
     @Override
     public String toString() {
-        return "TableQueueUnorderedScan";
+        return "TempTableScan";
     }
 
     @Override

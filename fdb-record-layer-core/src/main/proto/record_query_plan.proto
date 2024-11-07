@@ -1001,7 +1001,6 @@ message PParameterComparison {
     RANK = 2;
     CORRELATION = 3;
     CONSTANT = 4;
-    TABLE_QUEUE = 5;
   }
 
   optional PComparison.PComparisonType type = 1;

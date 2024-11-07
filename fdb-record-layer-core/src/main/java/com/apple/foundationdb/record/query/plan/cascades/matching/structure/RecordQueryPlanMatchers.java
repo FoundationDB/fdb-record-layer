@@ -71,8 +71,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -392,8 +392,8 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<TempTableScanPlan> tqScanPlan() {
-        return ofTypeOwning(TempTableScanPlan.class, CollectionMatcher.empty());
+    public static BindingMatcher<TableValuedCorrelationScanPlan> tqScanPlan() {
+        return ofTypeOwning(TableValuedCorrelationScanPlan.class, CollectionMatcher.empty());
     }
 
     @Nonnull
@@ -786,8 +786,8 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<TqInsertPlan> tqInsertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
-        return childrenPlans(TqInsertPlan.class, exactlyPlans(downstream));
+    public static BindingMatcher<TempTableInsertPlan> tqInsertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(TempTableInsertPlan.class, exactlyPlans(downstream));
     }
 
     @Nonnull

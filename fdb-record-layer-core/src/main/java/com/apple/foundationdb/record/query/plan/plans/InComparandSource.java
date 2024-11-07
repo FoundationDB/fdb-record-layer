@@ -104,7 +104,7 @@ public class InComparandSource extends InSource {
     @Nonnull
     @Override
     public RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier) {
-        return new RecordQueryInComparandJoinPlan(innerQuantifier, this, Bindings.BindingType.CORRELATION);
+        return new RecordQueryInComparandJoinPlan(innerQuantifier, this, Bindings.BindingKind.CORRELATION);
     }
 
     @Nonnull

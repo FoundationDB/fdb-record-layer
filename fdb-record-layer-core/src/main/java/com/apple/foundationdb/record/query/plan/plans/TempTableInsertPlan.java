@@ -1,5 +1,5 @@
 /*
- * TqInsertPlan.java
+ * TempTableInsertPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.TableQueue;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -60,29 +60,29 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A query plan that inserts records into a temporary in-memory buffer {@link TableQueue}.
+ * A query plan that inserts records into a temporary in-memory buffer {@link TempTable}.
  */
 @API(API.Status.INTERNAL)
-public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
+public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tq-Insert-Plan");
 
-    public static final Logger LOGGER = LoggerFactory.getLogger(TqInsertPlan.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(TempTableInsertPlan.class);
 
     @Nonnull
     private final CorrelationIdentifier tableQueue;
 
-    protected TqInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
-                           @Nonnull final PTqInsertPlan tqInsertPlanProto) {
+    protected TempTableInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                  @Nonnull final PTqInsertPlan tqInsertPlanProto) {
         super(serializationContext, Objects.requireNonNull(tqInsertPlanProto.getSuper()));
         this.tableQueue = CorrelationIdentifier.of(tqInsertPlanProto.getTableQueueName());
     }
 
-    private TqInsertPlan(@Nonnull final Quantifier.Physical inner,
-                         @Nonnull final String recordType,
-                         @Nonnull final Type.Record targetType,
-                         @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
-                         @Nonnull final Value computationValue,
-                         @Nonnull final CorrelationIdentifier tableQueue) {
+    private TempTableInsertPlan(@Nonnull final Quantifier.Physical inner,
+                                @Nonnull final String recordType,
+                                @Nonnull final Type.Record targetType,
+                                @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
+                                @Nonnull final Value computationValue,
+                                @Nonnull final CorrelationIdentifier tableQueue) {
         super(inner, recordType, targetType, null, coercionsTrie, computationValue, currentModifiedRecordAlias());
         this.tableQueue = tableQueue;
     }
@@ -106,16 +106,16 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
                                                                                        boolean isDryRun) {
         // dry run is ignored since inserting into a table queue has no storage side effects.
         final var queryResult = QueryResult.ofComputed(message);
-        final var tableQueue = (TableQueue)context.getBinding(Bindings.BindingType.TABLE_QUEUE, this.tableQueue);
+        final var tableQueue = (TempTable)context.getBinding(Bindings.BindingKind.CORRELATION, this.tableQueue);
         tableQueue.add(queryResult);
         return CompletableFuture.completedFuture(queryResult);
     }
 
     @Nonnull
     @Override
-    public TqInsertPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new TqInsertPlan(
+    public TempTableInsertPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new TempTableInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
                 getTargetType(),
@@ -126,8 +126,8 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
 
     @Nonnull
     @Override
-    public TqInsertPlan withChild(@Nonnull final Reference childRef) {
-        return new TqInsertPlan(Quantifier.physical(childRef),
+    public TempTableInsertPlan withChild(@Nonnull final Reference childRef) {
+        return new TempTableInsertPlan(Quantifier.physical(childRef),
                 getTargetRecordType(),
                 getTargetType(),
                 getCoercionTrie(),
@@ -189,13 +189,13 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
     }
 
     @Nonnull
-    public static TqInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PTqInsertPlan tqInsertPlanProto) {
-        return new TqInsertPlan(serializationContext, tqInsertPlanProto);
+    public static TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PTqInsertPlan tqInsertPlanProto) {
+        return new TempTableInsertPlan(serializationContext, tqInsertPlanProto);
     }
 
     /**
-     * Factory method to create a {@link TqInsertPlan}.
+     * Factory method to create a {@link TempTableInsertPlan}.
      *
      * @param inner an input value to transform
      * @param recordType the name of the record type this update modifies
@@ -204,15 +204,15 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
      * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
      * @param tableQueue The table queue identifier to insert into.
      *
-     * @return a newly created {@link TqInsertPlan}
+     * @return a newly created {@link TempTableInsertPlan}
      */
     @Nonnull
-    public static TqInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
-                                          @Nonnull final String recordType,
-                                          @Nonnull final Type.Record targetType,
-                                          @Nonnull final Value computationValue,
-                                          @Nonnull final CorrelationIdentifier tableQueue) {
-        return new TqInsertPlan(inner,
+    public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
+                                                 @Nonnull final String recordType,
+                                                 @Nonnull final Type.Record targetType,
+                                                 @Nonnull final Value computationValue,
+                                                 @Nonnull final CorrelationIdentifier tableQueue) {
+        return new TempTableInsertPlan(inner,
                 recordType,
                 targetType,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
@@ -224,7 +224,7 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PTqInsertPlan, TqInsertPlan> {
+    public static class Deserializer implements PlanDeserializer<PTqInsertPlan, TempTableInsertPlan> {
         @Nonnull
         @Override
         public Class<PTqInsertPlan> getProtoMessageClass() {
@@ -233,9 +233,9 @@ public class TqInsertPlan extends RecordQueryAbstractDataModificationPlan {
 
         @Nonnull
         @Override
-        public TqInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PTqInsertPlan tqInsertPlanProto) {
-            return TqInsertPlan.fromProto(serializationContext, tqInsertPlanProto);
+        public TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PTqInsertPlan tqInsertPlanProto) {
+            return TempTableInsertPlan.fromProto(serializationContext, tqInsertPlanProto);
         }
     }
 }

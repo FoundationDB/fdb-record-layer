@@ -1,5 +1,5 @@
 /*
- * TqInsertExpression.java
+ * TempTableInsertExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TableQueue;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTqInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTempTableInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,13 +47,13 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A logical expression for inserting into a temporary memory buffer {@link TableQueue}.
- * This expression is used to implement a corresponding {@link TqInsertPlan} operator that
+ * A logical expression for inserting into a temporary memory buffer {@link TempTable}.
+ * This expression is used to implement a corresponding {@link TempTableInsertPlan} operator that
  * does exactly that.
  *
- * @see ImplementTqInsertRule for more information.
+ * @see ImplementTempTableInsertRule for more information.
  */
-public class TqInsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
+public class TempTableInsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
 
     @Nonnull
     private final Quantifier.ForEach inner;
@@ -66,10 +66,10 @@ public class TqInsertExpression implements RelationalExpressionWithChildren, Pla
     @Nonnull
     private final CorrelationIdentifier tableQueue;
 
-    public TqInsertExpression(@Nonnull final Quantifier.ForEach inner,
-                              @Nonnull final String targetRecordType,
-                              @Nonnull final Type.Record targetType,
-                              @Nonnull final CorrelationIdentifier tableQueue) {
+    public TempTableInsertExpression(@Nonnull final Quantifier.ForEach inner,
+                                     @Nonnull final String targetRecordType,
+                                     @Nonnull final Type.Record targetType,
+                                     @Nonnull final CorrelationIdentifier tableQueue) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
@@ -109,9 +109,9 @@ public class TqInsertExpression implements RelationalExpressionWithChildren, Pla
     }
 
     @Nonnull
-    public TqInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
+    public TempTableInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
-        return TqInsertPlan.insertPlan(physicalInner,
+        return TempTableInsertPlan.insertPlan(physicalInner,
                 targetRecordType,
                 targetType,
                 makeComputationValue(targetType),
@@ -128,7 +128,7 @@ public class TqInsertExpression implements RelationalExpressionWithChildren, Pla
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final TqInsertExpression otherInsertExpression = (TqInsertExpression)otherExpression;
+        final TempTableInsertExpression otherInsertExpression = (TempTableInsertExpression)otherExpression;
         return targetRecordType.equals(otherInsertExpression.targetRecordType) &&
                 targetType.equals(otherInsertExpression.targetType);
     }
@@ -151,7 +151,7 @@ public class TqInsertExpression implements RelationalExpressionWithChildren, Pla
 
     @Override
     public String toString() {
-        return "InsertTableQueue(" + targetRecordType + ")";
+        return "TempTableInsert(" + targetRecordType + ")";
     }
 
     /**

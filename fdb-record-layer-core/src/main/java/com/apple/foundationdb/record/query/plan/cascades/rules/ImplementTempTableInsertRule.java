@@ -1,5 +1,5 @@
 /*
- * ImplementUpdateRule.java
+ * ImplementTempTableInsertRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TqInsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 
 import javax.annotation.Nonnull;
 
@@ -39,11 +39,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tqInsertExpression;
 
 /**
- * A rule that implements a {@link TqInsertExpression} producing a {@link TqInsertPlan} operator.
+ * A rule that implements a {@link TempTableInsertExpression} producing a {@link TempTableInsertPlan} operator.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementTqInsertRule extends CascadesRule<TqInsertExpression> {
+public class ImplementTempTableInsertRule extends CascadesRule<TempTableInsertExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
@@ -55,10 +55,10 @@ public class ImplementTqInsertRule extends CascadesRule<TqInsertExpression> {
             forEachQuantifierOverRef(innerReferenceMatcher);
 
     @Nonnull
-    private static final BindingMatcher<TqInsertExpression> root =
+    private static final BindingMatcher<TempTableInsertExpression> root =
             tqInsertExpression(innerQuantifierMatcher);
 
-    public ImplementTqInsertRule() {
+    public ImplementTempTableInsertRule() {
         super(root);
     }
 

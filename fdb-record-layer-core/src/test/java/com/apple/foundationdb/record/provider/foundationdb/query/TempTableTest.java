@@ -1,5 +1,5 @@
 /*
- * TableQueuesTest.java
+ * TempTableTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,11 +32,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.TableQueue;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TqInsertExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TqScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableValuedCorrelationScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -72,10 +72,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.values.AbstractA
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Test suite for {@link com.apple.foundationdb.record.query.plan.cascades.TableQueue} planning and execution.
+ * Test suite for {@link TempTable} planning and execution.
  * Particularly, testing both {@code INSERT} and {@code SELECT} capabilities from table queues.
  */
-public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
+public class TempTableTest extends FDBRecordStoreQueryTestBase {
 
     @BeforeEach
     void setupPlanner() {
@@ -88,7 +88,7 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
     void scanTableQueueWorksCorrectly() throws Exception {
         try (FDBRecordContext context = openContext()) {
             // select rec_no, str_value_indexed from tq1 | tq1 is a TableQueue.
-            final var tableQueue = TableQueue.newInstance("tq1");
+            final var tableQueue = TempTable.newInstance("tq1");
             final var plan = getTqSelectPlan(tableQueue, true);
             assertEquals(ImmutableSet.of(Pair.of(42L, "fortySecondValue"),
                     Pair.of(45L, "fortyFifthValue")), collectResults(context, plan, tableQueue));
@@ -101,10 +101,10 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
         // select rec_no, str_value_indexed from tq1 where rec_no < 44L | tq1 is a TableQueue.
         try (FDBRecordContext context = openContext()) {
             final var type = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-            final var tableQueue = TableQueue.newInstance("tq1");
+            final var tableQueue = TempTable.newInstance("tq1");
             tableQueue.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
                     QueryResult.ofComputed(item(45L, "fortyFifthValue")));
-            final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TqScanExpression(type, tableQueue.getName())));
+            final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TableValuedCorrelationScanExpression(type, tableQueue.getName())));
             final var recNoField = FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "rec_no");
             final var recNoColumn = Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "rec_no"));
             final var strValueIndexedField = Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "str_value_indexed"));
@@ -124,7 +124,7 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
     void insertTableQueueWorksCorrectly() throws Exception {
         // insert into tq1 values ((1, 'first', 10, 1), (2, 'second', 11, 2))
         try (FDBRecordContext context = openContext()) {
-            final var tableQueue = TableQueue.newInstance("tq1");
+            final var tableQueue = TempTable.newInstance("tq1");
             final var firstRecord = RecordConstructorValue.ofUnnamed(
                     ImmutableList.of(LiteralValue.ofScalar(1L),
                             LiteralValue.ofScalar("first"),
@@ -142,14 +142,14 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
-            qun = Quantifier.forEach(Reference.of(new TqInsertExpression(qun, "MySimpleRecord",
+            qun = Quantifier.forEach(Reference.of(new TempTableInsertExpression(qun, "MySimpleRecord",
                     Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()), tableQueue.getName())));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
             var plan = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
             assertMatchesExactly(plan,  tqInsertPlan(explodePlan()).where(target(equalsObject("MySimpleRecord"))));
-            final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingType.TABLE_QUEUE, tableQueue.getName(), tableQueue);
+            final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingKind.CORRELATION, tableQueue.getName(), tableQueue);
             fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { }, ExecuteProperties.SERIAL_EXECUTE);
 
             // select rec_no, str_value_indexed from tq1 | tq1 is a TableQueue.
@@ -161,9 +161,9 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private Set<Pair<Long, String>> collectResults(@Nonnull FDBRecordContext context, @Nonnull RecordQueryPlan plan,
-                                                   @Nonnull TableQueue tableQueue) throws Exception {
+                                                   @Nonnull TempTable tempTable) throws Exception {
         ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
-        final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingType.TABLE_QUEUE, tableQueue.getName(), tableQueue);
+        final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingKind.CORRELATION, tempTable.getName(), tempTable);
         fetchResultValues(context, plan, record -> {
             final Descriptors.Descriptor recDescriptor = record.getDescriptorForType();
             Long recNo = (long) record.getField(recDescriptor.findFieldByName("rec_no"));
@@ -184,13 +184,13 @@ public class TableQueuesTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private RecordQueryPlan getTqSelectPlan(@Nonnull TableQueue tableQueue, boolean addData) {
+    private RecordQueryPlan getTqSelectPlan(@Nonnull TempTable tempTable, boolean addData) {
         final var type = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         if (addData) {
-            tableQueue.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
+            tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
                     QueryResult.ofComputed(item(45L, "fortyFifthValue")));
         }
-        final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TqScanExpression(type, tableQueue.getName())));
+        final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TableValuedCorrelationScanExpression(type, tempTable.getName())));
         final var recNoField = Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "rec_no"));
         final var strValueIndexedField = Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "str_value_indexed"));
         final var selectExpressionBuilder = GraphExpansion.builder()

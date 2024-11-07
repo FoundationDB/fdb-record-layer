@@ -1150,19 +1150,19 @@ public class Comparisons {
         @Nonnull
         protected final String parameter;
         @Nullable
-        protected final Bindings.BindingType bindingType;
+        protected final Bindings.BindingKind bindingKind;
         @Nonnull
         protected final ParameterRelationshipGraph parameterRelationshipGraph;
         @Nonnull
         protected final Supplier<Integer> hashCodeSupplier;
 
         protected ParameterComparisonBase(@Nonnull Type type, @Nonnull String parameter,
-                                          @Nullable Bindings.BindingType bindingType,
+                                          @Nullable Bindings.BindingKind bindingKind,
                                           @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-            checkInternalBinding(parameter, bindingType);
+            checkInternalBinding(parameter, bindingKind);
             this.type = type;
             this.parameter = parameter;
-            this.bindingType = bindingType;
+            this.bindingKind = bindingKind;
             if (type.isUnary()) {
                 throw new RecordCoreException("Unary comparison type " + type + " cannot be bound to a parameter");
             }
@@ -1183,7 +1183,7 @@ public class Comparisons {
         }
 
         public boolean isCorrelation() {
-            return bindingType == Bindings.BindingType.CORRELATION;
+            return bindingKind == Bindings.BindingKind.CORRELATION;
         }
 
         @Override
@@ -1191,7 +1191,7 @@ public class Comparisons {
             if (!isCorrelation()) {
                 return false;
             }
-            return Bindings.BindingType.CORRELATION.identifier(getParameter()).equals(alias.getId());
+            return Bindings.BindingKind.CORRELATION.identifier(getParameter()).equals(alias.getId());
         }
 
         @Nullable
@@ -1212,7 +1212,7 @@ public class Comparisons {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             if (isCorrelation()) {
-                final var alias = CorrelationIdentifier.of(Bindings.BindingType.CORRELATION.identifier(parameter));
+                final var alias = CorrelationIdentifier.of(Bindings.BindingKind.CORRELATION.identifier(parameter));
                 final var quantifiedObjectValue = QuantifiedObjectValue.of(alias,
                         com.apple.foundationdb.record.query.plan.cascades.typing.Type.any());
 
@@ -1309,7 +1309,7 @@ public class Comparisons {
             if (!isCorrelation()) {
                 throw new IllegalStateException("caller should check for type of binding before calling this method");
             }
-            return CorrelationIdentifier.of(Bindings.BindingType.CORRELATION.identifier(parameter));
+            return CorrelationIdentifier.of(Bindings.BindingKind.CORRELATION.identifier(parameter));
         }
 
         @Override
@@ -1359,10 +1359,10 @@ public class Comparisons {
         }
 
         @Nonnull
-        private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.BindingType bindingType) {
-            if (bindingType == null && Bindings.BindingType.isInternal(parameter)) {
+        private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.BindingKind bindingKind) {
+            if (bindingKind == null && Bindings.BindingKind.isInternal(parameter)) {
                 throw new RecordCoreException(
-                        "Parameter is internal, parameters cannot start with \"" + Bindings.BindingType.PREFIX + "\"");
+                        "Parameter is internal, parameters cannot start with \"" + Bindings.BindingKind.PREFIX + "\"");
             }
             return parameter;
         }
@@ -1373,17 +1373,17 @@ public class Comparisons {
      */
     public static class ParameterComparison extends ParameterComparisonBase {
         protected ParameterComparison(@Nonnull Type type, @Nonnull String parameter,
-                                      @Nullable Bindings.BindingType bindingType,
+                                      @Nullable Bindings.BindingKind bindingKind,
                                       @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-            super(type, parameter, bindingType, parameterRelationshipGraph);
+            super(type, parameter, bindingKind, parameterRelationshipGraph);
         }
 
         public ParameterComparison(@Nonnull Type type, @Nonnull String parameter) {
             this(type, parameter, null, ParameterRelationshipGraph.unbound());
         }
 
-        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.BindingType bindingType) {
-            this(type, parameter, bindingType, ParameterRelationshipGraph.unbound());
+        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.BindingKind bindingKind) {
+            this(type, parameter, bindingKind, ParameterRelationshipGraph.unbound());
         }
 
         @Nonnull
@@ -1392,15 +1392,15 @@ public class Comparisons {
             if (type == newType) {
                 return this;
             }
-            return new ParameterComparison(newType, parameter, bindingType, parameterRelationshipGraph);
+            return new ParameterComparison(newType, parameter, bindingKind, parameterRelationshipGraph);
         }
 
         @Nonnull
         @Override
         protected ParameterComparisonBase withTranslatedCorrelation(@Nonnull CorrelationIdentifier translatedAlias) {
             return new ParameterComparison(type,
-                                           Bindings.BindingType.CORRELATION.bindingName(translatedAlias.getId()),
-                                           Bindings.BindingType.CORRELATION,
+                                           Bindings.BindingKind.CORRELATION.bindingName(translatedAlias.getId()),
+                                           Bindings.BindingKind.CORRELATION,
                                            parameterRelationshipGraph);
         }
 
@@ -1408,7 +1408,7 @@ public class Comparisons {
         @Override
         public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
-            return new ParameterComparison(type, parameter, bindingType, parameterRelationshipGraph);
+            return new ParameterComparison(type, parameter, bindingKind, parameterRelationshipGraph);
         }
 
         @Nonnull
@@ -1418,8 +1418,8 @@ public class Comparisons {
                     .setType(type.toProto(serializationContext))
                     .setParameter(parameter);
 
-            if (bindingType != null) {
-                builder.setInternal(bindingType.toProto(serializationContext));
+            if (bindingKind != null) {
+                builder.setInternal(bindingKind.toProto(serializationContext));
             }
             return builder.build();
         }
@@ -1433,15 +1433,15 @@ public class Comparisons {
         @Nonnull
         public static ParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                     @Nonnull final PParameterComparison parameterComparisonProto) {
-            final Bindings.BindingType bindingType;
+            final Bindings.BindingKind bindingKind;
             if (parameterComparisonProto.hasInternal()) {
-                bindingType = Bindings.BindingType.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getInternal()));
+                bindingKind = Bindings.BindingKind.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getInternal()));
             } else {
-                bindingType = null;
+                bindingKind = null;
             }
             return new ParameterComparison(Type.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getType())),
                     Objects.requireNonNull(parameterComparisonProto.getParameter()),
-                    bindingType);
+                    bindingKind);
         }
 
         /**

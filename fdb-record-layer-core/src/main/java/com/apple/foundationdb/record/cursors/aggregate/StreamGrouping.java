@@ -184,13 +184,13 @@ public class StreamGrouping<M extends Message> {
     }
 
     private void accumulate(@Nullable Object currentObject) {
-        EvaluationContext nestedContext = context.withBinding(Bindings.BindingType.CORRELATION, alias, currentObject);
+        EvaluationContext nestedContext = context.withBinding(Bindings.BindingKind.CORRELATION, alias, currentObject);
         final Object partial = aggregateValue.evalToPartial(store, nestedContext);
         accumulator.accumulate(partial);
     }
 
     private Object evalGroupingKey(@Nullable final Object currentObject) {
-        final EvaluationContext nestedContext = context.withBinding(Bindings.BindingType.CORRELATION, alias, currentObject);
+        final EvaluationContext nestedContext = context.withBinding(Bindings.BindingKind.CORRELATION, alias, currentObject);
         return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext);
     }
 

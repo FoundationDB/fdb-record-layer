@@ -96,11 +96,11 @@ public class EvaluationContextBuilder {
      * @return this <code>EvaluationContextBuilder</code>
      */
     public EvaluationContextBuilder setBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return setBinding(Bindings.BindingType.CORRELATION.bindingName(alias.getId()), value);
+        return setBinding(Bindings.BindingKind.CORRELATION.bindingName(alias.getId()), value);
     }
 
     public EvaluationContextBuilder setConstant(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return setBinding(Bindings.BindingType.CONSTANT.bindingName(alias.getId()), value);
+        return setBinding(Bindings.BindingKind.CONSTANT.bindingName(alias.getId()), value);
     }
 
     /**

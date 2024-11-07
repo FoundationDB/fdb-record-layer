@@ -113,7 +113,7 @@ public class InParameterSource extends InSource {
     @Nonnull
     @Override
     public RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier) {
-        return new RecordQueryInParameterJoinPlan(innerQuantifier, this, Bindings.BindingType.CORRELATION);
+        return new RecordQueryInParameterJoinPlan(innerQuantifier, this, Bindings.BindingKind.CORRELATION);
     }
 
     @Nonnull

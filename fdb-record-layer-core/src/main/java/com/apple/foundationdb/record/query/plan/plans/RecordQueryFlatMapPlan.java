@@ -120,12 +120,12 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                 outerContinuation ->
                         outerQuantifier.getRangesOverPlan().executePlan(store, context, outerContinuation, nestedExecuteProperties),
                 (outerResult, innerContinuation) -> {
-                    final EvaluationContext fromOuterContext = context.withBinding(Bindings.BindingType.CORRELATION, outerQuantifier.getAlias(), outerResult);
+                    final EvaluationContext fromOuterContext = context.withBinding(Bindings.BindingKind.CORRELATION, outerQuantifier.getAlias(), outerResult);
 
                     return innerQuantifier.getRangesOverPlan().executePlan(store, fromOuterContext, innerContinuation, nestedExecuteProperties)
                             .map(innerResult -> {
                                 final EvaluationContext nestedContext =
-                                        fromOuterContext.withBinding(Bindings.BindingType.CORRELATION, innerQuantifier.getAlias(), innerResult);
+                                        fromOuterContext.withBinding(Bindings.BindingKind.CORRELATION, innerQuantifier.getAlias(), innerResult);
                                 final var computed = resultValue.eval(store, nestedContext);
                                 return inheritOuterRecordProperties
                                        ? outerResult.withComputed(computed)

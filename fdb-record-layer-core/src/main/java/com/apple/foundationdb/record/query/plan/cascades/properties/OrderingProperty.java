@@ -58,8 +58,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.TqInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -97,7 +97,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.Bindings.BindingType.CORRELATION;
+import static com.apple.foundationdb.record.Bindings.BindingKind.CORRELATION;
 
 /**
  * A property used for the ordering(s) of a plan.
@@ -285,7 +285,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        public Ordering visitTableValuedCorrelationScanPlan(@Nonnull final TableValuedCorrelationScanPlan element) {
             return Ordering.empty();
         }
 
@@ -303,7 +303,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitTqInsertPlan(@Nonnull final TqInsertPlan insertTableQueuePlan) {
+        public Ordering visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertTableQueuePlan) {
             return Ordering.empty();
         }
 
