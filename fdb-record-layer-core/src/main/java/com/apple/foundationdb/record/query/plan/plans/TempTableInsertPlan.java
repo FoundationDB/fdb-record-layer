@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -32,7 +31,6 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PTempTableInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
@@ -69,22 +67,21 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     public static final Logger LOGGER = LoggerFactory.getLogger(TempTableInsertPlan.class);
 
     @Nonnull
-    private final CorrelationIdentifier tableQueue;
+    private final Value tempTable;
 
     protected TempTableInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
                                   @Nonnull final PTempTableInsertPlan tempTableInsertPlan) {
         super(serializationContext, Objects.requireNonNull(tempTableInsertPlan.getSuper()));
-        this.tableQueue = CorrelationIdentifier.of(tempTableInsertPlan.getTempTableName());
+        this.tempTable = Value.fromValueProto(serializationContext, tempTableInsertPlan.getTempTable());
     }
 
     private TempTableInsertPlan(@Nonnull final Quantifier.Physical inner,
                                 @Nonnull final String recordType,
-                                @Nonnull final Type.Record targetType,
                                 @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                 @Nonnull final Value computationValue,
-                                @Nonnull final CorrelationIdentifier tableQueue) {
-        super(inner, recordType, targetType, null, coercionsTrie, computationValue, currentModifiedRecordAlias());
-        this.tableQueue = tableQueue;
+                                @Nonnull final Value tempTable) {
+        super(inner, recordType, (Type.Record)tempTable.getResultType(), null, coercionsTrie, computationValue, currentModifiedRecordAlias());
+        this.tempTable = tempTable;
     }
 
     @Override
@@ -106,8 +103,8 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
                                                                                        boolean isDryRun) {
         // dry run is ignored since inserting into a table queue has no storage side effects.
         final var queryResult = QueryResult.ofComputed(message);
-        final var tableQueue = (TempTable)context.getBinding(Bindings.BindingKind.CORRELATION, this.tableQueue);
-        tableQueue.add(queryResult);
+        final var tempTable = (TempTable)this.tempTable.with(Type.any()).eval(store, context);
+        tempTable.add(queryResult);
         return CompletableFuture.completedFuture(queryResult);
     }
 
@@ -118,10 +115,9 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
         return new TempTableInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
-                getTargetType(),
                 getCoercionTrie(),
                 getComputationValue(),
-                tableQueue);
+                tempTable.translateCorrelations(translationMap));
     }
 
     @Nonnull
@@ -129,10 +125,9 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     public TempTableInsertPlan withChild(@Nonnull final Reference childRef) {
         return new TempTableInsertPlan(Quantifier.physical(childRef),
                 getTargetRecordType(),
-                getTargetType(),
                 getCoercionTrie(),
                 getComputationValue(),
-                tableQueue);
+                tempTable);
     }
 
     @Override
@@ -165,7 +160,7 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
-                        new PlannerGraph.TemporaryDataNodeWithInfo(getTargetType(), ImmutableList.of(tableQueue.toString())),
+                        new PlannerGraph.TemporaryDataNodeWithInfo(getTargetType(), ImmutableList.of(tempTable.toString())),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(
@@ -199,25 +194,22 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
      *
      * @param inner an input value to transform
      * @param recordType the name of the record type this update modifies
-     * @param targetType a target type to coerce the current record to prior to the update
      * @param computationValue a value to be computed based on the {@code inner} and
      * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
-     * @param tableQueue The table queue identifier to insert into.
+     * @param tempTable The table queue identifier to insert into.
      *
      * @return a newly created {@link TempTableInsertPlan}
      */
     @Nonnull
     public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
                                                  @Nonnull final String recordType,
-                                                 @Nonnull final Type.Record targetType,
                                                  @Nonnull final Value computationValue,
-                                                 @Nonnull final CorrelationIdentifier tableQueue) {
+                                                 @Nonnull final Value tempTable) {
         return new TempTableInsertPlan(inner,
                 recordType,
-                targetType,
-                PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
+                PromoteValue.computePromotionsTrie(tempTable.getResultType(), inner.getFlowedObjectType(), null),
                 computationValue,
-                tableQueue);
+                tempTable);
     }
 
     /**

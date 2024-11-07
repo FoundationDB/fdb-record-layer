@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -40,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -57,25 +58,23 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class TempTableScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
-    private final Type flowedType;
-
+    private final Value tempTable;
     @Nonnull
-    private final CorrelationIdentifier tempTable;
+    private final QueriedValue resultValue;
 
-    public TempTableScanExpression(@Nonnull final Type flowedType,
-                                   @Nonnull final CorrelationIdentifier tableQueue) {
-        this.flowedType = flowedType;
-        this.tempTable = tableQueue;
+    private TempTableScanExpression(@Nonnull final Value tempTable) {
+        this.tempTable = tempTable;
+        this.resultValue = new QueriedValue(tempTable.getResultType());
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new QueriedValue(flowedType);
+        return resultValue;
     }
 
     @Nonnull
-    public CorrelationIdentifier getTempTable() {
+    public Value getTempTable() {
         return tempTable;
     }
 
@@ -88,14 +87,14 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return ImmutableSet.of();
+        return tempTable.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public TempTableScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return this;
+        return new TempTableScanExpression(tempTable.translateCorrelations(translationMap));
     }
 
     @Override
@@ -107,8 +106,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
-        return flowedType.equals(otherExpression.getResultValue().getResultType());
+        return getResultValue().semanticEquals(otherExpression.getResultValue(), equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -124,7 +122,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(flowedType);
+        return Objects.hash(tempTable);
     }
 
     @Override
@@ -143,7 +141,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTable.getId()));
+        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTable.toString()));
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
@@ -153,5 +151,15 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
                 ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(
                         dataNodeWithInfo,
                         childGraphs)));
+    }
+
+    @Nonnull
+    public static TempTableScanExpression ofConstant(@Nonnull CorrelationIdentifier alias, @Nonnull Type type) {
+        return new TempTableScanExpression(ConstantObjectValue.of(alias, alias.getId(), type));
+    }
+
+    @Nonnull
+    public static TempTableScanExpression ofCorrelated(@Nonnull CorrelationIdentifier correlation, @Nonnull Type type) {
+        return new TempTableScanExpression(QuantifiedObjectValue.of(correlation, type));
     }
 }

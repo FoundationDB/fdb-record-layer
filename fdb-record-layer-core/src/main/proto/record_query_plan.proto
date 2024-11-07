@@ -1349,17 +1349,13 @@ message PRecordQueryIndexPlan {
 }
 
 //
-// PTableValuedCorrelationScanPlan
+// PTempTableScanPlan
 //
 message PTempTableScanPlan {
-  optional PType result_type = 1;
-  optional string table_queue_id = 2;
+  optional PValue temp_table = 1;
 }
 
-message PTempTable {
-  optional string name = 1;
-  repeated bytes bufferItems = 2;
-}
+
 
 message PIndexScanParameters {
   extensions 5000 to max;
@@ -1498,7 +1494,7 @@ message PRecordQueryInsertPlan {
 //
 message PTempTableInsertPlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
-  optional string temp_table_name = 2;
+  optional PValue temp_table = 2;
 }
 
 //

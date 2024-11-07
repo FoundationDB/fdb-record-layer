@@ -323,3 +323,7 @@ message PQueryResult {
     bytes complex = 2;
   }
 }
+
+message PTempTable {
+  repeated bytes bufferItems = 2;
+}

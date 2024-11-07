@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
@@ -49,21 +49,12 @@ public class TempTable {
     @Nonnull
     private final Queue<QueryResult> underlyingBuffer;
 
-    @Nonnull
-    private final CorrelationIdentifier name;
-
-    private TempTable(@Nonnull CorrelationIdentifier name) {
-        this(new LinkedList<>(), name);
+    private TempTable() {
+        this(new LinkedList<>());
     }
 
-    private TempTable(@Nonnull Queue<QueryResult> buffer, @Nonnull CorrelationIdentifier name) {
+    private TempTable(@Nonnull Queue<QueryResult> buffer) {
         this.underlyingBuffer = buffer;
-        this.name = name;
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getName() {
-        return name;
     }
 
     /**
@@ -94,7 +85,7 @@ public class TempTable {
         return new ListCursor<>((List<QueryResult>)getReadBuffer(), continuation);
     }
 
-    private void serializeBuffer(@Nonnull PTempTable.Builder protoMessageBuilder) {
+    private void serializeBuffer(@Nonnull RecordMetaDataProto.PTempTable.Builder protoMessageBuilder) {
         for (final var element : underlyingBuffer) {
             final var elementByteString = element.toByteString();
             protoMessageBuilder.addBufferItems(elementByteString);
@@ -102,9 +93,8 @@ public class TempTable {
     }
 
     @Nonnull
-    public PTempTable toProto() {
-        final var tableQueueProtoBuilder = PTempTable.newBuilder()
-                .setName(getName().getId());
+    public RecordMetaDataProto.PTempTable toProto() {
+        final var tableQueueProtoBuilder = RecordMetaDataProto.PTempTable.newBuilder();
         serializeBuffer(tableQueueProtoBuilder);
         return tableQueueProtoBuilder.build();
     }
@@ -126,9 +116,9 @@ public class TempTable {
 
     @Nonnull
     public static TempTable deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
-        final PTempTable tableQueueProto;
+        final RecordMetaDataProto.PTempTable tableQueueProto;
         try {
-            tableQueueProto = PTempTable.parseFrom(byteString);
+            tableQueueProto = RecordMetaDataProto.PTempTable.parseFrom(byteString);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
@@ -137,23 +127,17 @@ public class TempTable {
     }
 
     @Nonnull
-    public static TempTable fromProto(@Nonnull final PTempTable tableQueueProto,
+    public static TempTable fromProto(@Nonnull final RecordMetaDataProto.PTempTable tableQueueProto,
                                       @Nullable Descriptors.Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
-        final var name = tableQueueProto.getName();
         for (final var element : tableQueueProto.getBufferItemsList()) {
             underlyingBuffer.add(QueryResult.deserialize(descriptor, element));
         }
-        return new TempTable(underlyingBuffer, CorrelationIdentifier.of(name));
+        return new TempTable(underlyingBuffer);
     }
 
     @Nonnull
-    public static TempTable newInstance(@Nonnull String name) {
-        return new TempTable(CorrelationIdentifier.of(name));
-    }
-
-    @Nonnull
-    public static TempTable newInstance(@Nonnull CorrelationIdentifier name) {
-        return new TempTable(name);
+    public static TempTable newInstance() {
+        return new TempTable();
     }
 }

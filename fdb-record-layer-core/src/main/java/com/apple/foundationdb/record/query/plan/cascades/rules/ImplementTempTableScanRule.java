@@ -45,7 +45,6 @@ public class ImplementTempTableScanRule extends CascadesRule<TempTableScanExpres
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var tempTableScanExpression = call.get(root);
-        call.yieldExpression(new TempTableScanPlan(tempTableScanExpression.getTempTable(),
-                tempTableScanExpression.getResultValue().getResultType()));
+        call.yieldExpression(new TempTableScanPlan(tempTableScanExpression.getTempTable()));
     }
 }

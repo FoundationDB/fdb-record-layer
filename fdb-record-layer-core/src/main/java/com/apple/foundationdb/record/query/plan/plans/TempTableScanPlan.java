@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -44,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -66,14 +64,10 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Scan-Plan");
 
     @Nonnull
-    private final CorrelationIdentifier tableQueue;
+    private final Value tempTable;
 
-    @Nonnull
-    private final Type resultType;
-
-    public TempTableScanPlan(@Nonnull CorrelationIdentifier tableQueue, @Nonnull Type resultType) {
-        this.tableQueue = tableQueue;
-        this.resultType = resultType;
+    public TempTableScanPlan(@Nonnull Value tempTable) {
+        this.tempTable = tempTable;
     }
 
     @Nonnull
@@ -82,8 +76,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        final var tableQueue = (TempTable)context.getBinding(Bindings.BindingKind.CORRELATION, this.tableQueue);
-        return tableQueue.getReadCursor(continuation);
+        final var tempTable = (TempTable)this.tempTable.with(Type.any()).eval(store, context);
+        return tempTable.getReadCursor(continuation);
     }
 
     @Nonnull
@@ -97,7 +91,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public TempTableScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
                                                    @Nonnull List<? extends Quantifier> translatedQuantifiers) {
-        return this;
+        return new TempTableScanPlan(tempTable.translateCorrelations(translationMap));
     }
 
     @Override
@@ -145,13 +139,13 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new QueriedValue(resultType);
+        return tempTable;
     }
 
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return ImmutableSet.of(resultType); // TODO: this needs improvement.
+        return ImmutableSet.of(tempTable.getResultType()); // TODO: this needs improvement.
     }
 
 
@@ -171,9 +165,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final var otherTableQueuePlan =  (TempTableScanPlan)otherExpression;
-
-        return otherTableQueuePlan.resultType.equals(resultType);
+        final var otherTempTableScan =  (TempTableScanPlan)otherExpression;
+        return tempTable.semanticEquals(otherTempTableScan.tempTable, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -219,7 +212,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.TEMP_TABLE_SCAN_OPERATOR,
-                        ImmutableList.of(tableQueue.toString())),
+                        ImmutableList.of(tempTable.toString())),
                 childGraphs);
     }
 
@@ -227,8 +220,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Override
     public PTempTableScanPlan toProto(@Nonnull PlanSerializationContext serializationContext) {
         return PTempTableScanPlan.newBuilder()
-                .setResultType(getResultValue().getResultType().toTypeProto(serializationContext))
-                .setTableQueueId(tableQueue.getId())
+                .setTempTable(tempTable.toValueProto(serializationContext))
                 .build();
     }
 
@@ -241,9 +233,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     public static TempTableScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
                                               @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
-        final Type resultType = Type.fromTypeProto(serializationContext, tempTableScanPlanProto.getResultType());
-        final var tableQueueId = tempTableScanPlanProto.getTableQueueId();
-        return new TempTableScanPlan(CorrelationIdentifier.of(tableQueueId), resultType);
+        return new TempTableScanPlan(Value.fromValueProto(serializationContext, tempTableScanPlanProto.getTempTable()));
     }
 
     /**
