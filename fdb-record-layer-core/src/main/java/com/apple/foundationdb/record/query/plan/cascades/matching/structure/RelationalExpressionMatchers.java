@@ -39,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScan
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableValuedCorrelationScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -286,7 +286,7 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<TableValuedCorrelationScanExpression> tempTableScanExpression() {
-        return ofTypeOwning(TableValuedCorrelationScanExpression.class, CollectionMatcher.empty());
+    public static BindingMatcher<TempTableScanExpression> tempTableScanExpression() {
+        return ofTypeOwning(TempTableScanExpression.class, CollectionMatcher.empty());
     }
 }

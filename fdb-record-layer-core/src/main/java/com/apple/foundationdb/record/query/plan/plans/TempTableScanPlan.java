@@ -1,5 +1,5 @@
 /*
- * TableValuedCorrelationScanPlan.java
+ * TempTableScanPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -62,7 +62,7 @@ import java.util.Set;
  * Scans records from a table-valued correlation, corresponding for example to a temporary in-memory buffer {@link TempTable}.
  */
 @API(API.Status.INTERNAL)
-public class TableValuedCorrelationScanPlan implements RecordQueryPlanWithNoChildren {
+public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Scan-Plan");
 
     @Nonnull
@@ -71,7 +71,7 @@ public class TableValuedCorrelationScanPlan implements RecordQueryPlanWithNoChil
     @Nonnull
     private final Type resultType;
 
-    public TableValuedCorrelationScanPlan(@Nonnull CorrelationIdentifier tableQueue, @Nonnull Type resultType) {
+    public TempTableScanPlan(@Nonnull CorrelationIdentifier tableQueue, @Nonnull Type resultType) {
         this.tableQueue = tableQueue;
         this.resultType = resultType;
     }
@@ -95,8 +95,8 @@ public class TableValuedCorrelationScanPlan implements RecordQueryPlanWithNoChil
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TableValuedCorrelationScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
-                                                                @Nonnull List<? extends Quantifier> translatedQuantifiers) {
+    public TempTableScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
+                                                   @Nonnull List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
@@ -106,7 +106,7 @@ public class TableValuedCorrelationScanPlan implements RecordQueryPlanWithNoChil
     }
 
     @Override
-    public TableValuedCorrelationScanPlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public TempTableScanPlan strictlySorted(@Nonnull Memoizer memoizer) {
         return this;
     }
 
@@ -171,7 +171,7 @@ public class TableValuedCorrelationScanPlan implements RecordQueryPlanWithNoChil
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final var otherTableQueuePlan =  (TableValuedCorrelationScanPlan)otherExpression;
+        final var otherTableQueuePlan =  (TempTableScanPlan)otherExpression;
 
         return otherTableQueuePlan.resultType.equals(resultType);
     }
@@ -239,18 +239,18 @@ public class TableValuedCorrelationScanPlan implements RecordQueryPlanWithNoChil
     }
 
     @Nonnull
-    public static TableValuedCorrelationScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                                           @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
+    public static TempTableScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                              @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
         final Type resultType = Type.fromTypeProto(serializationContext, tempTableScanPlanProto.getResultType());
         final var tableQueueId = tempTableScanPlanProto.getTableQueueId();
-        return new TableValuedCorrelationScanPlan(CorrelationIdentifier.of(tableQueueId), resultType);
+        return new TempTableScanPlan(CorrelationIdentifier.of(tableQueueId), resultType);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PTempTableScanPlan, TableValuedCorrelationScanPlan> {
+    public static class Deserializer implements PlanDeserializer<PTempTableScanPlan, TempTableScanPlan> {
         @Nonnull
         @Override
         public Class<PTempTableScanPlan> getProtoMessageClass() {
@@ -259,9 +259,9 @@ public class TableValuedCorrelationScanPlan implements RecordQueryPlanWithNoChil
 
         @Nonnull
         @Override
-        public TableValuedCorrelationScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                                        @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
-            return TableValuedCorrelationScanPlan.fromProto(serializationContext, tempTableScanPlanProto);
+        public TempTableScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                           @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
+            return TempTableScanPlan.fromProto(serializationContext, tempTableScanPlanProto);
         }
     }
 }

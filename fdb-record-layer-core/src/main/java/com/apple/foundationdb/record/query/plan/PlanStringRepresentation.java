@@ -59,7 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -409,7 +409,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     @Override
     public PlanStringRepresentation visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan element) {
         return visit(element.getChild())
-                .append(" | TQINSERT INTO ")
+                .append(" | TEMP TABLE INSERT INTO ")
                 .append(element.getTargetRecordType());
     }
 
@@ -589,8 +589,8 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitTableValuedCorrelationScanPlan(@Nonnull final TableValuedCorrelationScanPlan element) {
-        return append("SCAN TEMP TABLE ([")
+    public PlanStringRepresentation visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        return append("TEMP TABLE SCAN ([")
                 .append(element.getResultValue())
                 .append("])");
     }

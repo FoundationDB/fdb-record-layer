@@ -75,7 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -299,8 +299,8 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
-        public Derivations visitTableValuedCorrelationScanPlan(@Nonnull final TableValuedCorrelationScanPlan tableQueuePlan) {
-            return new Derivations(ImmutableList.of(tableQueuePlan.getResultValue()), ImmutableList.of());
+        public Derivations visitTempTableScanPlan(@Nonnull final TempTableScanPlan tempTableScanPlan) {
+            return new Derivations(ImmutableList.of(tempTableScanPlan.getResultValue()), ImmutableList.of());
         }
 
         @Nonnull
@@ -337,12 +337,11 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
-        public Derivations visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertPlan) {
-            // this is copied from visitInsertPlan.
-            final Quantifier rangesOver = Iterables.getOnlyElement(insertPlan.getQuantifiers());
+        public Derivations visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+            final Quantifier rangesOver = Iterables.getOnlyElement(tempTableInsertPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
             final var childResultValues = childDerivations.getResultValues();
-            final var computationValue = insertPlan.getComputationValue();
+            final var computationValue = tempTableInsertPlan.getComputationValue();
 
             final var resultValuesBuilder = ImmutableList.<Value>builder();
             final var localValuesBuilder = ImmutableList.<Value>builder();
@@ -350,7 +349,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
             for (final var childResultValue : childResultValues) {
                 final var resultsTranslationMap = TranslationMap.builder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
-                        .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(insertPlan.getTargetRecordType())))
+                        .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(tempTableInsertPlan.getTargetRecordType())))
                         .build();
                 resultValuesBuilder.add(computationValue.translateCorrelationsAndSimplify(resultsTranslationMap));
             }

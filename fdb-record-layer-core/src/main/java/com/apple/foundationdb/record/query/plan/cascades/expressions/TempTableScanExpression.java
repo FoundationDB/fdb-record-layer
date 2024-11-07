@@ -1,5 +1,5 @@
 /*
- * TableValuedCorrelationScanExpression.java
+ * TempTableScanExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,21 +51,21 @@ import java.util.Set;
 /**
  * A logical expression for scanning from a table-valued {@link Bindings.BindingKind#CORRELATION}
  * that can correspond to a temporary memory buffer, i.e. a {@link TempTable}.
- * This expression is used to implement a corresponding {@link TableValuedCorrelationScanPlan} operator that
+ * This expression is used to implement a corresponding {@link TempTableScanPlan} operator that
  * does exactly that.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TableValuedCorrelationScanExpression implements RelationalExpression, PlannerGraphRewritable {
+public class TempTableScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
     private final Type flowedType;
 
     @Nonnull
-    private final CorrelationIdentifier tableQueue;
+    private final CorrelationIdentifier tempTable;
 
-    public TableValuedCorrelationScanExpression(@Nonnull final Type flowedType,
-                                                @Nonnull final CorrelationIdentifier tableQueue) {
+    public TempTableScanExpression(@Nonnull final Type flowedType,
+                                   @Nonnull final CorrelationIdentifier tableQueue) {
         this.flowedType = flowedType;
-        this.tableQueue = tableQueue;
+        this.tempTable = tableQueue;
     }
 
     @Nonnull
@@ -75,8 +75,8 @@ public class TableValuedCorrelationScanExpression implements RelationalExpressio
     }
 
     @Nonnull
-    public CorrelationIdentifier getTableQueue() {
-        return tableQueue;
+    public CorrelationIdentifier getTempTable() {
+        return tempTable;
     }
 
     @Nonnull
@@ -93,8 +93,8 @@ public class TableValuedCorrelationScanExpression implements RelationalExpressio
 
     @Nonnull
     @Override
-    public TableValuedCorrelationScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public TempTableScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
@@ -143,7 +143,7 @@ public class TableValuedCorrelationScanExpression implements RelationalExpressio
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueue.getId()));
+        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTable.getId()));
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,

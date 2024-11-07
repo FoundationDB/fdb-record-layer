@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
-import com.apple.foundationdb.record.planprotos.PTqInsertPlan;
+import com.apple.foundationdb.record.planprotos.PTempTableInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -64,7 +64,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tq-Insert-Plan");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Insert-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(TempTableInsertPlan.class);
 
@@ -72,9 +72,9 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     private final CorrelationIdentifier tableQueue;
 
     protected TempTableInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                  @Nonnull final PTqInsertPlan tqInsertPlanProto) {
-        super(serializationContext, Objects.requireNonNull(tqInsertPlanProto.getSuper()));
-        this.tableQueue = CorrelationIdentifier.of(tqInsertPlanProto.getTableQueueName());
+                                  @Nonnull final PTempTableInsertPlan tempTableInsertPlan) {
+        super(serializationContext, Objects.requireNonNull(tempTableInsertPlan.getSuper()));
+        this.tableQueue = CorrelationIdentifier.of(tempTableInsertPlan.getTempTableName());
     }
 
     private TempTableInsertPlan(@Nonnull final Quantifier.Physical inner,
@@ -178,19 +178,19 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
 
     @Nonnull
     @Override
-    public PTqInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PTqInsertPlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
+    public PTempTableInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PTempTableInsertPlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setTqInsertPlan(toProto(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setTempTableInsertPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PTqInsertPlan tqInsertPlanProto) {
+                                                @Nonnull final PTempTableInsertPlan tqInsertPlanProto) {
         return new TempTableInsertPlan(serializationContext, tqInsertPlanProto);
     }
 
@@ -224,18 +224,18 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PTqInsertPlan, TempTableInsertPlan> {
+    public static class Deserializer implements PlanDeserializer<PTempTableInsertPlan, TempTableInsertPlan> {
         @Nonnull
         @Override
-        public Class<PTqInsertPlan> getProtoMessageClass() {
-            return PTqInsertPlan.class;
+        public Class<PTempTableInsertPlan> getProtoMessageClass() {
+            return PTempTableInsertPlan.class;
         }
 
         @Nonnull
         @Override
         public TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PTqInsertPlan tqInsertPlanProto) {
-            return TempTableInsertPlan.fromProto(serializationContext, tqInsertPlanProto);
+                                             @Nonnull final PTempTableInsertPlan tempTableInsertPlan) {
+            return TempTableInsertPlan.fromProto(serializationContext, tempTableInsertPlan);
         }
     }
 }

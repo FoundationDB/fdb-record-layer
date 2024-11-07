@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableValuedCorrelationScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -104,7 +104,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             final var tableQueue = TempTable.newInstance("tq1");
             tableQueue.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
                     QueryResult.ofComputed(item(45L, "fortyFifthValue")));
-            final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TableValuedCorrelationScanExpression(type, tableQueue.getName())));
+            final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TempTableScanExpression(type, tableQueue.getName())));
             final var recNoField = FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "rec_no");
             final var recNoColumn = Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "rec_no"));
             final var strValueIndexedField = Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "str_value_indexed"));
@@ -190,7 +190,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
                     QueryResult.ofComputed(item(45L, "fortyFifthValue")));
         }
-        final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TableValuedCorrelationScanExpression(type, tempTable.getName())));
+        final var tableQueueScanQun = Quantifier.forEach(Reference.of(new TempTableScanExpression(type, tempTable.getName())));
         final var recNoField = Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "rec_no"));
         final var strValueIndexedField = Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldName(tableQueueScanQun.getFlowedObjectValue(), "str_value_indexed"));
         final var selectExpressionBuilder = GraphExpansion.builder()

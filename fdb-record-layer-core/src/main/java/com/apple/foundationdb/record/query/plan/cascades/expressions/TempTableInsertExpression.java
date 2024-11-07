@@ -64,17 +64,17 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     @Nonnull
     private final Value resultValue;
     @Nonnull
-    private final CorrelationIdentifier tableQueue;
+    private final CorrelationIdentifier tempTable;
 
     public TempTableInsertExpression(@Nonnull final Quantifier.ForEach inner,
                                      @Nonnull final String targetRecordType,
                                      @Nonnull final Type.Record targetType,
-                                     @Nonnull final CorrelationIdentifier tableQueue) {
+                                     @Nonnull final CorrelationIdentifier tempTable) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
         this.resultValue = new QueriedValue(targetType);
-        this.tableQueue = tableQueue;
+        this.tempTable = tempTable;
     }
 
     @Override
@@ -115,7 +115,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
                 targetRecordType,
                 targetType,
                 makeComputationValue(targetType),
-                tableQueue);
+                tempTable);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
-                        new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tableQueue.getId())),
+                        new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTable.getId())),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(

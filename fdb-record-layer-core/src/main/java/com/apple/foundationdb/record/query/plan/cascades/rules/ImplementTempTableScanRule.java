@@ -1,5 +1,5 @@
 /*
- * ImplementTableValuedCorrelationScanRule.java
+ * ImplementTempTableScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,30 +22,30 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableValuedCorrelationScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tempTableScanExpression;
 
 /**
- * A rule that implements a {@link TableValuedCorrelationScanExpression} producing a {@link TableValuedCorrelationScanPlan} operator.
+ * A rule that implements a {@link TempTableScanExpression} producing a {@link TempTableScanPlan} operator.
  */
-public class ImplementTableValuedCorrelationScanRule extends CascadesRule<TableValuedCorrelationScanExpression> {
+public class ImplementTempTableScanRule extends CascadesRule<TempTableScanExpression> {
 
     @Nonnull
-    private static final BindingMatcher<TableValuedCorrelationScanExpression> root = tempTableScanExpression();
+    private static final BindingMatcher<TempTableScanExpression> root = tempTableScanExpression();
 
-    public ImplementTableValuedCorrelationScanRule() {
+    public ImplementTempTableScanRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var tempTableScanExpression = call.get(root);
-        call.yieldExpression(new TableValuedCorrelationScanPlan(tempTableScanExpression.getTableQueue(),
+        call.yieldExpression(new TempTableScanPlan(tempTableScanExpression.getTempTable(),
                 tempTableScanExpression.getResultValue().getResultType()));
     }
 }

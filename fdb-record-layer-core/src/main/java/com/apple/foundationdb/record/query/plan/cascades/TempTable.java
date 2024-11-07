@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.planprotos.PTableQueue;
+import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
@@ -94,7 +94,7 @@ public class TempTable {
         return new ListCursor<>((List<QueryResult>)getReadBuffer(), continuation);
     }
 
-    private void serializeBuffer(@Nonnull PTableQueue.Builder protoMessageBuilder) {
+    private void serializeBuffer(@Nonnull PTempTable.Builder protoMessageBuilder) {
         for (final var element : underlyingBuffer) {
             final var elementByteString = element.toByteString();
             protoMessageBuilder.addBufferItems(elementByteString);
@@ -102,8 +102,8 @@ public class TempTable {
     }
 
     @Nonnull
-    public PTableQueue toProto() {
-        final var tableQueueProtoBuilder = PTableQueue.newBuilder()
+    public PTempTable toProto() {
+        final var tableQueueProtoBuilder = PTempTable.newBuilder()
                 .setName(getName().getId());
         serializeBuffer(tableQueueProtoBuilder);
         return tableQueueProtoBuilder.build();
@@ -126,9 +126,9 @@ public class TempTable {
 
     @Nonnull
     public static TempTable deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
-        final PTableQueue tableQueueProto;
+        final PTempTable tableQueueProto;
         try {
-            tableQueueProto = PTableQueue.parseFrom(byteString);
+            tableQueueProto = PTempTable.parseFrom(byteString);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
@@ -137,7 +137,7 @@ public class TempTable {
     }
 
     @Nonnull
-    public static TempTable fromProto(@Nonnull final PTableQueue tableQueueProto,
+    public static TempTable fromProto(@Nonnull final PTempTable tableQueueProto,
                                       @Nullable Descriptors.Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
         final var name = tableQueueProto.getName();

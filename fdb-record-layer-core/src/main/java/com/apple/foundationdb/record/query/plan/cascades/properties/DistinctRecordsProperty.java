@@ -59,7 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TableValuedCorrelationScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -197,7 +197,7 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitTableValuedCorrelationScanPlan(@Nonnull final TableValuedCorrelationScanPlan element) {
+        public Boolean visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
             return false;
         }
 
@@ -215,8 +215,8 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         @Nonnull
         @Override
-        public Boolean visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertTableQueuePlan) {
-            return distinctRecordsFromSingleChild(insertTableQueuePlan);
+        public Boolean visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+            return distinctRecordsFromSingleChild(tempTableInsertPlan);
         }
 
         @Nonnull

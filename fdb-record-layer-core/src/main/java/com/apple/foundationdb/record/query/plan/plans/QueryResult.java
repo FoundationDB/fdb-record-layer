@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.planprotos.PQueryResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -191,7 +191,7 @@ public class QueryResult {
     @Nonnull
     public <M extends Message> ByteString toByteString() {
         if (cachedByteString == null) {
-            final var builder = PQueryResult.newBuilder();
+            final var builder = RecordMetaDataProto.PQueryResult.newBuilder();
             if (datum instanceof FDBQueriedRecord) {
                 builder.setComplex(((FDBQueriedRecord<M>)datum).getRecord().toByteString());
             } else if (datum instanceof Message) {
@@ -222,7 +222,7 @@ public class QueryResult {
     @Nonnull
     public static QueryResult deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
         try {
-            final var parsed = PQueryResult.parseFrom(byteString);
+            final var parsed = RecordMetaDataProto.PQueryResult.parseFrom(byteString);
             if (parsed.hasPrimitive()) {
                 return QueryResult.ofComputed(PlanSerialization.protoToValueObject(parsed.getPrimitive()));
             } else {
