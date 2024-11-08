@@ -59,7 +59,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.Bindings.BindingKind.CORRELATION;
+import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;

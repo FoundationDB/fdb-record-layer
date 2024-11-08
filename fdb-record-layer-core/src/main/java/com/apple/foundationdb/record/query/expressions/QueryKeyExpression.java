@@ -392,10 +392,10 @@ public class QueryKeyExpression {
         private final Function<Object, Object> conversion;
 
         protected ConversionParameterComparison(@Nonnull Comparisons.Type type, @Nonnull String parameter,
-                                                @Nullable Bindings.BindingKind bindingKind,
+                                                @Nullable Bindings.Internal internal,
                                                 @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
                                                 @Nonnull QueryableKeyExpression keyExpression) {
-            super(type, parameter, bindingKind, parameterRelationshipGraph);
+            super(type, parameter, internal, parameterRelationshipGraph);
             this.keyExpression = keyExpression;
             this.conversion = Objects.requireNonNull(keyExpression.getComparandConversionFunction());
         }
@@ -446,7 +446,7 @@ public class QueryKeyExpression {
             if (type == newType) {
                 return this;
             }
-            return new ConversionParameterComparison(newType, parameter, bindingKind, parameterRelationshipGraph, keyExpression);
+            return new ConversionParameterComparison(newType, parameter, internal, parameterRelationshipGraph, keyExpression);
         }
 
         @Override
@@ -490,8 +490,8 @@ public class QueryKeyExpression {
         @Override
         protected Comparisons.ParameterComparisonBase withTranslatedCorrelation(@Nonnull CorrelationIdentifier translatedAlias) {
             return new ConversionParameterComparison(type,
-                    Bindings.BindingKind.CORRELATION.bindingName(translatedAlias.getId()),
-                    Bindings.BindingKind.CORRELATION,
+                    Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
+                    Bindings.Internal.CORRELATION,
                     parameterRelationshipGraph,
                     keyExpression);
         }
@@ -500,7 +500,7 @@ public class QueryKeyExpression {
         @Override
         public Comparisons.Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
-            return new ConversionParameterComparison(type, parameter, bindingKind, parameterRelationshipGraph, keyExpression);
+            return new ConversionParameterComparison(type, parameter, internal, parameterRelationshipGraph, keyExpression);
         }
 
         @Nonnull
@@ -510,8 +510,8 @@ public class QueryKeyExpression {
                     .setType(type.toProto(serializationContext))
                     .setParameter(parameter)
                     .setConversion(keyExpression.toKeyExpression());
-            if (bindingKind != null) {
-                builder.setInternal(bindingKind.toProto(serializationContext));
+            if (internal != null) {
+                builder.setInternal(internal.toProto(serializationContext));
             }
             return builder.build();
         }
@@ -525,17 +525,17 @@ public class QueryKeyExpression {
         @Nonnull
         public static ConversionParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                               @Nonnull final PConversionParameterComparison conversionParameterComparisonProto) {
-            final Bindings.BindingKind bindingKind;
+            final Bindings.Internal internal;
             if (conversionParameterComparisonProto.hasInternal()) {
-                bindingKind = Bindings.BindingKind.fromProto(serializationContext, Objects.requireNonNull(conversionParameterComparisonProto.getInternal()));
+                internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(conversionParameterComparisonProto.getInternal()));
             } else {
-                bindingKind = null;
+                internal = null;
             }
             final QueryableKeyExpression keyExpression = (QueryableKeyExpression)
                     KeyExpression.fromProto(conversionParameterComparisonProto.getConversion());
             return new ConversionParameterComparison(Comparisons.Type.fromProto(serializationContext, Objects.requireNonNull(conversionParameterComparisonProto.getType())),
                     Objects.requireNonNull(conversionParameterComparisonProto.getParameter()),
-                    bindingKind, ParameterRelationshipGraph.unbound(),
+                    internal, ParameterRelationshipGraph.unbound(),
                     keyExpression);
         }
 

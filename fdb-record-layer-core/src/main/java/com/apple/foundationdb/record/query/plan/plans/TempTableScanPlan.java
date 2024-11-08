@@ -64,10 +64,10 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Scan-Plan");
 
     @Nonnull
-    private final Value tempTable;
+    private final Value tempTableReferenceValue;
 
-    public TempTableScanPlan(@Nonnull Value tempTable) {
-        this.tempTable = tempTable;
+    public TempTableScanPlan(@Nonnull final Value tempTableReferenceValue) {
+        this.tempTableReferenceValue = tempTableReferenceValue;
     }
 
     @Nonnull
@@ -76,7 +76,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        final var tempTable = (TempTable)this.tempTable.with(Type.any()).eval(store, context);
+        final var tempTable = (TempTable)this.tempTableReferenceValue.eval(store, context);
         return tempTable.getReadCursor(continuation);
     }
 
@@ -91,7 +91,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public TempTableScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
                                                    @Nonnull List<? extends Quantifier> translatedQuantifiers) {
-        return new TempTableScanPlan(tempTable.translateCorrelations(translationMap));
+        return new TempTableScanPlan(tempTableReferenceValue.translateCorrelations(translationMap));
     }
 
     @Override
@@ -139,13 +139,13 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public Value getResultValue() {
-        return tempTable;
+        return tempTableReferenceValue;
     }
 
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return ImmutableSet.of(tempTable.getResultType()); // TODO: this needs improvement.
+        return ImmutableSet.of(tempTableReferenceValue.getResultType());
     }
 
 
@@ -166,7 +166,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
             return false;
         }
         final var otherTempTableScan =  (TempTableScanPlan)otherExpression;
-        return tempTable.semanticEquals(otherTempTableScan.tempTable, equivalencesMap);
+        return tempTableReferenceValue.semanticEquals(otherTempTableScan.tempTableReferenceValue, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -212,7 +212,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.TEMP_TABLE_SCAN_OPERATOR,
-                        ImmutableList.of(tempTable.toString())),
+                        ImmutableList.of(tempTableReferenceValue.toString())),
                 childGraphs);
     }
 
@@ -220,7 +220,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Override
     public PTempTableScanPlan toProto(@Nonnull PlanSerializationContext serializationContext) {
         return PTempTableScanPlan.newBuilder()
-                .setTempTable(tempTable.toValueProto(serializationContext))
+                .setTempTable(tempTableReferenceValue.toValueProto(serializationContext))
                 .build();
     }
 

@@ -92,9 +92,9 @@ public class RecordQueryPlanEqualityTest {
             // don't test RecordQueryCoveringIndexPlan since mocking it is complicated
             () -> new RecordQueryFilterPlan(scanPlan(), Query.field("a_field").lessThan(50)),
             () -> indexPlanEquals("testIndex", 4),
-            () -> new RecordQueryInParameterJoinPlan(scanPlan(), "__in_testField", Bindings.BindingKind.IN, "testField2", false, false),
+            () -> new RecordQueryInParameterJoinPlan(scanPlan(), "__in_testField", Bindings.Internal.IN, "testField2", false, false),
             () -> intersectionPlan(2, "even"),
-            () -> new RecordQueryInValuesJoinPlan(scanPlan(), "__in_testField", Bindings.BindingKind.IN, Arrays.asList(1, 2, 3),
+            () -> new RecordQueryInValuesJoinPlan(scanPlan(), "__in_testField", Bindings.Internal.IN, Arrays.asList(1, 2, 3),
                     false, false),
             () -> new RecordQueryLoadByKeysPlan("param"),
             () -> scanPlan(),

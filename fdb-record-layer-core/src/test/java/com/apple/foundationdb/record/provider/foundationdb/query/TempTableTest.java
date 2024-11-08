@@ -60,15 +60,13 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.target;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tqInsertPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tqScanPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableInsertPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableScanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,7 +106,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
                     QueryResult.ofComputed(item(45L, "fortyFifthValue")));
             final var tempTableId = CorrelationIdentifier.uniqueID();
-            final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, type)));
+            final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), type)));
             final var recNoField = FieldValue.ofFieldName(tempTableScanQun.getFlowedObjectValue(), "rec_no");
             final var recNoColumn = Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(tempTableScanQun.getFlowedObjectValue(), "rec_no"));
             final var strValueIndexedField = Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldName(tempTableScanQun.getFlowedObjectValue(), "str_value_indexed"));
@@ -119,7 +117,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(selectExpressionBuilder.build().buildSelect()))));
             final var cascadesPlanner = (CascadesPlanner)planner;
             final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
-            assertMatchesExactly(plan, mapPlan(predicatesFilterPlan(tqScanPlan()).where(predicates(only(valuePredicate(fieldValueWithFieldNames("rec_no"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))))));
+            assertMatchesExactly(plan, mapPlan(predicatesFilterPlan(tempTableScanPlan()).where(predicates(only(valuePredicate(fieldValueWithFieldNames("rec_no"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))))));
             assertEquals(ImmutableSet.of(Pair.of(42L, "fortySecondValue")), collectResults(context, plan, tempTable, tempTableId));
         }
     }
@@ -147,16 +145,16 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
-            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun, "MySimpleRecord",
-                    tempTableId, Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
+                    tempTableId, tempTableId.getId(), Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
             var plan = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
-            assertMatchesExactly(plan,  tqInsertPlan(explodePlan()).where(target(equalsObject("MySimpleRecord"))));
+            assertMatchesExactly(plan,  tempTableInsertPlan(explodePlan()));
             final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
             constants.put(tempTableId.getId(), tempTable);
-            final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingKind.CONSTANT, tempTableId, constants.build());
+            final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
             fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { }, ExecuteProperties.SERIAL_EXECUTE);
 
             // select rec_no, str_value_indexed from tq1 | tq1 is a TableQueue.
@@ -174,7 +172,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
         final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
         constants.put(tempTableId.getId(), tempTable);
-        final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.BindingKind.CONSTANT, tempTableId, constants.build());
+        final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
         fetchResultValues(context, plan, record -> {
             final Descriptors.Descriptor recDescriptor = record.getDescriptorForType();
             Long recNo = (long) record.getField(recDescriptor.findFieldByName("rec_no"));
@@ -201,7 +199,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
                     QueryResult.ofComputed(item(45L, "fortyFifthValue")));
         }
-        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, type)));
+        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), type)));
         final var recNoField = Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(tempTableScanQun.getFlowedObjectValue(), "rec_no"));
         final var strValueIndexedField = Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldName(tempTableScanQun.getFlowedObjectValue(), "str_value_indexed"));
         final var selectExpressionBuilder = GraphExpansion.builder()
@@ -210,7 +208,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(selectExpressionBuilder.build().buildSelect()))));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
-        assertMatchesExactly(plan, mapPlan(tqScanPlan()));
+        assertMatchesExactly(plan, mapPlan(tempTableScanPlan()));
         return plan;
     }
 }

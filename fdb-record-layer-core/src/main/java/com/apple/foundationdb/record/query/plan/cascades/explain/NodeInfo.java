@@ -115,7 +115,7 @@ public class NodeInfo {
             "Scan",
             "A scan operator loads a set of records from the database that are within the given range of primary keys.");
     public static final NodeInfo TEMP_TABLE_SCAN_OPERATOR = new NodeInfo(
-            "TempTableScan",
+            "TempTableScanOperator",
             NodeIcon.DATA_ACCESS_OPERATOR,
             "Temp Table Scan",
             "A scan operator loads a set of records from an in-memory temporary buffer.");

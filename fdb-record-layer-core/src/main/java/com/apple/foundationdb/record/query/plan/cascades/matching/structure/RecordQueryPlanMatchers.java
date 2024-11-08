@@ -392,7 +392,7 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<TempTableScanPlan> tqScanPlan() {
+    public static BindingMatcher<TempTableScanPlan> tempTableScanPlan() {
         return ofTypeOwning(TempTableScanPlan.class, CollectionMatcher.empty());
     }
 
@@ -786,7 +786,7 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<TempTableInsertPlan> tqInsertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+    public static BindingMatcher<TempTableInsertPlan> tempTableInsertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(TempTableInsertPlan.class, exactlyPlans(downstream));
     }
 

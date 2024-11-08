@@ -68,26 +68,26 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
      * creates for the evaluation of the inner is participating in the plan hash. Unfortunately, this cannot be
      * done when using the Cascades planner as the planner uses identifiers that are not stable across plannings.
      * <br>
-     * The binding internal has to be set to either {@link Bindings.BindingKind#IN} if the object is created by the old
-     * planner of to {@link Bindings.BindingKind#CORRELATION} if the object is created by the new planner.
+     * The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
+     * planner of to {@link Bindings.Internal#CORRELATION} if the object is created by the new planner.
      */
     @Nonnull
-    protected final Bindings.BindingKind bindingKind;
+    protected final Bindings.Internal internal;
 
     protected RecordQueryInJoinPlan(@Nonnull final PlanSerializationContext serializationContext,
                                     @Nonnull final PRecordQueryInJoinPlan inJoinPlanProto) {
         this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getPhysicalQuantifier())),
                 InSource.fromInSourceProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getInSource())),
-                Bindings.BindingKind.fromProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getInternal())));
+                Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getInternal())));
     }
 
     protected RecordQueryInJoinPlan(@Nonnull final Quantifier.Physical inner,
                                     @Nonnull final InSource inSource,
-                                    @Nonnull final Bindings.BindingKind bindingKind) {
-        Verify.verify(bindingKind == Bindings.BindingKind.IN || bindingKind == Bindings.BindingKind.CORRELATION);
+                                    @Nonnull final Bindings.Internal internal) {
+        Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
         this.inner = inner;
         this.inSource = inSource;
-        this.bindingKind = bindingKind;
+        this.internal = internal;
     }
 
     @Nonnull
@@ -102,7 +102,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     public CorrelationIdentifier getInAlias() {
-        return CorrelationIdentifier.of(bindingKind.identifier(inSource.getBindingName()));
+        return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
     }
 
     @Nonnull
@@ -114,7 +114,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(store.getExecutor(), getValues(context), outerContinuation),
                         (outerValue, innerContinuation) -> {
-                            final Object bindingValue = bindingKind == Bindings.BindingKind.IN ? outerValue : QueryResult.ofComputed(outerValue);
+                            final Object bindingValue = internal == Bindings.Internal.IN ? outerValue : QueryResult.ofComputed(outerValue);
                             return getInnerPlan().executePlan(store, context.withBinding(inSource.getBindingName(), bindingValue),
                                     innerContinuation, executeProperties.clearSkipAndLimit());
                         },
@@ -247,7 +247,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
-                if (bindingKind == Bindings.BindingKind.IN) {
+                if (internal == Bindings.Internal.IN) {
                     return getInnerPlan().planHash(mode) +
                            inSource.getBindingName().hashCode() +
                            (inSource.isSorted() ? 1 : 0) +
@@ -255,7 +255,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                 }
                 // fall through
             case FOR_CONTINUATION:
-                if (bindingKind == Bindings.BindingKind.IN) {
+                if (internal == Bindings.Internal.IN) {
                     return PlanHashable.objectsPlanHash(mode,
                             baseHash,
                             getInnerPlan(),
@@ -285,7 +285,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
         return PRecordQueryInJoinPlan.newBuilder()
                 .setPhysicalQuantifier(inner.toProto(serializationContext))
                 .setInSource(inSource.toInSourceProto(serializationContext))
-                .setInternal(bindingKind.toProto(serializationContext))
+                .setInternal(internal.toProto(serializationContext))
                 .build();
     }
 }

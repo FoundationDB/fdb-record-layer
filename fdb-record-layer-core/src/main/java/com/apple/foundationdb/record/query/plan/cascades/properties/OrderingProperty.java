@@ -97,7 +97,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.Bindings.BindingKind.CORRELATION;
+import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 
 /**
  * A property used for the ordering(s) of a plan.

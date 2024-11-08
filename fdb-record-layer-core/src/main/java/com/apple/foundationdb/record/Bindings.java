@@ -44,7 +44,7 @@ public class Bindings {
     /**
      * Bindings slots used internally by plan operators.
      */
-    public enum BindingKind {
+    public enum Internal {
         IN("__in_"),
         RANK("__rank_"),
         CORRELATION("__corr_"),
@@ -54,7 +54,7 @@ public class Bindings {
         private final String value;
 
 
-        BindingKind(String value) {
+        Internal(String value) {
             this.value = value;
         }
 
@@ -94,7 +94,7 @@ public class Bindings {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static BindingKind fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBindingKind bindingKindProto) {
+        public static Internal fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBindingKind bindingKindProto) {
             switch (bindingKindProto) {
                 case IN:
                     return IN;

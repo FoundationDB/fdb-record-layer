@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -94,7 +95,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     private final Quantifier.Physical inner;
     @Nonnull
     private final Type innerFlowedType;
-    @Nonnull
+    @Nullable
     private final String targetRecordType;
     @Nonnull
     private final Type.Record targetType;
@@ -129,7 +130,9 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                       @Nonnull final PRecordQueryAbstractDataModificationPlan recordQueryAbstractDataModificationPlanProto) {
         this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getInner())),
-                Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetRecordType()),
+                PlanSerialization.getFieldOrNull(recordQueryAbstractDataModificationPlanProto,
+                        PRecordQueryAbstractDataModificationPlan::hasTargetRecordType,
+                        m -> Objects.requireNonNull(m.getTargetRecordType())),
                 Type.Record.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetType())),
                 PlanSerialization.getFieldOrNull(recordQueryAbstractDataModificationPlanProto,
                         PRecordQueryAbstractDataModificationPlan::hasTransformationsTrie,
@@ -142,7 +145,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
-                                                      @Nonnull final String targetRecordType,
+                                                      @Nullable final String targetRecordType,
                                                       @Nonnull final Type.Record targetType,
                                                       @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
                                                       @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
@@ -192,14 +195,14 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         return dynamicTypesBuilder.build();
     }
 
-    @Nonnull
+    @Nullable
     protected <M extends Message> Descriptors.Descriptor getTargetDescriptor(@Nonnull final FDBRecordStoreBase<M> store) {
-        return store.getRecordMetaData().getRecordType(targetRecordType).getDescriptor();
+        return store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
     }
 
     @Nonnull
     @Override
-    @SuppressWarnings({"PMD.CloseResource", "resource"})
+    @SuppressWarnings({"PMD.CloseResource", "resource", "unchecked"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -208,8 +211,14 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
         final var targetDescriptor = getTargetDescriptor(store);
         return results
-                .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult, targetDescriptor)))
-                .mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
+                .map(queryResult -> {
+                    if (targetDescriptor == null) {
+                        // TODO: this needs reworking when introducing SQL temp tables.
+                        Verify.verify(coercionTrie == null && transformationsTrie == null);
+                        return Pair.of(queryResult, (M)Preconditions.checkNotNull(queryResult.getMessage()));
+                    }
+                    return Pair.of(queryResult, mutateRecord(store, context, queryResult, targetDescriptor));
+                }).mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
                                 .thenApply(queryResult -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(inner.getAlias(), pair.getLeft()) // pre-mutation
@@ -229,7 +238,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                               @Nonnull final QueryResult queryResult, @Nonnull final Descriptors.Descriptor targetDescriptor) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
         return (M)MessageHelpers.transformMessage(store,
-                context.withBinding(Bindings.BindingKind.CORRELATION, inner.getAlias(), queryResult),
+                context.withBinding(Bindings.Internal.CORRELATION, inner.getAlias(), queryResult),
                 transformationsTrie,
                 coercionTrie,
                 targetType,
@@ -382,8 +391,10 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     public PRecordQueryAbstractDataModificationPlan toRecordQueryAbstractModificationPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PRecordQueryAbstractDataModificationPlan.Builder builder = PRecordQueryAbstractDataModificationPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext))
-                .setTargetRecordType(targetRecordType)
                 .setTargetType(targetType.toProto(serializationContext));
+        if (targetRecordType != null) {
+            builder.setTargetRecordType(targetRecordType);
+        }
         if (transformationsTrie != null) {
             builder.setTransformationsTrie(transformationsTrie.toProto(serializationContext));
         }

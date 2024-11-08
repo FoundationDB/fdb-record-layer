@@ -50,7 +50,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A logical expression for scanning from a table-valued {@link Bindings.BindingKind#CORRELATION}
+ * A logical expression for scanning from a table-valued {@link Bindings.Internal#CORRELATION}
  * that can correspond to a temporary memory buffer, i.e. a {@link TempTable}.
  * This expression is used to implement a corresponding {@link TempTableScanPlan} operator that
  * does exactly that.
@@ -58,13 +58,13 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class TempTableScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
-    private final Value tempTable;
+    private final Value tempTableReferenceValue;
     @Nonnull
     private final QueriedValue resultValue;
 
-    private TempTableScanExpression(@Nonnull final Value tempTable) {
-        this.tempTable = tempTable;
-        this.resultValue = new QueriedValue(tempTable.getResultType());
+    private TempTableScanExpression(@Nonnull final Value tempTableReferenceValue) {
+        this.tempTableReferenceValue = tempTableReferenceValue;
+        this.resultValue = new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
     @Nonnull
@@ -74,8 +74,8 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
     }
 
     @Nonnull
-    public Value getTempTable() {
-        return tempTable;
+    public Value getTempTableReferenceValue() {
+        return tempTableReferenceValue;
     }
 
     @Nonnull
@@ -87,14 +87,14 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return tempTable.getCorrelatedTo();
+        return tempTableReferenceValue.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public TempTableScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new TempTableScanExpression(tempTable.translateCorrelations(translationMap));
+        return new TempTableScanExpression(tempTableReferenceValue.translateCorrelations(translationMap));
     }
 
     @Override
@@ -106,7 +106,8 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        return getResultValue().semanticEquals(otherExpression.getResultValue(), equivalencesMap);
+        final var otherTempTableScanExpression = (TempTableScanExpression)otherExpression;
+        return getTempTableReferenceValue().semanticEquals(otherTempTableScanExpression.getTempTableReferenceValue(), equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -122,7 +123,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(tempTable);
+        return Objects.hash(tempTableReferenceValue);
     }
 
     @Override
@@ -140,8 +141,8 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
-        final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        dataNodeWithInfo = new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTable.toString()));
+        final PlannerGraph.DataNodeWithInfo dataNodeWithInfo = new PlannerGraph
+                .TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTableReferenceValue.toString()));
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
@@ -153,13 +154,33 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
                         childGraphs)));
     }
 
+    /**
+     * Creates a new instance of {@link TempTableScanExpression} that scans records from a constant-bound {@link TempTable},
+     * i.e. a temporary table that is not correlated to any other plan operator.
+     *
+     * @param constantAlias The alias of the constant-bound temporary table.
+     * @param constantId The id of the constant in the constant map.
+     * @param type The type of the temporary table records.
+     * @return A new {@link TempTableScanExpression} that adds records to a constant-bound {@link TempTable}.
+     */
     @Nonnull
-    public static TempTableScanExpression ofConstant(@Nonnull CorrelationIdentifier alias, @Nonnull Type type) {
-        return new TempTableScanExpression(ConstantObjectValue.of(alias, alias.getId(), type));
+    public static TempTableScanExpression ofConstant(@Nonnull final CorrelationIdentifier constantAlias,
+                                                     @Nonnull final String constantId,
+                                                     @Nonnull final Type type) {
+        return new TempTableScanExpression(ConstantObjectValue.of(constantAlias, constantId, new Type.Relation(type)));
     }
 
+    /**
+     * Creates a new instance of {@link TempTableScanExpression} that scans records from a correlated {@link TempTable},
+     * i.e. a temporary table that is the result of a table-valued correlation.
+     *
+     * @param correlation The table-valued correlation.
+     * @param type The type of the temporary table records.
+     * @return A new {@link TempTableScanExpression} that adds records to a correlated {@link TempTable}.
+     */
     @Nonnull
-    public static TempTableScanExpression ofCorrelated(@Nonnull CorrelationIdentifier correlation, @Nonnull Type type) {
-        return new TempTableScanExpression(QuantifiedObjectValue.of(correlation, type));
+    public static TempTableScanExpression ofCorrelated(@Nonnull final CorrelationIdentifier correlation,
+                                                       @Nonnull final Type type) {
+        return new TempTableScanExpression(QuantifiedObjectValue.of(correlation, new Type.Relation(type)));
     }
 }

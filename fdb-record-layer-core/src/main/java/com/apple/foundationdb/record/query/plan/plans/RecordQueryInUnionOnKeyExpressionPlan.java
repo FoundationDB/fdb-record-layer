@@ -52,13 +52,13 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                                                  @Nonnull final KeyExpression comparisonKeyExpression,
                                                  final boolean reverse,
                                                  final int maxNumberOfValuesAllowed,
-                                                 @Nonnull final Bindings.BindingKind bindingKind) {
+                                                 @Nonnull final Bindings.Internal internal) {
         super(inner,
                 inSources,
                 new ComparisonKeyFunction.OnKeyExpression(comparisonKeyExpression),
                 reverse,
                 maxNumberOfValuesAllowed,
-                bindingKind);
+                internal);
     }
 
     @Nonnull
@@ -92,7 +92,7 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                 getComparisonKeyExpression(),
                 reverse,
                 maxNumberOfValuesAllowed,
-                bindingKind);
+                internal);
     }
 
     @Nonnull
@@ -103,7 +103,7 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                 getComparisonKeyExpression(),
                 reverse,
                 maxNumberOfValuesAllowed,
-                bindingKind);
+                internal);
     }
 
     @Nonnull

@@ -253,7 +253,7 @@ public class InExtractor {
         final List<InClause> inClauses = Lists.newArrayList();
         final QueryComponent subFilter = mapClauses(filter, (withComparison, fields) -> {
             if (withComparison.getComparison().getType() == Comparisons.Type.IN) {
-                final String bindingName = Bindings.BindingKind.IN.bindingName(
+                final String bindingName = Bindings.Internal.IN.bindingName(
                         withComparison.getName() + "__" + bindingIndex.getAndIncrement());
                 if (inBindingFilter.test(withComparison, bindingName)) {
                     List<FieldKeyExpression> nestedFields = null;
@@ -277,7 +277,7 @@ public class InExtractor {
                     } else {
                         inClauses.add(new InComparandClause(bindingName, withComparison.getComparison(), orderingKey));
                     }
-                    return withComparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.BindingKind.IN));
+                    return withComparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
                 }
             }
             return withComparison;
@@ -345,7 +345,7 @@ public class InExtractor {
         protected RecordQueryPlan wrap(RecordQueryPlan inner) {
             return new RecordQueryInValuesJoinPlan(inner,
                     bindingName,
-                    Bindings.BindingKind.IN,
+                    Bindings.Internal.IN,
                     values == null ? ImmutableList.of() : values,
                     sortValues,
                     sortReverse);
@@ -370,7 +370,7 @@ public class InExtractor {
         protected RecordQueryPlan wrap(RecordQueryPlan inner) {
             return new RecordQueryInParameterJoinPlan(inner,
                     bindingName,
-                    Bindings.BindingKind.IN,
+                    Bindings.Internal.IN,
                     parameterName,
                     sortValues,
                     sortReverse);
@@ -395,7 +395,7 @@ public class InExtractor {
         protected RecordQueryPlan wrap(final RecordQueryPlan inner) {
             return new RecordQueryInComparandJoinPlan(inner,
                     bindingName,
-                    Bindings.BindingKind.IN,
+                    Bindings.Internal.IN,
                     comparison,
                     sortValues,
                     sortReverse);

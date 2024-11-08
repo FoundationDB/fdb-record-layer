@@ -132,7 +132,7 @@ public class EvaluationContext {
      *
      * @return the value bound to the given parameter
      */
-    public Object getBinding(@Nonnull Bindings.BindingKind type, @Nonnull CorrelationIdentifier alias) {
+    public Object getBinding(@Nonnull Bindings.Internal type, @Nonnull CorrelationIdentifier alias) {
         return bindings.get(type.bindingName(alias.getId()));
     }
 
@@ -146,7 +146,7 @@ public class EvaluationContext {
     @SuppressWarnings("unchecked")
     @Nullable
     public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
-        final var constantsMap = (Map<String, ?>)bindings.get(Bindings.BindingKind.CONSTANT.bindingName(alias.getId()));
+        final var constantsMap = (Map<String, ?>)bindings.get(Bindings.Internal.CONSTANT.bindingName(alias.getId()));
         if (constantsMap == null) {
             throw new RecordCoreException("could not find constant in the evaluation context")
                     .addLogInfo(LogMessageKeys.KEY, "'" + alias.getId() + "' - '" + constantId + "'");
@@ -209,7 +209,7 @@ public class EvaluationContext {
      *
      * @return a new <code>EvaluationContext</code> with the new binding
      */
-    public EvaluationContext withBinding(final Bindings.BindingKind type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+    public EvaluationContext withBinding(final Bindings.Internal type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {
         return childBuilder().setBinding(type.bindingName(alias.getId()), value).build(typeRepository);
     }
 }

@@ -124,7 +124,7 @@ public class QueryResult {
      */
     @Nonnull
     public <T> T get(@Nonnull final Class<? extends T> clazz) {
-        return Objects.requireNonNull(clazz.cast(datum));
+        return clazz.cast(datum);
     }
 
     /**

@@ -63,13 +63,13 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     public RecordQueryInValuesJoinPlan(final RecordQueryPlan plan,
                                        @Nonnull final String bindingName,
-                                       @Nonnull final Bindings.BindingKind bindingKind,
+                                       @Nonnull final Bindings.Internal internal,
                                        @Nonnull final List<Object> values,
                                        final boolean sortValues,
                                        final boolean sortReverse) {
         this(Quantifier.physical(Reference.of(plan)),
                 bindingName,
-                bindingKind,
+                internal,
                 values,
                 sortValues,
                 sortReverse);
@@ -77,7 +77,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     private RecordQueryInValuesJoinPlan(@Nonnull final Quantifier.Physical inner,
                                         @Nonnull final String bindingName,
-                                        @Nonnull final Bindings.BindingKind bindingKind,
+                                        @Nonnull final Bindings.Internal internal,
                                         @Nonnull final List<Object> values,
                                         final boolean sortValues,
                                         final boolean sortReverse) {
@@ -85,13 +85,13 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                 sortValues
                 ? new SortedInValuesSource(bindingName, values, sortReverse)
                 : new InValuesSource(bindingName, values),
-                bindingKind);
+                internal);
     }
 
     public RecordQueryInValuesJoinPlan(@Nonnull final Quantifier.Physical inner,
                                        @Nonnull final InValuesSource inSource,
-                                       @Nonnull final Bindings.BindingKind bindingKind) {
-        super(inner, inSource, bindingKind);
+                                       @Nonnull final Bindings.Internal internal) {
+        super(inner, inSource, internal);
     }
 
     @Nonnull
@@ -120,13 +120,13 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     public RecordQueryInValuesJoinPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInValuesJoinPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 inValuesSource(),
-                bindingKind);
+                internal);
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
-        return new RecordQueryInValuesJoinPlan(Quantifier.physical(childRef), inValuesSource(), bindingKind);
+        return new RecordQueryInValuesJoinPlan(Quantifier.physical(childRef), inValuesSource(), internal);
     }
 
     @Override
@@ -134,12 +134,12 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     public int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
-                if (bindingKind == Bindings.BindingKind.IN) {
+                if (internal == Bindings.Internal.IN) {
                     return super.basePlanHash(mode, BASE_HASH) + PlanHashable.iterablePlanHash(mode, inSource.getValues());
                 }
                 // fall through
             case FOR_CONTINUATION:
-                if (bindingKind == Bindings.BindingKind.IN) {
+                if (internal == Bindings.Internal.IN) {
                     return super.basePlanHash(mode, BASE_HASH, inSource.getValues());
                 }
                 return super.basePlanHash(mode, BASE_HASH);

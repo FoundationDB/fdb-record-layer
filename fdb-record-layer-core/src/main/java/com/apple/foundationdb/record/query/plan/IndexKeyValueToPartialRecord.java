@@ -483,7 +483,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
         @Nonnull
         private String computeIndexEntryBindingName() {
-            return Bindings.BindingKind.CORRELATION.bindingName(indexEntryAlias.getId());
+            return Bindings.Internal.CORRELATION.bindingName(indexEntryAlias.getId());
         }
 
         @Override

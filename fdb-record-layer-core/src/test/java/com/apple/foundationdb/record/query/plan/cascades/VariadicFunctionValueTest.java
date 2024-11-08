@@ -114,7 +114,7 @@ class VariadicFunctionValueTest {
 
     @SuppressWarnings({"ConstantConditions"})
     private static final EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(
-            Bindings.newBuilder().set(Bindings.BindingKind.CORRELATION.bindingName("ident"),
+            Bindings.newBuilder().set(Bindings.Internal.CORRELATION.bindingName("ident"),
                     QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build())).build(),
             typeRepository);
 

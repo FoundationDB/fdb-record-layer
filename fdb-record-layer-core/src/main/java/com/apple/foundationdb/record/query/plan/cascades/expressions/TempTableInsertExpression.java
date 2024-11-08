@@ -59,19 +59,15 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     @Nonnull
     private final Quantifier.ForEach inner;
     @Nonnull
-    private final String targetRecordType;
-    @Nonnull
     private final Value resultValue;
     @Nonnull
-    private final Value tempTable;
+    private final Value tempTableReferenceValue;
 
     private TempTableInsertExpression(@Nonnull final Quantifier.ForEach inner,
-                                      @Nonnull final String targetRecordType,
-                                      @Nonnull final Value tempTable) {
+                                      @Nonnull final Value tempTableReferenceValue) {
         this.inner = inner;
-        this.targetRecordType = targetRecordType;
-        this.tempTable = tempTable;
-        this.resultValue = new QueriedValue(tempTable.getResultType());
+        this.tempTableReferenceValue = tempTableReferenceValue;
+        this.resultValue = new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
     @Override
@@ -82,7 +78,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return tempTable.getCorrelatedToWithoutChildren();
+        return tempTableReferenceValue.getCorrelatedToWithoutChildren();
     }
 
     @Nonnull
@@ -96,7 +92,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     public TempTableInsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                            @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new TempTableInsertExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class),
-                targetRecordType, tempTable.translateCorrelations(translationMap));
+                tempTableReferenceValue.translateCorrelations(translationMap));
     }
 
     @Nonnull
@@ -109,9 +105,8 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     public TempTableInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
         return TempTableInsertPlan.insertPlan(physicalInner,
-                targetRecordType,
-                makeComputationValue(tempTable.getResultType()),
-                tempTable);
+                makeComputationValue(tempTableReferenceValue.getResultType()),
+                tempTableReferenceValue);
     }
 
     @Override
@@ -125,8 +120,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
             return false;
         }
         final TempTableInsertExpression otherInsertExpression = (TempTableInsertExpression)otherExpression;
-        return targetRecordType.equals(otherInsertExpression.targetRecordType)
-                && tempTable.semanticEquals(otherInsertExpression.tempTable, equivalencesMap);
+        return tempTableReferenceValue.semanticEquals(otherInsertExpression.tempTableReferenceValue, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -142,18 +136,18 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(targetRecordType, tempTable);
+        return Objects.hash(tempTableReferenceValue);
     }
 
     @Override
     public String toString() {
-        return "TempTableInsert(" + targetRecordType + ")";
+        return "TempTableInsert(" + tempTableReferenceValue + ")";
     }
 
     /**
      * Create a planner graph for better visualization.
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
-     *         table-queue insert expression node.
+     *         temporary table insert expression node.
      */
     @Nonnull
     @Override
@@ -162,13 +156,13 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
-                        new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTable.toString())),
+                        new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(tempTableReferenceValue.toString())),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(
                 new PlannerGraph.ModificationLogicalOperatorNode(this,
                         NodeInfo.MODIFICATION_OPERATOR,
-                        ImmutableList.of("TQINSERT"),
+                        ImmutableList.of("TempTableInsert"),
                         ImmutableMap.of()),
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
@@ -178,19 +172,37 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
         return ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType);
     }
 
+    /**
+     * Creates a new instance of {@link TempTableInsertExpression} that adds records to a constant-bound {@link TempTable},
+     * i.e. a temporary table that is not correlated to any other plan operator.
+     *
+     * @param inner The source of the inserted records
+     * @param constantAlias The alias of the constant-bound temporary table.
+     * @param constantId The id of the constant in the constant map.
+     * @param type The type of the temporary table records.
+     * @return A new {@link TempTableInsertExpression} that adds records to a constant-bound {@link TempTable}.
+     */
     @Nonnull
     public static TempTableInsertExpression ofConstant(@Nonnull final Quantifier.ForEach inner,
-                                                       @Nonnull final String targetRecordType,
-                                                       @Nonnull CorrelationIdentifier alias,
-                                                       @Nonnull Type type) {
-        return new TempTableInsertExpression(inner, targetRecordType, ConstantObjectValue.of(alias, alias.getId(), type));
+                                                       @Nonnull final CorrelationIdentifier constantAlias,
+                                                       @Nonnull final String constantId,
+                                                       @Nonnull final Type type) {
+        return new TempTableInsertExpression(inner, ConstantObjectValue.of(constantAlias, constantId, new Type.Relation(type)));
     }
 
+    /**
+     * Creates a new instance of {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable},
+     * i.e. a temporary table that is the result of a table-valued correlation.
+     *
+     * @param inner The source of the inserted records
+     * @param correlation The table-valued correlation.
+     * @param type The type of the temporary table records.
+     * @return A new {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable}.
+     */
     @Nonnull
     public static TempTableInsertExpression ofCorrelated(@Nonnull final Quantifier.ForEach inner,
-                                                         @Nonnull final String targetRecordType,
-                                                         @Nonnull CorrelationIdentifier correlation,
-                                                         @Nonnull Type type) {
-        return new TempTableInsertExpression(inner, targetRecordType, QuantifiedObjectValue.of(correlation, type));
+                                                         @Nonnull final CorrelationIdentifier correlation,
+                                                         @Nonnull final Type type) {
+        return new TempTableInsertExpression(inner, QuantifiedObjectValue.of(correlation, new Type.Relation(type)));
     }
 }

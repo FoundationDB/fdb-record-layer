@@ -80,15 +80,15 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     protected final boolean reverse;
     protected final int maxNumberOfValuesAllowed;
     @Nonnull
-    protected final Bindings.BindingKind bindingKind;
+    protected final Bindings.Internal internal;
 
     protected RecordQueryInUnionPlan(@Nonnull final PlanSerializationContext serializationContext,
                                      @Nonnull final PRecordQueryInUnionPlan recordQueryInUnionPlanProto) {
         Verify.verify(recordQueryInUnionPlanProto.hasReverse());
         Verify.verify(recordQueryInUnionPlanProto.hasMaxNumberOfValuesAllowed());
 
-        Bindings.BindingKind bindingKind = Bindings.BindingKind.fromProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getInternal()));
-        Verify.verify(bindingKind == Bindings.BindingKind.IN || bindingKind == Bindings.BindingKind.CORRELATION);
+        Bindings.Internal internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getInternal()));
+        Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
 
         final ImmutableList.Builder<InSource> inSourcesBuilder = ImmutableList.builder();
         for (int i = 0; i < recordQueryInUnionPlanProto.getInSourcesCount(); i ++) {
@@ -100,7 +100,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
         this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getComparisonKeyFunction()));
         this.reverse = recordQueryInUnionPlanProto.getReverse();
         this.maxNumberOfValuesAllowed = recordQueryInUnionPlanProto.getMaxNumberOfValuesAllowed();
-        this.bindingKind = bindingKind;
+        this.internal = internal;
     }
 
     protected RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
@@ -108,14 +108,14 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                      @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
                                      final boolean reverse,
                                      final int maxNumberOfValuesAllowed,
-                                     @Nonnull final Bindings.BindingKind bindingKind) {
-        Verify.verify(bindingKind == Bindings.BindingKind.IN || bindingKind == Bindings.BindingKind.CORRELATION);
+                                     @Nonnull final Bindings.Internal internal) {
+        Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
         this.inner = inner;
         this.inSources = inSources;
         this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
         this.maxNumberOfValuesAllowed = maxNumberOfValuesAllowed;
-        this.bindingKind = bindingKind;
+        this.internal = internal;
     }
 
     @Nonnull
@@ -135,7 +135,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     public CorrelationIdentifier getInAlias(@Nonnull final InSource inSource) {
-        return CorrelationIdentifier.of(bindingKind.identifier(inSource.getBindingName()));
+        return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
     }
 
     @SuppressWarnings("resource")
@@ -206,7 +206,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
         final var inAliases = getInSources()
                 .stream()
-                .map(inSource -> CorrelationIdentifier.of(Bindings.BindingKind.CORRELATION.identifier(inSource.getBindingName())))
+                .map(inSource -> CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(inSource.getBindingName())))
                 .collect(ImmutableSet.toImmutableSet());
         inner.getCorrelatedTo()
                 .stream()
@@ -337,7 +337,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
             final List<EvaluationContext> children = new ArrayList<>();
             for (EvaluationContext parent : parents) {
                 for (Object value : values.getValues(parent)) {
-                    final Object bindingValue = (bindingKind == Bindings.BindingKind.IN) ? value : QueryResult.ofComputed(value);
+                    final Object bindingValue = (internal == Bindings.Internal.IN) ? value : QueryResult.ofComputed(value);
                     children.add(parent.withBinding(values.getBindingName(), bindingValue));
                 }
             }
@@ -356,7 +356,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
         return builder.setComparisonKeyFunction(comparisonKeyFunction.toComparisonKeyFunctionProto(serializationContext))
                 .setReverse(reverse)
                 .setMaxNumberOfValuesAllowed(maxNumberOfValuesAllowed)
-                .setInternal(bindingKind.toProto(serializationContext))
+                .setInternal(internal.toProto(serializationContext))
                 .build();
     }
 
@@ -367,7 +367,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      * @param inSources a list of outer in-sources
      * @param comparisonKey a key expression by which the results of both plans are ordered
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
-     * @param bindingKind indicator if bindings are modelled using correlation or old-style in-bindings
+     * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
     @Nonnull
@@ -375,13 +375,13 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                              @Nonnull final List<? extends InSource> inSources,
                                                              @Nonnull KeyExpression comparisonKey,
                                                              final int maxNumberOfValuesAllowed,
-                                                             @Nonnull final Bindings.BindingKind bindingKind) {
+                                                             @Nonnull final Bindings.Internal internal) {
         return new RecordQueryInUnionOnKeyExpressionPlan(inner,
                 inSources,
                 comparisonKey,
                 Quantifiers.isReversed(ImmutableList.of(inner)),
                 maxNumberOfValuesAllowed,
-                bindingKind);
+                internal);
     }
 
     /**
@@ -392,7 +392,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      * @param comparisonKeyOrderingParts ordering parts by which the results of both plans are ordered
      * @param isReverse indicator if {@code comparisonKeyValues} should be considered reversed (inverted).
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
-     * @param bindingKind indicator if bindings are modelled using correlation or old-style in-bindings
+     * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
     @Nonnull
@@ -401,13 +401,13 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                       @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                       final boolean isReverse,
                                                       final int maxNumberOfValuesAllowed,
-                                                      @Nonnull final Bindings.BindingKind bindingKind) {
+                                                      @Nonnull final Bindings.Internal internal) {
         return RecordQueryInUnionOnValuesPlan.inUnion(inner,
                 inSources,
                 comparisonKeyOrderingParts,
                 isReverse,
                 maxNumberOfValuesAllowed,
-                bindingKind);
+                internal);
     }
 
     /**
@@ -418,7 +418,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      * @param comparisonKey a key expression by which the results of both plans are ordered
      * @param isReverse indicator if this operator produces its ordering in reverse order
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
-     * @param bindingKind indicator if bindings are modelled using correlation or old-style in-bindings
+     * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
     @Nonnull
@@ -427,12 +427,12 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                              @Nonnull KeyExpression comparisonKey,
                                                              final boolean isReverse,
                                                              final int maxNumberOfValuesAllowed,
-                                                             @Nonnull final Bindings.BindingKind bindingKind) {
+                                                             @Nonnull final Bindings.Internal internal) {
         return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(Reference.of(inner)),
                 inSources,
                 comparisonKey,
                 isReverse,
                 maxNumberOfValuesAllowed,
-                bindingKind);
+                internal);
     }
 }
