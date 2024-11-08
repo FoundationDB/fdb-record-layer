@@ -59,8 +59,6 @@ import static com.apple.foundationdb.async.AsyncUtil.whileTrue;
 @API(API.Status.UNSTABLE)
 public class MoreAsyncUtil {
 
-    public static final CompletableFuture<Boolean> ALREADY_CANCELLED;
-
     private static final Supplier<ScheduledThreadPoolExecutor> scheduledExecutorSupplier = Suppliers.memoize(() -> {
         ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setDaemon(true)
@@ -72,9 +70,10 @@ public class MoreAsyncUtil {
         return scheduledThreadPoolExecutor;
     });
 
-    static {
-        ALREADY_CANCELLED = new CompletableFuture<>();
-        ALREADY_CANCELLED.cancel(false);
+    public static <T> CompletableFuture<T> alreadyCancelled() {
+        final CompletableFuture<T> alreadyCancelled = new CompletableFuture<>();
+        alreadyCancelled.cancel(false);
+        return alreadyCancelled;
     }
 
     @Nonnull

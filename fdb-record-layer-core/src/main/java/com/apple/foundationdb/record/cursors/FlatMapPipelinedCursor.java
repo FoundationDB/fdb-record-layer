@@ -59,6 +59,7 @@ import java.util.function.Function;
 @SuppressWarnings("PMD.CloseResource")
 public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
+    private static final CompletableFuture<Boolean> ALREADY_CANCELLED = MoreAsyncUtil.alreadyCancelled();
     @Nonnull
     private final RecordCursor<T> outerCursor;
     @Nonnull
@@ -176,7 +177,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     protected CompletableFuture<Boolean> tryToFillPipeline() {
         if (closed) {
-            return MoreAsyncUtil.ALREADY_CANCELLED;
+            return ALREADY_CANCELLED;
         }
         // Clear pipeline entries left behind by exhausted inner cursors.
         clearUnusedPipelineEntries();
@@ -184,7 +185,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         while (continueFillingPipeline()) {
             CompletableFuture<RecordCursorResult<T>> outerNext = ensureOuterCursorAdvanced();
             if (outerNext == null) {
-                return MoreAsyncUtil.ALREADY_CANCELLED;
+                return ALREADY_CANCELLED;
             }
 
             if (!outerNext.isDone()) {
@@ -240,7 +241,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         // that case.
         PipelineQueueEntry peeked = peekPipeline();
         if (peeked == null) {
-            return MoreAsyncUtil.ALREADY_CANCELLED;
+            return ALREADY_CANCELLED;
         }
         return peeked.getNextInnerPipelineFuture().thenApply(PipelineQueueEntry::doesNotHaveReturnableResult);
     }

@@ -50,6 +50,7 @@ import java.util.function.Function;
 @API(API.Status.MAINTAINED)
 public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
+    private static final CompletableFuture<Boolean> ALREADY_CANCELLED = MoreAsyncUtil.alreadyCancelled();
     @Nonnull
     private final RecordCursor<T> inner;
     @Nonnull
@@ -188,7 +189,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         while (!pipeline.isEmpty()) {
             pipeline.remove().cancel(false);
         }
-        return MoreAsyncUtil.ALREADY_CANCELLED;
+        return ALREADY_CANCELLED;
     }
 
     @Nonnull
