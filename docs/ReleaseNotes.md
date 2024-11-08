@@ -17,9 +17,16 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
+* `DefaultTextTokenizer` (and `TextTokenizer`s that use it) now uses `Locale.ROOT` for tokenizing instead of the default
+locale. This could have an impact if it's being used in an environment with a default locale that is not compatible with
+`Locale.ROOT` for this purpose. For example if the default locale is `th`, Thai text may be tokenized differently with
+this version. This also means that if you have TEXT indexes using one of these tokenizers, they will need to be rebuilt
+with the new code.
+
+
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** DefaultTextTokenizer behaved differently depending on system locale [(Issue #2966)](https://github.com/FoundationDB/fdb-record-layer/issues/2966)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
