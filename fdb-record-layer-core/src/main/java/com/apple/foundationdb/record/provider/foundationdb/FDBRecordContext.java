@@ -447,7 +447,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             return AsyncUtil.DONE;
         }
 
-        return instrument(latencySource.getTimerEvent(), MoreAsyncUtil.delayedFuture(latencyMillis, TimeUnit.MILLISECONDS));
+        return instrument(latencySource.getTimerEvent(), MoreAsyncUtil.delayedFuture(latencyMillis, TimeUnit.MILLISECONDS, getScheduledExecutor()));
     }
 
     /**

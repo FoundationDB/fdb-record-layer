@@ -620,7 +620,7 @@ public abstract class LocatableResolverTest {
         final List<Pair<String, ResolverResult>> cacheHits = new ArrayList<>();
         final List<Pair<Long, String>> reverseCacheHits = new ArrayList<>();
         CompletableFuture<Void> loopOperation = AsyncUtil.whileTrue(() ->
-                MoreAsyncUtil.delayedFuture(1, TimeUnit.MILLISECONDS)
+                MoreAsyncUtil.delayedFuture(1, TimeUnit.MILLISECONDS, database.getScheduledExecutor())
                         .thenRun(() -> gatherCacheHits(database.getDirectoryCache(/* always return current version */ 0), cacheHits))
                         .thenRun(() -> gatherCacheHits(database.getReverseDirectoryInMemoryCache(), reverseCacheHits))
                         .thenApply(ignored2 -> keepRunning.get())

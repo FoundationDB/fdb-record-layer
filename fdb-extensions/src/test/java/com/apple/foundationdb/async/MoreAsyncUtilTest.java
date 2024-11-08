@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.test.TestExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -28,8 +29,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
@@ -37,6 +41,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -88,6 +93,50 @@ public class MoreAsyncUtilTest {
         CompletableFuture.allOf(futures).join();
         long end = System.currentTimeMillis();
         assertTrue(end - start >= 100, "Delay was not long enough");
+    }
+
+    @Test
+    public void executeDelayedCallbackOnExecutor() throws ExecutionException, InterruptedException {
+        String callbackThreadName = MoreAsyncUtil.delayedFuture(5, TimeUnit.MILLISECONDS)
+                .thenApply(ignore -> Thread.currentThread().getName())
+                .get();
+        assertTrue(callbackThreadName.startsWith("fdb-scheduled"), () -> "Callback executed on thread: " + callbackThreadName + ". Should have been executed on delayed executor");
+
+        ScheduledExecutorService scheduledExecutor = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder()
+                .setDaemon(true)
+                .setNameFormat("test-delayed-executor-thread-%d")
+                .build());
+        try {
+            final String customExecutorThreadName = MoreAsyncUtil.delayedFuture(5, TimeUnit.MILLISECONDS, scheduledExecutor)
+                    .thenApply(ignore -> Thread.currentThread().getName())
+                    .get();
+            assertEquals("test-delayed-executor-thread-0", customExecutorThreadName);
+        } finally {
+            scheduledExecutor.shutdown();
+        }
+    }
+
+    @Test
+    public void getWithDeadlineRunsOnExecutor() throws ExecutionException, InterruptedException {
+        ScheduledExecutorService scheduledExecutor = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder()
+                .setDaemon(true)
+                .setNameFormat("test-deadline-exceeded-thread-%d")
+                .build());
+
+        try {
+            String callbackThreadName = MoreAsyncUtil.getWithDeadline(5, () -> new CompletableFuture<String>(), scheduledExecutor)
+                    .exceptionally(err -> {
+                        if (err instanceof ExecutionException || err instanceof CompletionException) {
+                            err = err.getCause();
+                        }
+                        assertInstanceOf(MoreAsyncUtil.DeadlineExceededException.class, err);
+                        return Thread.currentThread().getName();
+                    })
+                    .get();
+            assertEquals("test-deadline-exceeded-thread-0", callbackThreadName);
+        } finally {
+            scheduledExecutor.shutdown();
+        }
     }
 
     // This test can take about 9 seconds as threads get eaten up running the sleep

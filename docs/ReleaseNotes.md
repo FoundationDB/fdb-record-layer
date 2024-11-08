@@ -20,14 +20,14 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix concurrency issues with `MapPipelinedCursor.close` [(Issue #548)](https://github.com/FoundationDB/fdb-record-layer/issues/548)
-* **Bug fix** Fix concurrency issues with `FlatMapPipelinedCursor.close` [(Issue #2953)](https://github.com/FoundationDB/fdb-record-layer/issues/2953)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add more lucene exception handling tests [(Issue #2939)](https://github.com/FoundationDB/fdb-record-layer/issues/2939)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Support temporary table planning and execution [(Issue #2962)](https://github.com/FoundationDB/fdb-record-layer/pull/2962)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,14 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.553.0
+
+* **Bug fix** Make test not timeout in Nightly build [(Issue #2909)](https://github.com/FoundationDB/fdb-record-layer/issues/2909)
+* **Bug fix** Fix concurrency issues with `MapPipelinedCursor.close` [(Issue #548)](https://github.com/FoundationDB/fdb-record-layer/issues/548)
+* **Bug fix** Fix concurrency issues with `FlatMapPipelinedCursor.close` [(Issue #2953)](https://github.com/FoundationDB/fdb-record-layer/issues/2953)
+* **Feature** Add more lucene exception handling tests [(Issue #2939)](https://github.com/FoundationDB/fdb-record-layer/issues/2939)
+* **Feature** Methods interacting with delayed futures can now supply their own `ScheduledExecutorService` [(Issue #2929)](https://github.com/FoundationDB/fdb-record-layer/issues/2929)
 
 ### 3.4.552.0
 

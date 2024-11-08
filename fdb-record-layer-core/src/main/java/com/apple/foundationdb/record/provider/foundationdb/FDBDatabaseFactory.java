@@ -24,6 +24,7 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheFactory;
@@ -35,6 +36,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -79,6 +81,8 @@ public abstract class FDBDatabaseFactory {
     protected FDBRecordStoreStateCacheFactory storeStateCacheFactory = PassThroughRecordStoreStateCacheFactory.instance();
     @Nonnull
     private Executor executor = ForkJoinPool.commonPool();
+    @Nonnull
+    private Supplier<ScheduledExecutorService> scheduledExecutorSupplier = MoreAsyncUtil::getDefaultScheduledExecutor;
     private int directoryCacheSize = DEFAULT_DIRECTORY_CACHE_SIZE;
     private boolean trackLastSeenVersion;
     private String datacenterId;
@@ -129,6 +133,39 @@ public abstract class FDBDatabaseFactory {
      */
     public void setExecutor(@Nonnull Executor executor) {
         this.executor = executor;
+    }
+
+    /**
+     * Get a scheduled executor. This will be used by {@link FDBDatabase}s returned by this factory
+     * to manage scheduling delayed events.
+     *
+     * @return a scheduled executor service
+     * @see FDBDatabase#getScheduledExecutor()
+     */
+    @Nonnull
+    public ScheduledExecutorService getScheduledExecutor() {
+        return scheduledExecutorSupplier.get();
+    }
+
+    /**
+     * Set the scheduled executor used by this factory. All databases created by it will be configured
+     * to use this scheduled executor when created.
+     *
+     * @param scheduledExecutor the scheduled executor used by this factory
+     */
+    public void setScheduledExecutor(@Nonnull ScheduledExecutorService scheduledExecutor) {
+        this.scheduledExecutorSupplier = () -> scheduledExecutor;
+    }
+
+    /**
+     * Provide a supplier that can construct {@link ScheduledExecutorService}s. Most of the time,
+     * the returned supplier should memoize its result to avoid constructing too many executors.
+     * This will be called at least once for every database returned by the factory.
+     *
+     * @param scheduledExecutorSupplier a supplier lazily constructing a {@link ScheduledExecutorService}s for the factory
+     */
+    public void setScheduledExecutorSupplier(@Nonnull Supplier<ScheduledExecutorService> scheduledExecutorSupplier) {
+        this.scheduledExecutorSupplier = scheduledExecutorSupplier;
     }
 
     /**

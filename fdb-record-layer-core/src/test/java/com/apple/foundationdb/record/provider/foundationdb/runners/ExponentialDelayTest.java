@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.runners;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.RepeatedTest;
 import org.slf4j.Logger;
@@ -200,7 +201,7 @@ class ExponentialDelayTest {
         List<Long> requestedDelays = new ArrayList<>();
 
         public NoActualDelay(final long initialDelayMillis, final long maxDelayMillis) {
-            super(initialDelayMillis, maxDelayMillis);
+            super(initialDelayMillis, maxDelayMillis, MoreAsyncUtil.getDefaultScheduledExecutor());
         }
 
         @Nonnull

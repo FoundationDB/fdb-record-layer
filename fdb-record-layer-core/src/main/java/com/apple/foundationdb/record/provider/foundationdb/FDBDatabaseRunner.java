@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -89,6 +91,15 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return the executor to use
      */
     Executor getExecutor();
+
+    /**
+     * Get the scheduled executor to use to schedule return delays.
+     *
+     * @return the scheduled executor for this runner to use
+     */
+    default ScheduledExecutorService getScheduledExecutor() {
+        return getDatabase().getScheduledExecutor();
+    }
 
     /**
      * Get the timer used in record contexts opened by this runner.
@@ -286,6 +297,17 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      */
     @Nonnull
     FDBRecordContext openContext();
+
+    /**
+     * Construct an {@link ExponentialDelay} based on this runner's configuration.
+     *
+     * @return an {@link ExponentialDelay} that can be used to inject retry delay
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    default ExponentialDelay createExponentialDelay() {
+        return new ExponentialDelay(getInitialDelayMillis(), getMaxDelayMillis(), getDatabase().getScheduledExecutor());
+    }
 
     /**
      * Runs a transactional function against with retry logic.
