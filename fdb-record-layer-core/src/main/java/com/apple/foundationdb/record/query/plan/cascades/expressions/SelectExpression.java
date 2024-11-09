@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
@@ -392,15 +393,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // Check the result values of both expressions to see if we can match and if we can, whether we need a
         // compensating computation.
         //
-        
-        final var candidateResultValue = candidateSelectExpression.getResultValue();
-        final Optional<Value> remainingValueComputationOptional;
-        if (!resultValue.semanticEquals(candidateResultValue, bindingAliasMap)) {
-            // we potentially need to compensate
-            remainingValueComputationOptional = Optional.of(resultValue);
-        } else {
-            remainingValueComputationOptional = Optional.empty();
-        }
+        final var translatedResultValue =
+                getResultValue().translateCorrelations(translationMap, true);
 
         final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
                 .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
@@ -429,9 +423,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .stream()
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
-                final var maxMatchMap = computeMaxMatchMap(candidateExpression, translationMap, bindingValueEquivalence);
+                final var maxMatchMap =
+                        MaxMatchMap.calculate(translatedResultValue,
+                                candidateExpression.getResultValue(),
+                                bindingValueEquivalence);
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
-                                remainingValueComputationOptional,
+                                translatedResultValue,
                                 maxMatchMap,
                                 maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
@@ -546,10 +543,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 return allParameterBindingMapOptional
                                         .flatMap(allParameterBindingMap -> {
                                             final var maxMatchMap =
-                                                    computeMaxMatchMap(candidateExpression, translationMap, bindingValueEquivalence);
+                                                    MaxMatchMap.calculate(translatedResultValue,
+                                                            candidateExpression.getResultValue(),
+                                                            bindingValueEquivalence);
                                             return MatchInfo.tryMerge(partialMatchMap,
                                                     allParameterBindingMap, predicateMap, PredicateMap.empty(),
-                                                    remainingValueComputationOptional,
+                                                    translatedResultValue,
                                                     maxMatchMap,
                                                     maxMatchMap.getQueryPlanConstraint());
                                         })
@@ -561,20 +560,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     }
 
     @Nonnull
-    private MaxMatchMap computeMaxMatchMap(final @Nonnull RelationalExpression candidateExpression,
-                                           final @Nonnull TranslationMap translationMap,
-                                           @Nonnull final ValueEquivalence valueEquivalence) {
-        final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
-        return MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(), valueEquivalence);
-    }
-
-    @Nonnull
     @Override
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         final var childMatchInfo = partialMatch.getMatchInfo();
-        if (childMatchInfo.getRemainingComputationValueOptional().isPresent()) {
-            return Optional.empty();
-        }
 
         for (final var predicate : getPredicates()) {
             if (predicate instanceof Placeholder) {
@@ -827,8 +815,27 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
+        final ResultCompensationFunction resultCompensationFunction;
+        if (!pullUp.isRoot()) {
+            resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+        } else {
+            final var pulledUpResultValueOptional =
+                    pullUp.pullUpMaybe(matchInfo.getTranslatedResultValue());
+            if (pulledUpResultValueOptional.isEmpty()) {
+                return Compensation.impossibleCompensation();
+            }
+
+            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+
+            resultCompensationFunction =
+                    ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
+                            TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false));
+        }
+
         final var isCompensationNeeded =
-                !unmatchedQuantifiers.isEmpty() || !predicateCompensationMap.isEmpty() || matchInfo.getRemainingComputationValueOptional().isPresent();
+                !unmatchedQuantifiers.isEmpty() ||
+                        !predicateCompensationMap.isEmpty() ||
+                        resultCompensationFunction.isNeeded();
 
         if (!isCompensationNeeded) {
             return Compensation.noCompensation();
@@ -847,12 +854,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return Compensation.impossibleCompensation();
         }
 
-        return Compensation.ofChildCompensationAndPredicateMap(isImpossible,
-                childCompensation,
+        return childCompensation.derived(isImpossible,
                 predicateCompensationMap,
                 getMatchedQuantifiers(partialMatch),
-                unmatchedQuantifiers,
+                partialMatch.getUnmatchedQuantifiers(),
                 partialMatch.getCompensatedAliases(),
-                matchInfo.getRemainingComputationValueOptional());
+                resultCompensationFunction);
     }
 }

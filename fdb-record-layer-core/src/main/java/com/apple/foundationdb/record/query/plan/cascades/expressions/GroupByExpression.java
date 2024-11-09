@@ -29,11 +29,13 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
@@ -249,30 +251,6 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                   @Nonnull final PullUp pullUp) {
-        final var matchInfo = partialMatch.getMatchInfo();
-        final var quantifier = Iterables.getOnlyElement(getQuantifiers());
-
-        // if the match requires, for the moment, any, compensation, we reject it.
-        final Optional<Compensation> childCompensation =
-                matchInfo.getChildPartialMatchMaybe(quantifier)
-                        .map(childPartialMatch -> {
-                            final var childPullUp = childPartialMatch.nestPullUp(pullUp,
-                                    Objects.requireNonNull(partialMatch.getMatchedQuantifierMap().get(quantifier)));
-                            return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
-                        });
-
-        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || childCompensation.get().isNeeded())) {
-            return Compensation.impossibleCompensation();
-        }
-
-        return Compensation.noCompensation();
-    }
-
-    @Nonnull
-    @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
@@ -335,7 +313,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                     subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                            PredicateMap.empty(), Optional.empty(),
+                            PredicateMap.empty(), translatedResultValue,
                             maxMatchMap, queryPlanConstraint)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
@@ -360,6 +338,70 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
                 false,
                 inner.getCorrelatedTo());
+    }
+
+    @Nonnull
+    @Override
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   @Nonnull final PullUp pullUp) {
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var quantifier = Iterables.getOnlyElement(getQuantifiers());
+
+        // if the match requires, for the moment, any, compensation, we reject it.
+        final Optional<Compensation> childCompensationOptional =
+                matchInfo.getChildPartialMatchMaybe(quantifier)
+                        .map(childPartialMatch -> {
+                            final var childPullUp = childPartialMatch.nestPullUp(pullUp,
+                                    Objects.requireNonNull(partialMatch.getMatchedQuantifierMap().get(quantifier)));
+                            return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
+                        });
+
+        if (childCompensationOptional.isEmpty()) {
+            return Compensation.impossibleCompensation();
+        }
+
+        final var childCompensation = childCompensationOptional.get();
+
+        if (childCompensation.isImpossible() ||
+                //
+                // TODO This needs some improvement as GB a, b, c WHERE a= AND c= needs to reapply the
+                //      predicate on c which is currently refused here.
+                //
+                childCompensation.isNeededForFiltering()) {
+            return Compensation.impossibleCompensation();
+        }
+
+        final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        if (!pullUp.isRoot()) {
+            resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+        } else {
+            final var pulledUpResultValueOptional =
+                    pullUp.pullUpMaybe(matchInfo.getTranslatedResultValue());
+            if (pulledUpResultValueOptional.isEmpty()) {
+                return Compensation.impossibleCompensation();
+            }
+
+            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+
+            resultCompensationFunction =
+                    PredicateMultiMap.ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
+                            TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false));
+        }
+
+        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
+        Verify.verify(!unmatchedQuantifiers.isEmpty());
+
+        if (!resultCompensationFunction.isNeeded()) {
+            return Compensation.noCompensation();
+        }
+
+        return childCompensation.derived(false,
+                new LinkedIdentityMap<>(),
+                getMatchedQuantifiers(partialMatch),
+                unmatchedQuantifiers,
+                partialMatch.getCompensatedAliases(),
+                resultCompensationFunction);
     }
 
     @Nonnull

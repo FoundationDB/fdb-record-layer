@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
@@ -143,6 +144,88 @@ public class PredicateMultiMap {
 
         @Nonnull
         static PredicateCompensationFunction impossibleCompensation() {
+            return IMPOSSIBLE_COMPENSATION;
+        }
+    }
+
+    /**
+     * Functional interface to finally adjust the shape of the records returned by the index/match.
+     */
+    public interface ResultCompensationFunction {
+        ResultCompensationFunction NO_COMPENSATION_NEEDED =
+                new ResultCompensationFunction() {
+                    @Override
+                    public boolean isNeeded() {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean isImpossible() {
+                        return false;
+                    }
+
+                    @Nonnull
+                    @Override
+                    public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
+                        throw new IllegalArgumentException("this method should not be called");
+                    }
+                };
+
+        ResultCompensationFunction IMPOSSIBLE_COMPENSATION =
+                new ResultCompensationFunction() {
+                    @Override
+                    public boolean isNeeded() {
+                        return true;
+                    }
+
+                    @Override
+                    public boolean isImpossible() {
+                        return true;
+                    }
+
+                    @Nonnull
+                    @Override
+                    public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
+                        throw new IllegalArgumentException("this method should not be called");
+                    }
+                };
+
+
+        boolean isNeeded();
+
+        boolean isImpossible();
+
+        @Nonnull
+        Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
+
+        @Nonnull
+        static ResultCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Value> compensationFunction) {
+            return new ResultCompensationFunction() {
+                @Override
+                public boolean isNeeded() {
+                    return true;
+                }
+
+                @Override
+                public boolean isImpossible() {
+                    return false;
+                }
+
+                @Nonnull
+                @Override
+                public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
+                    return compensationFunction.apply(baseAlias);
+                }
+            };
+        }
+
+        @Nonnull
+        static ResultCompensationFunction noCompensationNeeded() {
+            return NO_COMPENSATION_NEEDED;
+        }
+
+        @Nonnull
+        static ResultCompensationFunction impossibleCompensation() {
             return IMPOSSIBLE_COMPENSATION;
         }
     }

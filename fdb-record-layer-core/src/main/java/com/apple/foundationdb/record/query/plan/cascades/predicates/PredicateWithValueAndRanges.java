@@ -444,7 +444,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     private PredicateCompensationFunction reapplyPredicateCompensationFunction(@Nonnull final PullUp pullUp) {
         return toResidualPredicate()
-                .replaceValues(pullUp::pullUp)
+                .replaceValues(pullUp::pullUpMaybe)
                 .map(queryPredicate ->
                         PredicateCompensationFunction.of(baseAlias ->
                                 LinkedIdentitySet.of(queryPredicate.translateCorrelations(

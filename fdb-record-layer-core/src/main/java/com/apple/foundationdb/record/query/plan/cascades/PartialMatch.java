@@ -349,8 +349,7 @@ public class PartialMatch {
      */
     public boolean compensationCanBeDeferred() {
         return getUnmatchedQuantifiers().stream()
-                       .noneMatch(quantifier -> quantifier instanceof Quantifier.ForEach) &&
-               matchInfo.getRemainingComputationValueOptional().isEmpty();
+                       .noneMatch(quantifier -> quantifier instanceof Quantifier.ForEach);
     }
 
     @Nonnull

@@ -45,7 +45,6 @@ import java.util.stream.Collectors;
 /**
  * This class represents the result of matching one expression against a candidate.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class MatchInfo {
     /**
      * Parameter bindings for this match.
@@ -82,7 +81,7 @@ public class MatchInfo {
     private final List<MatchedOrderingPart> matchedOrderingParts;
 
     @Nonnull
-    private final Optional<Value> remainingComputationValueOptional;
+    private final Value translatedResultValue;
 
     /**
      * A map of maximum matches between the query result {@code Value} and the corresponding candidate's result
@@ -102,7 +101,7 @@ public class MatchInfo {
                       @Nonnull final PredicateMultiMap predicateMap,
                       @Nonnull final PredicateMultiMap accumulatedPredicateMap,
                       @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                      @Nonnull final Optional<Value> remainingComputationValueOptional,
+                      @Nonnull final Value translatedResultValue,
                       @Nonnull final MaxMatchMap maxMatchMap,
                       @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
@@ -122,7 +121,7 @@ public class MatchInfo {
         });
 
         this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
-        this.remainingComputationValueOptional = remainingComputationValueOptional;
+        this.translatedResultValue = translatedResultValue;
         this.maxMatchMap = maxMatchMap;
         this.additionalPlanConstraint = additionalPlanConstraint;
     }
@@ -178,8 +177,8 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public Optional<Value> getRemainingComputationValueOptional() {
-        return remainingComputationValueOptional;
+    public Value getTranslatedResultValue() {
+        return translatedResultValue;
     }
 
     @Nonnull
@@ -199,7 +198,7 @@ public class MatchInfo {
                 predicateMap,
                 accumulatedPredicateMap,
                 matchedOrderingParts,
-                remainingComputationValueOptional,
+                translatedResultValue,
                 maxMatchMap,
                 additionalPlanConstraint);
     }
@@ -211,7 +210,7 @@ public class MatchInfo {
                 predicateMap,
                 accumulatedPredicateMap,
                 matchedOrderingParts,
-                remainingComputationValueOptional,
+                translatedResultValue,
                 maxMatchMap,
                 additionalPlanConstraint);
     }
@@ -236,9 +235,10 @@ public class MatchInfo {
 
     @Nonnull
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                      @Nonnull final Value translatedResultValue,
                                                       @Nonnull final MaxMatchMap maxMatchMap) {
         return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(),
-                Optional.empty(), maxMatchMap, maxMatchMap.getQueryPlanConstraint());
+                translatedResultValue, maxMatchMap, maxMatchMap.getQueryPlanConstraint());
     }
 
     @Nonnull
@@ -246,7 +246,7 @@ public class MatchInfo {
                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                                @Nonnull final PredicateMultiMap predicateMap,
                                                @Nonnull final PredicateMultiMap accumulatedPredicateMap,
-                                               @Nonnull final Optional<Value> remainingComputationValueOptional,
+                                               @Nonnull final Value translatedResultValue,
                                                @Nonnull final MaxMatchMap maxMatchMap,
                                                @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
         final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
@@ -273,24 +273,13 @@ public class MatchInfo {
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
                 tryMergeParameterBindings(parameterMapsBuilder.build());
 
-        final var remainingComputations = regularQuantifiers.stream()
-                .map(key -> Objects.requireNonNull(partialMatchMap.getUnwrapped(key))) // always guaranteed
-                .map(partialMatch -> partialMatch.getMatchInfo().getRemainingComputationValueOptional())
-                .filter(Optional::isPresent)
-                .collect(ImmutableList.toImmutableList());
-
-        if (!remainingComputations.isEmpty()) {
-            // We found a remaining computation among the child matches -> we cannot merge!
-            return Optional.empty();
-        }
-
         return mergedParameterBindingsOptional
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
                         accumulatedPredicateMap,
                         orderingParts,
-                        remainingComputationValueOptional,
+                        translatedResultValue,
                         maxMatchMap,
                         additionalPlanConstraint));
     }

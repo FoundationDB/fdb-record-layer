@@ -71,6 +71,10 @@ public class PullUp {
         return parentPullUp;
     }
 
+    public boolean isRoot() {
+        return parentPullUp == null;
+    }
+
     @Nonnull
     public Value getPullThroughValue() {
         return pullThroughValue;
@@ -117,7 +121,7 @@ public class PullUp {
     }
 
     @Nonnull
-    public Optional<Value> pullUp(@Nonnull final Value value) {
+    public Optional<Value> pullUpMaybe(@Nonnull final Value value) {
         //
         // The following loop would probably be more self-explanatory if it were written as a recursion but
         // this unrolled version probably performs better as this may prove to be a tight loop.

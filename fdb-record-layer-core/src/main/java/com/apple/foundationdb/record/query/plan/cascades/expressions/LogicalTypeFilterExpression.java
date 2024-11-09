@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -40,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -151,14 +154,53 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nonnull final PullUp pullUp) {
+        final var matchInfo = partialMatch.getMatchInfo();
         final PartialMatch childPartialMatch =
-                Objects.requireNonNull(partialMatch.getMatchInfo()
+                Objects.requireNonNull(matchInfo
                         .getChildPartialMatchMaybe(inner)
                         .orElseThrow(() -> new RecordCoreException("expected a match child")));
+
         final var childPullUp =
                 childPartialMatch.nestPullUp(pullUp,
                         Objects.requireNonNull(partialMatch.getMatchedQuantifierMap().get(inner)));
-        return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
+        final var childCompensation =
+                childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
+
+        if (childCompensation.isImpossible() ||
+                childCompensation.isNeededForFiltering()) {
+            return Compensation.impossibleCompensation();
+        }
+
+        final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        if (!pullUp.isRoot()) {
+            resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+        } else {
+            final var pulledUpResultValueOptional =
+                    pullUp.pullUpMaybe(matchInfo.getTranslatedResultValue());
+            if (pulledUpResultValueOptional.isEmpty()) {
+                return Compensation.impossibleCompensation();
+            }
+
+            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+
+            resultCompensationFunction =
+                    PredicateMultiMap.ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
+                            TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false));
+        }
+
+        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
+        Verify.verify(!unmatchedQuantifiers.isEmpty());
+
+        if (!resultCompensationFunction.isNeeded()) {
+            return Compensation.noCompensation();
+        }
+
+        return childCompensation.derived(false,
+                new LinkedIdentityMap<>(),
+                getMatchedQuantifiers(partialMatch),
+                unmatchedQuantifiers,
+                partialMatch.getCompensatedAliases(),
+                resultCompensationFunction);
     }
 
     @Nonnull
