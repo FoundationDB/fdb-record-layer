@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
@@ -80,9 +79,6 @@ public class MatchInfo {
     @Nonnull
     private final List<MatchedOrderingPart> matchedOrderingParts;
 
-    @Nonnull
-    private final Value translatedResultValue;
-
     /**
      * A map of maximum matches between the query result {@code Value} and the corresponding candidate's result
      * {@code Value}.
@@ -101,7 +97,6 @@ public class MatchInfo {
                       @Nonnull final PredicateMultiMap predicateMap,
                       @Nonnull final PredicateMultiMap accumulatedPredicateMap,
                       @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                      @Nonnull final Value translatedResultValue,
                       @Nonnull final MaxMatchMap maxMatchMap,
                       @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
@@ -121,7 +116,6 @@ public class MatchInfo {
         });
 
         this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
-        this.translatedResultValue = translatedResultValue;
         this.maxMatchMap = maxMatchMap;
         this.additionalPlanConstraint = additionalPlanConstraint;
     }
@@ -177,11 +171,6 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public Value getTranslatedResultValue() {
-        return translatedResultValue;
-    }
-
-    @Nonnull
     public MaxMatchMap getMaxMatchMap() {
         return maxMatchMap;
     }
@@ -192,25 +181,12 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
-        return new MatchInfo(parameterBindingMap,
+    public DerivedBuilder derivedBuilder() {
+        return new DerivedBuilder(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
                 accumulatedPredicateMap,
                 matchedOrderingParts,
-                translatedResultValue,
-                maxMatchMap,
-                additionalPlanConstraint);
-    }
-
-    @Nonnull
-    public MatchInfo withMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap) {
-        return new MatchInfo(parameterBindingMap,
-                quantifierToPartialMatchMap,
-                predicateMap,
-                accumulatedPredicateMap,
-                matchedOrderingParts,
-                translatedResultValue,
                 maxMatchMap,
                 additionalPlanConstraint);
     }
@@ -235,10 +211,9 @@ public class MatchInfo {
 
     @Nonnull
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                      @Nonnull final Value translatedResultValue,
                                                       @Nonnull final MaxMatchMap maxMatchMap) {
         return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(),
-                translatedResultValue, maxMatchMap, maxMatchMap.getQueryPlanConstraint());
+                maxMatchMap, maxMatchMap.getQueryPlanConstraint());
     }
 
     @Nonnull
@@ -246,7 +221,6 @@ public class MatchInfo {
                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                                @Nonnull final PredicateMultiMap predicateMap,
                                                @Nonnull final PredicateMultiMap accumulatedPredicateMap,
-                                               @Nonnull final Value translatedResultValue,
                                                @Nonnull final MaxMatchMap maxMatchMap,
                                                @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
         final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
@@ -279,7 +253,6 @@ public class MatchInfo {
                         predicateMap,
                         accumulatedPredicateMap,
                         orderingParts,
-                        translatedResultValue,
                         maxMatchMap,
                         additionalPlanConstraint));
     }
@@ -304,5 +277,140 @@ public class MatchInfo {
         }
 
         return Optional.of(resultMap);
+    }
+
+    /**
+     * Builder for a {@link MatchInfo}.
+     */
+    @SuppressWarnings("unused")
+    public static class DerivedBuilder {
+        @Nonnull
+        private Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap;
+
+        @Nonnull
+        private IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap;
+
+        @Nonnull
+        private PredicateMultiMap predicateMap;
+
+        /**
+         * This contains all the predicates in the {@code predicateMap} in addition to all predicates that are pulled up
+         * from children match info.
+         */
+        @Nonnull
+        private PredicateMultiMap accumulatedPredicateMap;
+
+        @Nonnull
+        private List<MatchedOrderingPart> matchedOrderingParts;
+
+        /**
+         * A map of maximum matches between the query result {@code Value} and the corresponding candidate's result
+         * {@code Value}.
+         */
+        @Nonnull
+        private MaxMatchMap maxMatchMap;
+
+        /**
+         * Field to hold additional query plan constraints that need to be imposed on the potentially realized match.
+         */
+        @Nonnull
+        private QueryPlanConstraint additionalPlanConstraint;
+
+        private DerivedBuilder(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
+                               @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
+                               @Nonnull final PredicateMultiMap predicateMap,
+                               @Nonnull final PredicateMultiMap accumulatedPredicateMap,
+                               @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
+                               @Nonnull final MaxMatchMap maxMatchMap,
+                               @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+            this.parameterBindingMap = parameterBindingMap;
+            this.quantifierToPartialMatchMap = quantifierToPartialMatchMap;
+            this.predicateMap = predicateMap;
+            this.accumulatedPredicateMap = accumulatedPredicateMap;
+            this.matchedOrderingParts = matchedOrderingParts;
+            this.maxMatchMap = maxMatchMap;
+            this.additionalPlanConstraint = additionalPlanConstraint;
+        }
+
+        @Nonnull
+        public Map<CorrelationIdentifier, ComparisonRange> getParameterBindingMap() {
+            return parameterBindingMap;
+        }
+
+        public DerivedBuilder setParameterBindingMap(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap) {
+            this.parameterBindingMap = parameterBindingMap;
+            return this;
+        }
+
+        @Nonnull
+        public IdentityBiMap<Quantifier, PartialMatch> getQuantifierToPartialMatchMap() {
+            return quantifierToPartialMatchMap;
+        }
+
+        public DerivedBuilder setQuantifierToPartialMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap) {
+            this.quantifierToPartialMatchMap = quantifierToPartialMatchMap;
+            return this;
+        }
+
+        @Nonnull
+        public PredicateMultiMap getPredicateMap() {
+            return predicateMap;
+        }
+
+        public DerivedBuilder setPredicateMap(@Nonnull final PredicateMultiMap predicateMap) {
+            this.predicateMap = predicateMap;
+            return this;
+        }
+
+        @Nonnull
+        public PredicateMultiMap getAccumulatedPredicateMap() {
+            return accumulatedPredicateMap;
+        }
+
+        public DerivedBuilder setAccumulatedPredicateMap(@Nonnull final PredicateMultiMap accumulatedPredicateMap) {
+            this.accumulatedPredicateMap = accumulatedPredicateMap;
+            return this;
+        }
+
+        @Nonnull
+        public List<MatchedOrderingPart> getMatchedOrderingParts() {
+            return matchedOrderingParts;
+        }
+
+        public DerivedBuilder setMatchedOrderingParts(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
+            this.matchedOrderingParts = matchedOrderingParts;
+            return this;
+        }
+
+        @Nonnull
+        public MaxMatchMap getMaxMatchMap() {
+            return maxMatchMap;
+        }
+
+        public DerivedBuilder setMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap) {
+            this.maxMatchMap = maxMatchMap;
+            return this;
+        }
+
+        @Nonnull
+        public QueryPlanConstraint getAdditionalPlanConstraint() {
+            return additionalPlanConstraint;
+        }
+
+        public DerivedBuilder setAdditionalPlanConstraint(@Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+            this.additionalPlanConstraint = additionalPlanConstraint;
+            return this;
+        }
+
+        @Nonnull
+        public MatchInfo build() {
+            return new MatchInfo(parameterBindingMap,
+                    quantifierToPartialMatchMap,
+                    predicateMap,
+                    accumulatedPredicateMap,
+                    matchedOrderingParts,
+                    maxMatchMap,
+                    additionalPlanConstraint);
+        }
     }
 }

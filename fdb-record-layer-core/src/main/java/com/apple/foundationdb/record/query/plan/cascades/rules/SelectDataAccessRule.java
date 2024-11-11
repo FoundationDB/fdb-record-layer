@@ -25,13 +25,11 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -168,21 +166,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                         dataAccessForMatchPartition(call,
                                 pushedRequestedOrderings,
                                 matchPartition);
-
-                if (dataAccessExpressions.isEmpty()) {
-                    continue;
-                }
-
-                final var matchedQuantifier = (Quantifier.ForEach)aliasToQuantifierMap.get(matchedAlias);
-                final var dataAccessQuantifier = Quantifier.ForEach.forEachBuilder().from(matchedQuantifier)
-                        .build(call.memoizeReference(Reference.from(dataAccessExpressions)));
-                
-                final var compensatedDataAccessExpression =
-                        GraphExpansion.builder()
-                                .addQuantifier(dataAccessQuantifier)
-                                .build()
-                                .buildSelectWithResultValue(expression.getResultValue());
-                call.yieldExpression(compensatedDataAccessExpression);
+                call.yieldExpression(dataAccessExpressions);
             }
         }
     }

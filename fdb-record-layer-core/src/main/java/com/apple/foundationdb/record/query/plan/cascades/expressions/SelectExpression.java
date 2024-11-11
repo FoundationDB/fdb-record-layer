@@ -428,7 +428,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 candidateExpression.getResultValue(),
                                 bindingValueEquivalence);
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
-                                translatedResultValue,
                                 maxMatchMap,
                                 maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
@@ -548,7 +547,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                                             bindingValueEquivalence);
                                             return MatchInfo.tryMerge(partialMatchMap,
                                                     allParameterBindingMap, predicateMap, PredicateMap.empty(),
-                                                    translatedResultValue,
                                                     maxMatchMap,
                                                     maxMatchMap.getQueryPlanConstraint());
                                         })
@@ -576,11 +574,15 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
-        final var maxMatchMap = partialMatch.getMatchInfo().getMaxMatchMap();
+        final var maxMatchMap = childMatchInfo.getMaxMatchMap();
         final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
-        final var adjustedMaxMatchMap = maxMatchMap.adjust(getResultValue(), innerQuantifier.getAlias());
 
-        return Optional.of(childMatchInfo.withMaxMatchMap(adjustedMaxMatchMap));
+        final var adjustedMaxMatchMapOptional = maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue());
+        return adjustedMaxMatchMapOptional
+                .map(adjustedMaxMatchMap ->
+                        childMatchInfo.derivedBuilder()
+                                .setMaxMatchMap(adjustedMaxMatchMap)
+                                .build());
     }
 
     @Nonnull
@@ -819,8 +821,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         if (!pullUp.isRoot()) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
         } else {
+            final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpResultValueOptional =
-                    pullUp.pullUpMaybe(matchInfo.getTranslatedResultValue());
+                    pullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
             if (pulledUpResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }

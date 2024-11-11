@@ -312,8 +312,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             final var queryPlanConstraint =
                     subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 
-            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                            PredicateMap.empty(), translatedResultValue,
+            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(),
                             maxMatchMap, queryPlanConstraint)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
@@ -376,8 +375,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         if (!pullUp.isRoot()) {
             resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
         } else {
+            final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpResultValueOptional =
-                    pullUp.pullUpMaybe(matchInfo.getTranslatedResultValue());
+                    pullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
             if (pulledUpResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
@@ -390,7 +390,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
-        Verify.verify(!unmatchedQuantifiers.isEmpty());
+        Verify.verify(unmatchedQuantifiers.isEmpty());
 
         if (!resultCompensationFunction.isNeeded()) {
             return Compensation.noCompensation();

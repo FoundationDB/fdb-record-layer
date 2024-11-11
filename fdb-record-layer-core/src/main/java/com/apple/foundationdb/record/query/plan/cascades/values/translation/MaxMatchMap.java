@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -39,6 +38,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -142,16 +143,11 @@ public class MaxMatchMap {
     }
 
     @Nonnull
-    public MaxMatchMap adjust(@Nonnull final Value upperCandidateResultValue,
-                              @Nonnull final CorrelationIdentifier upperCandidateAlias) {
-        final var translationMap =
-                TranslationMap.builder()
-                        .when(upperCandidateAlias).then((ignored1, ignored2) -> candidateResultValue)
-                        .build();
-        final var newCandidateValue =
-                upperCandidateResultValue.translateCorrelations(translationMap, true);
-
-        return calculate(queryResultValue, newCandidateValue, valueEquivalence);
+    public Optional<MaxMatchMap> adjustMaybe(@Nonnull final CorrelationIdentifier upperCandidateAlias,
+                                             @Nonnull final Value upperCandidateResultValue) {
+        final var translatedQueryValueOptional =
+                translateQueryValueMaybe(upperCandidateAlias);
+        return translatedQueryValueOptional.map(value -> MaxMatchMap.calculate(value, upperCandidateResultValue));
     }
 
     /**
@@ -199,7 +195,7 @@ public class MaxMatchMap {
                                         @Nonnull final ValueEquivalence valueEquivalence) {
         final var recursionResult =
                 recurseQueryResultValue(queryResultValue, candidateResultValue,
-                        valueEquivalence, ImmutableBiMap.of(), new LinkedIdentitySet<>());
+                        valueEquivalence, ImmutableBiMap.of(), new HashSet<>());
 
         return new MaxMatchMap(recursionResult.getValueMap(), recursionResult.getNewCurrentValue(),
                 candidateResultValue, recursionResult.getQueryPlanConstraint(), valueEquivalence);
@@ -227,7 +223,7 @@ public class MaxMatchMap {
             //
             // We found a match to the candidate side.
             //
-            return new RecursionResult(ImmutableBiMap.of(currentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+            return new RecursionResult(ImmutableMap.of(currentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
                     currentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
         }
 
@@ -257,7 +253,7 @@ public class MaxMatchMap {
         final var newChildrenBuilder = ImmutableList.<Value>builder();
         final var knownNestedValueMap = HashBiMap.<Value, Value>create();
         knownNestedValueMap.putAll(knownValueMap);
-        final var resultValueMapBuilder = ImmutableBiMap.<Value, Value>builder();
+        final var resultValueMap = new LinkedHashMap<Value, Value>();
         for (final var child : currentQueryValue.getChildren()) {
             final var recursionResult =
                     recurseQueryResultValue(child, candidateResultValue, valueEquivalence, knownNestedValueMap, expandedValues);
@@ -267,9 +263,18 @@ public class MaxMatchMap {
             areAllChildrenSame = areAllChildrenSame && (child == newChild);
 
             final var nestedNewValueMap = recursionResult.getValueMap();
+            for (final var entry : nestedNewValueMap.entrySet()) {
+                final var key = entry.getKey();
+                if (resultValueMap.containsKey(key)) {
+                    // if there is a discrepancy, remove all mappings with that key
+                    if (!resultValueMap.get(key).equals(entry.getValue())) {
+                        resultValueMap.remove(key);
+                    }
+                } else {
+                    resultValueMap.put(key, entry.getValue());
+                }
+            }
             knownNestedValueMap.putAll(nestedNewValueMap);
-            resultValueMapBuilder.putAll(nestedNewValueMap);
-
             queryPlanConstraintsBuilder.add(recursionResult.getQueryPlanConstraint());
         }
 
@@ -277,8 +282,6 @@ public class MaxMatchMap {
                 areAllChildrenSame
                 ? currentQueryValue
                 : currentQueryValue.withChildren(newChildrenBuilder.build());
-
-        final var resultValueMap = resultValueMapBuilder.build();
 
         if (knownValueMap.containsKey(resultCurrentValue)) {
             return new RecursionResult(ImmutableBiMap.of(), resultCurrentValue, QueryPlanConstraint.tautology());
@@ -328,13 +331,13 @@ public class MaxMatchMap {
 
     private static class RecursionResult {
         @Nonnull
-        private final BiMap<Value, Value> valueMap;
+        private final Map<Value, Value> valueMap;
         @Nonnull
         private final Value newCurrentValue;
         @Nonnull
         private final QueryPlanConstraint queryPlanConstraint;
 
-        public RecursionResult(@Nonnull final BiMap<Value, Value> valueMap,
+        public RecursionResult(@Nonnull final Map<Value, Value> valueMap,
                                @Nonnull final Value newCurrentValue,
                                @Nonnull final QueryPlanConstraint queryPlanConstraint) {
             this.valueMap = valueMap;
@@ -343,7 +346,7 @@ public class MaxMatchMap {
         }
 
         @Nonnull
-        public BiMap<Value, Value> getValueMap() {
+        public Map<Value, Value> getValueMap() {
             return valueMap;
         }
 

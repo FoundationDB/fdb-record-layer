@@ -175,8 +175,9 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         if (!pullUp.isRoot()) {
             resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
         } else {
+            final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpResultValueOptional =
-                    pullUp.pullUpMaybe(matchInfo.getTranslatedResultValue());
+                    pullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
             if (pulledUpResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
@@ -189,7 +190,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
-        Verify.verify(!unmatchedQuantifiers.isEmpty());
+        Verify.verify(unmatchedQuantifiers.isEmpty());
 
         if (!resultCompensationFunction.isNeeded()) {
             return Compensation.noCompensation();

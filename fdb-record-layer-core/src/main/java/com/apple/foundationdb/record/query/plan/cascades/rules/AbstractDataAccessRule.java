@@ -776,11 +776,23 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                                             @Nonnull final SingleMatchedAccess singleMatchedAccess,
                                                                                             @Nonnull final RecordQueryPlan plan) {
         final var compensation = singleMatchedAccess.getCompensation();
-        return compensation.isImpossible()
-               ? Optional.empty()
-               : Optional.of(compensation.isNeeded()
-                             ? compensation.apply(memoizer, plan)
-                             : plan);
+        if (compensation.isImpossible()) {
+            return Optional.empty();
+        }
+
+        if (!compensation.isNeeded()) {
+            return Optional.of(plan);
+        }
+
+        RelationalExpression compensatedPlan = plan;
+        if (compensation.isNeededForFiltering()) {
+            compensatedPlan = compensation.apply(memoizer, plan);
+        }
+        if (compensation.isFinalNeeded()) {
+            compensatedPlan = compensation.applyFinal(memoizer, compensatedPlan);
+        }
+
+        return Optional.of(compensatedPlan);
     }
     
     /**

@@ -234,6 +234,10 @@ public interface Compensation {
         return true;
     }
 
+    default boolean isFinalNeeded() {
+        return true;
+    }
+
     /**
      * Returns if this compensation can be applied in a way to yield the correct result.
      *
@@ -381,6 +385,11 @@ public interface Compensation {
             return getChildCompensation().isNeededForFiltering() ||
                    !getUnmatchedForEachQuantifiers().isEmpty() ||
                    !getPredicateCompensationMap().isEmpty();
+        }
+
+        @Override
+        default boolean isFinalNeeded() {
+            return getResultCompensationFunction().isNeeded();
         }
 
         @Nonnull

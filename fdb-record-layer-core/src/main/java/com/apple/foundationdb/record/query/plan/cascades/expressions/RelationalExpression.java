@@ -712,7 +712,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                         ValueEquivalence.fromAliasMap(bindingAliasMap));
 
         if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap, translatedResultValue, maxMatchMap)
+            return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {
