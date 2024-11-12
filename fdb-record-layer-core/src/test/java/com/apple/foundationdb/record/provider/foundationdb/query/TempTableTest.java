@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -39,7 +40,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -47,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +59,8 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -70,6 +76,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test suite for {@link TempTable} planning and execution.
@@ -88,7 +96,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
     void scanTempTableWorksCorrectly() throws Exception {
         try (FDBRecordContext context = openContext()) {
             // select rec_no, str_value_indexed from <tempTable>.
-            final var tempTable = TempTable.newInstance();
+            final var tempTable = TempTable.<QueryResult>newInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var plan = getTempTableScanPlan(tempTable, tempTableId, true);
             assertEquals(ImmutableSet.of(Pair.of(42L, "fortySecondValue"),
@@ -102,9 +110,9 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         // select rec_no, str_value_indexed from <tempTable> where rec_no < 44L.
         try (FDBRecordContext context = openContext()) {
             final var type = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-            final var tempTable = TempTable.newInstance();
-            tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
-                    QueryResult.ofComputed(item(45L, "fortyFifthValue")));
+            final var tempTable = TempTable.<QueryResult>newInstance();
+            tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")));
+            tempTable.add(QueryResult.ofComputed(item(45L, "fortyFifthValue")));
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), type)));
             final var recNoField = FieldValue.ofFieldName(tempTableScanQun.getFlowedObjectValue(), "rec_no");
@@ -126,7 +134,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
     void insertIntoTempTableWorksCorrectly() throws Exception {
         // insert into <tempTable> values ((1, 'first', 10, 1), (2, 'second', 11, 2))
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.newInstance();
+            final var tempTable = TempTable.<QueryResult>newInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var firstRecord = RecordConstructorValue.ofUnnamed(
                     ImmutableList.of(LiteralValue.ofScalar(1L),
@@ -164,10 +172,78 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void insertIntoTempTableWorksCorrectlyAcrossContinuations() throws Exception {
+        // insert into <tempTable> values ((1, 'first', 10, 1), stop, resume, then insert (2, 'second', 11, 2))
+        byte[] continuation = null;
+        RecordQueryPlan planToResume = null;
+        final var tempTableId = CorrelationIdentifier.uniqueID();
+        try (FDBRecordContext context = openContext()) {
+            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var firstRecord = RecordConstructorValue.ofUnnamed(
+                    ImmutableList.of(LiteralValue.ofScalar(1L),
+                            LiteralValue.ofScalar("first"),
+                            LiteralValue.ofScalar(10),
+                            LiteralValue.ofScalar(1),
+                            LiteralValue.ofScalar(1),
+                            emptyArray(Type.primitiveType(Type.TypeCode.INT))));
+            final var secondArray = RecordConstructorValue.ofUnnamed(
+                    ImmutableList.of(LiteralValue.ofScalar(2L),
+                            LiteralValue.ofScalar("second"),
+                            LiteralValue.ofScalar(11),
+                            LiteralValue.ofScalar(2),
+                            LiteralValue.ofScalar(2),
+                            emptyArray(Type.primitiveType(Type.TypeCode.INT))));
+            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
+            var qun = Quantifier.forEach(Reference.of(explodeExpression));
+
+            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
+                    tempTableId, tempTableId.getId(), Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+            final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
+
+            final var cascadesPlanner = (CascadesPlanner)planner;
+            planToResume = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+            assertMatchesExactly(planToResume,  tempTableInsertPlan(explodePlan()));
+            final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
+            constants.put(tempTableId.getId(), tempTable);
+            final var usedTypes = UsedTypesProperty.evaluate(planToResume);
+            final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build())
+                    .withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
+
+            try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+                assertTrue(cursor.hasNext());
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                continuation = cursor.getContinuation();
+            }
+
+            // select rec_no, str_value_indexed from tq1 | tq1 is a temporary table.
+            final var scanPlan = getTempTableScanPlan(tempTable, tempTableId, false);
+            assertEquals(ImmutableSet.of(Pair.of(1L, "first")), collectResults(context, scanPlan, tempTable, tempTableId));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final var tempTable = TempTable.<QueryResult>newInstance();
+            final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
+            constants.put(tempTableId.getId(), tempTable);
+            final var usedTypes = UsedTypesProperty.evaluate(planToResume);
+            final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build())
+                    .withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
+            try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext, continuation, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+                assertTrue(cursor.hasNext());
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                assertFalse(cursor.hasNext());
+                assertTrue(cursor.getNoNextReason().isSourceExhausted());
+            }
+            // select rec_no, str_value_indexed from tq1 | tq1 is a temporary table.
+            final var scanPlan = getTempTableScanPlan(tempTable, tempTableId, false);
+            assertEquals(ImmutableSet.of(Pair.of(1L, "first"), Pair.of(2L, "second")), collectResults(context, scanPlan, tempTable, tempTableId));
+        }
+    }
+
     @Nonnull
     private Set<Pair<Long, String>> collectResults(@Nonnull FDBRecordContext context,
                                                    @Nonnull RecordQueryPlan plan,
-                                                   @Nonnull TempTable tempTable,
+                                                   @Nonnull TempTable<QueryResult> tempTable,
                                                    @Nonnull CorrelationIdentifier tempTableId) throws Exception {
         ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
         final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
@@ -193,11 +269,11 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private RecordQueryPlan getTempTableScanPlan(@Nonnull TempTable tempTable, @Nonnull CorrelationIdentifier tempTableId, boolean addData) {
+    private RecordQueryPlan getTempTableScanPlan(@Nonnull TempTable<QueryResult> tempTable, @Nonnull CorrelationIdentifier tempTableId, boolean addData) {
         final var type = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         if (addData) {
-            tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")),
-                    QueryResult.ofComputed(item(45L, "fortyFifthValue")));
+            tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")));
+            tempTable.add(QueryResult.ofComputed(item(45L, "fortyFifthValue")));
         }
         final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), type)));
         final var recNoField = Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(tempTableScanQun.getFlowedObjectValue(), "rec_no"));
