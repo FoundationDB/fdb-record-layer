@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRecordQueryInsertPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
@@ -92,7 +93,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
         } else {
             result = store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
         }
-        return result.thenApply(fdbStoredRecord -> QueryResult.ofComputed(fdbStoredRecord.getRecord(), fdbStoredRecord.getPrimaryKey()));
+        return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(FDBQueriedRecord.stored(fdbStoredRecord)));
     }
 
     @Nonnull
@@ -104,7 +105,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 getTargetRecordType(),
                 getTargetType(),
                 getCoercionTrie(),
-                getComputationValue());
+                getComputationValue().translateCorrelations(translationMap));
     }
 
     @Nonnull

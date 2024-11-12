@@ -132,7 +132,7 @@ public class EvaluationContext {
      *
      * @return the value bound to the given parameter
      */
-    public Object getBinding(@Nonnull Bindings.Internal type, @Nonnull CorrelationIdentifier alias) {
+    public Object getBinding(@Nonnull final Bindings.Internal type, @Nonnull final CorrelationIdentifier alias) {
         return bindings.get(type.bindingName(alias.getId()));
     }
 

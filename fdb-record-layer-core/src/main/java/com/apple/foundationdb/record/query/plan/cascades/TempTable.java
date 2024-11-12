@@ -94,9 +94,9 @@ public class TempTable {
 
     @Nonnull
     public RecordMetaDataProto.PTempTable toProto() {
-        final var tableQueueProtoBuilder = RecordMetaDataProto.PTempTable.newBuilder();
-        serializeBuffer(tableQueueProtoBuilder);
-        return tableQueueProtoBuilder.build();
+        final var builder = RecordMetaDataProto.PTempTable.newBuilder();
+        serializeBuffer(builder);
+        return builder.build();
     }
 
     @Nonnull
@@ -116,21 +116,21 @@ public class TempTable {
 
     @Nonnull
     public static TempTable deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
-        final RecordMetaDataProto.PTempTable tableQueueProto;
+        final RecordMetaDataProto.PTempTable tempTableProto;
         try {
-            tableQueueProto = RecordMetaDataProto.PTempTable.parseFrom(byteString);
+            tempTableProto = RecordMetaDataProto.PTempTable.parseFrom(byteString);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
         }
-        return fromProto(tableQueueProto, descriptor);
+        return fromProto(tempTableProto, descriptor);
     }
 
     @Nonnull
-    public static TempTable fromProto(@Nonnull final RecordMetaDataProto.PTempTable tableQueueProto,
+    public static TempTable fromProto(@Nonnull final RecordMetaDataProto.PTempTable tempTableProto,
                                       @Nullable Descriptors.Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
-        for (final var element : tableQueueProto.getBufferItemsList()) {
+        for (final var element : tempTableProto.getBufferItemsList()) {
             underlyingBuffer.add(QueryResult.deserialize(descriptor, element));
         }
         return new TempTable(underlyingBuffer);

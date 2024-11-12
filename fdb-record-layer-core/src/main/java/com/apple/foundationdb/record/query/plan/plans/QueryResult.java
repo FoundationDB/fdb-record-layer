@@ -214,12 +214,12 @@ public class QueryResult {
 
 
     @Nonnull
-    public static QueryResult deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull byte[] bytes) {
+    public static QueryResult deserialize(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final byte[] bytes) {
         return deserialize(descriptor, ZeroCopyByteString.wrap(bytes));
     }
 
     @Nonnull
-    public static QueryResult deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
+    public static QueryResult deserialize(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final ByteString byteString) {
         try {
             final var parsed = RecordMetaDataProto.PQueryResult.parseFrom(byteString);
             if (parsed.hasPrimitive()) {
@@ -239,7 +239,7 @@ public class QueryResult {
      * @return the newly created query result
      */
     @Nonnull
-    public static QueryResult ofComputed(@Nullable Object computed) {
+    public static QueryResult ofComputed(@Nullable final Object computed) {
         return new QueryResult(computed, null, null);
     }
 
@@ -250,7 +250,7 @@ public class QueryResult {
      * @return the newly created query result
      */
     @Nonnull
-    public static QueryResult ofComputed(@Nullable Object computed, @Nullable Tuple primaryKey) {
+    public static QueryResult ofComputed(@Nullable final Object computed, @Nullable final Tuple primaryKey) {
         return new QueryResult(computed, null, primaryKey);
     }
 
@@ -260,7 +260,7 @@ public class QueryResult {
      * @return the newly created query queriedRecord
      */
     @Nonnull
-    public static QueryResult fromQueriedRecord(@Nullable FDBQueriedRecord<?> queriedRecord) {
+    public static QueryResult fromQueriedRecord(@Nullable final FDBQueriedRecord<?> queriedRecord) {
         if (queriedRecord == null) {
             return new QueryResult(null, null, null);
         }

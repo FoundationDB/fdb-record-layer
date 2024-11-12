@@ -276,7 +276,7 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<TempTableInsertExpression> tqInsertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<TempTableInsertExpression> tempTableInsertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(TempTableInsertExpression.class, only(downstream));
     }
 

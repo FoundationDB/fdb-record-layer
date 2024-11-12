@@ -248,8 +248,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertTableQueuePlan) {
-        return fromChild(insertTableQueuePlan);
+    public Cardinalities visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+        return fromChild(tempTableInsertPlan);
     }
 
     @Nonnull
@@ -505,8 +505,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities visitTempTableInsertExpression(@Nonnull final TempTableInsertExpression insertTableQueue) {
-        return fromChild(insertTableQueue);
+    public Cardinalities visitTempTableInsertExpression(@Nonnull final TempTableInsertExpression tempTableInsertExpression) {
+        return fromChild(tempTableInsertExpression);
     }
 
     @Nonnull

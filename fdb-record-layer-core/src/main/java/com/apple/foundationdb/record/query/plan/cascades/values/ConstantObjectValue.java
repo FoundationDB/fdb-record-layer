@@ -113,8 +113,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Override
     public boolean canResultInType(@Nonnull final Type type) {
-        return type.getTypeCode() == Type.TypeCode.ANY
-                || resultType.getTypeCode() == Type.TypeCode.NULL;
+        return resultType.getTypeCode() == Type.TypeCode.NULL;
     }
 
     @Nonnull

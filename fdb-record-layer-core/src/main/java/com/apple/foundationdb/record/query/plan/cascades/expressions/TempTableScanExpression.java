@@ -64,7 +64,8 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
 
     private TempTableScanExpression(@Nonnull final Value tempTableReferenceValue) {
         this.tempTableReferenceValue = tempTableReferenceValue;
-        this.resultValue = new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
+        final var innerType = ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
+        this.resultValue = new QueriedValue(Objects.requireNonNull(innerType));
     }
 
     @Nonnull
@@ -99,7 +100,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -138,7 +139,7 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
 
     @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo = new PlannerGraph

@@ -72,10 +72,10 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                     @Nonnull EvaluationContext context,
-                                                                     @Nullable byte[] continuation,
-                                                                     @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         final var tempTable = (TempTable)this.tempTableReferenceValue.eval(store, context);
         return tempTable.getReadCursor(continuation);
     }
@@ -89,8 +89,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TempTableScanPlan translateCorrelations(@Nonnull TranslationMap translationMap,
-                                                   @Nonnull List<? extends Quantifier> translatedQuantifiers) {
+    public TempTableScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new TempTableScanPlan(tempTableReferenceValue.translateCorrelations(translationMap));
     }
 
@@ -157,8 +157,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -208,7 +208,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.TEMP_TABLE_SCAN_OPERATOR,
@@ -218,22 +218,22 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public PTempTableScanPlan toProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PTempTableScanPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PTempTableScanPlan.newBuilder()
-                .setTempTable(tempTableReferenceValue.toValueProto(serializationContext))
+                .setTempTableReferenceValue(tempTableReferenceValue.toValueProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setTempTableScanPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static TempTableScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                              @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
-        return new TempTableScanPlan(Value.fromValueProto(serializationContext, tempTableScanPlanProto.getTempTable()));
+    public static TempTableScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PTempTableScanPlan tempTableScanPlanProto) {
+        return new TempTableScanPlan(Value.fromValueProto(serializationContext, tempTableScanPlanProto.getTempTableReferenceValue()));
     }
 
     /**
@@ -249,8 +249,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
         @Nonnull
         @Override
-        public TempTableScanPlan fromProto(@Nonnull PlanSerializationContext serializationContext,
-                                           @Nonnull PTempTableScanPlan tempTableScanPlanProto) {
+        public TempTableScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PTempTableScanPlan tempTableScanPlanProto) {
             return TempTableScanPlan.fromProto(serializationContext, tempTableScanPlanProto);
         }
     }

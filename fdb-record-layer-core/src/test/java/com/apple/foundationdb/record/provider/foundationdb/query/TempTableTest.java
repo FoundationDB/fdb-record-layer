@@ -73,7 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test suite for {@link TempTable} planning and execution.
- * Particularly, testing both {@code INSERT} and {@code SELECT} capabilities from table queues.
+ * Particularly, testing both {@code INSERT} into and {@code SCAN} from a {@link TempTable}.
  */
 public class TempTableTest extends FDBRecordStoreQueryTestBase {
 
@@ -157,7 +157,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
             fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { }, ExecuteProperties.SERIAL_EXECUTE);
 
-            // select rec_no, str_value_indexed from tq1 | tq1 is a TableQueue.
+            // select rec_no, str_value_indexed from tq1 | tq1 is a temporary table.
             plan = getTempTableScanPlan(tempTable, tempTableId, false);
             assertEquals(ImmutableSet.of(Pair.of(1L, "first"),
                     Pair.of(2L, "second")), collectResults(context, plan, tempTable, tempTableId));

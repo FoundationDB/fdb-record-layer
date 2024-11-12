@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -68,17 +67,16 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     private final Value tempTableReferenceValue;
 
     protected TempTableInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                  @Nonnull final PTempTableInsertPlan tempTableInsertPlan) {
-        super(serializationContext, Objects.requireNonNull(tempTableInsertPlan.getSuper()));
-        this.tempTableReferenceValue = Value.fromValueProto(serializationContext, tempTableInsertPlan.getTempTable());
+                                  @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
+        super(serializationContext, Objects.requireNonNull(tempTableInsertPlanProto.getSuper()));
+        this.tempTableReferenceValue = Value.fromValueProto(serializationContext, tempTableInsertPlanProto.getTempTableReferenceValue());
     }
 
     private TempTableInsertPlan(@Nonnull final Quantifier.Physical inner,
-                                @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                 @Nonnull final Value computationValue,
                                 @Nonnull final Value tempTableReferenceValue) {
         super(inner, null, (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType(), null,
-                coercionsTrie, computationValue, currentModifiedRecordAlias());
+                null, computationValue, currentModifiedRecordAlias());
         this.tempTableReferenceValue = tempTableReferenceValue;
     }
 
@@ -94,9 +92,9 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     }
 
     @Override
-    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                       @Nonnull EvaluationContext context,
-                                                                                       @Nonnull M message,
+    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                                       @Nonnull final EvaluationContext context,
+                                                                                       @Nonnull final M message,
                                                                                        boolean isDryRun) {
         // dry run is ignored since inserting into a table queue has no storage side effects.
         final var queryResult = QueryResult.ofComputed(message);
@@ -111,8 +109,7 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new TempTableInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getCoercionTrie(),
-                getComputationValue(),
+                getComputationValue().translateCorrelations(translationMap),
                 getTempTableReferenceValue().translateCorrelations(translationMap));
     }
 
@@ -120,19 +117,19 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     @Override
     public TempTableInsertPlan withChild(@Nonnull final Reference childRef) {
         return new TempTableInsertPlan(Quantifier.physical(childRef),
-                getCoercionTrie(),
                 getComputationValue(),
                 getTempTableReferenceValue());
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), super.hashCodeWithoutChildren());
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), getTempTableReferenceValue(),
+                super.hashCodeWithoutChildren());
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode));
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getTempTableReferenceValue(), super.planHash(mode));
     }
 
     @Nonnull
@@ -151,7 +148,7 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
      */
     @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
@@ -169,7 +166,10 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     @Nonnull
     @Override
     public PTempTableInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PTempTableInsertPlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
+        return PTempTableInsertPlan.newBuilder()
+                .setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext))
+                .setTempTableReferenceValue(getTempTableReferenceValue().toValueProto(serializationContext))
+                .build();
     }
 
     @Nonnull
@@ -180,8 +180,8 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
 
     @Nonnull
     public static TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PTempTableInsertPlan tqInsertPlanProto) {
-        return new TempTableInsertPlan(serializationContext, tqInsertPlanProto);
+                                                @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
+        return new TempTableInsertPlan(serializationContext, tempTableInsertPlanProto);
     }
 
     /**
@@ -190,15 +190,15 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
      * @param inner an input value to transform
      * @param computationValue a value to be computed based on the {@code inner} and
      * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
-     * @param tempTable The table queue identifier to insert into.
+     * @param tempTableReferenceValue The table queue identifier to insert into.
      *
      * @return a newly created {@link TempTableInsertPlan}
      */
     @Nonnull
     public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
                                                  @Nonnull final Value computationValue,
-                                                 @Nonnull final Value tempTable) {
-        return new TempTableInsertPlan(inner, null, computationValue, tempTable);
+                                                 @Nonnull final Value tempTableReferenceValue) {
+        return new TempTableInsertPlan(inner, computationValue, tempTableReferenceValue);
     }
 
     @Nonnull
@@ -220,8 +220,8 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
         @Nonnull
         @Override
         public TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PTempTableInsertPlan tempTableInsertPlan) {
-            return TempTableInsertPlan.fromProto(serializationContext, tempTableInsertPlan);
+                                             @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
+            return TempTableInsertPlan.fromProto(serializationContext, tempTableInsertPlanProto);
         }
     }
 }

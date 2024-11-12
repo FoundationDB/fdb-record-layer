@@ -36,7 +36,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tqInsertExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tempTableInsertExpression;
 
 /**
  * A rule that implements a {@link TempTableInsertExpression} producing a {@link TempTableInsertPlan} operator.
@@ -56,7 +56,7 @@ public class ImplementTempTableInsertRule extends CascadesRule<TempTableInsertEx
 
     @Nonnull
     private static final BindingMatcher<TempTableInsertExpression> root =
-            tqInsertExpression(innerQuantifierMatcher);
+            tempTableInsertExpression(innerQuantifierMatcher);
 
     public ImplementTempTableInsertRule() {
         super(root);

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryUpdatePlan;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
@@ -103,7 +104,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         } else {
             result = store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
         }
-        return result.thenApply(fdbStoredRecord -> QueryResult.ofComputed(fdbStoredRecord.getRecord(), fdbStoredRecord.getPrimaryKey()));
+        return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(FDBQueriedRecord.stored(fdbStoredRecord)));
     }
 
     @Nonnull

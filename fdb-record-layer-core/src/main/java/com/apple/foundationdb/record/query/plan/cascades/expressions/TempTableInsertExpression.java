@@ -67,7 +67,9 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
                                       @Nonnull final Value tempTableReferenceValue) {
         this.inner = inner;
         this.tempTableReferenceValue = tempTableReferenceValue;
-        this.resultValue = new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
+        Verify.verify(tempTableReferenceValue.getResultType().isRelation());
+        final var innerType = ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
+        this.resultValue = new QueriedValue(Objects.requireNonNull(innerType));
     }
 
     @Override
@@ -111,7 +113,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;

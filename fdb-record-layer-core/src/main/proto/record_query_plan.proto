@@ -1352,10 +1352,8 @@ message PRecordQueryIndexPlan {
 // PTempTableScanPlan
 //
 message PTempTableScanPlan {
-  optional PValue temp_table = 1;
+  optional PValue temp_table_reference_value = 1;
 }
-
-
 
 message PIndexScanParameters {
   extensions 5000 to max;
@@ -1494,7 +1492,7 @@ message PRecordQueryInsertPlan {
 //
 message PTempTableInsertPlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
-  optional PValue temp_table = 2;
+  optional PValue temp_table_reference_value = 2;
 }
 
 //

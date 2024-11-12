@@ -303,8 +303,8 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan insertTableQueuePlan) {
-            return Ordering.empty();
+        public Ordering visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+            return orderingFromSingleChild(tempTableInsertPlan);
         }
 
         @Nonnull
