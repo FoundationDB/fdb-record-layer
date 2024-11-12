@@ -95,6 +95,20 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+
+        final var cursor = createInsertCursor(continuation, ...)
+        .mapPiplned(pair ->
+                .thenApply(queryResult -> {
+                    final var nestedContext = context.childBuilder()
+                            .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
+                            .setBinding(getCurrentModifiedRecordAlias(), queryResult.getMessage()) // post-mutation
+                            .build(context.getTypeRepository());
+                    final var result = getComputationValue().eval(store, nestedContext);
+                    return QueryResult.ofComputed(result, queryResult.getPrimaryKey());
+                }
+        );
+
+
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
         return results
