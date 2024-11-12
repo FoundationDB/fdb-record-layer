@@ -22,11 +22,13 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PTempTableInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -39,11 +41,12 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,10 +88,27 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
         return PipelineOperation.INSERT;
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    protected <M extends Message> Descriptors.Descriptor getTargetDescriptor(@Nonnull final FDBRecordStoreBase<M> ignored) {
-        return null;
+    @SuppressWarnings({"PMD.CloseResource", "resource", "unchecked"})
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
+        final RecordCursor<QueryResult> results =
+                getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
+        return results
+                .map(queryResult -> Pair.of(queryResult, (M)Preconditions.checkNotNull(queryResult.getMessage())))
+                .mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
+                                .thenApply(queryResult -> {
+                                    final var nestedContext = context.childBuilder()
+                                            .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
+                                            .setBinding(getCurrentModifiedRecordAlias(), queryResult.getMessage()) // post-mutation
+                                            .build(context.getTypeRepository());
+                                    final var result = getComputationValue().eval(store, nestedContext);
+                                    return QueryResult.ofComputed(result, queryResult.getPrimaryKey());
+                                }),
+                        store.getPipelineSize(getPipelineOperation()));
     }
 
     @Override

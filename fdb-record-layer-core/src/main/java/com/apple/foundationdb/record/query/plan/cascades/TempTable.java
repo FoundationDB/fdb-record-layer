@@ -41,8 +41,9 @@ import java.util.Queue;
 
 /**
  * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
- * placeholder for computation results produced by some physical operator, but can be leveraged to represent, for example,
- * a SQL temporary tables as well.
+ * placeholder for computation results produced by some physical operator (i.e. {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan}),
+ * but can be leveraged to represent, for example, SQL temporary tables as well.<br/>
+ * The actual implementation is thread-safe, however it is unbounded leaving it to the consumer.
  */
 public class TempTable {
 
@@ -50,7 +51,7 @@ public class TempTable {
     private final Queue<QueryResult> underlyingBuffer;
 
     private TempTable() {
-        this(new LinkedList<>());
+        this(new java.util.concurrent.ConcurrentLinkedQueue<>());
     }
 
     private TempTable(@Nonnull Queue<QueryResult> buffer) {
@@ -72,7 +73,6 @@ public class TempTable {
     public void add(@Nonnull QueryResult... elements) {
         Arrays.stream(elements).forEach(this::add);
     }
-
 
     @Nonnull
     public Queue<QueryResult> getReadBuffer() {
