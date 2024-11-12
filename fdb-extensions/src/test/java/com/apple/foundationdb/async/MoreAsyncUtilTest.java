@@ -39,6 +39,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -100,7 +104,8 @@ public class MoreAsyncUtilTest {
         String callbackThreadName = MoreAsyncUtil.delayedFuture(5, TimeUnit.MILLISECONDS)
                 .thenApply(ignore -> Thread.currentThread().getName())
                 .get();
-        assertTrue(callbackThreadName.startsWith("fdb-scheduled"), () -> "Callback executed on thread: " + callbackThreadName + ". Should have been executed on delayed executor");
+        assertThat("Callback should have been executed on thread started by default scheduled executor",
+                callbackThreadName, startsWith("fdb-scheduled"));
 
         ScheduledExecutorService scheduledExecutor = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder()
                 .setDaemon(true)
@@ -133,7 +138,12 @@ public class MoreAsyncUtilTest {
                         return Thread.currentThread().getName();
                     })
                     .get();
-            assertEquals("test-deadline-exceeded-thread-0", callbackThreadName);
+
+            // Most of the time, the callback should come fom the scheduledExecutor. However, if there's some hiccup and actually
+            // setting up the future chain takes longer than the deadline time, then it's possible for the callback to complete on
+            // the test worker thread
+            assertThat("Callback should have been executed on thread managed by scheduled executor or by calling thread",
+                    callbackThreadName, either(equalTo("test-deadline-exceeded-thread-0")).or(equalTo(Thread.currentThread().getName())));
         } finally {
             scheduledExecutor.shutdown();
         }
