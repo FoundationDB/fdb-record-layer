@@ -448,8 +448,6 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             return orderingFromSingleChild(unorderedPrimaryKeyDistinctPlan);
         }
 
-
-
         @Nonnull
         @Override
         public Ordering visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
