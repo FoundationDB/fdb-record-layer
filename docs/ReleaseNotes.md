@@ -27,6 +27,7 @@ with the new code.
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** DefaultTextTokenizer behaved differently depending on system locale [(Issue #2966)](https://github.com/FoundationDB/fdb-record-layer/issues/2966)
+* **Bug fix** Sort FieldInfos attributes before serializing, reducing unique FieldInfos [(Issue #2968)](https://github.com/FoundationDB/fdb-record-layer/issues/2968)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
