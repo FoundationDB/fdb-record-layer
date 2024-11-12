@@ -17,17 +17,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* `DefaultTextTokenizer` (and `TextTokenizer`s that use it) now uses `Locale.ROOT` for tokenizing instead of the default
-locale. This could have an impact if it's being used in an environment with a default locale that is not compatible with
-`Locale.ROOT` for this purpose. For example if the default locale is `th`, Thai text may be tokenized differently with
-this version. This also means that if you have TEXT indexes using one of these tokenizers, they will need to be rebuilt
-with the new code.
-
-
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** DefaultTextTokenizer behaved differently depending on system locale [(Issue #2966)](https://github.com/FoundationDB/fdb-record-layer/issues/2966)
-* **Bug fix** Sort FieldInfos attributes before serializing, reducing unique FieldInfos [(Issue #2968)](https://github.com/FoundationDB/fdb-record-layer/issues/2968)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -36,7 +28,7 @@ with the new code.
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support temporary table planning and execution [(Issue #2962)](https://github.com/FoundationDB/fdb-record-layer/pull/2962)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -48,6 +40,19 @@ with the new code.
 
 // end next release
 -->
+
+### 3.4.554.0
+
+* `DefaultTextTokenizer` (and `TextTokenizer`s that use it) now uses `Locale.ROOT` for tokenizing instead of the default
+locale. This could have an impact if it's being used in an environment with a default locale that is not compatible with
+`Locale.ROOT` for this purpose. For example if the default locale is `th`, Thai text may be tokenized differently with
+this version. This also means that if you have TEXT indexes using one of these tokenizers, they will need to be rebuilt
+with the new code.
+
+
+* **Bug fix** DefaultTextTokenizer behaved differently depending on system locale [(Issue #2966)](https://github.com/FoundationDB/fdb-record-layer/issues/2966)
+* **Bug fix** Sort FieldInfos attributes before serializing, reducing unique FieldInfos [(Issue #2968)](https://github.com/FoundationDB/fdb-record-layer/issues/2968)
+* **Feature** Support temporary table planning and execution [(Issue #2962)](https://github.com/FoundationDB/fdb-record-layer/pull/2962)
 
 ### 3.4.553.0
 
