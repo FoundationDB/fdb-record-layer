@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
@@ -47,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
@@ -71,6 +73,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -240,6 +244,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitRecordQueryInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
         return fromChild(insertPlan);
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+        return fromChild(tempTableInsertPlan);
     }
 
     @Nonnull
@@ -495,6 +505,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
+    public Cardinalities visitTempTableInsertExpression(@Nonnull final TempTableInsertExpression tempTableInsertExpression) {
+        return fromChild(tempTableInsertExpression);
+    }
+
+    @Nonnull
+    @Override
     public Cardinalities visitPrimaryScanExpression(@Nonnull final PrimaryScanExpression element) {
         // TODO do better
         return Cardinalities.unknownMaxCardinality();
@@ -559,6 +575,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
+    public Cardinalities visitTempTableScanExpression(@Nonnull final TempTableScanExpression element) {
+        return Cardinalities.unknownMaxCardinality();
+    }
+
+    @Nonnull
+    @Override
     public Cardinalities visitGroupByExpression(@Nonnull final GroupByExpression element) {
         // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
         // and return a single row comprising the aggregation(s) result
@@ -600,6 +622,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitRecordQuerySortPlan(@Nonnull final RecordQuerySortPlan querySortPlan) {
         return fromChild(querySortPlan);
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        return Cardinalities.unknownMaxCardinality();
     }
 
     @Nonnull

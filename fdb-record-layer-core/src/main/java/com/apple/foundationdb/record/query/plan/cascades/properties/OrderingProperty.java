@@ -58,6 +58,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -283,6 +285,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
+        public Ordering visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+            return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
             return Ordering.empty();
         }
@@ -291,6 +299,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
             return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+            return orderingFromSingleChild(tempTableInsertPlan);
         }
 
         @Nonnull

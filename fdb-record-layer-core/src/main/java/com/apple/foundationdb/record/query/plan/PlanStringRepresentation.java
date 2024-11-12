@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -58,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -404,6 +406,14 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     }
 
     @Nonnull
+    @Override
+    public PlanStringRepresentation visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan element) {
+        return visit(element.getChild())
+                .append(" | TEMP TABLE INSERT INTO ")
+                .append(element.getTargetRecordType());
+    }
+
+    @Nonnull
     private PlanStringRepresentation visitIntersectionPlan(@Nonnull RecordQueryIntersectionPlan element) {
         return appendItems(element.getChildren(), " ∩ ");
     }
@@ -575,6 +585,14 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
         return visit(element.getChild())
                 .append(" ORDER BY ")
                 .append(element.getKey());
+    }
+
+    @Nonnull
+    @Override
+    public PlanStringRepresentation visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        return append("TEMP TABLE SCAN ([")
+                .append(element.getResultValue())
+                .append("])");
     }
 
     @Nonnull

@@ -136,6 +136,9 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
             Verify.verify(getResultType().isNullable());
             return null;
         }
+        if (getResultType().isRelation()) {
+            return obj;
+        }
         final var objType = Type.fromObject(obj);
         final var promotionNeeded = PromoteValue.isPromotionNeeded(objType, getResultType());
         if (!promotionNeeded) {

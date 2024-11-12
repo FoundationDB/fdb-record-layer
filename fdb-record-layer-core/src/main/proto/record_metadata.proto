@@ -292,3 +292,38 @@ message Predicate {
   optional NotPredicate not_predicate = 4;
   optional ValuePredicate value_predicate = 5;
 }
+
+message PEnumLightValue {
+  optional string name = 1;
+  optional int32 number = 2;
+}
+
+message PUUID {
+  optional uint64 mostSigBits = 1;
+  optional uint64 leastSigBits = 2;
+}
+
+message PFDBRecordVersion {
+  optional bytes raw_bytes = 1;
+}
+
+message PComparableObject {
+  oneof specific_object {
+    Value primitive_object = 1;
+    PEnumLightValue enum_object = 2;
+    PUUID uuid = 3;
+    PFDBRecordVersion fdb_record_version = 4;
+    bytes bytes_as_byte_string = 5;
+  }
+}
+
+message PQueryResult {
+  oneof datum {
+    PComparableObject primitive = 1;
+    bytes complex = 2;
+  }
+}
+
+message PTempTable {
+  repeated bytes bufferItems = 2;
+}

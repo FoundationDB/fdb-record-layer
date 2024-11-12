@@ -71,6 +71,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -387,6 +389,11 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryScanPlan> scanPlan() {
         return ofTypeOwning(RecordQueryScanPlan.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<TempTableScanPlan> tempTableScanPlan() {
+        return ofTypeOwning(TempTableScanPlan.class, CollectionMatcher.empty());
     }
 
     @Nonnull
@@ -776,6 +783,11 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryInsertPlan> insertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryInsertPlan.class, exactlyPlans(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<TempTableInsertPlan> tempTableInsertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(TempTableInsertPlan.class, exactlyPlans(downstream));
     }
 
     @Nonnull

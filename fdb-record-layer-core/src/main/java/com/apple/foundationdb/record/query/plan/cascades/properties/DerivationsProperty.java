@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -74,6 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -297,6 +299,12 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
+        public Derivations visitTempTableScanPlan(@Nonnull final TempTableScanPlan tempTableScanPlan) {
+            return new Derivations(ImmutableList.of(tempTableScanPlan.getResultValue()), ImmutableList.of());
+        }
+
+        @Nonnull
+        @Override
         public Derivations visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
             final var collectionValue = explodePlan.getCollectionValue();
             final var resultType = collectionValue.getResultType();
@@ -321,6 +329,27 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
                 final var resultsTranslationMap = TranslationMap.builder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                         .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(insertPlan.getTargetRecordType())))
+                        .build();
+                resultValuesBuilder.add(computationValue.translateCorrelationsAndSimplify(resultsTranslationMap));
+            }
+            return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+            final Quantifier rangesOver = Iterables.getOnlyElement(tempTableInsertPlan.getQuantifiers());
+            final var childDerivations = derivationsFromQuantifier(rangesOver);
+            final var childResultValues = childDerivations.getResultValues();
+            final var computationValue = tempTableInsertPlan.getComputationValue();
+
+            final var resultValuesBuilder = ImmutableList.<Value>builder();
+            final var localValuesBuilder = ImmutableList.<Value>builder();
+            localValuesBuilder.addAll(childDerivations.getLocalValues());
+            for (final var childResultValue : childResultValues) {
+                final var resultsTranslationMap = TranslationMap.builder()
+                        .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
+                        .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(tempTableInsertPlan.getTargetRecordType())))
                         .build();
                 resultValuesBuilder.add(computationValue.translateCorrelationsAndSimplify(resultsTranslationMap));
             }

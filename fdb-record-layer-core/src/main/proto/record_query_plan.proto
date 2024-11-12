@@ -971,30 +971,6 @@ message PConversionSimpleComparison {
   optional KeyExpression conversion = 3;
 }
 
-message PComparableObject {
-  oneof specific_object {
-    Value primitive_object = 1;
-    PEnumLightValue enum_object = 2;
-    PUUID uuid = 3;
-    PFDBRecordVersion fdb_record_version = 4;
-    bytes bytes_as_byte_string = 5;
-  }
-}
-
-message PEnumLightValue {
-  optional string name = 1;
-  optional int32 number = 2;
-}
-
-message PUUID {
-  optional uint64 mostSigBits = 1;
-  optional uint64 leastSigBits = 2;
-}
-
-message PFDBRecordVersion {
-  optional bytes raw_bytes = 1;
-}
-
 message PParameterComparison {
   enum PBindingKind {
     IN = 1;
@@ -1193,6 +1169,8 @@ message PRecordQueryPlan {
     PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
     PRecordQueryUpdatePlan update_plan = 32;
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
+    PTempTableScanPlan temp_table_scan_plan = 34;
+    PTempTableInsertPlan temp_table_insert_plan = 35;
   }
 }
 
@@ -1370,6 +1348,13 @@ message PRecordQueryIndexPlan {
   optional PQueryPlanConstraint constraint = 9;
 }
 
+//
+// PTempTableScanPlan
+//
+message PTempTableScanPlan {
+  optional PValue temp_table_reference_value = 1;
+}
+
 message PIndexScanParameters {
   extensions 5000 to max;
   oneof specific_index_scan_parameters {
@@ -1500,6 +1485,14 @@ message PRecordQueryInParameterJoinPlan {
 //
 message PRecordQueryInsertPlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+//
+// PTempTableInsertPlan
+//
+message PTempTableInsertPlan {
+  optional PRecordQueryAbstractDataModificationPlan super = 1;
+  optional PValue temp_table_reference_value = 2;
 }
 
 //

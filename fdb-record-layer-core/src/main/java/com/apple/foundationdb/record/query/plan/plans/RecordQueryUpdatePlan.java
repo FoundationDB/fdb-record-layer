@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryUpdatePlan;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
@@ -94,14 +96,15 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         return PipelineOperation.UPDATE;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message, final boolean isDryRun) {
+    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, final @Nonnull EvaluationContext context, @Nonnull final M message, final boolean isDryRun) {
+        final CompletableFuture<FDBStoredRecord<M>> result;
         if (isDryRun) {
-            return store.dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+            result = store.dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
         } else {
-            return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+            result = store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
         }
+        return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(FDBQueriedRecord.stored(fdbStoredRecord)));
     }
 
     @Nonnull
