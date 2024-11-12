@@ -1,0 +1,51 @@
+name: Build Record Layer
+
+on: push
+
+env:
+  FDB_VERSION: "7.3.42"
+
+jobs:
+  build-gradle:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install FDB
+      run: wget https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb
+    - run: wget https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/foundationdb-server_${FDB_VERSION}-1_amd64.deb
+    - run: sudo dpkg -i foundationdb-clients_${FDB_VERSION}-1_amd64.deb foundationdb-server_${FDB_VERSION}-1_amd64.deb
+    - run: sudo sed -i -e "s/public_address = auto:\$ID/public_address = 127.0.0.1:\$ID/g" -e "s/listen_address = public/listen_address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
+    - run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb.conf --daemonize
+    - run: fdbcli --exec "configure single ssd storage_migration_type=aggressive; status"
+    - name: Checkout sources
+      uses: actions/checkout@v4
+    - run: sed -i -e "s/^org\.gradle\..*/#&/g" gradle.properties
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+    - name: Run build
+      run: GRADLE_OPTS="-XX:+HeapDumpOnOutOfMemoryError -Xverify:none -XX:+TieredCompilation -Xmx4096m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" ./gradlew --no-daemon --console=plain -b ./build.gradle build destructiveTest -PcoreNotStrict -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+    - name: Publish Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: |
+          fdb-java-annotations/.out/reports
+          fdb-extensions/.out/reports
+          fdb-record-layer-core/.out/reports
+          fdb-record-layer-icu/.out/reports
+          fdb-record-layer-spatial/.out/reports
+          fdb-record-layer-lucene/.out/reports
+          fdb-record-layer-jmh/.out/reports
+          examples/.out/reports
+          fdb-relational-api/.out/reports
+          fdb-relational-core/.out/reports
+          fdb-relational-cli/.out/reports
+          fdb-relational-grpc/.out/reports
+          fdb-relational-jdbc/.out/reports
+          fdb-relational-server/.out/reports
+          yaml-tests/.out/reports
