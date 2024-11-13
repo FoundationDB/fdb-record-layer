@@ -264,7 +264,7 @@ public class OrPredicate extends AndOrPredicate {
                         PredicateMapping.orTermMappingBuilder(
                                         originalQueryPredicate, this,
                                         new ConstantPredicate(true))
-                                .setPredicateCompensation(getDefaultPredicateCompensation())
+                                .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                                 .setConstraint(constraintOptional.get())
                                 .build());
             }
@@ -338,7 +338,7 @@ public class OrPredicate extends AndOrPredicate {
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
                                     candidatePredicate)
-                            .setPredicateCompensation(getDefaultPredicateCompensation())
+                            .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                             .build());
         } else {
             return Optional.of(
@@ -352,6 +352,7 @@ public class OrPredicate extends AndOrPredicate {
     @Nonnull
     @Override
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults,
                                                                      @Nonnull final PullUp pullUp) {

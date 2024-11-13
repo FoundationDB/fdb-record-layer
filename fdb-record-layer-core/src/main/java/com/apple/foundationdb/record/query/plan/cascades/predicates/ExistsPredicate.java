@@ -195,13 +195,17 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             }
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                            .setPredicateCompensation(this::computeCompensationFunction)
+                            .setPredicateCompensation((partialMatch, boundParameterPrefixMap, pullUp) ->
+                                    computeCompensationFunction(partialMatch, (ExistsPredicate)originalQueryPredicate,
+                                            boundParameterPrefixMap, pullUp))
                             .setConstraint(aliasEquals.getConstraint())
                             .build());
         } else if (candidatePredicate.isTautology()) {
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                            .setPredicateCompensation(this::computeCompensationFunction)
+                            .setPredicateCompensation((partialMatch, boundParameterPrefixMap, pullUp) ->
+                                    computeCompensationFunction(partialMatch, (ExistsPredicate)originalQueryPredicate,
+                                            boundParameterPrefixMap, pullUp))
                             .build());
         }
         return Optional.empty();
@@ -210,11 +214,13 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     @Nonnull
     @Override
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults,
                                                                      @Nonnull final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
-        return computeCompensationFunction(partialMatch, boundParameterPrefixMap, pullUp);
+        return computeCompensationFunction(partialMatch, (ExistsPredicate)originalQueryPredicate,
+                boundParameterPrefixMap, pullUp);
     }
 
     /**
@@ -228,6 +234,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
      */
     @Nonnull
     private PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final ExistsPredicate originalExistsPredicate,
                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                       @Nonnull final PullUp pullUp) {
         final var matchInfo = partialMatch.getMatchInfo();
@@ -237,21 +244,10 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                         childPartialMatch.compensate(boundParameterPrefixMap, childPartialMatch.topPullUp()));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
             //
-            // Compute the query-side existential quantifier -- this is NOT the base quantifier of the compensation
-            // but one of the additionally pulled up quantifiers.
-            //
-            final var inverseMatchedAliasMap =
-                    partialMatch.getMatchedAliasMap().inverse();
-            final var queryExistentialAlias = inverseMatchedAliasMap.get(getExistentialAlias());
-            if (queryExistentialAlias == null) {
-                return PredicateCompensationFunction.impossibleCompensation();
-            }
-
-            //
             // Note that this predicate does NOT need to be pulled up as the existential quantifier is separately
             // added in.
             //
-            return PredicateCompensationFunction.of(baseAlias -> LinkedIdentitySet.of(new ExistsPredicate(queryExistentialAlias)));
+            return PredicateCompensationFunction.of(baseAlias -> LinkedIdentitySet.of(originalExistsPredicate));
         }
         return PredicateCompensationFunction.noCompensationNeeded();
     }

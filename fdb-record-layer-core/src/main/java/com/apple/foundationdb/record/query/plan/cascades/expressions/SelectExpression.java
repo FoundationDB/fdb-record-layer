@@ -730,7 +730,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nonnull final PullUp pullUp) {
         final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
-        final var matchedQuantifierMap = partialMatch.getMatchedQuantifierMap();
         final var matchInfo = partialMatch.getMatchInfo();
         final var predicateMap = matchInfo.getPredicateMap();
 
@@ -750,8 +749,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         matchInfo.getChildPartialMatchMaybe(quantifier)
                                 .map(childPartialMatch -> {
                                     final var childPullUp =
-                                            childPartialMatch.nestPullUp(pullUp,
-                                                    Objects.requireNonNull(matchedQuantifierMap.get(quantifier)));
+                                            childPartialMatch.nestPullUp(pullUp);
                                     return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
                                 }).stream())
                 .reduce(Compensation.noCompensation(), Compensation::union);

@@ -216,7 +216,8 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
         final var childMatchInfo = partialMatch.getMatchInfo();
         final var maxMatchMap = childMatchInfo.getMaxMatchMap();
         final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
-        final var adjustedMaxMatchMapOptional = maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue());
+        final var adjustedMaxMatchMapOptional =
+                maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue());
         return adjustedMaxMatchMapOptional
                 .map(adjustedMaxMatchMap ->
                         childMatchInfo.derivedBuilder()

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
@@ -152,8 +151,8 @@ public class PullUp {
 
     @Nonnull
     public static RelationalExpressionVisitor<PullUp> nestingVisitor(@Nonnull final PullUp pullUp,
-                                                                     @Nonnull final Quantifier nestingQuantifier) {
-        return new NestingPullUpVisitor(pullUp, nestingQuantifier);
+                                                                     @Nonnull final CorrelationIdentifier nestingAlias) {
+        return new NestingPullUpVisitor(pullUp, nestingAlias);
     }
 
     private static class TopPullUpVisitor implements RelationalExpressionVisitorWithDefaults<PullUp> {
@@ -175,28 +174,28 @@ public class PullUp {
         @Nonnull
         private final PullUp pullUp;
         @Nonnull
-        private final Quantifier nestingQuantifier;
+        private final CorrelationIdentifier nestingAlias;
 
         public NestingPullUpVisitor(@Nonnull final PullUp pullUp,
-                                    @Nonnull final Quantifier nestingQuantifier) {
+                                    @Nonnull final CorrelationIdentifier nestingAlias) {
             this.pullUp = pullUp;
-            this.nestingQuantifier = nestingQuantifier;
+            this.nestingAlias = nestingAlias;
         }
 
         @Nonnull
         @Override
         public PullUp visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
-            return pullUp.nest(nestingQuantifier.getAlias(),
+            return pullUp.nest(nestingAlias,
                     logicalTypeFilterExpression.getInner().getAlias(),
                     logicalTypeFilterExpression.getInner().getFlowedObjectType(),
-                    nestingQuantifier.getCorrelatedTo());
+                    logicalTypeFilterExpression.getCorrelatedTo());
         }
 
         @Nonnull
         @Override
         public PullUp visitDefault(@Nonnull final RelationalExpression relationalExpression) {
-            return pullUp.nest(nestingQuantifier.getAlias(), relationalExpression.getResultValue(),
-                    nestingQuantifier.getCorrelatedTo());
+            return pullUp.nest(nestingAlias, relationalExpression.getResultValue(),
+                    relationalExpression.getCorrelatedTo());
         }
     }
 }

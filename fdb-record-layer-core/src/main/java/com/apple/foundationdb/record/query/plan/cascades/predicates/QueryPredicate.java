@@ -44,10 +44,12 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -182,7 +184,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (candidatePredicate.isTautology()) {
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, originalQueryPredicate, candidatePredicate)
-                            .setPredicateCompensation(getDefaultPredicateCompensation())
+                            .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                             .build());
         }
 
@@ -197,20 +199,49 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Return a {@link PredicateCompensation} that reapplies this predicate.
+     * @param originalQueryPredicate the original query predicate that was used to create this predicate
      * @return a new {@link PredicateCompensation} that reapplies this predicate.
      */
     @Nonnull
-    default PredicateCompensation getDefaultPredicateCompensation() {
+    default PredicateCompensation getDefaultPredicateCompensation(@Nonnull final QueryPredicate originalQueryPredicate) {
         return (partialMatch, boundParameterPrefixMap, pullUp) ->
-                Objects.requireNonNull(foldNullable(Function.identity(),
-                        (queryPredicate, childFunctions) -> queryPredicate.computeCompensationFunction(partialMatch,
-                                boundParameterPrefixMap,
-                                ImmutableList.copyOf(childFunctions),
-                                pullUp)));
+                computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap, pullUp);
+    }
+
+    /**
+     * Return a {@link PredicateCompensationFunction} that reapplies this predicate.
+     * @param partialMatch the partial match that was established when this predicate was matched
+     * @param originalQueryPredicate the original query predicate that was used to when this predicate was translated
+     * @param boundParameterPrefixMap the bound parameter prefix map
+     * @param pullUp the pull-up structure used during compensation
+     * @return a new {@link PredicateCompensation} that reapplies this predicate.
+     */
+    @Nonnull
+    default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                      @Nonnull final PullUp pullUp) {
+        Debugger.sanityCheck(() ->
+                Verify.verify(Iterables.size(getChildren()) ==
+                        Iterables.size(originalQueryPredicate.getChildren())));
+
+        final var originalChildrenIterator =
+                originalQueryPredicate.getChildren().iterator();
+        final var childPredicateCompensations =
+                ImmutableList.<PredicateCompensationFunction>builder();
+        for (final var childPredicate : getChildren()) {
+            final var originalChildPredicate = originalChildrenIterator.next();
+            childPredicateCompensations.add(
+                    childPredicate.computeCompensationFunction(partialMatch, originalChildPredicate,
+                            boundParameterPrefixMap, pullUp));
+        }
+        return computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap,
+                childPredicateCompensations.build(), pullUp);
     }
 
     @Nonnull
     default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                       @Nonnull final List<PredicateCompensationFunction> childrenResults,
                                                                       @Nonnull final PullUp pullUp) {
