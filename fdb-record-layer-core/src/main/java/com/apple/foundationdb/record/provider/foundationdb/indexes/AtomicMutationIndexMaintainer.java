@@ -128,7 +128,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         final MutationType mutationType = mutation.getMutationType();
         final int groupPrefixSize = getGroupingCount();
         for (IndexEntry indexEntry : indexEntries) {
-            long startTime = System.nanoTime();
+            final long startTime = System.nanoTime();
             final Tuple groupKey;
             final IndexEntry groupedValue;
             if (groupPrefixSize <= 0) {

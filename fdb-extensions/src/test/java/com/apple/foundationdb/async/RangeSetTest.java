@@ -571,7 +571,7 @@ public class RangeSetTest {
         assertArrayEquals(new byte[]{(byte)0xff}, r1.end);
 
         // Now, add some ranges to make the gaps interesting.
-        List<Range> toAdd = Arrays.asList(
+        final List<Range> toAdd = Arrays.asList(
                 new Range(new byte[]{0x10}, new byte[]{0x20}),
                 new Range(new byte[]{0x20}, new byte[]{0x20, 0x00}),
                 new Range(new byte[]{0x30}, new byte[]{0x40}),
@@ -581,7 +581,7 @@ public class RangeSetTest {
                 new Range(new byte[]{0x71}, new byte[]{0x72}),
                 new Range(new byte[]{0x72}, new byte[]{0x7f})
         );
-        List<Range> expected = Arrays.asList(
+        final List<Range> expected = Arrays.asList(
                 new Range(new byte[]{0x00}, new byte[]{0x10}),
                 new Range(new byte[]{0x20, 0x00}, new byte[]{0x30}),
                 new Range(new byte[]{0x40}, new byte[]{0x40, 0x00}),
@@ -589,7 +589,7 @@ public class RangeSetTest {
                 new Range(new byte[]{0x70}, new byte[]{0x71}),
                 new Range(new byte[]{0x7f}, new byte[]{(byte)0xff})
         );
-        List<Boolean> added = db.runAsync(tr -> {
+        final List<Boolean> added = db.runAsync(tr -> {
             List<CompletableFuture<Boolean>> futures = new ArrayList<>();
             for (Range range : toAdd) {
                 futures.add(rs.insertRange(tr, range));

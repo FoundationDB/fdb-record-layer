@@ -496,7 +496,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private TopDocs searchForTopDocs(int limit) throws IOException {
-        long startTime = System.nanoTime();
+        final long startTime = System.nanoTime();
         indexReader = getIndexReader();
         searcher = new LuceneOptimizedIndexSearcher(indexReader, executorService);
         TopDocs newTopDocs;

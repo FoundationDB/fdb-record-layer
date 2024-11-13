@@ -1639,7 +1639,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "checkstyle:VariableDeclarationUsageDistance"})
     private ScoredPlan planRankWithAnd(@Nonnull CandidateScan candidateScan,
                                        @Nonnull Index index, @Nonnull GroupingKeyExpression indexExpr,
                                        @Nonnull AndComponent and) {
@@ -2763,7 +2763,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                   @Nonnull ThenKeyExpression indexExpr,
                                   @Nonnull List<QueryComponent> filters,
                                   @Nullable KeyExpression sort) {
-            this (candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
+            this(candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
         }
 
         @SpotBugsSuppressWarnings(value = {"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"}, justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")

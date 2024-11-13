@@ -43,12 +43,13 @@ tasks.withType(Checkstyle) { task ->
     checkstyleAll.dependsOn task
     task.exclude '**/protogen/**'
     task.configProperties = ["projectDir" : rootProject.projectDir, 'bannedImports': BANNED_IMPORTS.join(',')]
+    task.maxHeapSize.set("1g")
 }
 
 checkstyle {
     ignoreFailures = false
     configFile = rootProject.file('gradle/codequality/checkstyle.xml')
-    toolVersion = "10.2"
+    toolVersion = "10.20.1"
 }
 
 task checkstyleMandatory(type: Checkstyle) { task ->
