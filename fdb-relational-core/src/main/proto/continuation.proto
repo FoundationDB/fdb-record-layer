@@ -70,7 +70,7 @@ message LiteralObject {
   }
 
   // if none of these are set, we consider the object to be NULL
-  optional com.apple.foundationdb.record.planprotos.PComparableObject scalar_object = 1;
+  optional com.apple.foundationdb.record.PComparableObject scalar_object = 1;
   optional Array array_object = 2;
   optional bytes record_object = 3;
 }
