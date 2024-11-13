@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.cursors.TempTableInsertCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PTempTableInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -47,6 +49,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,18 +72,23 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     @Nonnull
     private final Value tempTableReferenceValue;
 
+    private final boolean isOwningTempTable;
+
     protected TempTableInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
                                   @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
         super(serializationContext, Objects.requireNonNull(tempTableInsertPlanProto.getSuper()));
         this.tempTableReferenceValue = Value.fromValueProto(serializationContext, tempTableInsertPlanProto.getTempTableReferenceValue());
+        this.isOwningTempTable = tempTableInsertPlanProto.getIsOwningTempTable();
     }
 
     private TempTableInsertPlan(@Nonnull final Quantifier.Physical inner,
                                 @Nonnull final Value computationValue,
-                                @Nonnull final Value tempTableReferenceValue) {
+                                @Nonnull final Value tempTableReferenceValue,
+                                boolean isOwningTempTable) {
         super(inner, null, (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType(), null,
                 null, computationValue, currentModifiedRecordAlias());
         this.tempTableReferenceValue = tempTableReferenceValue;
+        this.isOwningTempTable = isOwningTempTable;
     }
 
     @Override
@@ -95,36 +103,61 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        final RecordCursor<QueryResult> childCursor;
+        if (isOwningTempTable) {
+            final var typeDescriptor = getInnerTypeDescriptor(context);
+            childCursor = TempTableInsertCursor.from(continuation,
+                    proto -> {
+                        final var tempTable = Objects.requireNonNull((TempTable<QueryResult>)getTempTableReferenceValue().eval(store, context));
+                        if (proto != null) {
+                            TempTable.from(proto, typeDescriptor).getReadBuffer().forEach(tempTable::add);
+                        }
+                        return tempTable;
+                    },
+                    childContinuation -> getInnerPlan().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()));
+            childCursor.map(queryResult -> Pair.of(queryResult, (M)Preconditions.checkNotNull(queryResult.getMessage())))
+                    .mapPipelined(pair -> {
+                        final var queryResult = pair.getLeft();
+                        final var nestedContext = context.childBuilder()
+                                .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
+                                .setBinding(getCurrentModifiedRecordAlias(), queryResult.getMessage()) // post-mutation
+                                .build(context.getTypeRepository());
+                        final var result = getComputationValue().eval(store, nestedContext);
+                        return CompletableFuture.completedFuture(QueryResult.ofComputed(result, queryResult.getPrimaryKey()));
+                    }, store.getPipelineSize(getPipelineOperation()));
 
-        final var cursor = createInsertCursor(continuation, ...)
-        .mapPiplned(pair ->
-                .thenApply(queryResult -> {
-                    final var nestedContext = context.childBuilder()
-                            .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
-                            .setBinding(getCurrentModifiedRecordAlias(), queryResult.getMessage()) // post-mutation
-                            .build(context.getTypeRepository());
-                    final var result = getComputationValue().eval(store, nestedContext);
-                    return QueryResult.ofComputed(result, queryResult.getPrimaryKey());
-                }
-        );
-
-
-        final RecordCursor<QueryResult> results =
-                getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
-        return results
-                .map(queryResult -> Pair.of(queryResult, (M)Preconditions.checkNotNull(queryResult.getMessage())))
-                .mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
-                                .thenApply(queryResult -> {
-                                    final var nestedContext = context.childBuilder()
-                                            .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
-                                            .setBinding(getCurrentModifiedRecordAlias(), queryResult.getMessage()) // post-mutation
-                                            .build(context.getTypeRepository());
-                                    final var result = getComputationValue().eval(store, nestedContext);
-                                    return QueryResult.ofComputed(result, queryResult.getPrimaryKey());
-                                }),
-                        store.getPipelineSize(getPipelineOperation()));
+        } else {
+            childCursor = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
+            childCursor.map(queryResult -> Pair.of(queryResult, (M)Preconditions.checkNotNull(queryResult.getMessage())))
+                    .mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
+                                    .thenApply(queryResult -> {
+                                        final var nestedContext = context.childBuilder()
+                                                .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
+                                                .setBinding(getCurrentModifiedRecordAlias(), queryResult.getMessage()) // post-mutation
+                                                .build(context.getTypeRepository());
+                                        final var result = getComputationValue().eval(store, nestedContext);
+                                        return QueryResult.ofComputed(result, queryResult.getPrimaryKey());
+                                    }),
+                            store.getPipelineSize(getPipelineOperation()));
+        }
+        return childCursor;
     }
 
+    @Nullable
+    private Descriptors.Descriptor getInnerTypeDescriptor(@Nonnull final EvaluationContext evaluationContext) {
+        final Descriptors.Descriptor typeDescriptor;
+        if (tempTableReferenceValue.getResultType().isRelation() && ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType().isRecord()) {
+            final var type = (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
+            final var builder = TypeRepository.newBuilder();
+            type.defineProtoType(builder);
+            typeDescriptor = builder.build().getMessageDescriptor(type);
+        } else {
+            typeDescriptor = null;
+        }
+        return typeDescriptor;
+    }
+
+    @SuppressWarnings("unchecked")
     @Override
     public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store,
                                                                                        @Nonnull final EvaluationContext context,
@@ -132,7 +165,7 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
                                                                                        boolean isDryRun) {
         // dry run is ignored since inserting into a table queue has no storage side effects.
         final var queryResult = QueryResult.ofComputed(message);
-        final var tempTable = (TempTable)getTempTableReferenceValue().eval(store, context);
+        final var tempTable = Objects.requireNonNull((TempTable<QueryResult>)getTempTableReferenceValue().eval(store, context));
         tempTable.add(queryResult);
         return CompletableFuture.completedFuture(queryResult);
     }
@@ -144,7 +177,8 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
         return new TempTableInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getComputationValue().translateCorrelations(translationMap),
-                getTempTableReferenceValue().translateCorrelations(translationMap));
+                getTempTableReferenceValue().translateCorrelations(translationMap),
+                isOwningTempTable);
     }
 
     @Nonnull
@@ -152,7 +186,8 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     public TempTableInsertPlan withChild(@Nonnull final Reference childRef) {
         return new TempTableInsertPlan(Quantifier.physical(childRef),
                 getComputationValue(),
-                getTempTableReferenceValue());
+                getTempTableReferenceValue(),
+                isOwningTempTable);
     }
 
     @Override
@@ -203,6 +238,7 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
         return PTempTableInsertPlan.newBuilder()
                 .setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext))
                 .setTempTableReferenceValue(getTempTableReferenceValue().toValueProto(serializationContext))
+                .setIsOwningTempTable(isOwningTempTable)
                 .build();
     }
 
@@ -232,7 +268,7 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
                                                  @Nonnull final Value computationValue,
                                                  @Nonnull final Value tempTableReferenceValue) {
-        return new TempTableInsertPlan(inner, computationValue, tempTableReferenceValue);
+        return new TempTableInsertPlan(inner, computationValue, tempTableReferenceValue, true);
     }
 
     @Nonnull

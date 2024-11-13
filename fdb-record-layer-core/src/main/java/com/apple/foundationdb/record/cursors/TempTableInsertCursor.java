@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ByteArrayContinuation;
+import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -29,89 +30,112 @@ import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
- * Documentation. TODO.
- * @param <T> TODO.
+ * A cursor that returns the items of a child cursor, and as a side effect, it adds the items to a designated
+ * {@link TempTable}.
+ *
+ * @param <T> The type of the cursor elements.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TempTableInsertCursor<T> implements RecordCursor<T> {
+public class TempTableInsertCursor<T extends ProtoSerializable> implements RecordCursor<T> {
 
     @Nonnull
     private final RecordCursor<T> childCursor;
     @Nonnull
-    private final Supplier<TempTable> tempTableSupplier;
+    private final TempTable<T> tempTable;
 
-    private TempTableInsertCursor(@Nonnull RecordCursor<T> childCursor) {
+    private TempTableInsertCursor(@Nonnull final RecordCursor<T> childCursor,
+                                  @Nonnull final TempTable<T> tempTable) {
         this.childCursor = childCursor;
+        this.tempTable = tempTable;
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        return null;
+        return childCursor.onNext().thenApply(childCursorResult -> {
+            if (!childCursorResult.hasNext()) {
+                if (childCursorResult.getNoNextReason().isSourceExhausted()) {
+                    return RecordCursorResult.exhausted();
+                } else {
+                    return RecordCursorResult.withoutNextValue(new Continuation<>(tempTable, childCursorResult.getContinuation()), childCursorResult.getNoNextReason());
+                }
+            } else {
+                tempTable.add(Objects.requireNonNull(childCursorResult.get()));
+                return RecordCursorResult.withNextValue(childCursorResult.get(), new Continuation<>(tempTable, childCursorResult.getContinuation()));
+            }
+        });
     }
 
     @Override
     public void close() {
-
+        childCursor.close();
     }
 
     @Override
     public boolean isClosed() {
-        return false;
+        return childCursor.isClosed();
     }
 
     @Nonnull
     @Override
     public Executor getExecutor() {
-        return null;
+        return childCursor.getExecutor();
     }
 
     @Override
     public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
-        return false;
+        if (visitor.visitEnter(this)) {
+            childCursor.accept(visitor);
+        }
+        return visitor.visitLeave(this);
     }
 
+    /**
+     * Creates a new instance of {@link TempTableInsertCursor}.
+     * @param unparsed An optional unparsed continuation, if {@code NULL} it is assumed that the cursor is at the beginning.
+     * @param tempTableDeserializer A method that, given a serialized {@link TempTable} returns a runtime {@link TempTable},
+     *                              note that the serialized {@link TempTable} can be {@code null}.
+     * @param childCursorCreator A creator of the child cursor, using a nullable child continuation.
+     * @return a new {@link TempTableInsertCursor} that either resumes the execution according to the given continuation,
+     *         or starts from the beginning.
+     * @param <T> The type of the cursor elements.
+     */
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public static <T> TempTableInsertCursor<T> from(@Nullable byte[] unparsed,
-                                                    @Nonnull Supplier<RecordMetaDataProto.PTempTable> tempTableSupplier,
-                                                    @Nonnull Consumer<RecordMetaDataProto.PTempTable> tempTableConsumer,
-                                                    @Nonnull Function<byte[], RecordCursor<T>> childCursorCreator) {
-        final var continaution = Continuation.from(unparsed, tempTableSupplier, tempTableConsumer);
-        final var childCursor = childCursorCreator.apply(continaution.getChildContinuation().toBytes());
-        return new TempTableInsertCursor<>(childCursor);
+    public static <T extends ProtoSerializable> TempTableInsertCursor<T> from(@Nullable byte[] unparsed,
+                                                                              @Nonnull Function<PTempTable, TempTable<T>> tempTableDeserializer,
+                                                                              @Nonnull Function<byte[], RecordCursor<T>> childCursorCreator) {
+        final var continuation = Continuation.from(unparsed, tempTableDeserializer);
+        final var childCursor = childCursorCreator.apply(continuation.getChildContinuation().toBytes());
+        return new TempTableInsertCursor<T>(childCursor, continuation.getTempTable());
     }
 
-    private static class Continuation implements RecordCursorContinuation {
+    private static class Continuation<T extends ProtoSerializable> implements RecordCursorContinuation {
 
         @Nonnull
-        private final Supplier<RecordMetaDataProto.PTempTable> tempTableSupplier;
+        private final TempTable<T> tempTable;
         @Nonnull
         private final RecordCursorContinuation childContinuation;
-        @Nullable
-        private RecordCursorProto.TempTableInsertContinuation cachedProto;
-        @Nullable
-        private byte[] cachedBytes;
 
-        private Continuation(@Nonnull final Supplier<RecordMetaDataProto.PTempTable> tempTableSupplier,
+        private Continuation(@Nonnull final TempTable<T> tempTable,
                              @Nonnull final RecordCursorContinuation childContinuation) {
-            this.tempTableSupplier = tempTableSupplier;
+            this.tempTable = tempTable;
             this.childContinuation = childContinuation;
         }
 
@@ -121,18 +145,20 @@ public class TempTableInsertCursor<T> implements RecordCursor<T> {
         }
 
         @Nonnull
-        RecordCursorProto.TempTableInsertContinuation toProto() {
-            if (cachedProto == null) {
-                RecordCursorProto.TempTableInsertContinuation.Builder builder =
-                        RecordCursorProto.TempTableInsertContinuation.newBuilder();
-                builder.setTempTable(tempTableSupplier.get().toByteString());
-                ByteString childBytes = childContinuation.toByteString();
-                if (!childBytes.isEmpty()) {
-                    builder.setChildContinuation(childBytes);
-                }
-                cachedProto = builder.build();
+        public TempTable<T> getTempTable() {
+            return tempTable;
+        }
+
+        @Nonnull
+        private RecordCursorProto.TempTableInsertContinuation toProto() {
+            RecordCursorProto.TempTableInsertContinuation.Builder builder =
+                    RecordCursorProto.TempTableInsertContinuation.newBuilder();
+            builder.setTempTable(tempTable.toProto().toByteString());
+            ByteString childBytes = childContinuation.toByteString();
+            if (!childBytes.isEmpty()) {
+                builder.setChildContinuation(childBytes);
             }
-            return cachedProto;
+            return builder.build();
         }
 
         @Nonnull
@@ -144,10 +170,10 @@ public class TempTableInsertCursor<T> implements RecordCursor<T> {
         @Nullable
         @Override
         public byte[] toBytes() {
-            if (cachedBytes == null) {
-                cachedBytes = toByteString().toByteArray();
+            if (isEnd()) {
+                return null;
             }
-            return cachedBytes;
+            return toByteString().toByteArray();
         }
 
         @Override
@@ -156,44 +182,31 @@ public class TempTableInsertCursor<T> implements RecordCursor<T> {
         }
 
         @Nonnull
-        static Continuation from(@Nonnull RecordCursorProto.TempTableInsertContinuation parsed,
-                                 @Nonnull Supplier<RecordMetaDataProto.PTempTable> tempTableSupplier,
-                                 @Nonnull Consumer<RecordMetaDataProto.PTempTable> tempTableConsumer) {
-            // synchronize the state of the temp table through the consumer.
-            if (parsed.hasTempTable()) {
-                try {
-                    tempTableConsumer.accept(RecordMetaDataProto.PTempTable.parseFrom(parsed.getTempTable()));
-                } catch (InvalidProtocolBufferException ex) {
-                    throw new RecordCoreException("invalid continuation", ex)
-                            .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(parsed.getTempTable().toByteArray()));
-                }
-            }
+        private static <T extends ProtoSerializable> Continuation<T> from(@Nonnull final RecordCursorProto.TempTableInsertContinuation parsed,
+                                                                          @Nullable final PTempTable parsedTempTable,
+                                                                          @Nonnull final Function<PTempTable, TempTable<T>> tempTableDeserializer) {
+            final var tempTable = tempTableDeserializer.apply(parsedTempTable);
             final var childContinuation = parsed.hasChildContinuation()
                                           ? ByteArrayContinuation.fromNullable(parsed.getChildContinuation().toByteArray())
                                           : RecordCursorStartContinuation.START;
-            Continuation result = new Continuation(tempTableSupplier, childContinuation);
-            result.cachedProto = parsed;
-            return result;
+            return new Continuation<>(tempTable, childContinuation);
         }
 
         @Nonnull
-        static Continuation from(@Nullable byte[] unparsed,
-                                 @Nonnull Supplier<RecordMetaDataProto.PTempTable> tempTableSupplier,
-                                 @Nonnull Consumer<RecordMetaDataProto.PTempTable> tempTableConsumer) {
-            final Continuation result;
+        private static <T extends ProtoSerializable> Continuation<T> from(@Nullable final byte[] unparsed,
+                                                                          @Nonnull final Function<PTempTable, TempTable<T>> tempTableDeserializer) {
             if (unparsed == null) {
-                result = new Continuation(tempTableSupplier, RecordCursorStartContinuation.START);
+                return new Continuation<>(tempTableDeserializer.apply(null), RecordCursorStartContinuation.START);
             } else {
                 try {
-                    result = Continuation.from(RecordCursorProto.TempTableInsertContinuation.parseFrom(unparsed),
-                            tempTableSupplier, tempTableConsumer);
+                    final var parsed = RecordCursorProto.TempTableInsertContinuation.parseFrom(unparsed);
+                    final var parsedTempTable = parsed.hasTempTable() ? PTempTable.parseFrom(parsed.getTempTable()) : null;
+                    return Continuation.from(parsed, parsedTempTable, tempTableDeserializer);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("invalid continuation", ex)
                             .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsed));
                 }
-                result.cachedBytes = unparsed;
             }
-            return result;
         }
     }
 }

@@ -20,124 +20,120 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Queue;
 
 /**
  * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
  * placeholder for computation results produced by some physical operator (i.e. {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan}),
  * but can be leveraged to represent, for example, SQL temporary tables as well.<br/>
- * The actual implementation is thread-safe, however it is unbounded leaving it to the consumer.
+ * The actual implementation is thread-safe, however it is unbounded leaving setting any upper bound to the consumer.
+ *
+ * @param <T> The type of the temp table elements.
  */
-public class TempTable {
+public class TempTable<T extends ProtoSerializable> implements ProtoSerializable {
 
     @Nonnull
-    private final Queue<QueryResult> underlyingBuffer;
+    private final Queue<T> underlyingBuffer;
+
+    @Nonnull
+    private final PTempTable.Builder protoBuilder;
+
+    @Nullable
+    private Message cachedProto;
 
     private TempTable() {
-        this(new java.util.concurrent.ConcurrentLinkedQueue<>());
+        this(new java.util.concurrent.ConcurrentLinkedQueue<>(), PTempTable.newBuilder());
     }
 
-    private TempTable(@Nonnull Queue<QueryResult> buffer) {
+    private TempTable(@Nonnull Queue<T> buffer, @Nonnull final PTempTable.Builder protoBuilder) {
         this.underlyingBuffer = buffer;
+        this.protoBuilder = protoBuilder;
+        this.cachedProto = null;
     }
 
     /**
      * Add a new {@link QueryResult} element to the queue.
      * @param element the new element to be added.
      */
-    public void add(@Nonnull QueryResult element) {
+    public void add(@Nonnull T element) {
         underlyingBuffer.add(element);
+        protoBuilder.addBufferItems(element.toProto().toByteString());
+        cachedProto = null;
     }
 
     /**
-     * Add a new {@link QueryResult} elements to the queue.
-     * @param elements the new elements to be added.
+     * Clears the underlying buffer.
      */
-    public void add(@Nonnull QueryResult... elements) {
-        Arrays.stream(elements).forEach(this::add);
+    public void clear() {
+        underlyingBuffer.clear();
+        protoBuilder.clearBufferItems();
+        cachedProto = null;
     }
 
     @Nonnull
-    public Queue<QueryResult> getReadBuffer() {
+    public Queue<T> getReadBuffer() {
         return underlyingBuffer;
     }
 
-    @SuppressWarnings("unchecked")
     @Nonnull
-    public RecordCursor<QueryResult> getReadCursor(@Nullable byte[] continuation) {
-        return new ListCursor<>((List<QueryResult>)getReadBuffer(), continuation);
+    public Iterator<T> getIterator() {
+        return underlyingBuffer.iterator();
     }
 
-    private void serializeBuffer(@Nonnull RecordMetaDataProto.PTempTable.Builder protoMessageBuilder) {
-        for (final var element : underlyingBuffer) {
-            final var elementByteString = element.toByteString();
-            protoMessageBuilder.addBufferItems(elementByteString);
+    @Nonnull
+    @Override
+    public Message toProto() {
+        if (cachedProto == null) {
+            cachedProto = protoBuilder.build();
         }
+        return cachedProto;
     }
 
     @Nonnull
-    public RecordMetaDataProto.PTempTable toProto() {
-        final var builder = RecordMetaDataProto.PTempTable.newBuilder();
-        serializeBuffer(builder);
-        return builder.build();
+    public static TempTable<?> from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final byte[] bytes) {
+        return from(descriptor, ZeroCopyByteString.wrap(bytes));
     }
 
     @Nonnull
-    public ByteString toByteString() {
-        return toProto().toByteString();
-    }
-
-    @Nonnull
-    public byte[] toBytes() {
-        return toByteString().toByteArray();
-    }
-
-    @Nonnull
-    public static TempTable deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull byte[]bytes) {
-        return deserialize(descriptor, ZeroCopyByteString.wrap(bytes));
-    }
-
-    @Nonnull
-    public static TempTable deserialize(@Nullable Descriptors.Descriptor descriptor, @Nonnull ByteString byteString) {
-        final RecordMetaDataProto.PTempTable tempTableProto;
+    public static TempTable<?> from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final ByteString byteString) {
+        final PTempTable tempTableProto;
         try {
-            tempTableProto = RecordMetaDataProto.PTempTable.parseFrom(byteString);
+            tempTableProto = PTempTable.parseFrom(byteString);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
         }
-        return fromProto(tempTableProto, descriptor);
+        return from(tempTableProto, descriptor);
     }
 
     @Nonnull
-    public static TempTable fromProto(@Nonnull final RecordMetaDataProto.PTempTable tempTableProto,
-                                      @Nullable Descriptors.Descriptor descriptor) {
+    public static TempTable<QueryResult> from(@Nonnull final PTempTable tempTableProto,
+                                              @Nullable final Descriptors.Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
         for (final var element : tempTableProto.getBufferItemsList()) {
-            underlyingBuffer.add(QueryResult.deserialize(descriptor, element));
+            underlyingBuffer.add(QueryResult.from(descriptor, element));
         }
-        return new TempTable(underlyingBuffer);
+        return new TempTable<>(underlyingBuffer, tempTableProto.toBuilder());
     }
 
     @Nonnull
-    public static TempTable newInstance() {
-        return new TempTable();
+    public static <T extends ProtoSerializable> TempTable<T> newInstance() {
+        return new TempTable<>();
     }
 }
