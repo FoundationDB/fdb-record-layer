@@ -171,7 +171,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         if (spellcheckSuggestions != null) {
             return;
         }
-        long startTime = System.nanoTime();
+        final long startTime = System.nanoTime();
         indexReader = getIndexReader();
 
         List<Suggestion> suggestionResults = new ArrayList<>();

@@ -267,7 +267,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     }
 
     protected void decompress(@Nonnull TransformState state, @Nullable StoreTimer timer) throws DataFormatException {
-        long startTime = System.nanoTime();
+        final long startTime = System.nanoTime();
 
         // At the moment, there is only one compression version, so
         // we after we've verified it is in the right range, we

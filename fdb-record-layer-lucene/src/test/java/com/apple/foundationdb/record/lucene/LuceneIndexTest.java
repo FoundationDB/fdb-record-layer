@@ -1912,14 +1912,14 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
-            LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
+            final LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
             Tuple groupKey = Tuple.from(1L);
-            
+
             // timestamps present in partition keys
             long time0 = Math.abs(startTime);
             long time1 = time0 + 1000;
             long time2 = time0 + 2000;
-            
+
             // timestamp not in partition keys, but within a partition
             long time1_2 = time1 + 500; // between time1 and time2
 
@@ -1927,7 +1927,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             long timeTooOld = time0 - 500;
             long timeTooNew = time2 + 500;
 
-            Map<Long, String> timesForLogging = Map.of(
+            final Map<Long, String> timesForLogging = Map.of(
                     time0, "time0",
                     time1, "time1",
                     time2, "time2",

@@ -159,7 +159,7 @@ public class Key {
         }
 
         /**
-         * Shortuct for `concat(field(first), field(second), field(rest[0]), ...)`
+         * Shortcut for `concat(field(first), field(second), field(rest[0]), ...)`.
          * @param first the name of the first field to use in the index
          * @param second the name of the second field to use in the index
          * @param fields this supports any number fields (at least 2), this is the rest of them

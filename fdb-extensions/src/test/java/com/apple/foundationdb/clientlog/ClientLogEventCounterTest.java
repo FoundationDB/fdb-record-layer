@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 
 class ClientLogEventCounterTest {
 
-    @SuppressWarnings("PMD.SystemPrintln")
+    @SuppressWarnings({"PMD.SystemPrintln", "checkstyle:VariableDeclarationUsageDistance"})
     public static void main(String[] args) {
         String cluster = null;
         Instant start = null;

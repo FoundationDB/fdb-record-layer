@@ -280,6 +280,7 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
      * @throws IOException if there's issues
      */
     @Override
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     protected void doTestSortedVsStoredFields(final int numDocs, final double density, final Supplier<byte[]> bytes) throws Exception {
         // --BEGIN CUSTOM--
         Directory dir;
