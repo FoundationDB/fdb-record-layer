@@ -1492,7 +1492,7 @@ message PRecordQueryInsertPlan {
 // PTempTableInsertPlan
 //
 message PTempTableInsertPlan {
-  optional PRecordQueryAbstractDataModificationPlan super = 1;
+  optional PPhysicalQuantifier inner = 1;
   optional PValue temp_table_reference_value = 2;
   optional bool is_owning_temp_table = 3;
 }

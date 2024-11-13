@@ -94,7 +94,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     private final Quantifier.Physical inner;
     @Nonnull
     private final Type innerFlowedType;
-    @Nullable
+    @Nonnull
     private final String targetRecordType;
     @Nonnull
     private final Type.Record targetType;
@@ -129,9 +129,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                       @Nonnull final PRecordQueryAbstractDataModificationPlan recordQueryAbstractDataModificationPlanProto) {
         this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getInner())),
-                PlanSerialization.getFieldOrNull(recordQueryAbstractDataModificationPlanProto,
-                        PRecordQueryAbstractDataModificationPlan::hasTargetRecordType,
-                        m -> Objects.requireNonNull(m.getTargetRecordType())),
+                Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetRecordType()),
                 Type.Record.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetType())),
                 PlanSerialization.getFieldOrNull(recordQueryAbstractDataModificationPlanProto,
                         PRecordQueryAbstractDataModificationPlan::hasTransformationsTrie,
@@ -144,7 +142,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
-                                                      @Nullable final String targetRecordType,
+                                                      @Nonnull final String targetRecordType,
                                                       @Nonnull final Type.Record targetType,
                                                       @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
                                                       @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
@@ -194,14 +192,9 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         return dynamicTypesBuilder.build();
     }
 
-    @Nullable
-    protected <M extends Message> Descriptors.Descriptor getTargetDescriptor(@Nonnull final FDBRecordStoreBase<M> store) {
-        return store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
-    }
-
     @Nonnull
     @Override
-    @SuppressWarnings({"PMD.CloseResource", "resource", "unchecked"})
+    @SuppressWarnings({"PMD.CloseResource", "resource"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
@@ -384,10 +377,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     public PRecordQueryAbstractDataModificationPlan toRecordQueryAbstractModificationPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PRecordQueryAbstractDataModificationPlan.Builder builder = PRecordQueryAbstractDataModificationPlan.newBuilder()
                 .setInner(getInner().toProto(serializationContext))
+                .setTargetRecordType(targetRecordType)
                 .setTargetType(targetType.toProto(serializationContext));
-        if (targetRecordType != null) {
-            builder.setTargetRecordType(targetRecordType);
-        }
         if (transformationsTrie != null) {
             builder.setTransformationsTrie(transformationsTrie.toProto(serializationContext));
         }

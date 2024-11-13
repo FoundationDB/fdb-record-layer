@@ -72,14 +72,6 @@ public class QueryResult implements ProtoSerializable {
 
     // transient field that amortizes the calculation of the serialized form of this immutable object.
     @Nullable
-    private ByteString cachedByteString;
-
-    // transient field that amortizes the calculation of the serialized form of this immutable object.
-    @Nullable
-    private byte[] cachedBytes;
-
-    // transient field that amortizes the calculation of the serialized form of this immutable object.
-    @Nullable
     private PQueryResult cachedProto;
 
     private QueryResult(@Nullable final Object datum,
