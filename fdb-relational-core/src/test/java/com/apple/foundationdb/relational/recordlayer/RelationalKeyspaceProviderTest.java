@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 

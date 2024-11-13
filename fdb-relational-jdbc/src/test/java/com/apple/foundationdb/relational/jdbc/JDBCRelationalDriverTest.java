@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
 import com.apple.foundationdb.relational.util.BuildVersion;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

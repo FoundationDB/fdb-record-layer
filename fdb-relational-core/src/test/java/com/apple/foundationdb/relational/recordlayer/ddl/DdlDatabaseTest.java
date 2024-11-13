@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.TableDefinition;
 import com.apple.foundationdb.relational.utils.TypeDefinition;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

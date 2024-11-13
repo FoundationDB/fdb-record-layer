@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvide
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.BuildVersion;
+
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;

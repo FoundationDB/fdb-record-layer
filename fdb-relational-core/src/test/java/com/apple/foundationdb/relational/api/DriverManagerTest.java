@@ -45,7 +45,7 @@ class DriverManagerTest {
     public void beforeEach() throws SQLException {
         // Cleanup old drivers, if any,
         final var oldDrivers = DriverManager.drivers().collect(ImmutableList.toImmutableList());
-        for (final var driver: oldDrivers) {
+        for (final var driver : oldDrivers) {
             DriverManager.deregisterDriver(driver);
         }
         DriverManager.drivers().forEach(driver -> {
