@@ -1172,6 +1172,7 @@ message PRecordQueryPlan {
     PRecordQueryDefaultOnEmptyPlan default_on_empty_plan = 33;
     PTempTableScanPlan temp_table_scan_plan = 34;
     PTempTableInsertPlan temp_table_insert_plan = 35;
+    PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
   }
 }
 
@@ -1727,4 +1728,13 @@ message PRecordQueryUnionPlanBase {
 //
 message PRecordQueryUpdatePlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+//
+// PRecursiveUnionQueryPlan
+//
+message PRecursiveUnionQueryPlan {
+  repeated PPhysicalQuantifier quantifiers = 1;
+  optional PValue initialTempTableValueReference = 2;
+  optional PValue recursiveTempTableValueReference = 3;
 }

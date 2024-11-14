@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -226,6 +227,12 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Override
         public Derivations visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan element) {
+            return Derivations.EMPTY; // todo https://github.com/FoundationDB/fdb-record-layer/issues/2974
         }
 
         @Nonnull

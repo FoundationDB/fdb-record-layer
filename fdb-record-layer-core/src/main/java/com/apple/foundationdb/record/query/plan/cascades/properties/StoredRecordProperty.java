@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -128,6 +130,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan recursiveUnionQueryPlan) {
+            return storedRecordsFromChildren(recursiveUnionQueryPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull

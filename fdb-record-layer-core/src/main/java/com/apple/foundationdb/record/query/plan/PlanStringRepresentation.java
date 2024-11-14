@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -346,6 +347,15 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     @Override
     public PlanStringRepresentation visitInComparandJoinPlan(@Nonnull RecordQueryInComparandJoinPlan element) {
         return visitInJoinPlan(element);
+    }
+
+    @Nonnull
+    @Override
+    public PlanStringRepresentation visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan element) {
+        return append("RecursiveUnion(")
+                .visit(element.getChildren().get(0))
+                .append("U")
+                .visit(element.getChildren().get(1));
     }
 
     @Nonnull
