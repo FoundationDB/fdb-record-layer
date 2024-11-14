@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -273,43 +274,44 @@ public class PartialMatch {
 
     @Nonnull
     public Compensation compensateCompleteMatch() {
-        return queryExpression.compensate(this, getBoundParameterPrefixMap(), topPullUp());
+        return queryExpression.compensate(this, getBoundParameterPrefixMap(), null, Quantifier.uniqueID());
     }
 
     @Nonnull
     public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                   @Nonnull final PullUp pullUp) {
-        return queryExpression.compensate(this, boundParameterPrefixMap, pullUp);
-    }
-
-    @Nonnull
-    public PullUp topPullUp() {
-        final var candidateExpression = candidateRef.get();
-        final var pullUpVisitor = PullUp.topVisitor(CorrelationIdentifier.uniqueID());
-        return pullUpVisitor.visit(candidateExpression);
+                                   @Nonnull final PullUp pullUp,
+                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+        return queryExpression.compensate(this, boundParameterPrefixMap, pullUp, nestingAlias);
     }
 
     @Nonnull
     public PullUp nestPullUp(@Nonnull final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
         final var candidateExpression = candidateRef.get();
-        final var pullUpVisitor = PullUp.nestingVisitor(pullUp, nestingAlias);
+        final var pullUpVisitor = PullUp.visitor(pullUp, nestingAlias);
         return pullUpVisitor.visit(candidateExpression);
     }
 
     @Nonnull
-    public PullUp nestPullUpForAdjustments(@Nonnull final PullUp pullUp) {
+    public PullUp nestPullUpForAdjustments(@Nullable final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
         var currentMatchInfo = getMatchInfo();
-        var currentPullUp = pullUp;
         var currentCandidateRef = candidateRef;
-        while (currentMatchInfo.isAdjusted()) {
+        var currentPullUp = pullUp;
+        var currentNestingAlias = nestingAlias;
+        while (true) {
+            final var nestingVisitor =
+                    PullUp.visitor(currentPullUp, currentNestingAlias);
             final var currentCandidateExpression = currentCandidateRef.get();
+            currentPullUp = nestingVisitor.visit(currentCandidateRef.get());
+            if (!currentMatchInfo.isAdjusted()) {
+                break;
+            }
+
             final List<? extends Quantifier> currentQuantifiers = currentCandidateExpression.getQuantifiers();
             Verify.verify(currentQuantifiers.size() == 1);
             final Quantifier currentQuantifier = currentQuantifiers.get(0);
+            currentNestingAlias = currentQuantifier.getAlias();
             currentCandidateRef = currentQuantifier.getRangesOver();
-            final var nestingVisitor =
-                    PullUp.nestingVisitor(currentPullUp, currentQuantifier.getAlias());
-            currentPullUp = nestingVisitor.visit(currentCandidateRef.get());
+
             currentMatchInfo = ((MatchInfo.AdjustedMatchInfo)currentMatchInfo).getUnderlying();
         }
         return currentPullUp;

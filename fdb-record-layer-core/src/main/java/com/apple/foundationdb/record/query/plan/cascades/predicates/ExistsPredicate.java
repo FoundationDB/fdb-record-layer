@@ -241,8 +241,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
         final var childPartialMatchOptional =
                 matchInfo.getRegularMatchInfo().getChildPartialMatchMaybe(existentialAlias);
         final var compensationOptional =
-                childPartialMatchOptional.map(childPartialMatch ->
-                        childPartialMatch.compensate(boundParameterPrefixMap, childPartialMatch.topPullUp()));
+                childPartialMatchOptional.map(PartialMatch::compensateCompleteMatch);
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
             //
             // Note that this predicate does NOT need to be pulled up as the existential quantifier is separately

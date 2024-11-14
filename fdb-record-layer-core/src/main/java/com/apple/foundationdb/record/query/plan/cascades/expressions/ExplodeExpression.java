@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -144,7 +145,8 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                   @Nonnull final PullUp pullUp) {
+                                   @Nullable final PullUp pullUp,
+                                   @Nonnull final CorrelationIdentifier nestingAlias) {
         // subsumedBy() is based on equality and this expression is always a leaf, thus we return empty here as
         // if there is a match, it's exact
         return Compensation.noCompensation();

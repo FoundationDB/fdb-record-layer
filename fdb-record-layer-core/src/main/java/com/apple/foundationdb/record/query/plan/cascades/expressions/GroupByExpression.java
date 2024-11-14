@@ -344,18 +344,20 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                   @Nonnull final PullUp pullUp) {
+                                   @Nullable final PullUp pullUp,
+                                   @Nonnull final CorrelationIdentifier nestingAlias) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
-        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp);
+        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp, nestingAlias);
         // if the match requires, for the moment, any, compensation, we reject it.
         final Optional<Compensation> childCompensationOptional =
                 regularMatchInfo.getChildPartialMatchMaybe(quantifier)
                         .map(childPartialMatch -> {
-                            final var childPullUp = childPartialMatch.nestPullUp(adjustedPullUp, Quantifier.uniqueID());
-                            return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
+                            final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
+                            return childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
+                                    Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
                         });
 
         if (childCompensationOptional.isEmpty()) {
@@ -374,12 +376,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
-        if (!pullUp.isRoot()) {
+        if (pullUp != null) {
             resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
         } else {
+            final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpResultValueOptional =
-                    pullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
+                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
             if (pulledUpResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
@@ -388,7 +391,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
             resultCompensationFunction =
                     PredicateMultiMap.ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                            TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false));
+                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();

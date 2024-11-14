@@ -786,7 +786,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     default Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                    @Nonnull final PullUp pullUp) {
+                                    @Nullable final PullUp pullUp,
+                                    @Nonnull final CorrelationIdentifier nestingAlias) {
         throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 

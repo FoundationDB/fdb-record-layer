@@ -73,6 +73,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -729,13 +730,15 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @SuppressWarnings({"java:S135", "java:S1066"})
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                   @Nonnull final PullUp pullUp) {
+                                   @Nullable final PullUp pullUp,
+                                   @Nonnull final CorrelationIdentifier nestingAlias) {
         final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
         final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifiers = getQuantifiers();
 
-        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp);
+        final var adjustedPullUp =
+                partialMatch.nestPullUpForAdjustments(pullUp, nestingAlias);
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
@@ -750,9 +753,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .flatMap(quantifier ->
                         regularMatchInfo.getChildPartialMatchMaybe(quantifier)
                                 .map(childPartialMatch -> {
-                                    final var childPullUp =
-                                            childPartialMatch.nestPullUp(adjustedPullUp, Quantifier.uniqueID());
-                                    return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
+                                    final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
+                                    return childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
+                                            Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
                                 }).stream())
                 .reduce(Compensation.noCompensation(), Compensation::union);
 
@@ -819,12 +822,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         }
 
         final ResultCompensationFunction resultCompensationFunction;
-        if (!pullUp.isRoot()) {
+        if (pullUp != null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
         } else {
+            final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpResultValueOptional =
-                    pullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
+                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
             if (pulledUpResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
@@ -833,7 +837,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
             resultCompensationFunction =
                     ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                            TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false));
+                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
         }
 
         final var isCompensationNeeded =
