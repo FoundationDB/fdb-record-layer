@@ -178,20 +178,20 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         final var tempTableId = CorrelationIdentifier.uniqueID();
         try (FDBRecordContext context = openContext()) {
             final var tempTable = TempTable.<QueryResult>newInstance();
-            final var firstRecord = RecordConstructorValue.ofUnnamed(
-                    ImmutableList.of(LiteralValue.ofScalar(1L),
-                            LiteralValue.ofScalar("first"),
-                            LiteralValue.ofScalar(10),
-                            LiteralValue.ofScalar(1),
-                            LiteralValue.ofScalar(1),
-                            emptyArray(Type.primitiveType(Type.TypeCode.INT))));
-            final var secondArray = RecordConstructorValue.ofUnnamed(
-                    ImmutableList.of(LiteralValue.ofScalar(2L),
-                            LiteralValue.ofScalar("second"),
-                            LiteralValue.ofScalar(11),
-                            LiteralValue.ofScalar(2),
-                            LiteralValue.ofScalar(2),
-                            emptyArray(Type.primitiveType(Type.TypeCode.INT))));
+            final var firstRecord = RecordConstructorValue.ofColumns(
+                    ImmutableList.of(Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no")), LiteralValue.ofScalar(1L)),
+                            Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("str_value_indexed")), LiteralValue.ofScalar("first")),
+                            Column.unnamedOf(LiteralValue.ofScalar(10)),
+                            Column.unnamedOf(LiteralValue.ofScalar(1)),
+                            Column.unnamedOf(LiteralValue.ofScalar(1)),
+                            Column.unnamedOf(emptyArray(Type.primitiveType(Type.TypeCode.INT)))));
+            final var secondArray = RecordConstructorValue.ofColumns(
+                    ImmutableList.of(Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no")), LiteralValue.ofScalar(2L)),
+                            Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("str_value_indexed")), LiteralValue.ofScalar("second")),
+                            Column.unnamedOf(LiteralValue.ofScalar(11)),
+                            Column.unnamedOf(LiteralValue.ofScalar(2)),
+                            Column.unnamedOf(LiteralValue.ofScalar(2)),
+                            Column.unnamedOf(emptyArray(Type.primitiveType(Type.TypeCode.INT)))));
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
@@ -207,10 +207,12 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             final var usedTypes = UsedTypesProperty.evaluate(planToResume);
             final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build())
                     .withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
-
             try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 assertTrue(cursor.hasNext());
                 Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                final var descriptor = message.getDescriptorForType();
+                assertEquals(Pair.of(1L, "first"), Pair.of(message.getField(descriptor.findFieldByName("rec_no")),
+                        message.getField(descriptor.findFieldByName("str_value_indexed"))));
                 continuation = cursor.getContinuation();
             }
 
@@ -229,6 +231,9 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext, continuation, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 assertTrue(cursor.hasNext());
                 Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                final var descriptor = message.getDescriptorForType();
+                assertEquals(Pair.of(2L, "second"), Pair.of(message.getField(descriptor.findFieldByName("rec_no")),
+                        message.getField(descriptor.findFieldByName("str_value_indexed"))));
                 assertFalse(cursor.hasNext());
                 assertTrue(cursor.getNoNextReason().isSourceExhausted());
             }

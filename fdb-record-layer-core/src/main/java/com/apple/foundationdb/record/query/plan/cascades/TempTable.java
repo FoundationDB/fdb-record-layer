@@ -34,22 +34,27 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Queue;
+import java.util.List;
 
 /**
  * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
  * placeholder for computation results produced by some physical operator (i.e. {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan}),
  * but can be leveraged to represent, for example, SQL temporary tables as well.<br/>
- * The actual implementation is thread-safe, however it is unbounded leaving setting any upper bound to the consumer.
+ * The actual implementation leverages a synchronized list, however, similar to synchronized list, it does not synchronize
+ * the returned {@link Iterator} in {@link TempTable#getIterator()} method, leaving it to the user to decide, see
+ * {@link Collections#synchronizedList(List)} for more information. Moreover, it is unbounded leaving setting any upper
+ * bound to the consumer.
  *
  * @param <T> The type of the temp table elements.
  */
 public class TempTable<T extends ProtoSerializable> implements ProtoSerializable {
 
     @Nonnull
-    private final Queue<T> underlyingBuffer;
+    private final List<T> underlyingBuffer;
 
     @Nonnull
     private final PTempTable.Builder protoBuilder;
@@ -58,17 +63,17 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
     private Message cachedProto;
 
     private TempTable() {
-        this(new java.util.concurrent.ConcurrentLinkedQueue<>(), PTempTable.newBuilder());
+        this(Collections.synchronizedList(new ArrayList<>()), PTempTable.newBuilder());
     }
 
-    private TempTable(@Nonnull Queue<T> buffer, @Nonnull final PTempTable.Builder protoBuilder) {
+    private TempTable(@Nonnull final List<T> buffer, @Nonnull final PTempTable.Builder protoBuilder) {
         this.underlyingBuffer = buffer;
         this.protoBuilder = protoBuilder;
         this.cachedProto = null;
     }
 
     /**
-     * Add a new {@link QueryResult} element to the queue.
+     * Add a new {@link QueryResult} element to the underlying buffer.
      * @param element the new element to be added.
      */
     public void add(@Nonnull T element) {
@@ -87,11 +92,6 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
     }
 
     @Nonnull
-    public Queue<T> getReadBuffer() {
-        return underlyingBuffer;
-    }
-
-    @Nonnull
     public Iterator<T> getIterator() {
         return underlyingBuffer.iterator();
     }
@@ -105,13 +105,29 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
         return cachedProto;
     }
 
+    /**
+     * Deserializes a byte buffer to a corresponding {@link TempTable}.
+     *
+     * @param bytes The byte buffer.
+     * @param descriptor An optional descriptor of the temporary table elements.
+     *
+     * @return A deserialized {@link TempTable}.
+     */
     @Nonnull
-    public static TempTable<?> from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final byte[] bytes) {
-        return from(descriptor, ZeroCopyByteString.wrap(bytes));
+    public static TempTable<?> from(@Nonnull final byte[] bytes, @Nullable final Descriptors.Descriptor descriptor) {
+        return from(ZeroCopyByteString.wrap(bytes), descriptor);
     }
 
+    /**
+     * Deserializes a {@link PTempTable} message to a corresponding {@link TempTable}.
+     *
+     * @param byteString The byte string.
+     * @param descriptor An optional descriptor of the temporary table elements.
+     *
+     * @return A deserialized {@link TempTable}.
+     */
     @Nonnull
-    public static TempTable<?> from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final ByteString byteString) {
+    public static TempTable<?> from(@Nonnull final ByteString byteString, @Nullable final Descriptors.Descriptor descriptor) {
         final PTempTable tempTableProto;
         try {
             tempTableProto = PTempTable.parseFrom(byteString);
@@ -122,6 +138,12 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
         return from(tempTableProto, descriptor);
     }
 
+    /**
+     * Deserializes a {@link PTempTable} message to a corresponding {@link TempTable}.
+     * @param tempTableProto The serialized temporary table message.
+     * @param descriptor An optional descriptor of the temporary table elements.
+     * @return A deserialized {@link TempTable}.
+     */
     @Nonnull
     public static TempTable<QueryResult> from(@Nonnull final PTempTable tempTableProto,
                                               @Nullable final Descriptors.Descriptor descriptor) {
@@ -132,6 +154,11 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
         return new TempTable<>(underlyingBuffer, tempTableProto.toBuilder());
     }
 
+    /**
+     * Creates a new instance of {@link TempTable} backed by a synchronized list.
+     * @param <T> The type of the temporary table elements.
+     * @return a new instance of {@link TempTable}.
+     */
     @Nonnull
     public static <T extends ProtoSerializable> TempTable<T> newInstance() {
         return new TempTable<>();

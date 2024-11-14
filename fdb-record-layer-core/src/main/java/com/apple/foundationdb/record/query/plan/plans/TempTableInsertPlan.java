@@ -109,7 +109,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                     proto -> {
                         final var tempTable = Objects.requireNonNull((TempTable<QueryResult>)getTempTableReferenceValue().eval(store, context));
                         if (proto != null) {
-                            TempTable.from(proto, typeDescriptor).getReadBuffer().forEach(tempTable::add);
+                            TempTable.from(proto, typeDescriptor).getIterator().forEachRemaining(tempTable::add);
                         }
                         return tempTable;
                     },
