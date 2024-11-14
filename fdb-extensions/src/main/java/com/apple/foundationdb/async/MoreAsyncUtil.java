@@ -70,6 +70,12 @@ public class MoreAsyncUtil {
         return scheduledThreadPoolExecutor;
     });
 
+    public static <T> CompletableFuture<T> alreadyCancelled() {
+        final CompletableFuture<T> alreadyCancelled = new CompletableFuture<>();
+        alreadyCancelled.cancel(false);
+        return alreadyCancelled;
+    }
+
     @Nonnull
     public static <T> AsyncIterable<T> limitIterable(@Nonnull final AsyncIterable<T> iterable,
                                                      final int limit) {
