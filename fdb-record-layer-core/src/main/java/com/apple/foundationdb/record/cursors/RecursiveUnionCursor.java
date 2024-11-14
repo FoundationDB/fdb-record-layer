@@ -1,0 +1,236 @@
+/*
+ * RecursiveUnionCursor.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.cursors;
+
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
+import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+/**
+ * TODO.
+ * @param <T> TODO.
+ */
+public class RecursiveUnionCursor<T> implements RecordCursor<T> {
+
+    @Nonnull
+    private final RecordCursor<T> initialCursor;
+
+    @Nonnull
+    private final RecordCursor<T> recursiveCursor;
+
+    @Nonnull
+    private final Supplier<Boolean> isReadingFromFirstTempTableSupplier;
+
+    @Nonnull
+    private final Runnable recursiveStepCompletionCallback;
+
+    @Nonnull
+    private final Executor executor;
+
+    private boolean isReadingInitialCursor;
+
+    private RecursiveUnionCursor(@Nonnull final RecordCursor<T> initialCursor,
+                                 @Nonnull final RecordCursor<T> recursiveCursor,
+                                 @Nonnull final Executor executor,
+                                 @Nonnull final Supplier<Boolean> isReadingFromFirstTempTableSupplier,
+                                 @Nonnull final Runnable recursiveStepCompletionCallback,
+                                 boolean isReadingInitialCursor) {
+        this.initialCursor = initialCursor;
+        this.recursiveCursor = recursiveCursor;
+        this.isReadingFromFirstTempTableSupplier = isReadingFromFirstTempTableSupplier;
+        this.isReadingInitialCursor = isReadingInitialCursor;
+        this.recursiveStepCompletionCallback = recursiveStepCompletionCallback;
+        this.executor = executor;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (isReadingInitialCursor) {
+            return initialCursor.onNext().thenCompose(recordCursorResult -> {
+                if (!recordCursorResult.hasNext()) {
+                    isReadingInitialCursor = false;
+                    if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
+                        recursiveStepCompletionCallback.run();
+                        return onNextRecursive();
+                    } else {
+                        return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
+                                        recordCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false),
+                                recordCursorResult.getNoNextReason()));
+                    }
+                } else {
+                    final var continuation = new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
+                            recordCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false);
+                    return CompletableFuture.completedFuture(RecordCursorResult.withNextValue(recordCursorResult.get(), continuation));
+                }
+            });
+        } else {
+            return onNextRecursive();
+        }
+    }
+
+    @Nonnull
+    private CompletableFuture<RecordCursorResult<T>> onNextRecursive() {
+        return recursiveCursor.onNext().thenCompose(recordCursorResult -> {
+            if (!recordCursorResult.hasNext()) {
+                if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
+                    recursiveStepCompletionCallback.run();
+                    return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
+                } else {
+                    return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
+                                    recordCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false),
+                            recordCursorResult.getNoNextReason()));
+                }
+            } else {
+                final var continuation = new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
+                        recordCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false);
+                return CompletableFuture.completedFuture(RecordCursorResult.withNextValue(recordCursorResult.get(), continuation));
+            }
+        });
+    }
+
+    @Override
+    public void close() {
+        initialCursor.close();
+        recursiveCursor.close();
+    }
+
+    @Override
+    public boolean isClosed() {
+        return recursiveCursor.isClosed(); // todo: improve.
+    }
+
+    @Nonnull
+    @Override
+    public Executor getExecutor() {
+        return executor;
+    }
+
+    @Override
+    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+        if (visitor.visitEnter(this)) {
+            initialCursor.accept(visitor);
+            recursiveCursor.accept(visitor);
+        }
+        return visitor.visitLeave(this);
+    }
+
+    @Nonnull
+    public static <T> RecursiveUnionCursor<T> from(@Nullable final byte[] unparsed,
+                                                   @Nonnull final Function<ByteString, RecordCursor<T>> initialCursorCreator,
+                                                   @Nonnull final Function<ByteString, RecordCursor<T>> recursiveCursorCreator,
+                                                   @Nonnull final Supplier<Boolean> isReadingFromFirstTempTableSupplier,
+                                                   @Nonnull final Consumer<Boolean> isReadingFromFirstTempTableConsumer,
+                                                   @Nonnull final Runnable recursiveStepCompletionCallback,
+                                                   @Nonnull Executor executor) {
+        if (unparsed == null) {
+            final var initialCursor = initialCursorCreator.apply(null);
+            final var recursiveCursor = recursiveCursorCreator.apply(null);
+            return new RecursiveUnionCursor<>(initialCursor, recursiveCursor, executor, isReadingFromFirstTempTableSupplier, recursiveStepCompletionCallback, true);
+        } else {
+            RecordCursorProto.RecursiveCursorContinuation proto;
+            try {
+                proto = RecordCursorProto.RecursiveCursorContinuation.parseFrom(unparsed);
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreException("invalid continuation", ex)
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsed));
+            }
+            // resume the state.
+            isReadingFromFirstTempTableConsumer.accept(proto.getIsReadingFromFirstTempTable());
+            final var initialCursor = initialCursorCreator.apply(proto.getInitialCursorContinuation());
+            final var recursiveCursor = recursiveCursorCreator.apply(proto.getRecursiveCursorContinuation());
+            return new RecursiveUnionCursor<>(initialCursor, recursiveCursor, executor, isReadingFromFirstTempTableSupplier, recursiveStepCompletionCallback, proto.getIsReadingInitialCursor());
+        }
+    }
+
+    private static class Continuation implements RecordCursorContinuation {
+
+        private final boolean isReadingInitialCursor;
+
+        @Nonnull
+        private final Supplier<Boolean> isReadingFromFirstTempTable;
+
+        @Nonnull
+        private final Supplier<RecordCursorContinuation> initialCursorContinuation;
+
+        @Nonnull
+        private final Supplier<RecordCursorContinuation> recursiveCursorContinuation;
+
+        private final boolean isEnd;
+
+        Continuation(boolean isReadingInitialCursor,
+                     @Nonnull final Supplier<Boolean> isReadingFromFirstTempTable,
+                     @Nonnull final Supplier<RecordCursorContinuation> initialCursorContinuation,
+                     @Nonnull final Supplier<RecordCursorContinuation> recursiveCursorContinuation,
+                     boolean isEnd) {
+            this.isReadingInitialCursor = isReadingInitialCursor;
+            this.isReadingFromFirstTempTable = isReadingFromFirstTempTable;
+            this.initialCursorContinuation = initialCursorContinuation;
+            this.recursiveCursorContinuation = recursiveCursorContinuation;
+            this.isEnd = isEnd;
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (isEnd) {
+                return null;
+            }
+            return toByteString().toByteArray();
+        }
+
+        @Override
+        @Nonnull
+        public ByteString toByteString() {
+            if (isEnd()) {
+                return ByteString.EMPTY;
+            } else {
+                return RecordCursorProto.RecursiveCursorContinuation.newBuilder()
+                        .setInitialCursorContinuation(initialCursorContinuation.get().toByteString())
+                        .setRecursiveCursorContinuation(recursiveCursorContinuation.get().toByteString())
+                        .setIsReadingInitialCursor(isReadingInitialCursor)
+                        .setIsReadingFromFirstTempTable(isReadingFromFirstTempTable.get())
+                        .build().toByteString();
+            }
+        }
+
+        @Override
+        public boolean isEnd() {
+            return isEnd;
+        }
+    }
+}

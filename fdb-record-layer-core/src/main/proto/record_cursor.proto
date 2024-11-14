@@ -125,3 +125,10 @@ message TempTableInsertContinuation {
     optional bytes child_continuation = 1;
     optional bytes tempTable = 2;
 }
+
+message RecursiveCursorContinuation {
+    optional bool isReadingInitialCursor = 1;
+    optional bool isReadingFromFirstTempTable = 2;
+    optional bytes initialCursorContinuation = 3;
+    optional bytes recursiveCursorContinuation = 4;
+}
