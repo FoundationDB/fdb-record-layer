@@ -220,7 +220,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
                 maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue());
         return adjustedMaxMatchMapOptional
                 .map(adjustedMaxMatchMap ->
-                        childMatchInfo.derivedBuilder()
+                        childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
                                 .setMatchedOrderingParts(forPartialMatch(partialMatch))
                                 .build());

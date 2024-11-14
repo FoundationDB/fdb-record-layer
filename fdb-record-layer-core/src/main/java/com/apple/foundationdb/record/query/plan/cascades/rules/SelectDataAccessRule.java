@@ -143,7 +143,8 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
             final var matchPartitionsForAliasesByPredicates =
                     matchPartitionForMatchedAlias
                             .stream()
-                            .collect(Collectors.groupingBy(match -> new LinkedIdentitySet<>(match.getMatchInfo().getPredicateMap().keySet()),
+                            .collect(Collectors.groupingBy(match ->
+                                            new LinkedIdentitySet<>(match.getRegularMatchInfo().getPredicateMap().keySet()),
                                     HashMap::new,
                                     ImmutableList.toImmutableList()));
 

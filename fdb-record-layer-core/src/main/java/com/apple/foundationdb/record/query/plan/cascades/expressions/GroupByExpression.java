@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -312,7 +313,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             final var queryPlanConstraint =
                     subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 
-            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(),
+            return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                             maxMatchMap, queryPlanConstraint)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
@@ -345,13 +346,15 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nonnull final PullUp pullUp) {
         final var matchInfo = partialMatch.getMatchInfo();
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
+        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp);
         // if the match requires, for the moment, any, compensation, we reject it.
         final Optional<Compensation> childCompensationOptional =
-                matchInfo.getChildPartialMatchMaybe(quantifier)
+                regularMatchInfo.getChildPartialMatchMaybe(quantifier)
                         .map(childPartialMatch -> {
-                            final var childPullUp = childPartialMatch.nestPullUp(pullUp);
+                            final var childPullUp = childPartialMatch.nestPullUp(adjustedPullUp, Quantifier.uniqueID());
                             return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
                         });
 

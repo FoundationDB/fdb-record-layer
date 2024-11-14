@@ -54,7 +54,7 @@ public class PullUp {
     @Nonnull
     private final Supplier<CorrelationIdentifier> topAliasSupplier;
 
-    private PullUp(@Nullable PullUp parentPullUp,
+    private PullUp(@Nullable final PullUp parentPullUp,
                    @Nonnull final CorrelationIdentifier nestingAlias,
                    @Nonnull final Value pullThroughValue,
                    @Nonnull final Set<CorrelationIdentifier> constantAliases) {
@@ -70,6 +70,11 @@ public class PullUp {
         return parentPullUp;
     }
 
+    @Nonnull
+    public CorrelationIdentifier getNestingAlias() {
+        return nestingAlias;
+    }
+
     public boolean isRoot() {
         return parentPullUp == null;
     }
@@ -82,11 +87,6 @@ public class PullUp {
     @Nonnull
     public Set<CorrelationIdentifier> getConstantAliases() {
         return constantAliases;
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getNestingAlias() {
-        return nestingAlias;
     }
 
     @Nonnull
@@ -116,7 +116,8 @@ public class PullUp {
                         @Nonnull final CorrelationIdentifier lowerAlias,
                         @Nonnull final Type lowerType,
                         @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        return new PullUp(this, nestingAlias, QuantifiedObjectValue.of(lowerAlias, lowerType), constantAliases);
+        return new PullUp(this, nestingAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
+                constantAliases);
     }
 
     @Nonnull
@@ -165,8 +166,9 @@ public class PullUp {
 
         @Nonnull
         @Override
-        public PullUp visitDefault(@Nonnull final RelationalExpression element) {
-            return new PullUp(null, baseAlias, element.getResultValue(), ImmutableSet.of());
+        public PullUp visitDefault(@Nonnull final RelationalExpression relationalExpression) {
+            return new PullUp(null, baseAlias, relationalExpression.getResultValue(),
+                    relationalExpression.getCorrelatedTo());
         }
     }
 

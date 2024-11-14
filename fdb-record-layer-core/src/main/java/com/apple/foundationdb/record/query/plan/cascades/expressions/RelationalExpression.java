@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -712,7 +713,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                         ValueEquivalence.fromAliasMap(bindingAliasMap));
 
         if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
+            return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {

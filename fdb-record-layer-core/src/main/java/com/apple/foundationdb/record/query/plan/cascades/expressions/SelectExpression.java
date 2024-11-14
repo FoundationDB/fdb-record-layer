@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
@@ -330,10 +331,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var parameterBindingMaps =
                 matchInfos
                         .stream()
-                        .map(MatchInfo::getParameterBindingMap)
+                        .map(MatchInfo::getRegularMatchInfo)
+                        .map(RegularMatchInfo::getParameterBindingMap)
                         .collect(ImmutableList.toImmutableList());
         final var mergedParameterBindingMapOptional =
-                MatchInfo.tryMergeParameterBindings(parameterBindingMaps);
+                RegularMatchInfo.tryMergeParameterBindings(parameterBindingMaps);
         if (mergedParameterBindingMapOptional.isEmpty()) {
             return ImmutableList.of();
         }
@@ -427,9 +429,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         MaxMatchMap.calculate(translatedResultValue,
                                 candidateExpression.getResultValue(),
                                 bindingValueEquivalence);
-                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
-                                maxMatchMap,
-                                maxMatchMap.getQueryPlanConstraint())
+                return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
+                                PredicateMap.empty(), maxMatchMap, maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
             } else {
@@ -538,15 +539,15 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     return predicateMapOptional
                             .map(predicateMap -> {
                                 final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
-                                        MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
+                                        RegularMatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
                                 return allParameterBindingMapOptional
                                         .flatMap(allParameterBindingMap -> {
                                             final var maxMatchMap =
                                                     MaxMatchMap.calculate(translatedResultValue,
                                                             candidateExpression.getResultValue(),
                                                             bindingValueEquivalence);
-                                            return MatchInfo.tryMerge(partialMatchMap,
-                                                    allParameterBindingMap, predicateMap, PredicateMap.empty(),
+                                            return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
+                                                    allParameterBindingMap, predicateMap,
                                                     maxMatchMap,
                                                     maxMatchMap.getQueryPlanConstraint());
                                         })
@@ -580,7 +581,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var adjustedMaxMatchMapOptional = maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue());
         return adjustedMaxMatchMapOptional
                 .map(adjustedMaxMatchMap ->
-                        childMatchInfo.derivedBuilder()
+                        childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
                                 .build());
     }
@@ -731,9 +732,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                    @Nonnull final PullUp pullUp) {
         final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
         final var matchInfo = partialMatch.getMatchInfo();
-        final var predicateMap = matchInfo.getPredicateMap();
-
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifiers = getQuantifiers();
+
+        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp);
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
@@ -746,10 +748,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                 .flatMap(quantifier ->
-                        matchInfo.getChildPartialMatchMaybe(quantifier)
+                        regularMatchInfo.getChildPartialMatchMaybe(quantifier)
                                 .map(childPartialMatch -> {
                                     final var childPullUp =
-                                            childPartialMatch.nestPullUp(pullUp);
+                                            childPartialMatch.nestPullUp(adjustedPullUp, Quantifier.uniqueID());
                                     return childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
                                 }).stream())
                 .reduce(Compensation.noCompensation(), Compensation::union);
@@ -759,6 +761,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return Compensation.impossibleCompensation();
         }
 
+        final var predicateMap = regularMatchInfo.getPredicateMap();
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
         final var unmatchedQuantifierAliases =
                 unmatchedQuantifiers.stream().map(Quantifier::getAlias).collect(ImmutableList.toImmutableList());
@@ -791,7 +794,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 for (final var predicateMapping : predicateMappings) {
                     final var compensationFunctionForCandidatePredicate =
                             predicateMapping.getPredicateCompensation()
-                                    .computeCompensationFunction(partialMatch, boundParameterPrefixMap, pullUp);
+                                    .computeCompensationFunction(partialMatch, boundParameterPrefixMap, adjustedPullUp);
                     if (!compensationFunctionForCandidatePredicate.isNeeded()) {
                         isCompensationFunctionNeeded = false;
                         break;
@@ -848,7 +851,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // compensation. We cannot do that (yet). If we, however, do not have to worry about compensation we just
         // this select entirely with the scan and there are no additional references to be considered.
         //
-        final var partialMatchMap = partialMatch.getMatchInfo().getQuantifierToPartialMatchMap();
+        final var partialMatchMap = regularMatchInfo.getPartialMatchMap();
         if (quantifiers.stream()
                     .filter(quantifier -> quantifier instanceof Quantifier.ForEach && partialMatchMap.containsKeyUnwrapped(quantifier))
                     .count() > 1) {

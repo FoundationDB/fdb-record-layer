@@ -245,7 +245,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
                                                                  boolean isReverse) {
-        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var parameterBindingMap =
+                matchInfo.getRegularMatchInfo().getParameterBindingMap();
 
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();

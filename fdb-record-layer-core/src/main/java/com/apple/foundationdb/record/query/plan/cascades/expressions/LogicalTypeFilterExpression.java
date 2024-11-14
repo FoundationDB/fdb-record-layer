@@ -155,13 +155,15 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nonnull final PullUp pullUp) {
         final var matchInfo = partialMatch.getMatchInfo();
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp);
         final PartialMatch childPartialMatch =
-                Objects.requireNonNull(matchInfo
+                Objects.requireNonNull(regularMatchInfo
                         .getChildPartialMatchMaybe(inner)
                         .orElseThrow(() -> new RecordCoreException("expected a match child")));
 
         final var childPullUp =
-                childPartialMatch.nestPullUp(pullUp);
+                childPartialMatch.nestPullUp(adjustedPullUp, Quantifier.uniqueID());
         final var childCompensation =
                 childPartialMatch.compensate(boundParameterPrefixMap, childPullUp);
 

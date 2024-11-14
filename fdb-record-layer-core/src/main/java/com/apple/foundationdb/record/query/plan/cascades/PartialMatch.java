@@ -25,12 +25,14 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -152,6 +154,11 @@ public class PartialMatch {
         return matchInfo;
     }
 
+    @Nonnull
+    public MatchInfo.RegularMatchInfo getRegularMatchInfo() {
+        return matchInfo.getRegularMatchInfo();
+    }
+
     public int getNumBoundParameterPrefix() {
         return getBoundParameterPrefixMap().size();
     }
@@ -176,7 +183,8 @@ public class PartialMatch {
     private Set<Quantifier> computeMatchedQuantifiers() {
         return queryExpression.getQuantifiers()
                 .stream()
-                .filter(quantifier -> matchInfo.getChildPartialMatchMaybe(quantifier.getAlias()).isPresent())
+                .filter(quantifier -> matchInfo.getRegularMatchInfo()
+                        .getChildPartialMatchMaybe(quantifier.getAlias()).isPresent())
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
     }
 
@@ -189,7 +197,8 @@ public class PartialMatch {
     private Set<Quantifier> computeUnmatchedQuantifiers() {
         return queryExpression.getQuantifiers()
                 .stream()
-                .filter(quantifier -> matchInfo.getChildPartialMatchMaybe(quantifier.getAlias()).isEmpty())
+                .filter(quantifier -> matchInfo.getRegularMatchInfo()
+                        .getChildPartialMatchMaybe(quantifier.getAlias()).isEmpty())
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
     }
 
@@ -209,7 +218,7 @@ public class PartialMatch {
         // should be of class Placeholder). Note that there could be more than one query predicate mapping to a candidate
         // predicate.
         //
-        for (final var entry : matchInfo.getAccumulatedPredicateMap().entries()) {
+        for (final var entry : matchInfo.getRegularMatchInfo().getAccumulatedPredicateMap().entries()) {
             final var predicateMapping = entry.getValue();
 
             if (predicateMapping.getMappingKind() != PredicateMultiMap.PredicateMapping.MappingKind.REGULAR_IMPLIES_CANDIDATE) {
@@ -251,7 +260,7 @@ public class PartialMatch {
                 .forEach(compensatedAliasesBuilder::add);
 
         // TODO This should not yield any further quantifiers. Maybe this needs to be removed.
-        final var predicatesMap = matchInfo.getPredicateMap();
+        final var predicatesMap = matchInfo.getRegularMatchInfo().getPredicateMap();
         for (final QueryPredicate queryPredicate : predicatesMap.keySet()) {
             final var predicateCorrelatedTo = queryPredicate.getCorrelatedTo();
             predicateCorrelatedTo.stream()
@@ -281,10 +290,29 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public PullUp nestPullUp(@Nonnull final PullUp pullUp) {
+    public PullUp nestPullUp(@Nonnull final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
         final var candidateExpression = candidateRef.get();
-        final var pullUpVisitor = PullUp.nestingVisitor(pullUp, CorrelationIdentifier.uniqueID());
+        final var pullUpVisitor = PullUp.nestingVisitor(pullUp, nestingAlias);
         return pullUpVisitor.visit(candidateExpression);
+    }
+
+    @Nonnull
+    public PullUp nestPullUpForAdjustments(@Nonnull final PullUp pullUp) {
+        var currentMatchInfo = getMatchInfo();
+        var currentPullUp = pullUp;
+        var currentCandidateRef = candidateRef;
+        while (currentMatchInfo.isAdjusted()) {
+            final var currentCandidateExpression = currentCandidateRef.get();
+            final List<? extends Quantifier> currentQuantifiers = currentCandidateExpression.getQuantifiers();
+            Verify.verify(currentQuantifiers.size() == 1);
+            final Quantifier currentQuantifier = currentQuantifiers.get(0);
+            currentCandidateRef = currentQuantifier.getRangesOver();
+            final var nestingVisitor =
+                    PullUp.nestingVisitor(currentPullUp, currentQuantifier.getAlias());
+            currentPullUp = nestingVisitor.visit(currentCandidateRef.get());
+            currentMatchInfo = ((MatchInfo.AdjustedMatchInfo)currentMatchInfo).getUnderlying();
+        }
+        return currentPullUp;
     }
 
     /**

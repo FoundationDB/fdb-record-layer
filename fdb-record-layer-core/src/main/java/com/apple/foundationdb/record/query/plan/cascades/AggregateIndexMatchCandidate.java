@@ -186,7 +186,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo,
                                                                  @Nonnull final List<CorrelationIdentifier> sortParameterIds,
                                                                  final boolean isReverse) {
-        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var parameterBindingMap =
+                matchInfo.getRegularMatchInfo().getParameterBindingMap();
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
@@ -337,7 +338,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var resultType = groupByResultValue.getResultType();
         final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build().newMessageBuilder(resultType);
         final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
-        final var constraintMaybe = partialMatch.getMatchInfo().getConstraint();
+        final var constraintMaybe = partialMatch.getRegularMatchInfo().getConstraint();
 
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
         final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
