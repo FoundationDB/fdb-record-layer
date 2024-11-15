@@ -185,7 +185,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         return RecursiveUnionCursor.from(continuation,
                 initialContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(store, context),
                         initialContinuation.toByteArray(), executeProperties),
-                recursiveContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(store, context),
+                recursiveContinuation -> getRecursiveStatePlan().executePlan(store, resetTempTableBindings(store, context),
                         recursiveContinuation.toByteArray(), executeProperties),
                 () -> initialIsRead,
                 resumedInitialIsRead -> initialIsRead = resumedInitialIsRead,

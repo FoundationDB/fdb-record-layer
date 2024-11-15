@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTempTableInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
@@ -173,7 +174,8 @@ public class PlannerRuleSet {
             new ImplementDeleteRule(),
             new ImplementInsertRule(),
             new ImplementTempTableInsertRule(),
-            new ImplementUpdateRule()
+            new ImplementUpdateRule(),
+            new ImplementRecursiveUnionRule()
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =

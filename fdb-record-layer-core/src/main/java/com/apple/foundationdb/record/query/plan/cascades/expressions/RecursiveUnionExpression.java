@@ -53,6 +53,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     @Nonnull
     private final Value resultValue;
+
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlationsSupplier;
 
@@ -81,8 +82,8 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     @Nonnull
     private Set<CorrelationIdentifier> computeCorrelatedTo() {
         return ImmutableSet.<CorrelationIdentifier>builder()
-                .addAll(initialTempTableValueReference.getCorrelatedTo())
-                .addAll(recursiveTempTableValueReference.getCorrelatedTo())
+                .addAll(getInitialTempTableValueReference().getCorrelatedTo())
+                .addAll(getRecursiveTempTableValueReference().getCorrelatedTo())
                 .build();
     }
 
@@ -109,8 +110,8 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
         final var otherRecursiveUnionExpression = (RecursiveUnionExpression)otherExpression;
 
-        return initialTempTableValueReference.semanticEquals(otherRecursiveUnionExpression.initialTempTableValueReference, equivalences)
-                && recursiveTempTableValueReference.semanticEquals(otherRecursiveUnionExpression.recursiveTempTableValueReference, equivalences);
+        return getInitialTempTableValueReference().semanticEquals(otherRecursiveUnionExpression.getInitialTempTableValueReference(), equivalences)
+                && getRecursiveTempTableValueReference().semanticEquals(otherRecursiveUnionExpression.getRecursiveTempTableValueReference(), equivalences);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -126,7 +127,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(initialTempTableValueReference, recursiveTempTableValueReference);
+        return Objects.hash(getInitialTempTableValueReference(), getRecursiveTempTableValueReference());
     }
 
     @Nonnull
@@ -134,14 +135,24 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
-        final var translatedInitialTempTableValueReference = initialTempTableValueReference.translateCorrelations(translationMap);
-        final var translatedRecursiveTempTableValueReference = recursiveTempTableValueReference.translateCorrelations(translationMap);
-        if (translatedInitialTempTableValueReference != initialTempTableValueReference
-                || translatedRecursiveTempTableValueReference != recursiveTempTableValueReference) {
+        final var translatedInitialTempTableValueReference = getInitialTempTableValueReference().translateCorrelations(translationMap);
+        final var translatedRecursiveTempTableValueReference = getRecursiveTempTableValueReference().translateCorrelations(translationMap);
+        if (translatedInitialTempTableValueReference != getInitialTempTableValueReference()
+                || translatedRecursiveTempTableValueReference != getRecursiveTempTableValueReference()) {
             return new RecursiveUnionExpression(translatedQuantifiers.get(0), translatedQuantifiers.get(1),
-                    initialTempTableValueReference.translateCorrelations(translationMap),
-                    recursiveTempTableValueReference.translateCorrelations(translationMap));
+                    getInitialTempTableValueReference().translateCorrelations(translationMap),
+                    getRecursiveTempTableValueReference().translateCorrelations(translationMap));
         }
         return this;
+    }
+
+    @Nonnull
+    public Value getInitialTempTableValueReference() {
+        return initialTempTableValueReference;
+    }
+
+    @Nonnull
+    public Value getRecursiveTempTableValueReference() {
+        return recursiveTempTableValueReference;
     }
 }

@@ -102,7 +102,6 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void scanTempTableWithPredicateWorksCorrectly() throws Exception {
         // select rec_no, str_value_indexed from <tempTable> where rec_no < 44L.

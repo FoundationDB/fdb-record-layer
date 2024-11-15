@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -288,5 +290,10 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<TempTableScanExpression> tempTableScanExpression() {
         return ofTypeOwning(TempTableScanExpression.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecursiveUnionExpression.class, downstream);
     }
 }
