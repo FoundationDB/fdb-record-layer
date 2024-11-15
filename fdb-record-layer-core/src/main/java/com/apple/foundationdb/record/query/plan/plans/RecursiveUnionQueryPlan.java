@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.cursors.RecursiveUnionCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecursiveUnionQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -37,15 +39,19 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -85,6 +91,12 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nonnull
     private final Supplier<Integer> computeComplexity;
 
+    private TempTable<?> readTempTable;
+
+    private TempTable<?> writeTempTable;
+
+    private boolean initialIsRead;
+
     public RecursiveUnionQueryPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                    @Nonnull final Value initialTempTableValueReference,
                                    @Nonnull final Value recursiveTempTableValueReference) {
@@ -95,6 +107,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         this.correlationsSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.computeChildren = Suppliers.memoize(this::computeChildren);
         this.computeComplexity = Suppliers.memoize(this::computeComplexity);
+        this.initialIsRead = false;
     }
 
     @Override
@@ -106,6 +119,47 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Override
     public int getRelationalChildCount() {
         return quantifiers.size();
+    }
+
+    private <M extends Message> EvaluationContext resetTempTableBindings(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                         @Nonnull final EvaluationContext context) {
+        if (readTempTable == null) {
+            readTempTable = Objects.requireNonNull((TempTable<?>)this.recursiveTempTableValueReference.eval(store, context));
+            writeTempTable = Objects.requireNonNull((TempTable<?>)this.initialTempTableValueReference.eval(store, context));
+            return context;
+        }
+        if (initialIsRead) {
+            final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, readTempTable);
+            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, writeTempTable);
+        } else {
+            final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, writeTempTable);
+            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, readTempTable);
+        }
+    }
+
+    @Nonnull
+    private static EvaluationContext overrideTempTableBinding(@Nonnull final EvaluationContext context,
+                                                              @Nonnull final Value key,
+                                                              @Nonnull final TempTable<?> value) {
+        if (key instanceof ConstantObjectValue) {
+            final var constantKey = (ConstantObjectValue)key;
+            final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
+            constants.put(constantKey.getConstantId(), value);
+            return context.withBinding(Bindings.Internal.CONSTANT, constantKey.getAlias(), constants.build());
+        }
+        Verify.verify(key instanceof QuantifiedObjectValue);
+        final var quantifiedKey = (QuantifiedObjectValue)key;
+        return context.withBinding(quantifiedKey.getAlias().getId(), value);
+    }
+
+    @Nonnull
+    private RecordQueryPlan getInitialStatePlan() {
+        return quantifiers.get(0).getRangesOverPlan();
+    }
+
+    @Nonnull
+    private RecordQueryPlan getRecursiveStatePlan() {
+        return quantifiers.get(1).getRangesOverPlan();
     }
 
     @Nonnull
@@ -128,7 +182,18 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        return null;
+        return RecursiveUnionCursor.from(continuation,
+                initialContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(store, context),
+                        initialContinuation.toByteArray(), executeProperties),
+                recursiveContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(store, context),
+                        recursiveContinuation.toByteArray(), executeProperties),
+                () -> initialIsRead,
+                resumedInitialIsRead -> initialIsRead = resumedInitialIsRead,
+                () -> {
+                    initialIsRead = !initialIsRead;
+                    return !readTempTable.isEmpty();
+                },
+                store.getExecutor());
     }
 
     @Nonnull

@@ -91,10 +91,15 @@ public class TempTable implements ProtoSerializable {
         cachedProto = null;
     }
 
+    public boolean isEmpty() {
+        return underlyingBuffer.isEmpty();
+    }
+
     /**
-     * Returns a iterator of the underlying buffer, note that this iterator is not synchronized.
+     * Returns an iterator of the underlying buffer, note that this iterator is not synchronized.
      * @return an iterator of the underlying buffer.
      */
+
     @Nonnull
     public Iterator<QueryResult> getIterator() {
         return underlyingBuffer.iterator();

@@ -56,7 +56,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     private final Supplier<Boolean> isReadingFromFirstTempTableSupplier;
 
     @Nonnull
-    private final Runnable recursiveStepCompletionCallback;
+    private final Supplier<Boolean> recursiveStepCompletionCallback;
 
     @Nonnull
     private final Executor executor;
@@ -67,7 +67,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                                  @Nonnull final RecordCursor<T> recursiveCursor,
                                  @Nonnull final Executor executor,
                                  @Nonnull final Supplier<Boolean> isReadingFromFirstTempTableSupplier,
-                                 @Nonnull final Runnable recursiveStepCompletionCallback,
+                                 @Nonnull final Supplier<Boolean> recursiveStepCompletionCallback,
                                  boolean isReadingInitialCursor) {
         this.initialCursor = initialCursor;
         this.recursiveCursor = recursiveCursor;
@@ -85,10 +85,13 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                 if (!recordCursorResult.hasNext()) {
                     isReadingInitialCursor = false;
                     if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
-                        recursiveStepCompletionCallback.run();
-                        return onNextRecursive();
+                        if (recursiveStepCompletionCallback.get()) {
+                            return onNextRecursive();
+                        }
+                        return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
                     } else {
-                        return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
+                        return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(
+                                new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
                                         recordCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false),
                                 recordCursorResult.getNoNextReason()));
                     }
@@ -108,10 +111,13 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         return recursiveCursor.onNext().thenCompose(recordCursorResult -> {
             if (!recordCursorResult.hasNext()) {
                 if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
-                    recursiveStepCompletionCallback.run();
+                    if (recursiveStepCompletionCallback.get()) {
+                        return onNextRecursive();
+                    }
                     return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
                 } else {
-                    return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
+                    return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(
+                            new Continuation(isReadingInitialCursor, isReadingFromFirstTempTableSupplier,
                                     recordCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false),
                             recordCursorResult.getNoNextReason()));
                 }
@@ -155,12 +161,13 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                                                    @Nonnull final Function<ByteString, RecordCursor<T>> recursiveCursorCreator,
                                                    @Nonnull final Supplier<Boolean> isReadingFromFirstTempTableSupplier,
                                                    @Nonnull final Consumer<Boolean> isReadingFromFirstTempTableConsumer,
-                                                   @Nonnull final Runnable recursiveStepCompletionCallback,
+                                                   @Nonnull final Supplier<Boolean> recursiveStepCompletionCallback,
                                                    @Nonnull Executor executor) {
         if (unparsed == null) {
             final var initialCursor = initialCursorCreator.apply(null);
             final var recursiveCursor = recursiveCursorCreator.apply(null);
-            return new RecursiveUnionCursor<>(initialCursor, recursiveCursor, executor, isReadingFromFirstTempTableSupplier, recursiveStepCompletionCallback, true);
+            return new RecursiveUnionCursor<>(initialCursor, recursiveCursor, executor, isReadingFromFirstTempTableSupplier,
+                    recursiveStepCompletionCallback, true);
         } else {
             RecordCursorProto.RecursiveCursorContinuation proto;
             try {
@@ -173,7 +180,8 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
             isReadingFromFirstTempTableConsumer.accept(proto.getIsReadingFromFirstTempTable());
             final var initialCursor = initialCursorCreator.apply(proto.getInitialCursorContinuation());
             final var recursiveCursor = recursiveCursorCreator.apply(proto.getRecursiveCursorContinuation());
-            return new RecursiveUnionCursor<>(initialCursor, recursiveCursor, executor, isReadingFromFirstTempTableSupplier, recursiveStepCompletionCallback, proto.getIsReadingInitialCursor());
+            return new RecursiveUnionCursor<>(initialCursor, recursiveCursor, executor, isReadingFromFirstTempTableSupplier,
+                    recursiveStepCompletionCallback, proto.getIsReadingInitialCursor());
         }
     }
 
