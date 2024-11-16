@@ -408,11 +408,12 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     }
 
     @Nonnull
-    private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns) {
+    private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                 final boolean isNullable) {
         final var fields = columns.stream()
                 .map(Column::getField)
                 .collect(ImmutableList.toImmutableList());
-        return Type.Record.fromFields(false, fields);
+        return Type.Record.fromFields(isNullable, fields);
     }
 
     @Nonnull
@@ -433,13 +434,24 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
-        final Type.Record resolvedResultType = computeResultType(columns);
-        return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, false));
     }
 
     @Nonnull
-    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns, @Nonnull final String name) {
-        final Type.Record resolvedResultType = computeResultType(columns).withName(name);
+    public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                   final boolean isNullable) {
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, isNullable));
+    }
+
+    @Nonnull
+    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                          @Nonnull final String name) {
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, false).withName(name));
+    }
+
+    @Nonnull
+    private static RecordConstructorValue ofColumnsAndResolvedType(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                                   @Nonnull final Type.Record resolvedResultType) {
         return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
     }
 

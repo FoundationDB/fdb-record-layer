@@ -390,7 +390,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                             @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
-        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
+        final var baseRecordType =
+                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
         return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),

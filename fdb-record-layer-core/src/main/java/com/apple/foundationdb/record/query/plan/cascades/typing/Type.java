@@ -2165,7 +2165,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          */
         @Nonnull
         public static Record fromFieldDescriptorsMap(@Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
-            return fromFieldDescriptorsMap(true, fieldDescriptorMap);
+            return fromFieldDescriptorsMap(false, fieldDescriptorMap);
         }
 
         /**

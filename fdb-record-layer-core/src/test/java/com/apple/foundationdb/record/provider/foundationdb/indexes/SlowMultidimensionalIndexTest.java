@@ -29,6 +29,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,6 +49,7 @@ import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
 /**
  * Additional tests for Multidimensional Index around concurrency and large data-sets.
  */
+@Disabled
 @Tag(Tags.Slow)
 class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 

@@ -66,20 +66,23 @@ public class ExpandRecordRule extends ValueSimplificationRule<Value> {
 
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
-        final var resultType = value.getResultType();
-        if (!resultType.isRecord()) {
+        final var originalResultType = value.getResultType();
+        if (!originalResultType.isRecord()) {
             return;
         }
-        Verify.verify(resultType instanceof Type.Record);
-        final Type.Record resultRecordType = (Type.Record)resultType;
+        Verify.verify(originalResultType instanceof Type.Record);
+        final Type.Record resultRecordType = (Type.Record)originalResultType;
 
         final List<Type.Record.Field> fields = Objects.requireNonNull(resultRecordType.getFields());
         final var resultBuilder = ImmutableList.<Column<? extends Value>>builder();
         for (int i = 0; i < fields.size(); i++) {
-            //final var field = fields.get(i);
-            resultBuilder.add(Column.unnamedOf(FieldValue.ofOrdinalNumberAndFuseIfPossible(value, i)));
-            //resultBuilder.add(Column.of(field, FieldValue.ofOrdinalNumberAndFuseIfPossible(value, i)));
+            final var field = fields.get(i);
+            //resultBuilder.add(Column.unnamedOf(FieldValue.ofOrdinalNumberAndFuseIfPossible(value, i)));
+            resultBuilder.add(Column.of(field, FieldValue.ofOrdinalNumberAndFuseIfPossible(value, i)));
         }
-        call.yieldExpression(RecordConstructorValue.ofColumns(resultBuilder.build()));
+        final var resultValue =
+                RecordConstructorValue.ofColumns(resultBuilder.build(), originalResultType.isNullable());
+        Verify.verify(originalResultType.isNullable() == resultValue.getResultType().isNullable());
+        call.yieldExpression(resultValue);
     }
 }
