@@ -359,8 +359,23 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
+        //
+        // Loop through all for-each quantifiers on the query side to ensure that they are all matched.
+        // If any are not matched we cannot establish a match at all.
+        //
+        final var allForEachQuantifiersMatched =
+                getQuantifiers()
+                        .stream()
+                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                        .allMatch(quantifier -> bindingAliasMap.containsSource(quantifier.getAlias()));
+        if (!allForEachQuantifiersMatched) {
+            return ImmutableList.of();
+        }
+
+        //
         // Loop through all for-each quantifiers on the other side to ensure that they are all matched.
         // If any are not matched we cannot establish a match at all.
+        //
         final var allOtherForEachQuantifiersMatched =
                 candidateSelectExpression.getQuantifiers()
                         .stream()
