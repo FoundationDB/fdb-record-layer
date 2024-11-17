@@ -984,6 +984,10 @@ public class Comparisons {
         @Nonnull
         @Override
         public Comparison withValue(@Nonnull final Value value) {
+            if (value instanceof LiteralValue<?>) {
+                return new SimpleComparison(getType(),
+                        Objects.requireNonNull(((LiteralValue<?>)value).getLiteralValue()));
+            }
             return new ValueComparison(getType(), value);
         }
 

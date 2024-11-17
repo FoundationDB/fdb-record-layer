@@ -90,10 +90,10 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TempTableScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new TempTableScanPlan(tempTableReferenceValue.translateCorrelations(translationMap));
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new TempTableScanPlan(tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues));
     }
 
     @Override

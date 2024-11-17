@@ -341,9 +341,19 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         public Derivations visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
             final Quantifier rangesOver = Iterables.getOnlyElement(tempTableInsertPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
+            final var childResultValues = childDerivations.getResultValues();
+            final var computationValue = tempTableInsertPlan.getComputationValue();
+
             final var resultValuesBuilder = ImmutableList.<Value>builder();
             final var localValuesBuilder = ImmutableList.<Value>builder();
             localValuesBuilder.addAll(childDerivations.getLocalValues());
+            for (final var childResultValue : childResultValues) {
+                final var resultsTranslationMap = TranslationMap.builder()
+                        .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
+                        .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(tempTableInsertPlan.getTargetRecordType())))
+                        .build();
+                resultValuesBuilder.add(computationValue.translateCorrelations(resultsTranslationMap, true));
+            }
             return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
         }
 
@@ -417,7 +427,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
                 final var resultsTranslationMap = TranslationMap.builder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                         .build();
-                localValuesBuilder.add(onEmptyResultValue.translateCorrelationsAndSimplify(resultsTranslationMap));
+                localValuesBuilder.add(onEmptyResultValue.translateCorrelations(resultsTranslationMap, true));
             }
             return new Derivations(childDerivations.getResultValues(), localValuesBuilder.build());
         }
