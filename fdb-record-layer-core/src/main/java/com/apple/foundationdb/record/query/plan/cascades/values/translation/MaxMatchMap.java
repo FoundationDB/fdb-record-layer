@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
@@ -144,10 +145,12 @@ public class MaxMatchMap {
 
     @Nonnull
     public Optional<MaxMatchMap> adjustMaybe(@Nonnull final CorrelationIdentifier upperCandidateAlias,
-                                             @Nonnull final Value upperCandidateResultValue) {
+                                             @Nonnull final Value upperCandidateResultValue,
+                                             @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var translatedQueryValueOptional =
                 translateQueryValueMaybe(upperCandidateAlias);
-        return translatedQueryValueOptional.map(value -> MaxMatchMap.calculate(value, upperCandidateResultValue));
+        return translatedQueryValueOptional.map(value -> MaxMatchMap.calculate(value, upperCandidateResultValue,
+                constantAliases));
     }
 
     /**
@@ -156,14 +159,17 @@ public class MaxMatchMap {
      *
      * @param queryResultValue the query result {@code Value}.
      * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
+     * @param constantAliases a set of aliases that should be considered constant
      *
      * @return a {@link MaxMatchMap} of all maximum matches.
      */
     @Nonnull
     public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
-                                        @Nonnull final Value candidateResultValue) {
+                                        @Nonnull final Value candidateResultValue,
+                                        @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         return calculate(queryResultValue,
                 candidateResultValue,
+                constantAliases,
                 ValueEquivalence.empty());
     }
 
@@ -183,8 +189,9 @@ public class MaxMatchMap {
      * them together, the other match however, is much better because it matches the entire query {@code Value} with a
      * single part of the index. The algorithm will always prefer the maximum match.
      *
-     * @param queryResultValue the query result {@code Value}.
-     * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
+     * @param queryResultValue the query result {@code Value}
+     * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches
+     * @param constantAliases a set of aliases that should be considered constant
      * @param valueEquivalence an {@link ValueEquivalence} that informs the logic about equivalent value subtrees
      *
      * @return a {@link  MaxMatchMap} of all maximum matches.
@@ -192,9 +199,10 @@ public class MaxMatchMap {
     @Nonnull
     public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
                                         @Nonnull final Value candidateResultValue,
+                                        @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                         @Nonnull final ValueEquivalence valueEquivalence) {
         final var recursionResult =
-                recurseQueryResultValue(queryResultValue, candidateResultValue,
+                recurseQueryResultValue(queryResultValue, candidateResultValue, constantAliases,
                         valueEquivalence, ImmutableBiMap.of(), new HashSet<>());
 
         return new MaxMatchMap(recursionResult.getValueMap(), recursionResult.getNewCurrentValue(),
@@ -205,6 +213,7 @@ public class MaxMatchMap {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static RecursionResult recurseQueryResultValue(@Nonnull final Value currentQueryValue,
                                                            @Nonnull final Value candidateResultValue,
+                                                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                                            @Nonnull final ValueEquivalence valueEquivalence,
                                                            @Nonnull final BiMap<Value, Value> knownValueMap,
                                                            @Nonnull final Set<Value> expandedValues) {
@@ -227,20 +236,37 @@ public class MaxMatchMap {
                     currentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
         }
 
+        var resultCurrentQueryValue = currentQueryValue;
+
         //
         // Apply a set of rules to the current query value and try again to match on the translated query value.
         // The nested call will either directly match or will skip this 'if' entirely.
         //
-        if (!expandedValues.contains(currentQueryValue)) {
+        if (!expandedValues.contains(resultCurrentQueryValue)) {
             expandedValues.add(currentQueryValue);
             try {
                 final var expandedCurrentQueryValue =
-                        Simplification.simplifyCurrent(currentQueryValue,
-                                AliasMap.emptyMap(), ImmutableSet.of(), MaxMatchMapSimplificationRuleSet.instance());
-                if (expandedCurrentQueryValue != currentQueryValue) {
-                    return recurseQueryResultValue(expandedCurrentQueryValue, candidateResultValue, valueEquivalence,
-                            knownValueMap, expandedValues);
+                        Simplification.simplifyCurrent(resultCurrentQueryValue,
+                                AliasMap.emptyMap(), constantAliases, MaxMatchMapSimplificationRuleSet.instance());
+                if (expandedCurrentQueryValue != resultCurrentQueryValue) {
+                    //
+                    // Try to find a match for this current query value.
+                    //
+                    currentMatchingPair =
+                            findMatchingCandidateValue(expandedCurrentQueryValue,
+                                    candidateResultValue,
+                                    valueEquivalence);
+                    isFound = currentMatchingPair.getKey();
+                    if (isFound.isTrue()) {
+                        queryPlanConstraintsBuilder.add(isFound.getConstraint());
+                        //
+                        // We found a match to the candidate side.
+                        //
+                        return new RecursionResult(ImmutableMap.of(expandedCurrentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+                                expandedCurrentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+                    }
                 }
+                resultCurrentQueryValue = expandedCurrentQueryValue;
             } finally {
                 expandedValues.remove(currentQueryValue);
             }
@@ -254,9 +280,14 @@ public class MaxMatchMap {
         final var knownNestedValueMap = HashBiMap.<Value, Value>create();
         knownNestedValueMap.putAll(knownValueMap);
         final var resultValueMap = new LinkedHashMap<Value, Value>();
-        for (final var child : currentQueryValue.getChildren()) {
+        for (final var child : resultCurrentQueryValue.getChildren()) {
+            if (Sets.difference(child.getCorrelatedTo(), constantAliases).isEmpty()) {
+                continue;
+            }
+
             final var recursionResult =
-                    recurseQueryResultValue(child, candidateResultValue, valueEquivalence, knownNestedValueMap, expandedValues);
+                    recurseQueryResultValue(child, candidateResultValue, constantAliases, valueEquivalence,
+                            knownNestedValueMap, expandedValues);
 
             final var newChild = recursionResult.getNewCurrentValue();
             newChildrenBuilder.add(newChild);
@@ -278,13 +309,12 @@ public class MaxMatchMap {
             queryPlanConstraintsBuilder.add(recursionResult.getQueryPlanConstraint());
         }
 
-        final var resultCurrentValue =
-                areAllChildrenSame
-                ? currentQueryValue
-                : currentQueryValue.withChildren(newChildrenBuilder.build());
+        if (!areAllChildrenSame) {
+            resultCurrentQueryValue = resultCurrentQueryValue.withChildren(newChildrenBuilder.build());
+        }
 
-        if (knownValueMap.containsKey(resultCurrentValue)) {
-            return new RecursionResult(ImmutableBiMap.of(), resultCurrentValue, QueryPlanConstraint.tautology());
+        if (knownValueMap.containsKey(resultCurrentQueryValue)) {
+            return new RecursionResult(ImmutableBiMap.of(), resultCurrentQueryValue, QueryPlanConstraint.tautology());
         }
 
         if (!areAllChildrenSame) {
@@ -292,7 +322,7 @@ public class MaxMatchMap {
             // Try to match this 'modified' current query value again.
             //
             currentMatchingPair =
-                    findMatchingCandidateValue(resultCurrentValue,
+                    findMatchingCandidateValue(resultCurrentQueryValue,
                             candidateResultValue,
                             valueEquivalence);
             isFound = currentMatchingPair.getKey();
@@ -302,11 +332,11 @@ public class MaxMatchMap {
                 // We found a match to the candidate side, this supersedes everything that was already found in the
                 // subtree recursion.
                 //
-                return new RecursionResult(ImmutableBiMap.of(resultCurrentValue, Objects.requireNonNull(currentMatchingPair.getValue())),
-                        resultCurrentValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+                return new RecursionResult(ImmutableBiMap.of(resultCurrentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+                        resultCurrentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
             }
         }
-        return new RecursionResult(resultValueMap, resultCurrentValue,
+        return new RecursionResult(resultValueMap, resultCurrentQueryValue,
                 QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
     }
 

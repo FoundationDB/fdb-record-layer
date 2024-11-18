@@ -124,7 +124,8 @@ public class PullUp {
         var currentValue = value;
         for (var currentPullUp = this; ; ) {
             final var maxMatchMap =
-                    MaxMatchMap.calculate(currentValue, currentPullUp.getPullThroughValue());
+                    MaxMatchMap.calculate(currentValue, currentPullUp.getPullThroughValue(),
+                            currentPullUp.getConstantAliases());
             final var currentValueOptional =
                     maxMatchMap.translateQueryValueMaybe(currentPullUp.getNestingAlias());
             if (currentValueOptional.isEmpty()) {

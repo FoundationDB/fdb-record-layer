@@ -309,7 +309,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         if (subsumedBy.isTrue()) {
             final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
             final var maxMatchMap =
-                    MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(), valueEquivalence);
+                    MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
+                            candidateExpression.getCorrelatedTo(), valueEquivalence);
             final var queryPlanConstraint =
                     subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 

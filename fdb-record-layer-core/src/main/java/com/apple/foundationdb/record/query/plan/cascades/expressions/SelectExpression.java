@@ -442,9 +442,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
                 final var maxMatchMap =
-                        MaxMatchMap.calculate(translatedResultValue,
-                                candidateExpression.getResultValue(),
-                                bindingValueEquivalence);
+                        MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
+                                candidateExpression.getCorrelatedTo(), bindingValueEquivalence);
                 return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
                                 PredicateMap.empty(), maxMatchMap, maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
@@ -561,6 +560,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                             final var maxMatchMap =
                                                     MaxMatchMap.calculate(translatedResultValue,
                                                             candidateExpression.getResultValue(),
+                                                            candidateExpression.getCorrelatedTo(),
                                                             bindingValueEquivalence);
                                             return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
                                                     allParameterBindingMap, predicateMap,
@@ -594,7 +594,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var maxMatchMap = childMatchInfo.getMaxMatchMap();
         final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
 
-        final var adjustedMaxMatchMapOptional = maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue());
+        final var adjustedMaxMatchMapOptional =
+                maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue(), getCorrelatedTo());
         return adjustedMaxMatchMapOptional
                 .map(adjustedMaxMatchMap ->
                         childMatchInfo.adjustedBuilder()
