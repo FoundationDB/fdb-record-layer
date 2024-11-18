@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.TestRecords7Proto;
+import com.apple.foundationdb.record.TestHierarchiesProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -80,7 +80,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param plan The plan to execute.
      * @param inputTempTable The input temp table, possibly containing the expected plan results.
      * @param tempTableId The id of the temp table, used to register it correctly in the {@link EvaluationContext}.
-     * @return The execution results of the {@code plan} mapped to a pair of the {@code rec_no} and {@code str_value}.
+     * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
      * @throws Exception If the execution fails.
      */
     @Nonnull
@@ -91,7 +91,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
         constants.put(tempTableId.getId(), inputTempTable);
         final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
-        return extractResultsAsPairs(context, plan, evaluationContext);
+        return extractResultsAsIdValuePairs(context, plan, evaluationContext);
     }
 
     /**
@@ -99,16 +99,37 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param context The transaction used to execute the plan.
      * @param plan The plan to be executed.
      * @param evaluationContext The evaluation context.
-     * @return The execution results of the {@code plan} mapped to a pair of the {@code rec_no} and {@code str_value}.
+     * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
      * @throws Exception If the execution fails.
      */
     @Nonnull
-    Set<Pair<Long, String>> extractResultsAsPairs(@Nonnull final FDBRecordContext context,
-                                                  @Nonnull final RecordQueryPlan plan,
-                                                  @Nonnull final EvaluationContext evaluationContext) throws Exception {
+    Set<Pair<Long, String>> extractResultsAsIdValuePairs(@Nonnull final FDBRecordContext context,
+                                                         @Nonnull final RecordQueryPlan plan,
+                                                         @Nonnull final EvaluationContext evaluationContext) throws Exception {
         ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
         fetchResultValues(context, plan, record -> {
-            resultBuilder.add(asPair(record));
+            resultBuilder.add(asIdValue(record));
+            return record;
+        }, evaluationContext, c -> {
+        }, ExecuteProperties.newBuilder().build());
+        return resultBuilder.build();
+    }
+
+    /**
+     * Utility method that executes a {@code plan} returning its results.
+     * @param context The transaction used to execute the plan.
+     * @param plan The plan to be executed.
+     * @param evaluationContext The evaluation context.
+     * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code parent}.
+     * @throws Exception If the execution fails.
+     */
+    @Nonnull
+    Set<Pair<Long, Long>> extractResultsAsIdParentPairs(@Nonnull final FDBRecordContext context,
+                                                         @Nonnull final RecordQueryPlan plan,
+                                                         @Nonnull final EvaluationContext evaluationContext) throws Exception {
+        ImmutableSet.Builder<Pair<Long, Long>> resultBuilder = ImmutableSet.builder();
+        fetchResultValues(context, plan, record -> {
+            resultBuilder.add(asIdParent(record));
             return record;
         }, evaluationContext, c -> {
         }, ExecuteProperties.newBuilder().build());
@@ -116,53 +137,103 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static Pair<Long, String> asPair(@Nonnull final Message message) {
+    static Pair<Long, String> asIdValue(@Nonnull final Message message) {
         final var descriptor = message.getDescriptorForType();
-//       return Pair.of((Long)message.getField(descriptor.findFieldByName("rec_no")), "");
-        return Pair.of((Long)message.getField(descriptor.findFieldByName("rec_no")),
-                (String)message.getField(descriptor.findFieldByName("str_value")));
+        return Pair.of((Long)message.getField(descriptor.findFieldByName("id")),
+                (String)message.getField(descriptor.findFieldByName("value")));
+    }
+
+
+    @Nonnull
+    static Pair<Long, Long> asIdParent(@Nonnull final Message message) {
+        final var descriptor = message.getDescriptorForType();
+        return Pair.of((Long)message.getField(descriptor.findFieldByName("id")),
+                (Long)message.getField(descriptor.findFieldByName("parent")));
     }
 
     @Nonnull
-    static QueryResult queryResult(long recNo, @Nonnull final String strValue) {
-        return QueryResult.ofComputed(item(recNo, strValue));
+    static QueryResult queryResult(long id, @Nonnull final String value, long parent) {
+        return QueryResult.ofComputed(item(id, value, parent));
     }
 
     @Nonnull
-    static QueryResult queryResult(long recNo) {
-        return queryResult(recNo, recNo + "Value");
+    static QueryResult queryResult(long id, @Nonnull final String value) {
+        return QueryResult.ofComputed(item(id, value));
     }
 
     @Nonnull
-    static Message item(long recNo, @Nonnull final String strValue) {
-        return TestRecords7Proto.MyRecord1.newBuilder()
-                .setRecNo(recNo)
-                .setStrValue(strValue)
+    static QueryResult queryResult(long id) {
+        return queryResult(id, id + "Value");
+    }
+
+    @Nonnull
+    static QueryResult queryResult(long id, long parent) {
+        return queryResult(id, arrow(id, parent), parent);
+    }
+
+    @Nonnull
+    static Message item(long id, @Nonnull final String value) {
+        return TestHierarchiesProto.SimpleHierarchicalRecord.newBuilder()
+                .setId(id)
+                .setValue(value)
                 .build();
     }
 
     @Nonnull
-    static RecordConstructorValue rcv(long recNo, @Nonnull final String strValue) {
+    static Message item(long id, @Nonnull final String value, long parent) {
+        return TestHierarchiesProto.SimpleHierarchicalRecord.newBuilder()
+                .setId(id)
+                .setParent(parent)
+                .setValue(value)
+                .build();
+    }
+
+    @Nonnull
+    static Message item(long id, long parent) {
+        return TestHierarchiesProto.SimpleHierarchicalRecord.newBuilder()
+                .setId(id)
+                .setParent(parent)
+                .setValue(arrow(id, parent))
+                .build();
+    }
+
+    @Nonnull
+    private static String arrow(long child, long parent) {
+        return child + " -> " + parent;
+    }
+
+    @Nonnull
+    static RecordConstructorValue rcv(long id, @Nonnull final String value) {
         return RecordConstructorValue.ofColumns(
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG),
-                                Optional.of("rec_no")), LiteralValue.ofScalar(recNo)),
+                                Optional.of("id")), LiteralValue.ofScalar(id)),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING),
-                                Optional.of("str_value")), LiteralValue.ofScalar(strValue))));
+                                Optional.of("value")), LiteralValue.ofScalar(value))));
+    }
+
+    @Nonnull
+    static RecordConstructorValue rcv(long id, long parent, @Nonnull final String value) {
+        return RecordConstructorValue.ofColumns(
+                ImmutableList.of(
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG),
+                                Optional.of("id")), LiteralValue.ofScalar(id)),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG),
+                                Optional.of("parent")), LiteralValue.ofScalar(parent)),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING),
+                                Optional.of("value")), LiteralValue.ofScalar(value))));
     }
 
     @Nonnull
     RecordQueryPlan createAndOptimizeTempTableScanPlan(@Nonnull final CorrelationIdentifier tempTableId) {
-        final var type = Type.Record.fromDescriptor(TestRecords7Proto.MyRecord1.getDescriptor());
-        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), type)));
-        final var recNoField = getRecNoCol(tempTableScanQun);
-        final var strValueIndexedField = getStrValueCol(tempTableScanQun);
+        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), getType())));
         final var selectExpressionBuilder = GraphExpansion.builder()
-                .addAllResultColumns(ImmutableList.of(recNoField, strValueIndexedField))
+                .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
                 .addQuantifier(tempTableScanQun);
         final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(selectExpressionBuilder.build().buildSelect()))));
         final var cascadesPlanner = (CascadesPlanner)planner;
-        final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+        final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
         assertMatchesExactly(plan, mapPlan(tempTableScanPlan()));
         return plan;
     }
@@ -192,18 +263,28 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static FieldValue getRecNoField(@Nonnull final Quantifier.ForEach quantifier) {
-        return FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "rec_no");
+    static FieldValue getIdField(@Nonnull final Quantifier.ForEach quantifier) {
+        return FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "id");
     }
 
     @Nonnull
-    static Column<Value> getRecNoCol(@Nonnull final Quantifier.ForEach quantifier) {
-        return Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "rec_no"));
+    static FieldValue getParentField(@Nonnull final Quantifier.ForEach quantifier) {
+        return FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "parent");
     }
 
     @Nonnull
-    static Column<Value> getStrValueCol(@Nonnull final Quantifier.ForEach quantifier) {
-        return Column.of(Optional.of("str_value"), FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "str_value"));
+    static Column<Value> getIdCol(@Nonnull final Quantifier.ForEach quantifier) {
+        return Column.of(Optional.of("id"), FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "id"));
+    }
+
+    @Nonnull
+    static Column<Value> getValueCol(@Nonnull final Quantifier.ForEach quantifier) {
+        return Column.of(Optional.of("value"), FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "value"));
+    }
+
+    @Nonnull
+    static Column<Value> getParentCol(@Nonnull final Quantifier.ForEach quantifier) {
+        return Column.of(Optional.of("parent"), FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "parent"));
     }
 
     @Nonnull
@@ -213,6 +294,6 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Descriptors.Descriptor getDescriptor() {
-        return TestRecords7Proto.MyRecord1.getDescriptor();
+        return TestHierarchiesProto.SimpleHierarchicalRecord.getDescriptor();
     }
 }

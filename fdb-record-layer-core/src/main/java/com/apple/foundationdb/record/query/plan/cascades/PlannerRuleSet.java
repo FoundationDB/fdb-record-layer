@@ -70,6 +70,8 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrde
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughGroupByRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInsertTempTableRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughRecursiveUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectExistentialRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSortRule;
@@ -128,12 +130,14 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughSortRule(),
             new PushRequestedOrderingThroughDistinctRule(),
             new PushRequestedOrderingThroughUnionRule(),
+            new PushRequestedOrderingThroughRecursiveUnionRule(),
             new PushRequestedOrderingThroughInLikeSelectRule(),
             new PushRequestedOrderingThroughSelectRule(),
             new PushRequestedOrderingThroughSelectExistentialRule(),
             new PushRequestedOrderingThroughGroupByRule(),
             new PushRequestedOrderingThroughDeleteRule(),
             new PushRequestedOrderingThroughInsertRule(),
+            new PushRequestedOrderingThroughInsertTempTableRule(),
             new PushRequestedOrderingThroughUpdateRule(),
             new PushRequestedOrderingThroughUniqueRule()
     );

@@ -45,7 +45,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.BeforeEach;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -72,7 +71,7 @@ public class TempTableTest extends TempTableTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void scanTempTableWorksCorrectly() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            // select rec_no, str_value from <tempTable>.
+            // select id, value from <tempTable>.
             final var tempTable = TempTable.<QueryResult>newInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var plan = createAndOptimizeTempTableScanPlan(tempTableId);
@@ -85,23 +84,20 @@ public class TempTableTest extends TempTableTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void scanTempTableWithPredicateWorksCorrectly() throws Exception {
-        // select rec_no, str_value from <tempTable> where rec_no < 44L.
+        // select id, value from <tempTable> where id < 44L.
         try (FDBRecordContext context = openContext()) {
             final var tempTable = TempTable.<QueryResult>newInstance();
             addSampleDataToTempTable(tempTable);
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), getType())));
-            final var recNoField = getRecNoField(tempTableScanQun);
-            final var recNoColumn = getRecNoCol(tempTableScanQun);
-            final var strValueColumn = getStrValueCol(tempTableScanQun);
             final var selectExpressionBuilder = GraphExpansion.builder()
-                    .addAllResultColumns(ImmutableList.of(recNoColumn, strValueColumn))
-                    .addPredicate(new ValuePredicate(recNoField, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))
+                    .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
+                    .addPredicate(new ValuePredicate(getIdField(tempTableScanQun), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))
                     .addQuantifier(tempTableScanQun);
             final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(selectExpressionBuilder.build().buildSelect()))));
             final var cascadesPlanner = (CascadesPlanner)planner;
             final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
-            assertMatchesExactly(plan, mapPlan(predicatesFilterPlan(tempTableScanPlan()).where(predicates(only(valuePredicate(fieldValueWithFieldNames("rec_no"),
+            assertMatchesExactly(plan, mapPlan(predicatesFilterPlan(tempTableScanPlan()).where(predicates(only(valuePredicate(fieldValueWithFieldNames("id"),
                     new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))))));
             assertEquals(ImmutableSet.of(Pair.of(42L, "fortySecondValue")), collectResults(context, plan, tempTable, tempTableId));
         }
@@ -129,7 +125,7 @@ public class TempTableTest extends TempTableTestBase {
             final var evaluationContext = putTempTableInContext(tempTableId, tempTable, null);
             fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { }, ExecuteProperties.SERIAL_EXECUTE);
 
-            // select rec_no, str_value from tq1 | tq1 is a temporary table.
+            // select id, value from tq1 | tq1 is a temporary table.
             plan = createAndOptimizeTempTableScanPlan(tempTableId);
             assertEquals(ImmutableSet.of(Pair.of(1L, "first"),
                     Pair.of(2L, "second")), collectResults(context, plan, tempTable, tempTableId));
@@ -161,7 +157,7 @@ public class TempTableTest extends TempTableTestBase {
                     null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 assertTrue(cursor.hasNext());
                 Message message = Verify.verifyNotNull(cursor.next()).getMessage();
-                assertEquals(Pair.of(1L, "first"), asPair(message));
+                assertEquals(Pair.of(1L, "first"), asIdValue(message));
                 continuation = cursor.getContinuation();
             }
 
@@ -177,11 +173,11 @@ public class TempTableTest extends TempTableTestBase {
                     continuation, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 assertTrue(cursor.hasNext());
                 Message message = Verify.verifyNotNull(cursor.next()).getMessage();
-                assertEquals(Pair.of(2L, "second"), asPair(message));
+                assertEquals(Pair.of(2L, "second"), asIdValue(message));
                 assertFalse(cursor.hasNext());
                 assertTrue(cursor.getNoNextReason().isSourceExhausted());
             }
-            // select rec_no, str_value from tq1 | tq1 is a temporary table.
+            // select id, value from tq1 | tq1 is a temporary table.
             final var scanPlan = createAndOptimizeTempTableScanPlan(tempTableId);
             assertEquals(ImmutableSet.of(Pair.of(1L, "first"), Pair.of(2L, "second")),
                     collectResults(context, scanPlan, tempTable, tempTableId));

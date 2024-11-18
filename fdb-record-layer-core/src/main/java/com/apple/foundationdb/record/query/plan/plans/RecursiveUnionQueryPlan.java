@@ -212,7 +212,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 () -> initialIsRead,
                 resumedInitialIsRead -> initialIsRead = resumedInitialIsRead,
                 () -> {
-                    System.out.println("before switch");
                     getReadTempTable(store, context).clear();
                     initialIsRead = !initialIsRead;
                     resetTempTableBindings(store, context);
