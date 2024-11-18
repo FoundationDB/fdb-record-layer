@@ -285,6 +285,11 @@ public class PartialMatch {
     }
 
     @Nonnull
+    public Compensation compensateExistential(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueID());
+    }
+
+    @Nonnull
     public PullUp nestPullUp(@Nonnull final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
         final var candidateExpression = candidateRef.get();
         final var pullUpVisitor = PullUp.visitor(pullUp, nestingAlias);

@@ -184,31 +184,13 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final QueryPredicate candidatePredicate,
                                                                      @Nonnull final EvaluationContext evaluationContext) {
-        if (candidatePredicate instanceof Placeholder) {
-            return Optional.empty();
-        } else if (candidatePredicate instanceof ExistsPredicate) {
-            final ExistsPredicate candidateExistsPredicate = (ExistsPredicate)candidatePredicate;
-            final var aliasEquals =
-                    valueEquivalence.isDefinedEqual(existentialAlias, candidateExistsPredicate.getExistentialAlias());
-            if (aliasEquals.isFalse()) {
-                return Optional.empty();
-            }
+        if (!(candidatePredicate instanceof Placeholder) && candidatePredicate.isTautology()) {
             return Optional.of(
                     PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                            .setPredicateCompensation((partialMatch, boundParameterPrefixMap, pullUp) ->
-                                    computeCompensationFunction(partialMatch, (ExistsPredicate)originalQueryPredicate,
-                                            boundParameterPrefixMap, pullUp))
-                            .setConstraint(aliasEquals.getConstraint())
-                            .build());
-        } else if (candidatePredicate.isTautology()) {
-            return Optional.of(
-                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                            .setPredicateCompensation((partialMatch, boundParameterPrefixMap, pullUp) ->
-                                    computeCompensationFunction(partialMatch, (ExistsPredicate)originalQueryPredicate,
-                                            boundParameterPrefixMap, pullUp))
+                            .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                             .build());
         }
-        return Optional.empty();
+        return super.impliesCandidatePredicateMaybe(valueEquivalence, originalQueryPredicate, candidatePredicate, evaluationContext);
     }
 
     @Nonnull
@@ -237,11 +219,12 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                                                                       @Nonnull final ExistsPredicate originalExistsPredicate,
                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                       @Nonnull final PullUp pullUp) {
-        final var matchInfo = partialMatch.getMatchInfo();
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var childPartialMatchOptional =
-                matchInfo.getRegularMatchInfo().getChildPartialMatchMaybe(existentialAlias);
+                regularMatchInfo.getChildPartialMatchMaybe(originalExistsPredicate.getExistentialAlias());
         final var compensationOptional =
-                childPartialMatchOptional.map(PartialMatch::compensateCompleteMatch);
+                childPartialMatchOptional.map(childPartialMatch ->
+                        childPartialMatch.compensateExistential(boundParameterPrefixMap));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
             //
             // Note that this predicate does NOT need to be pulled up as the existential quantifier is separately
