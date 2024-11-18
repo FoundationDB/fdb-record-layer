@@ -57,10 +57,10 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlationsSupplier;
 
-    RecursiveUnionExpression(@Nonnull final Quantifier initialState,
-                             @Nonnull final Quantifier recursiveState,
-                             @Nonnull final Value initialTempTableValueReference,
-                             @Nonnull final Value recursiveTempTableValueReference) {
+    public RecursiveUnionExpression(@Nonnull final Quantifier initialState,
+                                    @Nonnull final Quantifier recursiveState,
+                                    @Nonnull final Value initialTempTableValueReference,
+                                    @Nonnull final Value recursiveTempTableValueReference) {
         this.quantifiers = ImmutableList.of(initialState, recursiveState);
         this.initialTempTableValueReference = initialTempTableValueReference;
         this.recursiveTempTableValueReference = recursiveTempTableValueReference;
