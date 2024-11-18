@@ -64,6 +64,9 @@ public final class RecordLayerTable implements Table {
     private final Set<RecordLayerIndex> indexes;
 
     @Nonnull
+    private final Set<RecordLayerUserDefinedFunction> operatorDefinitions;
+
+    @Nonnull
     private final KeyExpression primaryKey;
 
     @Nonnull
@@ -78,6 +81,7 @@ public final class RecordLayerTable implements Table {
     private RecordLayerTable(@Nonnull final String name,
                              @Nonnull final List<RecordLayerColumn> columns,
                              @Nonnull final Set<RecordLayerIndex> indexes,
+                             @Nonnull final Set<RecordLayerUserDefinedFunction> operatorDefinitions,
                              @Nonnull final KeyExpression primaryKey,
                              @Nonnull final Map<Integer, DescriptorProtos.FieldOptions> generations,
                              final DataType.StructType dataType,
@@ -85,6 +89,7 @@ public final class RecordLayerTable implements Table {
         this.name = name;
         this.columns = ImmutableList.copyOf(columns);
         this.indexes = ImmutableSet.copyOf(indexes);
+        this.operatorDefinitions = ImmutableSet.copyOf(operatorDefinitions);
         this.primaryKey = primaryKey;
         this.generations = generations;
         this.dataType = dataType == null ? calculateDataType() : dataType;
@@ -101,6 +106,11 @@ public final class RecordLayerTable implements Table {
     @Override
     public Set<RecordLayerIndex> getIndexes() {
         return indexes;
+    }
+
+    @Nonnull
+    public Set<RecordLayerUserDefinedFunction> getOperatorDefinitions() {
+        return operatorDefinitions;
     }
 
     @Nonnull
@@ -206,6 +216,9 @@ public final class RecordLayerTable implements Table {
         private Set<RecordLayerIndex> indexes;
 
         @Nonnull
+        private Set<RecordLayerUserDefinedFunction> operatorDefinitions;
+
+        @Nonnull
         private ImmutableList.Builder<RecordLayerColumn> columns;
 
         @Nonnull
@@ -255,6 +268,13 @@ public final class RecordLayerTable implements Table {
         public Builder addIndex(@Nonnull final RecordLayerIndex index) {
             Assert.thatUnchecked(indexes.stream().noneMatch(i -> index.getName().equals(i.getName())), ErrorCode.INDEX_ALREADY_EXISTS, "attempt to add duplicate index '%s'", index.getName());
             this.indexes.add(index);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addOperatorDefinition(@Nonnull final RecordLayerUserDefinedFunction userDefinedOperator) {
+            Assert.thatUnchecked(operatorDefinitions.stream().noneMatch(i -> userDefinedOperator.getName().equals(i.getName())), ErrorCode.INDEX_ALREADY_EXISTS, "attempt to add duplicate index '%s'", userDefinedOperator.getName());
+            this.operatorDefinitions.add(userDefinedOperator);
             return this;
         }
 
@@ -337,8 +357,9 @@ public final class RecordLayerTable implements Table {
             Assert.thatUnchecked(!columnsList.isEmpty(), ErrorCode.INVALID_TABLE_DEFINITION, "Attempting to create table %s without columns", name);
 
             final var indexesSet = ImmutableSet.copyOf(indexes);
+            final Set<RecordLayerUserDefinedFunction> operatorDefinitionsSet = operatorDefinitions == null ? ImmutableSet.of() : ImmutableSet.copyOf(operatorDefinitions);
 
-            return new RecordLayerTable(name, columnsList, indexesSet, getPrimaryKey(), generations, dataType, record);
+            return new RecordLayerTable(name, columnsList, indexesSet, operatorDefinitionsSet, getPrimaryKey(), generations, dataType, record);
         }
 
         @Nonnull

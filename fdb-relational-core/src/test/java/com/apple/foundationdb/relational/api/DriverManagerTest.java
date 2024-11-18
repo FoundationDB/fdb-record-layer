@@ -30,6 +30,7 @@ import org.mockito.Mockito;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -44,8 +45,8 @@ class DriverManagerTest {
     @BeforeEach
     public void beforeEach() throws SQLException {
         // Cleanup old drivers, if any,
-        final var oldDrivers = DriverManager.drivers().collect(ImmutableList.toImmutableList());
-        for (final var driver : oldDrivers) {
+        final var oldDrivers = DriverManager.drivers().collect(Collectors.toList());
+        for (final var driver: oldDrivers) {
             DriverManager.deregisterDriver(driver);
         }
         DriverManager.drivers().forEach(driver -> {

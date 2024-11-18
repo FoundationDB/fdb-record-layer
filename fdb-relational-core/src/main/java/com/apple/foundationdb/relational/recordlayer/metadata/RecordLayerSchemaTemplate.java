@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
+import com.apple.foundationdb.relational.api.metadata.FunctionDefinition;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
@@ -48,11 +49,13 @@ import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -147,6 +150,19 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return new RecordLayerSchema(schemaName, databaseId, this);
     }
 
+    @Nullable
+    public FunctionDefinition getOperationDefinition(@Nonnull final String operatorName, @Nonnull final DataType.StructType structType) {
+        for (RecordLayerTable table: tables) {
+            for (RecordLayerColumn column: table.getColumns()) {
+                final var dt = column.getDataType();
+                if (dt instanceof DataType.StructType && dt.equals(structType) && ((DataType.StructType) dt).getUserDefinedFunctions().containsKey(operatorName)) {
+                    return ((DataType.StructType) dt).getUserDefinedFunctions().get(operatorName);
+                }
+            }
+        }
+        return null;
+    }
+
     @Nonnull
     public Descriptors.Descriptor getDescriptor(@Nonnull final String tableName) {
         return toRecordMetadata().getRecordType(tableName).getDescriptor();
@@ -178,6 +194,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull RecordMetaData metaData,
                                                                @Nonnull String templateName,
                                                                int version) {
+        System.out.println("RecordLayerSchemaTemplate.fromRecordMetadata is called");
         final var deserializer = new RecordMetadataDeserializer(metaData);
         final var builder = deserializer.getSchemaTemplate(templateName, version);
         return builder.setCachedMetadata(metaData).build();
@@ -385,6 +402,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             Assert.thatUnchecked(!tables.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, auxiliaryType.getName());
             Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
             auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
+            System.out.println("auxiliaryTypes name:" + auxiliaryType.getName());
             return this;
         }
 
@@ -418,6 +436,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         public RecordLayerTable extractTable(@Nonnull final String name) {
             Assert.thatUnchecked(tables.containsKey(name), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
             return tables.remove(name);
+        }
+
+        @Nonnull
+        public DataType.Named extractAuxiliaryType(@Nonnull final String name) {
+            System.out.println("extractAuxiliaryType called with:" + name + " map:" + auxiliaryTypes);
+            Assert.thatUnchecked(auxiliaryTypes.containsKey(name.toUpperCase(Locale.ROOT)), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
+            return auxiliaryTypes.remove(name.toUpperCase(Locale.ROOT));
         }
 
         @Nonnull
@@ -459,7 +484,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             if (needsResolution) {
                 resolveTypes();
             }
-
+            System.out.println("RecordLayerSchemaTemplate name:" + name + " is build with auxiliary type size:" + auxiliaryTypes.size());
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions, cachedMetadata);
             } else {

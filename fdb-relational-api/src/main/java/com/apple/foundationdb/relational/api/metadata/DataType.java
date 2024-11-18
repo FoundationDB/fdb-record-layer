@@ -29,6 +29,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.sql.Types;
@@ -957,12 +958,16 @@ public abstract class DataType {
         private final String name;
 
         @Nonnull
+        private final Map<String, FunctionDefinition> userDefinedFunctions;
+
+        @Nonnull
         private final Supplier<Boolean> resolvedSupplier = Suppliers.memoize(this::calculateResolved);
 
-        private StructType(@Nonnull final String name, boolean isNullable, @Nonnull final List<Field> fields) {
+        private StructType(@Nonnull final String name, boolean isNullable, @Nonnull final List<Field> fields, @Nonnull final Map<String, FunctionDefinition> userDefinedOperators) {
             super(isNullable, false, Code.STRUCT);
             this.name = name;
             this.fields = ImmutableList.copyOf(fields);
+            this.userDefinedFunctions = ImmutableMap.copyOf(userDefinedOperators);
         }
 
         @Nonnull
@@ -974,6 +979,11 @@ public abstract class DataType {
         @Nonnull
         public String getName() {
             return name;
+        }
+
+        @Nonnull
+        public Map<String, FunctionDefinition> getUserDefinedFunctions() {
+            return ImmutableMap.copyOf(userDefinedFunctions);
         }
 
         public static class Field {
@@ -1046,7 +1056,14 @@ public abstract class DataType {
 
         @Nonnull
         public static StructType from(@Nonnull final String name, @Nonnull final List<Field> fields, boolean isNullable) {
-            return new StructType(name, isNullable, fields);
+            return new StructType(name, isNullable, fields, ImmutableMap.of());
+        }
+
+        @Nonnull
+        public StructType withFunctionDefinition(FunctionDefinition functionDefinition) {
+            Map<String, FunctionDefinition> newUserDefinedFunctions = new java.util.HashMap<>(userDefinedFunctions);
+            newUserDefinedFunctions.put(functionDefinition.getName(), functionDefinition);
+            return new StructType(name, isNullable(), fields, newUserDefinedFunctions);
         }
 
         @Override
@@ -1055,7 +1072,7 @@ public abstract class DataType {
             if (isNullable == isNullable()) {
                 return this;
             }
-            return new StructType(name, isNullable, fields);
+            return new StructType(name, isNullable, fields, userDefinedFunctions);
         }
 
         private boolean calculateResolved() {

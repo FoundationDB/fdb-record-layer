@@ -877,6 +877,39 @@ public class StandardQueryTests {
     }
 
     @Test
+    void testUserDefinedFunction() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT Location (name string, latitude string, longitude string)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION lat(x Location) RETURNS (string) AS (x.latitude)\n";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE lat(loc) = ?loc")) {
+                ps.setString("loc", "37.3");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+            }
+        }
+    }
+
+    private RelationalStruct insertLocationComplexRecord(RelationalStatement s, long uid, @Nonnull final String name, String latitude, String longitude) throws SQLException {
+        var struct = EmbeddedRelationalStruct.newBuilder()
+                .addLong("UID", uid)
+                .addStruct("LOC", EmbeddedRelationalStruct.newBuilder()
+                        .addString("NAME", name)
+                        .addString("LATITUDE", latitude)
+                        .addString("LONGITUDE", longitude)
+                        .build())
+                .build();
+        int cnt = s.executeInsert("T1", struct);
+        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+        return struct;
+    }
+
+    @Test
     void testBitmap() throws Exception {
         final String query = "SELECT BITMAP_CONSTRUCT_AGG(BITMAP_BIT_POSITION(uid)) as bitmap, category, BITMAP_BUCKET_OFFSET(uid) as offset FROM T1\n" +
                 "GROUP BY category, BITMAP_BUCKET_OFFSET(uid)\n";

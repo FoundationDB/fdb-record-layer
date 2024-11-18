@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUserDefinedFunction;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
@@ -174,6 +175,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public RecordLayerUserDefinedFunction visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
+        return new RecordLayerUserDefinedFunction(ctx.functionName.getText(), ctx.inputTypeName.getText(), ctx.columnType(), ctx.paramName.getText(), ctx.expression());
+    }
+
+        @Nonnull
+    @Override
     public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
         final var enumId = visitUid(ctx.uid());
 
@@ -208,6 +215,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.StructDefinitionContext> structClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.TableDefinitionContext> tableClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.FunctionDefinitionContext> functionClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -215,6 +223,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 structClauses.add(templateClause.structDefinition());
             } else if (templateClause.tableDefinition() != null) {
                 tableClauses.add(templateClause.tableDefinition());
+            } else if (templateClause.functionDefinition() != null) {
+                functionClauses.add(templateClause.functionDefinition());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -227,6 +237,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);
+        }
+        final var functions = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
+        for (final var func : functions) {
+            // (TODO): maybe a table type too?
+            final var auxiliaryType = metadataBuilder.extractAuxiliaryType(func.getInputTypeName());
+            System.out.println("auxiliaryType:" + auxiliaryType);
+            Assert.thatUnchecked(auxiliaryType instanceof DataType.StructType);
+            metadataBuilder.addAuxiliaryType(((DataType.StructType) auxiliaryType).withFunctionDefinition(func));
         }
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }

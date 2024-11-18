@@ -88,7 +88,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | functionDefinition)
     ;
 
 createStatement
@@ -152,6 +152,10 @@ enumDefinition
 
 indexDefinition
     : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?
+    ;
+
+functionDefinition
+    : FUNCTION functionName=uid LEFT_ROUND_BRACKET paramName=uid inputTypeName=uid RIGHT_ROUND_BRACKET RETURNS LEFT_ROUND_BRACKET columnType ( ',' columnType)* RIGHT_ROUND_BRACKET AS LEFT_ROUND_BRACKET expression ( ',' expression)* RIGHT_ROUND_BRACKET
     ;
 
 indexAttributes
@@ -789,6 +793,7 @@ functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
     | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
+    | userDefinedFunctionName=uid '(' functionArgs? ')'             #userDefinedFunctionCall
     ;
 
 specificFunction

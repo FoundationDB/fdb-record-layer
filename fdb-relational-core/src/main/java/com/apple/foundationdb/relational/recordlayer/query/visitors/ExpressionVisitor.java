@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.FunctionDefinition;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
@@ -181,6 +183,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext functionCon) {
+        System.out.println("visitAggregateFunctionCall called");
         return visitAggregateWindowedFunction(functionCon.aggregateWindowedFunction());
     }
 
@@ -250,7 +253,39 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
+        System.out.println("visitUserDefinedFunctionCall called");
+        final var functionName = ctx.userDefinedFunctionName.getText();
+        // special case for user-defined functions where we want to exclude the first argument from
+        // being literal-stripped.
+        @Nonnull Expressions arguments;
+        boolean isUdf = getDelegate().getSemanticAnalyzer().isUdfFunction(functionName);
+        if (isUdf) {
+            final var argumentNodes = ctx.functionArgs().children.stream()
+                    .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)
+                    .map(RelationalParser.FunctionArgContext.class::cast)
+                    .collect(Collectors.toUnmodifiableList());
+            Assert.thatUnchecked(!argumentNodes.isEmpty());
+            final var classNameExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
+                final var result = visitFunctionArg(argumentNodes.get(0));
+                Assert.thatUnchecked(result.getUnderlying() instanceof LiteralValue,
+                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect UDF '%s'",
+                                result.getUnderlying()));
+                return result;
+            });
+            arguments = Expressions.of(Streams.concat(Stream.of(classNameExpression),
+                            argumentNodes.stream().skip(1).map(this::visitFunctionArg))
+                    .collect(Collectors.toUnmodifiableList()));
+        } else {
+            arguments = visitFunctionArgs(ctx.functionArgs());
+        }
+        return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
+    }
+
+    @Nonnull
+    @Override
     public Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx) {
+        System.out.println("ExpressionVisitor::visitFunctionCallExpressionAtom:" + ctx.getText() + " ctx class:" + ctx.getClass());
         return parseChild(ctx);
     }
 
@@ -465,8 +500,20 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
+        // if comparison operator is overriden, and left.dataType = RLUDOperator.getStructName,
+        // for example, ctx = (a = b)
+        // RLUDoperator.getExpressionCtx = (x.string_value = y.string_value and x.long_value = y.long_value);
+        // rewrite the function, change ctx -> a.string_value = b.string_value and a.long_value = b.long_value
+        System.out.println("get into visitBinaryComparisonPredicate");
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
+        System.out.println("left dataType:" + left.getDataType() + " left:" + left + " left.getClass:" + left.getDataType().getClass());
+        System.out.println("right dataType:" + right.getDataType());
+
+        if (left.getDataType() instanceof DataType.StructType) {
+            FunctionDefinition operationDefinition = getDelegate().getCatalog().getOperationDefinition(ctx.comparisonOperator().getText(), (DataType.StructType) left.getDataType());
+            System.out.println("operationDefinition:" + operationDefinition);
+        }
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
     }
 
@@ -822,6 +869,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression parseChild(@Nonnull ParserRuleContext context) {
+        Expressions expressions = (Expressions) visitChildren(context);
+        for (int i = 0; i < context.getChildCount(); i++) {
+            System.out.println("ith:" + i + " child:" + context.getChild(i).getText());
+        }
+        System.out.println("expressions:" + expressions);
         return Assert.castUnchecked(visitChildren(context), Expression.class);
     }
 
