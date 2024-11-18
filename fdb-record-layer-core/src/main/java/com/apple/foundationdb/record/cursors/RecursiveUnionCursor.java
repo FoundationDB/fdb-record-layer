@@ -41,8 +41,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * TODO.
- * @param <T> TODO.
+ * A cursor that returns repeatedly executes its children until reaching a fix-point. Specifically, it returns the results
+ * of an initial cursor as-is until it finishes, and then it repeatedly execute the other cursor recursively until it does
+ * not produce any new results.
+ * @param <T> The type of the cursor elements.
  */
 public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 

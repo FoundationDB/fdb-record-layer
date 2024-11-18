@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
@@ -42,7 +41,7 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 
 /**
- * A rule that pushes an ordering {@link RequestedOrderingConstraint} through an {@link InsertExpression}.
+ * A rule that pushes an ordering {@link RequestedOrderingConstraint} through an {@link TempTableInsertExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

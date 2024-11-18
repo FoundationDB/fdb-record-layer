@@ -38,7 +38,11 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * TODO.
+ * This is a logical representation of a recursive union, a recursive union is similar to a normal union all, however
+ * its legs have special execution semantics; just like a union, it returns the results verbatim of one particular
+ * leg called the "initial state" leg. This leg provides the results required to seed the recursion happening during
+ * the execution of the other leg, the "recursive state" leg. The recursive unions repeatedly executes the recursive
+ * leg until it does not produce any more results (fix-point).
  */
 public class RecursiveUnionExpression implements RelationalExpressionWithChildren {
 
@@ -100,6 +104,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
@@ -132,6 +137,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);

@@ -1,5 +1,5 @@
 /*
- * PushRequestedOrderingThroughUnionRule.java
+ * PushRequestedOrderingThroughRecursiveUnionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -44,11 +43,10 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.recursiveUnionExpression;
 
 /**
- * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link LogicalUnionExpression}.
+ * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link RecursiveUnionExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

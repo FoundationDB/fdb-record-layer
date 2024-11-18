@@ -63,7 +63,9 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * TODO.
+ * This is a physical representation of a recursive union, it delegates most of its execution to an underlying
+ * {@link RecursiveUnionCursor}, sharing its state, through a number of suppliers and consumers, with it to orchestrate
+ * the recursive execution.
  */
 @API(API.Status.INTERNAL)
 public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
@@ -152,11 +154,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nonnull
     private <M extends Message> TempTable<?> getReadTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return initialIsRead ? getInitialTempTable(store, context) : getRecursiveTempTable(store, context);
-    }
-
-    @Nonnull
-    private <M extends Message> TempTable<?> getWriteTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return initialIsRead ? getRecursiveTempTable(store, context) : getInitialTempTable(store, context);
     }
 
     @Nonnull
@@ -313,6 +310,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalences) {
         if (this == otherExpression) {
@@ -335,6 +333,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
     public RecursiveUnionQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         final var translatedInitialTempTableValueReference = initialTempTableValueReference.translateCorrelations(translationMap);

@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
