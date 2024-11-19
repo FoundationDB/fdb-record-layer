@@ -183,7 +183,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
             final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
 
             final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(blaSelectQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType())));
+                    initTempTableAlias, initTempTableAlias.getId(), getType(blaSelectQun))));
 
             final var recuTempTable = TempTable.<QueryResult>newInstance();
             final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
@@ -206,7 +206,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
             final var recuSelectQun = Quantifier.forEach(Reference.of(selectExpression));
 
             final var recuInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(recuSelectQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType())));
+                    initTempTableAlias, initTempTableAlias.getId(), getType(recuSelectQun))));
 
             final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, initialTempTableReferenceValue, recuTempTableReferenceValue);
 
@@ -279,7 +279,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
             final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
 
             final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(blaSelectQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType())));
+                    initTempTableAlias, initTempTableAlias.getId(), getType(blaSelectQun))));
 
             final var hierarchyScanQun = generateHierarchyScan();
 
@@ -303,7 +303,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             final var joinQun = Quantifier.forEach(Reference.of(joinExpression));
             final var recuInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(joinQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType())));
+                    initTempTableAlias, initTempTableAlias.getId(), getType(joinQun))));
             final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, initialTempTableReferenceValue, recuTempTableReferenceValue);
 
             final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(recursiveUnionPlan))));

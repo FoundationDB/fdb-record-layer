@@ -93,9 +93,9 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nonnull
     private final Supplier<Integer> computeComplexity;
 
-    private TempTable<?> readTempTable;
+    private TempTable readTempTable;
 
-    private TempTable<?> writeTempTable;
+    private TempTable writeTempTable;
 
     private boolean initialIsRead;
 
@@ -140,26 +140,26 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     }
 
     @Nonnull
-    private <M extends Message> TempTable<?> getInitialTempTable(@Nonnull final FDBRecordStoreBase<M> store,
+    private <M extends Message> TempTable getInitialTempTable(@Nonnull final FDBRecordStoreBase<M> store,
                                                                  @Nonnull final EvaluationContext context) {
-        return Objects.requireNonNull((TempTable<?>)this.initialTempTableValueReference.eval(store, context));
+        return Objects.requireNonNull((TempTable)this.initialTempTableValueReference.eval(store, context));
     }
 
     @Nonnull
-    private <M extends Message> TempTable<?> getRecursiveTempTable(@Nonnull final FDBRecordStoreBase<M> store,
+    private <M extends Message> TempTable getRecursiveTempTable(@Nonnull final FDBRecordStoreBase<M> store,
                                                                    @Nonnull final EvaluationContext context) {
-        return Objects.requireNonNull((TempTable<?>)this.recursiveTempTableValueReference.eval(store, context));
+        return Objects.requireNonNull((TempTable)this.recursiveTempTableValueReference.eval(store, context));
     }
 
     @Nonnull
-    private <M extends Message> TempTable<?> getReadTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    private <M extends Message> TempTable getReadTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return initialIsRead ? getInitialTempTable(store, context) : getRecursiveTempTable(store, context);
     }
 
     @Nonnull
     private static EvaluationContext overrideTempTableBinding(@Nonnull final EvaluationContext context,
                                                               @Nonnull final Value key,
-                                                              @Nonnull final TempTable<?> value) {
+                                                              @Nonnull final TempTable value) {
         if (key instanceof ConstantObjectValue) {
             final var constantKey = (ConstantObjectValue)key;
             final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();

@@ -72,7 +72,7 @@ public class TempTableTest extends TempTableTestBase {
     void scanTempTableWorksCorrectly() throws Exception {
         try (FDBRecordContext context = openContext()) {
             // select id, value from <tempTable>.
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var plan = createAndOptimizeTempTableScanPlan(tempTableId);
             addSampleDataToTempTable(tempTable);
@@ -86,7 +86,7 @@ public class TempTableTest extends TempTableTestBase {
     void scanTempTableWithPredicateWorksCorrectly() throws Exception {
         // select id, value from <tempTable> where id < 44L.
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             addSampleDataToTempTable(tempTable);
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), getType())));
@@ -107,7 +107,7 @@ public class TempTableTest extends TempTableTestBase {
     void insertIntoTempTableWorksCorrectly() throws Exception {
         // insert into <tempTable> values ((1, 'first'), (2, 'second'))
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
@@ -115,7 +115,7 @@ public class TempTableTest extends TempTableTestBase {
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
             qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
-                    tempTableId, tempTableId.getId(), getType())));
+                    tempTableId, tempTableId.getId(), getType(qun))));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
@@ -139,13 +139,13 @@ public class TempTableTest extends TempTableTestBase {
         RecordQueryPlan planToResume = null;
         final var tempTableId = CorrelationIdentifier.uniqueID();
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
-            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun, tempTableId, tempTableId.getId(), getType())));
+            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun, tempTableId, tempTableId.getId(), getType(qun))));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
@@ -167,7 +167,7 @@ public class TempTableTest extends TempTableTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
             try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext,
                     continuation, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {

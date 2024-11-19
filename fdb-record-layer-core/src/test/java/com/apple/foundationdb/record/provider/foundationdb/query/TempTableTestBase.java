@@ -54,6 +54,7 @@ import org.junit.jupiter.api.BeforeEach;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -86,7 +87,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     @Nonnull
     Set<Pair<Long, String>> collectResults(@Nonnull final FDBRecordContext context,
                                            @Nonnull final RecordQueryPlan plan,
-                                           @Nonnull final TempTable<QueryResult> inputTempTable,
+                                           @Nonnull final TempTable inputTempTable,
                                            @Nonnull final CorrelationIdentifier tempTableId) throws Exception {
         final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
         constants.put(tempTableId.getId(), inputTempTable);
@@ -238,14 +239,14 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         return plan;
     }
 
-    static void addSampleDataToTempTable(@Nonnull final TempTable<QueryResult> tempTable) {
+    static void addSampleDataToTempTable(@Nonnull final TempTable tempTable) {
         tempTable.add(queryResult(42L, "fortySecondValue"));
         tempTable.add(queryResult(45L, "fortyFifthValue"));
     }
 
     @Nonnull
     static EvaluationContext putTempTableInContext(@Nonnull final CorrelationIdentifier tempTableAlias,
-                                                   @Nonnull final TempTable<QueryResult> tempTable,
+                                                   @Nonnull final TempTable tempTable,
                                                    @Nullable EvaluationContext parentContext) {
         final var actualParentContext = parentContext == null ? EvaluationContext.empty() : parentContext;
         final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
@@ -256,7 +257,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     @Nonnull
     static EvaluationContext setUpPlanContext(@Nonnull RecordQueryPlan recordQueryPlan,
                                               @Nonnull final CorrelationIdentifier tempTableAlias,
-                                              @Nonnull final TempTable<QueryResult> tempTable) {
+                                              @Nonnull final TempTable tempTable) {
         final var usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
         return putTempTableInContext(tempTableAlias, tempTable, evaluationContext);
@@ -290,6 +291,11 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     @Nonnull
     static Type getType() {
         return Type.Record.fromDescriptor(getDescriptor());
+    }
+
+    @Nonnull
+    static Type getType(@Nonnull final Quantifier.ForEach forEach) {
+        return Objects.requireNonNull(((Type.Relation)forEach.getRangesOver().getResultType()).getInnerType());
     }
 
     @Nonnull
