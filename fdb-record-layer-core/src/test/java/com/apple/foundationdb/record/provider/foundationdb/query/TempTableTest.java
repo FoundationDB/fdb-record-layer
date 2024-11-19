@@ -183,4 +183,52 @@ public class TempTableTest extends TempTableTestBase {
                     collectResults(context, scanPlan, tempTable, tempTableId));
         }
     }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void scanTempTableWithPredicateWorksCorrectlyAcrossContinuations() {
+        // select id, value from <tempTable> where id < 44L.
+        byte[] continuation = null;
+        RecordQueryPlan planToResume = null;
+        final var tempTableId = CorrelationIdentifier.uniqueID();
+        final var tempTable = TempTable.newInstance();
+        try (FDBRecordContext context = openContext()) {
+            tempTable.add(queryResult(1L, "one"));
+            tempTable.add(queryResult(2L, "two"));
+            tempTable.add(queryResult(3L, "three"));
+            tempTable.add(queryResult(4L, "four"));
+            planToResume = createAndOptimizeTempTableScanPlan(tempTableId);
+            final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
+
+            // Read the first two elements "one", "two".
+            try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext,
+                    null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+                assertTrue(cursor.hasNext());
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                assertEquals(Pair.of(1L, "one"), asIdValue(message));
+                assertTrue(cursor.hasNext());
+                message = Verify.verifyNotNull(cursor.next()).getMessage();
+                assertEquals(Pair.of(2L, "two"), asIdValue(message));
+                continuation = cursor.getContinuation();
+            }
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
+
+            // Read the remaining elements "three", and "four".
+            try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext,
+                    continuation, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+                assertTrue(cursor.hasNext());
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                assertEquals(Pair.of(3L, "three"), asIdValue(message));
+                assertTrue(cursor.hasNext());
+                message = Verify.verifyNotNull(cursor.next()).getMessage();
+                assertEquals(Pair.of(4L, "four"), asIdValue(message));
+                // reached the end of the cursor.
+                assertFalse(cursor.hasNext());
+            }
+            context.commit();
+        }
+    }
 }

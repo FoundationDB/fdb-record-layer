@@ -89,9 +89,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                                            @Nonnull final RecordQueryPlan plan,
                                            @Nonnull final TempTable inputTempTable,
                                            @Nonnull final CorrelationIdentifier tempTableId) throws Exception {
-        final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
-        constants.put(tempTableId.getId(), inputTempTable);
-        final var evaluationContext = EvaluationContext.empty().withBinding(Bindings.Internal.CONSTANT, tempTableId, constants.build());
+        final var evaluationContext = putTempTableInContext(tempTableId, inputTempTable, null);
         return extractResultsAsIdValuePairs(context, plan, evaluationContext);
     }
 
