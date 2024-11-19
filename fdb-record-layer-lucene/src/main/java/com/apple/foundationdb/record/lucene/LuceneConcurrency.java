@@ -29,10 +29,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -83,12 +83,12 @@ public class LuceneConcurrency {
                 throw FDBExceptions.wrapException(ex);
             }
         } else {
-            final Pair<Long, TimeUnit> asyncToSyncTimeout = recordContext.getDatabase().getAsyncToSyncTimeout(event);
+            final Duration asyncToSyncTimeout = recordContext.getDatabase().getAsyncToSyncTimeout(event);
             final FDBStoreTimer timer = recordContext.getTimer();
             final long startTime = System.nanoTime();
             try {
                 if (asyncToSyncTimeout != null) {
-                    return async.get(asyncToSyncTimeout.getLeft(), asyncToSyncTimeout.getRight());
+                    return async.get(asyncToSyncTimeout.toNanos(), TimeUnit.NANOSECONDS);
                 } else {
                     return async.get();
                 }
@@ -96,8 +96,8 @@ public class LuceneConcurrency {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
                     throw new AsyncToSyncTimeoutException(ex.getMessage(), ex,
-                            LogMessageKeys.TIME_LIMIT.toString(), asyncToSyncTimeout.getLeft(),
-                            LogMessageKeys.TIME_UNIT.toString(), asyncToSyncTimeout.getRight());
+                            LogMessageKeys.TIME_LIMIT.toString(), asyncToSyncTimeout.toNanos(),
+                            LogMessageKeys.TIME_UNIT.toString(), TimeUnit.NANOSECONDS);
                 }
                 throw new AsyncToSyncTimeoutException(ex.getMessage(), ex);
             } catch (ExecutionException ex) {
