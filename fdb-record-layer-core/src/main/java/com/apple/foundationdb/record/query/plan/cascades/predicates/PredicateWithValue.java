@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -35,20 +34,6 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PredicateWithValue extends LeafQueryPredicate, WithValue<PredicateWithValue> {
-
-    @Nonnull
-    default Optional<QueryPredicate> replaceValues(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
-        return replaceLeavesMaybe(leafPredicate -> {
-            if (leafPredicate instanceof PredicateWithValue) {
-                final var predicateWithValue = (PredicateWithValue)leafPredicate;
-
-                return predicateWithValue.translateValueAndComparisonsMaybe(replacementFunction,
-                        comparison -> replacementFunction.apply(Objects.requireNonNull(comparison.getValue()))
-                                .map(comparison::withValue)).orElse(null);
-            }
-            return leafPredicate;
-        });
-    }
 
     /**
      * Replaces the predicate {@link Value} and {@code Value}(s) in the {@code Comparison}.

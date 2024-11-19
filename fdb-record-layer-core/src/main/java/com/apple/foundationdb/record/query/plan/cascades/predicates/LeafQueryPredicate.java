@@ -21,9 +21,19 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Class to model the concept of a predicate. A predicate is a construct that can be evaluated using
@@ -58,4 +68,24 @@ public interface LeafQueryPredicate extends QueryPredicate {
         return this;
     }
 
+    @Nonnull
+    default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                                        @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                                        @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                        @Nonnull final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
+                                                                                        @Nonnull final PullUp pullUp) {
+        Verify.verify(childrenResults.isEmpty());
+        return computeCompensationFunctionForLeaf(pullUp);
+    }
+
+    @Nonnull
+    default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunctionForLeaf(@Nonnull final PullUp pullUp) {
+        return toResidualPredicate()
+                .replaceValuesMaybe(pullUp::pullUpMaybe)
+                .map(queryPredicate ->
+                        PredicateMultiMap.PredicateCompensationFunction.of(baseAlias ->
+                                LinkedIdentitySet.of(queryPredicate.translateCorrelations(
+                                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
+                .orElse(PredicateMultiMap.PredicateCompensationFunction.impossibleCompensation());
+    }
 }

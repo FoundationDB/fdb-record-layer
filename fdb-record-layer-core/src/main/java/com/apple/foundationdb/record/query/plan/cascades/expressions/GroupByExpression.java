@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -310,7 +311,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
             final var maxMatchMap =
                     MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
-                            candidateExpression.getCorrelatedTo(), valueEquivalence);
+                            Quantifiers.aliases(candidateExpression.getQuantifiers()), valueEquivalence);
             final var queryPlanConstraint =
                     subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 

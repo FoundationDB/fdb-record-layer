@@ -193,6 +193,16 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
         return super.impliesCandidatePredicateMaybe(valueEquivalence, originalQueryPredicate, candidatePredicate, evaluationContext);
     }
 
+    /**
+     * Overloaded method to compute compensation for this existential predicate. Note that this class does not override
+     * {@link #computeCompensationFunctionForLeaf(PullUp)} as we need special info not provided in that method.
+     * @param partialMatch partial match to use
+     * @param originalQueryPredicate the original (untranslated predicate)
+     * @param boundParameterPrefixMap the bound parameter prefix map
+     * @param childrenResults this should be empty as this predicate does not have any children
+     * @param pullUp the pull-up
+     * @return a new {@link PredicateCompensationFunction}
+     */
     @Nonnull
     @Override
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
@@ -233,6 +243,21 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             return PredicateCompensationFunction.of(baseAlias -> LinkedIdentitySet.of(originalExistsPredicate));
         }
         return PredicateCompensationFunction.noCompensationNeeded();
+    }
+
+    /**
+     * This method is overridden to always throw as
+     * {@link #computeCompensationFunction(PartialMatch, QueryPredicate, Map, List, PullUp)} does that work without
+     * delegating to this method (unlike its super which does exactly that). This method fails so that if/when refactors
+     * happen and that subtle detail of the contract is violated we immediately throw.
+     *
+     * @param pullUp the current pull up
+     * @return nothing -- this implementation always throws
+     */
+    @Nonnull
+    @Override
+    public PredicateCompensationFunction computeCompensationFunctionForLeaf(@Nonnull final PullUp pullUp) {
+        throw new RecordCoreException("this should not be called");
     }
 
     @Nonnull

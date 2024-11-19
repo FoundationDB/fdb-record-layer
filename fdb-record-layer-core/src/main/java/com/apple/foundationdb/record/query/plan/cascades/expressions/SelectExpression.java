@@ -443,7 +443,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             if (allNonFiltering) {
                 final var maxMatchMap =
                         MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
-                                candidateExpression.getCorrelatedTo(), bindingValueEquivalence);
+                                Quantifiers.aliases(candidateExpression.getQuantifiers()), bindingValueEquivalence);
                 return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
                                 PredicateMap.empty(), maxMatchMap, maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
@@ -526,9 +526,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     final var predicateMapBuilder = PredicateMultiMap.builder();
 
                     for (final var predicateMapping : predicateMappings) {
-                        final var queryPredicate = predicateMapping.getQueryPredicate();
+                        final var originalQueryPredicate = predicateMapping.getOriginalQueryPredicate();
                         final var candidatePredicate = predicateMapping.getCandidatePredicate();
-                        predicateMapBuilder.put(queryPredicate, predicateMapping);
+                        predicateMapBuilder.put(originalQueryPredicate, predicateMapping);
                         remainingUnmappedCandidatePredicates.remove(candidatePredicate);
 
                         final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
@@ -560,7 +560,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                             final var maxMatchMap =
                                                     MaxMatchMap.calculate(translatedResultValue,
                                                             candidateExpression.getResultValue(),
-                                                            candidateExpression.getCorrelatedTo(),
+                                                            Quantifiers.aliases(candidateExpression.getQuantifiers()),
                                                             bindingValueEquivalence);
                                             return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
                                                     allParameterBindingMap, predicateMap,
@@ -595,7 +595,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
 
         final var adjustedMaxMatchMapOptional =
-                maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue(), getCorrelatedTo());
+                maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue(), Quantifiers.aliases(getQuantifiers()));
         return adjustedMaxMatchMapOptional
                 .map(adjustedMaxMatchMap ->
                         childMatchInfo.adjustedBuilder()

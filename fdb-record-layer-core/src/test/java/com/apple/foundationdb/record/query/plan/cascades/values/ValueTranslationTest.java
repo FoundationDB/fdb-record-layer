@@ -24,9 +24,9 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -501,7 +501,7 @@ public class ValueTranslationTest {
          */
 
         final var l1m3 =
-                MaxMatchMap.calculate(l1TranslatedQueryValue, p_v, ImmutableSet.of(),
+                MaxMatchMap.calculate(l1TranslatedQueryValue, p_v, ImmutableSet.of(t_Alias),
                         ValueEquivalence.fromAliasMap(AliasMap.ofAliases(sAlias, s_Alias)));
 
         Map<Value, Value> l1ExpectedMapping = Map.of(
@@ -1142,6 +1142,28 @@ public class ValueTranslationTest {
      * RCV(RCV(T'.a.q, T'.a.r), T'.b, T'.j).
      */
     @Test
+    public void maxMatchQovUsingExpandedQovComplex2() {
+        final var innerRcv = rcv(true,
+                rcv(true, fv(t_, "a", "q"), "q",
+                        fv(t_, "a", "r"), "r"), "a",
+                fv(t_, "b"), "b",
+                fv(t_, "j"), "j");
+        final var p_v =
+                rcv(fv(m_, "m2"), innerRcv);
+
+        final var m3 = MaxMatchMap.calculate(t_, p_v, ImmutableSet.of(t_Alias));
+
+        final var computedMap = m3.getMap();
+        final var expectedMap = ImmutableMap.of(innerRcv, innerRcv);
+        Assertions.assertEquals(expectedMap, computedMap);
+    }
+
+
+    /**
+     * Test to establish that simple QOV(T') can be matched to an almost completely deconstructed
+     * RCV(RCV(T'.a.q, T'.a.r), T'.b, T'.j).
+     */
+    @Test
     public void maxMatchFvUsingExpandedQovComplex1() {
         final var pv =
                 rcv(fv(t_, "a", "q"));
@@ -1157,7 +1179,7 @@ public class ValueTranslationTest {
 
     @Nonnull
     private static MaxMatchMap calculate(@Nonnull final Value queryResultValue, @Nonnull final Value candidateResultValue) {
-        return MaxMatchMap.calculate(queryResultValue, candidateResultValue, ImmutableSet.of());
+        return MaxMatchMap.calculate(queryResultValue, candidateResultValue, candidateResultValue.getCorrelatedTo());
     }
 
     @Nonnull

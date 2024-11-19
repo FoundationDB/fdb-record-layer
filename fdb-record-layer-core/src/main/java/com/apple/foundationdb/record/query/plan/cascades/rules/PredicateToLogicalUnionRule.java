@@ -202,7 +202,7 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
                     .stream()
                     .flatMap(predicateMapping ->
                             predicateMapping.getMappingKind() == PredicateMultiMap.PredicateMapping.MappingKind.OR_TERM_IMPLIES_CANDIDATE
-                            ? Stream.of(predicateMapping.getQueryPredicate())
+                            ? Stream.of(predicateMapping.getOriginalQueryPredicate())
                             : Stream.empty())
                     .forEach(partiallyMatchedOrs::add);
         }

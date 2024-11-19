@@ -64,7 +64,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -183,7 +182,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
         if (candidatePredicate.isTautology()) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, originalQueryPredicate, candidatePredicate)
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
                             .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                             .build());
         }
@@ -191,7 +190,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         final var semanticEquals = this.semanticEquals(candidatePredicate, valueEquivalence);
         return semanticEquals
                 .mapToOptional(queryPlanConstraint ->
-                        PredicateMapping.regularMappingBuilder(this, originalQueryPredicate,
+                        PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
                                         candidatePredicate)
                                 .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                                 .setConstraint(queryPlanConstraint)
@@ -246,12 +245,16 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                       @Nonnull final List<PredicateCompensationFunction> childrenResults,
                                                                       @Nonnull final PullUp pullUp) {
-        if (childrenResults.stream().anyMatch(PredicateCompensationFunction::isImpossible)) {
-            return PredicateCompensationFunction.impossibleCompensation();
-        }
-        return PredicateCompensationFunction.of(baseAlias ->
-                LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(
-                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false)));
+        Verify.verify(this instanceof LeafQueryPredicate);
+        Verify.verify(childrenResults.isEmpty());
+
+        return toResidualPredicate()
+                .replaceValuesMaybe(pullUp::pullUpMaybe)
+                .map(queryPredicate ->
+                        PredicateCompensationFunction.of(baseAlias ->
+                                LinkedIdentitySet.of(queryPredicate.translateCorrelations(
+                                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
+                .orElse(PredicateCompensationFunction.impossibleCompensation());
     }
 
     /**
@@ -469,14 +472,13 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default Optional<QueryPredicate> replaceValues(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+    default Optional<QueryPredicate> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
         return replaceLeavesMaybe(leafPredicate -> {
             if (leafPredicate instanceof PredicateWithValue) {
                 final var predicateWithValue = (PredicateWithValue)leafPredicate;
 
                 return predicateWithValue.translateValueAndComparisonsMaybe(replacementFunction,
-                        comparison -> replacementFunction.apply(Objects.requireNonNull(comparison.getValue()))
-                                .map(comparison::withValue)).orElse(null);
+                        comparison -> comparison.replaceValuesMaybe(replacementFunction)).orElse(null);
             }
             return leafPredicate;
         });

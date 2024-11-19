@@ -101,9 +101,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -800,6 +802,9 @@ public class Comparisons {
             throw new RecordCoreException("withValue is not implemented");
         }
 
+        @Nonnull
+        Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction);
+
         /**
          * Get the comparison value without any bindings.
          * @return the value to be compared
@@ -989,6 +994,12 @@ public class Comparisons {
                         Objects.requireNonNull(((LiteralValue<?>)value).getLiteralValue()));
             }
             return new ValueComparison(getType(), value);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
         }
 
         @Nullable
@@ -1223,6 +1234,15 @@ public class Comparisons {
             } else {
                 return context.getBinding(parameter);
             }
+        }
+
+        @Nonnull
+        @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            if (isCorrelation()) {
+                return Optional.empty();
+            }
+            return Optional.of(this);
         }
 
         @Nonnull
@@ -1555,6 +1575,22 @@ public class Comparisons {
             return comparandValue;
         }
 
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            final var replacedComparandValueOptional = replacementFunction.apply(getValue());
+            if (replacedComparandValueOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var replacedComparandValue = replacedComparandValueOptional.get();
+            if (replacedComparandValue == getValue()) {
+                return Optional.of(this);
+            } else {
+                return Optional.of(withValue(replacedComparandValue));
+            }
+        }
+
         @Nullable
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
@@ -1820,6 +1856,12 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
@@ -2010,6 +2052,12 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
@@ -2139,6 +2187,12 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
@@ -2255,6 +2309,12 @@ public class Comparisons {
             this.tokenStr = null;
             this.tokenizerName = tokenizerName;
             this.fallbackTokenizerName = fallbackTokenizerName;
+        }
+
+        @Nonnull
+        @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
         }
 
         @Nonnull
@@ -2715,6 +2775,21 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            final var replacedInnerOptional = inner.replaceValuesMaybe(replacementFunction);
+            if (replacedInnerOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var replacedInner = replacedInnerOptional.get();
+            if (replacedInner == inner) {
+                return Optional.of(this);
+            }
+            return Optional.of(new MultiColumnComparison(replacedInner));
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             final var translatedInner = inner.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -2991,6 +3066,23 @@ public class Comparisons {
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            final var translatedOriginalComparisonOptional =
+                    originalComparison.replaceValuesMaybe(replacementFunction);
+            if (translatedOriginalComparisonOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var translatedOriginalComparison = translatedOriginalComparisonOptional.get();
+            if (translatedOriginalComparison == originalComparison) {
+                return Optional.of(this);
+            } else {
+                return Optional.of(new InvertedFunctionComparison(function, translatedOriginalComparison, type));
+            }
         }
 
         @Nonnull

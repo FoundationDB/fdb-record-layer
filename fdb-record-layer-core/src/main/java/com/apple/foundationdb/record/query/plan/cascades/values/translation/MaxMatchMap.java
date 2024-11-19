@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
@@ -146,11 +145,11 @@ public class MaxMatchMap {
     @Nonnull
     public Optional<MaxMatchMap> adjustMaybe(@Nonnull final CorrelationIdentifier upperCandidateAlias,
                                              @Nonnull final Value upperCandidateResultValue,
-                                             @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+                                             @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
         final var translatedQueryValueOptional =
                 translateQueryValueMaybe(upperCandidateAlias);
         return translatedQueryValueOptional.map(value -> MaxMatchMap.calculate(value, upperCandidateResultValue,
-                constantAliases));
+                rangedOverAliases));
     }
 
     /**
@@ -159,17 +158,17 @@ public class MaxMatchMap {
      *
      * @param queryResultValue the query result {@code Value}.
      * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
-     * @param constantAliases a set of aliases that should be considered constant
+     * @param rangedOverAliases a set of aliases that should be considered constant
      *
      * @return a {@link MaxMatchMap} of all maximum matches.
      */
     @Nonnull
     public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
                                         @Nonnull final Value candidateResultValue,
-                                        @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+                                        @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
         return calculate(queryResultValue,
                 candidateResultValue,
-                constantAliases,
+                rangedOverAliases,
                 ValueEquivalence.empty());
     }
 
@@ -191,7 +190,7 @@ public class MaxMatchMap {
      *
      * @param queryResultValue the query result {@code Value}
      * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches
-     * @param constantAliases a set of aliases that should be considered constant
+     * @param rangedOverAliases a set of aliases that should be considered constant
      * @param valueEquivalence an {@link ValueEquivalence} that informs the logic about equivalent value subtrees
      *
      * @return a {@link  MaxMatchMap} of all maximum matches.
@@ -199,10 +198,10 @@ public class MaxMatchMap {
     @Nonnull
     public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
                                         @Nonnull final Value candidateResultValue,
-                                        @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                        @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
                                         @Nonnull final ValueEquivalence valueEquivalence) {
         final var recursionResult =
-                recurseQueryResultValue(queryResultValue, candidateResultValue, constantAliases,
+                recurseQueryResultValue(queryResultValue, candidateResultValue, rangedOverAliases,
                         valueEquivalence, ImmutableBiMap.of(), new HashSet<>());
 
         return new MaxMatchMap(recursionResult.getValueMap(), recursionResult.getNewCurrentValue(),
@@ -213,41 +212,43 @@ public class MaxMatchMap {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static RecursionResult recurseQueryResultValue(@Nonnull final Value currentQueryValue,
                                                            @Nonnull final Value candidateResultValue,
-                                                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                           @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
                                                            @Nonnull final ValueEquivalence valueEquivalence,
                                                            @Nonnull final BiMap<Value, Value> knownValueMap,
                                                            @Nonnull final Set<Value> expandedValues) {
-        final var queryPlanConstraintsBuilder = ImmutableList.<QueryPlanConstraint>builder();
-
-        //
-        // Try to find a match for this current query value.
-        //
-        var currentMatchingPair =
-                findMatchingCandidateValue(currentQueryValue,
-                        candidateResultValue,
-                        valueEquivalence);
-        var isFound = currentMatchingPair.getKey();
-        if (isFound.isTrue()) {
-            queryPlanConstraintsBuilder.add(isFound.getConstraint());
+        final var locallyExpandedValues = new HashSet<Value>();
+        try {
+            final var queryPlanConstraintsBuilder = ImmutableList.<QueryPlanConstraint>builder();
             //
-            // We found a match to the candidate side.
+            // Try to find a match for this current query value.
             //
-            return new RecursionResult(ImmutableMap.of(currentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
-                    currentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
-        }
+            var currentMatchingPair =
+                    findMatchingCandidateValue(currentQueryValue,
+                            candidateResultValue,
+                            valueEquivalence);
+            var isFound = currentMatchingPair.getKey();
+            if (isFound.isTrue()) {
+                queryPlanConstraintsBuilder.add(isFound.getConstraint());
+                //
+                // We found a match to the candidate side.
+                //
+                return new RecursionResult(ImmutableMap.of(currentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+                        currentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+            }
 
-        var resultCurrentQueryValue = currentQueryValue;
+            var resultCurrentQueryValue = currentQueryValue;
 
-        //
-        // Apply a set of rules to the current query value and try again to match on the translated query value.
-        // The nested call will either directly match or will skip this 'if' entirely.
-        //
-        if (!expandedValues.contains(resultCurrentQueryValue)) {
-            expandedValues.add(currentQueryValue);
-            try {
+            //
+            // Apply a set of rules to the current query value and try again to match on the translated query value.
+            // The nested call will either directly match or will skip this 'if' entirely.
+            //
+            if (!expandedValues.contains(resultCurrentQueryValue)) {
+                locallyExpandedValues.add(currentQueryValue);
+                expandedValues.add(currentQueryValue);
+
                 final var expandedCurrentQueryValue =
                         Simplification.simplifyCurrent(resultCurrentQueryValue,
-                                AliasMap.emptyMap(), constantAliases, MaxMatchMapSimplificationRuleSet.instance());
+                                AliasMap.emptyMap(), rangedOverAliases, MaxMatchMapSimplificationRuleSet.instance());
                 if (expandedCurrentQueryValue != resultCurrentQueryValue) {
                     //
                     // Try to find a match for this current query value.
@@ -267,77 +268,74 @@ public class MaxMatchMap {
                     }
                 }
                 resultCurrentQueryValue = expandedCurrentQueryValue;
-            } finally {
-                expandedValues.remove(currentQueryValue);
-            }
-        }
-
-        //
-        // Recurse into the children of the current query value.
-        //
-        boolean areAllChildrenSame = true;
-        final var newChildrenBuilder = ImmutableList.<Value>builder();
-        final var knownNestedValueMap = HashBiMap.<Value, Value>create();
-        knownNestedValueMap.putAll(knownValueMap);
-        final var resultValueMap = new LinkedHashMap<Value, Value>();
-        for (final var child : resultCurrentQueryValue.getChildren()) {
-            if (Sets.difference(child.getCorrelatedTo(), constantAliases).isEmpty()) {
-                continue;
             }
 
-            final var recursionResult =
-                    recurseQueryResultValue(child, candidateResultValue, constantAliases, valueEquivalence,
-                            knownNestedValueMap, expandedValues);
+            //
+            // Recurse into the children of the current query value.
+            //
+            boolean areAllChildrenSame = true;
+            final var newChildrenBuilder = ImmutableList.<Value>builder();
+            final var knownNestedValueMap = HashBiMap.<Value, Value>create();
+            knownNestedValueMap.putAll(knownValueMap);
+            final var resultValueMap = new LinkedHashMap<Value, Value>();
+            for (final var child : resultCurrentQueryValue.getChildren()) {
+                final RecursionResult recursionResult;
+                recursionResult =
+                        recurseQueryResultValue(child, candidateResultValue, rangedOverAliases, valueEquivalence,
+                                knownNestedValueMap, expandedValues);
 
-            final var newChild = recursionResult.getNewCurrentValue();
-            newChildrenBuilder.add(newChild);
-            areAllChildrenSame = areAllChildrenSame && (child == newChild);
+                final var newChild = recursionResult.getNewCurrentValue();
+                newChildrenBuilder.add(newChild);
+                areAllChildrenSame = areAllChildrenSame && (child == newChild);
 
-            final var nestedNewValueMap = recursionResult.getValueMap();
-            for (final var entry : nestedNewValueMap.entrySet()) {
-                final var key = entry.getKey();
-                if (resultValueMap.containsKey(key)) {
-                    // if there is a discrepancy, remove all mappings with that key
-                    if (!resultValueMap.get(key).equals(entry.getValue())) {
-                        resultValueMap.remove(key);
+                final var nestedNewValueMap = recursionResult.getValueMap();
+                for (final var entry : nestedNewValueMap.entrySet()) {
+                    final var key = entry.getKey();
+                    if (resultValueMap.containsKey(key)) {
+                        // if there is a discrepancy, remove all mappings with that key
+                        if (!resultValueMap.get(key).equals(entry.getValue())) {
+                            resultValueMap.remove(key);
+                        }
+                    } else {
+                        resultValueMap.put(key, entry.getValue());
                     }
-                } else {
-                    resultValueMap.put(key, entry.getValue());
+                }
+                queryPlanConstraintsBuilder.add(recursionResult.getQueryPlanConstraint());
+                knownNestedValueMap.putAll(nestedNewValueMap);
+            }
+
+            if (!areAllChildrenSame) {
+                resultCurrentQueryValue = resultCurrentQueryValue.withChildren(newChildrenBuilder.build());
+            }
+
+            if (knownValueMap.containsKey(resultCurrentQueryValue)) {
+                return new RecursionResult(ImmutableBiMap.of(), resultCurrentQueryValue, QueryPlanConstraint.tautology());
+            }
+
+            if (!areAllChildrenSame) {
+                //
+                // Try to match this 'modified' current query value again.
+                //
+                currentMatchingPair =
+                        findMatchingCandidateValue(resultCurrentQueryValue,
+                                candidateResultValue,
+                                valueEquivalence);
+                isFound = currentMatchingPair.getKey();
+                if (isFound.isTrue()) {
+                    queryPlanConstraintsBuilder.add(isFound.getConstraint());
+                    //
+                    // We found a match to the candidate side, this supersedes everything that was already found in the
+                    // subtree recursion.
+                    //
+                    return new RecursionResult(ImmutableBiMap.of(resultCurrentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
+                            resultCurrentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
                 }
             }
-            knownNestedValueMap.putAll(nestedNewValueMap);
-            queryPlanConstraintsBuilder.add(recursionResult.getQueryPlanConstraint());
+            return new RecursionResult(resultValueMap, resultCurrentQueryValue,
+                    QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
+        } finally {
+            expandedValues.removeAll(locallyExpandedValues);
         }
-
-        if (!areAllChildrenSame) {
-            resultCurrentQueryValue = resultCurrentQueryValue.withChildren(newChildrenBuilder.build());
-        }
-
-        if (knownValueMap.containsKey(resultCurrentQueryValue)) {
-            return new RecursionResult(ImmutableBiMap.of(), resultCurrentQueryValue, QueryPlanConstraint.tautology());
-        }
-
-        if (!areAllChildrenSame) {
-            //
-            // Try to match this 'modified' current query value again.
-            //
-            currentMatchingPair =
-                    findMatchingCandidateValue(resultCurrentQueryValue,
-                            candidateResultValue,
-                            valueEquivalence);
-            isFound = currentMatchingPair.getKey();
-            if (isFound.isTrue()) {
-                queryPlanConstraintsBuilder.add(isFound.getConstraint());
-                //
-                // We found a match to the candidate side, this supersedes everything that was already found in the
-                // subtree recursion.
-                //
-                return new RecursionResult(ImmutableBiMap.of(resultCurrentQueryValue, Objects.requireNonNull(currentMatchingPair.getValue())),
-                        resultCurrentQueryValue, QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
-            }
-        }
-        return new RecursionResult(resultValueMap, resultCurrentQueryValue,
-                QueryPlanConstraint.composeConstraints(queryPlanConstraintsBuilder.build()));
     }
 
     @Nonnull

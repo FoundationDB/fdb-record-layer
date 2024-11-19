@@ -257,7 +257,7 @@ public class PredicateMultiMap {
         @Nonnull
         private final QueryPredicate translatedQueryPredicate;
 
-        private PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
+        private PredicateMapping(@Nonnull final QueryPredicate originalQueryPredicate,
                                  @Nonnull final QueryPredicate candidatePredicate,
                                  @Nonnull final MappingKind mappingKind,
                                  @Nonnull final PredicateCompensation predicateCompensation,
@@ -265,7 +265,7 @@ public class PredicateMultiMap {
                                  @Nonnull final Optional<ComparisonRange> comparisonRangeOptional,
                                  @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final QueryPredicate translatedQueryPredicate) {
-            this.mappingKey = new MappingKey(queryPredicate, candidatePredicate, mappingKind);
+            this.mappingKey = new MappingKey(originalQueryPredicate, candidatePredicate, mappingKind);
             this.predicateCompensation = predicateCompensation;
             this.parameterAliasOptional = parameterAlias;
             this.comparisonRangeOptional = comparisonRangeOptional;
@@ -274,8 +274,8 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public QueryPredicate getQueryPredicate() {
-            return mappingKey.getQueryPredicate();
+        public QueryPredicate getOriginalQueryPredicate() {
+            return mappingKey.getOriginalQueryPredicate();
         }
 
         @Nonnull
@@ -325,7 +325,7 @@ public class PredicateMultiMap {
 
         @Nonnull
         public Builder toBuilder() {
-            return new Builder(getQueryPredicate(), getTranslatedQueryPredicate(), getCandidatePredicate(), getMappingKind())
+            return new Builder(getOriginalQueryPredicate(), getTranslatedQueryPredicate(), getCandidatePredicate(), getMappingKind())
                     .setPredicateCompensation(getPredicateCompensation())
                     .setParameterAliasOptional(getParameterAliasOptional())
                     .setConstraint(getConstraint())
@@ -333,18 +333,18 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public static PredicateMapping.Builder regularMappingBuilder(@Nonnull final QueryPredicate queryPredicate,
+        public static PredicateMapping.Builder regularMappingBuilder(@Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final QueryPredicate translatedQueryPredicate,
                                                                      @Nonnull final QueryPredicate candidatePredicate) {
-            return new Builder(queryPredicate, translatedQueryPredicate, candidatePredicate,
+            return new Builder(originalQueryPredicate, translatedQueryPredicate, candidatePredicate,
                     MappingKind.REGULAR_IMPLIES_CANDIDATE);
         }
 
         @Nonnull
-        public static PredicateMapping.Builder orTermMappingBuilder(@Nonnull final QueryPredicate queryPredicate,
+        public static PredicateMapping.Builder orTermMappingBuilder(@Nonnull final QueryPredicate originalQueryPredicate,
                                                                     @Nonnull final QueryPredicate translatedQueryPredicate,
                                                                     @Nonnull final QueryPredicate candidatePredicate) {
-            return new Builder(queryPredicate, translatedQueryPredicate, candidatePredicate,
+            return new Builder(originalQueryPredicate, translatedQueryPredicate, candidatePredicate,
                     MappingKind.OR_TERM_IMPLIES_CANDIDATE);
         }
 
@@ -353,21 +353,21 @@ public class PredicateMultiMap {
          */
         public static class MappingKey {
             @Nonnull
-            private final QueryPredicate queryPredicate;
+            private final QueryPredicate originalQueryPredicate;
             @Nonnull
             private final QueryPredicate candidatePredicate;
             @Nonnull
             private final MappingKind mappingKind;
 
-            public MappingKey(@Nonnull final QueryPredicate queryPredicate, @Nonnull final QueryPredicate candidatePredicate, @Nonnull final MappingKind mappingKind) {
-                this.queryPredicate = queryPredicate;
+            public MappingKey(@Nonnull final QueryPredicate originalQueryPredicate, @Nonnull final QueryPredicate candidatePredicate, @Nonnull final MappingKind mappingKind) {
+                this.originalQueryPredicate = originalQueryPredicate;
                 this.candidatePredicate = candidatePredicate;
                 this.mappingKind = mappingKind;
             }
 
             @Nonnull
-            public QueryPredicate getQueryPredicate() {
-                return queryPredicate;
+            public QueryPredicate getOriginalQueryPredicate() {
+                return originalQueryPredicate;
             }
 
             @Nonnull
@@ -389,14 +389,14 @@ public class PredicateMultiMap {
                     return false;
                 }
                 final MappingKey that = (MappingKey)o;
-                return Objects.equals(queryPredicate, that.queryPredicate) &&
+                return Objects.equals(originalQueryPredicate, that.originalQueryPredicate) &&
                        Objects.equals(candidatePredicate, that.candidatePredicate) &&
                        mappingKind == that.mappingKind;
             }
 
             @Override
             public int hashCode() {
-                return Objects.hash(queryPredicate, candidatePredicate, mappingKind);
+                return Objects.hash(originalQueryPredicate, candidatePredicate, mappingKind);
             }
         }
 
@@ -405,7 +405,7 @@ public class PredicateMultiMap {
          */
         public static class Builder {
             @Nonnull
-            private final QueryPredicate queryPredicate;
+            private final QueryPredicate originalQueryPredicate;
             @Nonnull
             private final QueryPredicate candidatePredicate;
             @Nonnull
@@ -421,11 +421,11 @@ public class PredicateMultiMap {
             @Nonnull
             private QueryPredicate translatedQueryPredicate;
 
-            public Builder(@Nonnull final QueryPredicate queryPredicate,
+            public Builder(@Nonnull final QueryPredicate originalQueryPredicate,
                            @Nonnull final QueryPredicate translatedQueryPredicate,
                            @Nonnull final QueryPredicate candidatePredicate,
                            @Nonnull final MappingKind mappingKind) {
-                this.queryPredicate = queryPredicate;
+                this.originalQueryPredicate = originalQueryPredicate;
                 this.translatedQueryPredicate = translatedQueryPredicate;
                 this.candidatePredicate = candidatePredicate;
                 this.mappingKind = mappingKind;
@@ -485,7 +485,7 @@ public class PredicateMultiMap {
 
             @Nonnull
             public PredicateMapping build() {
-                return new PredicateMapping(queryPredicate, candidatePredicate, mappingKind,
+                return new PredicateMapping(originalQueryPredicate, candidatePredicate, mappingKind,
                         predicateCompensation, parameterAliasOptional, comparisonRangeOptional, constraint,
                         translatedQueryPredicate);
             }

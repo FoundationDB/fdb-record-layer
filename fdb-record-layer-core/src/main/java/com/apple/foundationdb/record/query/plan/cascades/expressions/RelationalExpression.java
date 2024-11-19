@@ -710,7 +710,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
         final var maxMatchMap =
                 MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
-                        candidateExpression.getCorrelatedTo(), ValueEquivalence.fromAliasMap(bindingAliasMap));
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()), ValueEquivalence.fromAliasMap(bindingAliasMap));
 
         if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
             return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
