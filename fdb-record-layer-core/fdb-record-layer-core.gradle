@@ -41,7 +41,6 @@ dependencies {
     testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
     testImplementation "com.beust:jcommander:${jcommanderVersion}"
     testImplementation "org.apache.commons:commons-math3:${commonsMath3Version}"
-    testImplementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testCompileOnly "com.google.auto.service:auto-service:undefined"
     testCompileOnly "com.github.spotbugs:spotbugs-annotations:${spotbugsVersion}"

@@ -24,7 +24,6 @@ apply plugin: 'application'
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     implementation project(coreProject)
-    implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding

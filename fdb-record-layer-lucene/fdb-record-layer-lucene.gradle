@@ -41,7 +41,6 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:${junitVersion}")
     testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
-    testImplementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     testImplementation "org.apache.lucene:lucene-test-framework:${luceneVersion}"
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testCompileOnly "com.google.auto.service:auto-service:undefined"

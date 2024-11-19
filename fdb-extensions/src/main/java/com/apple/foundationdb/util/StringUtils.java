@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
@@ -80,6 +81,15 @@ public class StringUtils {
             }
         }
         return true;
+    }
+
+    public static String repeat(char c, int n) {
+        if (n <= 0) {
+            return "";
+        }
+        char[] arr = new char[n];
+        Arrays.fill(arr, c);
+        return new String(arr);
     }
 
     private static final class Replacement implements Comparable<Replacement> {

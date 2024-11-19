@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Event;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.EventWithState;
@@ -36,7 +36,6 @@ import com.google.common.base.Enums;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.jline.reader.ParsedLine;
 
 import javax.annotation.Nonnull;
@@ -632,7 +631,13 @@ public class Commands {
             final List<String> words = parsedLine.words();
             final int steps;
             if (words.size() == 2) {
-                steps = NumberUtils.toInt(words.get(1));
+                int parsed;
+                try {
+                    parsed = Integer.parseInt(words.get(1));
+                } catch (NumberFormatException e) {
+                    parsed = 0;
+                }
+                steps = parsed;
             } else {
                 steps = 1;
             }
