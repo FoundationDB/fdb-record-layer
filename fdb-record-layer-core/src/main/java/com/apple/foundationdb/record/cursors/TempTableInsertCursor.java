@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -47,36 +48,34 @@ import java.util.function.Function;
 /**
  * A cursor that returns the items of a child cursor, and as a side effect, it adds the items to a designated
  * {@link TempTable}.
- *
- * @param <T> The type of the cursor elements.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TempTableInsertCursor<T extends ProtoSerializable> implements RecordCursor<T> {
+public class TempTableInsertCursor implements RecordCursor<QueryResult> {
 
     @Nonnull
-    private final RecordCursor<T> childCursor;
+    private final RecordCursor<QueryResult> childCursor;
     @Nonnull
-    private final TempTable<T> tempTable;
+    private final TempTable tempTable;
 
-    private TempTableInsertCursor(@Nonnull final RecordCursor<T> childCursor,
-                                  @Nonnull final TempTable<T> tempTable) {
+    private TempTableInsertCursor(@Nonnull final RecordCursor<QueryResult> childCursor,
+                                  @Nonnull final TempTable tempTable) {
         this.childCursor = childCursor;
         this.tempTable = tempTable;
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<RecordCursorResult<T>> onNext() {
+    public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         return childCursor.onNext().thenApply(childCursorResult -> {
             if (!childCursorResult.hasNext()) {
                 if (childCursorResult.getNoNextReason().isSourceExhausted()) {
                     return RecordCursorResult.exhausted();
                 } else {
-                    return RecordCursorResult.withoutNextValue(new Continuation<>(tempTable, childCursorResult.getContinuation()), childCursorResult.getNoNextReason());
+                    return RecordCursorResult.withoutNextValue(new Continuation(tempTable, childCursorResult.getContinuation()), childCursorResult.getNoNextReason());
                 }
             } else {
                 tempTable.add(Objects.requireNonNull(childCursorResult.get()));
-                return RecordCursorResult.withNextValue(childCursorResult.get(), new Continuation<>(tempTable, childCursorResult.getContinuation()));
+                return RecordCursorResult.withNextValue(childCursorResult.get(), new Continuation(tempTable, childCursorResult.getContinuation()));
             }
         });
     }
@@ -111,29 +110,28 @@ public class TempTableInsertCursor<T extends ProtoSerializable> implements Recor
      * @param tempTableDeserializer A method that, given a serialized {@link TempTable} returns a runtime {@link TempTable},
      *                              note that the serialized {@link TempTable} can be {@code null}.
      * @param childCursorCreator A creator of the child cursor, using a nullable child continuation.
-     * @param <T> The type of the cursor elements.
      *
      * @return a new {@link TempTableInsertCursor} that either resumes the execution according to the given continuation,
      *         or starts from the beginning.
      */
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public static <T extends ProtoSerializable> TempTableInsertCursor<T> from(@Nullable byte[] unparsed,
-                                                                              @Nonnull Function<PTempTable, TempTable<T>> tempTableDeserializer,
-                                                                              @Nonnull Function<byte[], RecordCursor<T>> childCursorCreator) {
+    public static TempTableInsertCursor from(@Nullable byte[] unparsed,
+                                             @Nonnull Function<PTempTable, TempTable> tempTableDeserializer,
+                                             @Nonnull Function<byte[], RecordCursor<QueryResult>> childCursorCreator) {
         final var continuation = Continuation.from(unparsed, tempTableDeserializer);
         final var childCursor = childCursorCreator.apply(continuation.getChildContinuation().toBytes());
-        return new TempTableInsertCursor<T>(childCursor, continuation.getTempTable());
+        return new TempTableInsertCursor(childCursor, continuation.getTempTable());
     }
 
-    private static class Continuation<T extends ProtoSerializable> implements RecordCursorContinuation {
+    private static class Continuation implements RecordCursorContinuation {
 
         @Nonnull
-        private final TempTable<T> tempTable;
+        private final TempTable tempTable;
         @Nonnull
         private final RecordCursorContinuation childContinuation;
 
-        private Continuation(@Nonnull final TempTable<T> tempTable,
+        private Continuation(@Nonnull final TempTable tempTable,
                              @Nonnull final RecordCursorContinuation childContinuation) {
             this.tempTable = tempTable;
             this.childContinuation = childContinuation;
@@ -145,7 +143,7 @@ public class TempTableInsertCursor<T extends ProtoSerializable> implements Recor
         }
 
         @Nonnull
-        public TempTable<T> getTempTable() {
+        public TempTable getTempTable() {
             return tempTable;
         }
 
@@ -182,21 +180,21 @@ public class TempTableInsertCursor<T extends ProtoSerializable> implements Recor
         }
 
         @Nonnull
-        private static <T extends ProtoSerializable> Continuation<T> from(@Nonnull final RecordCursorProto.TempTableInsertContinuation parsed,
-                                                                          @Nullable final PTempTable parsedTempTable,
-                                                                          @Nonnull final Function<PTempTable, TempTable<T>> tempTableDeserializer) {
+        private static  Continuation from(@Nonnull final RecordCursorProto.TempTableInsertContinuation parsed,
+                                          @Nullable final PTempTable parsedTempTable,
+                                          @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
             final var tempTable = tempTableDeserializer.apply(parsedTempTable);
             final var childContinuation = parsed.hasChildContinuation()
                                           ? ByteArrayContinuation.fromNullable(parsed.getChildContinuation().toByteArray())
                                           : RecordCursorStartContinuation.START;
-            return new Continuation<>(tempTable, childContinuation);
+            return new Continuation(tempTable, childContinuation);
         }
 
         @Nonnull
-        private static <T extends ProtoSerializable> Continuation<T> from(@Nullable final byte[] unparsed,
-                                                                          @Nonnull final Function<PTempTable, TempTable<T>> tempTableDeserializer) {
+        private static Continuation from(@Nullable final byte[] unparsed,
+                                         @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
             if (unparsed == null) {
-                return new Continuation<>(tempTableDeserializer.apply(null), RecordCursorStartContinuation.START);
+                return new Continuation(tempTableDeserializer.apply(null), RecordCursorStartContinuation.START);
             } else {
                 try {
                     final var parsed = RecordCursorProto.TempTableInsertContinuation.parseFrom(unparsed);

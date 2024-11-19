@@ -78,7 +78,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final var tempTable = Objects.requireNonNull((TempTable<QueryResult>)this.tempTableReferenceValue.eval(store, context));
+        final var tempTable = Objects.requireNonNull((TempTable)this.tempTableReferenceValue.eval(store, context));
         return new IteratorCursor<>(store.getExecutor(), tempTable.getIterator());
     }
 

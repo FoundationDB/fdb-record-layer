@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -98,16 +97,15 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
 
     @Nonnull
     @Override
-    @SuppressWarnings({"unchecked"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         if (isOwningTempTable) {
-            final var typeDescriptor = getInnerTypeDescriptor();
+            final var typeDescriptor = getInnerTypeDescriptor(context);
             return TempTableInsertCursor.from(continuation,
                     proto -> {
-                        final var tempTable = Objects.requireNonNull((TempTable<QueryResult>)getTempTableReferenceValue().eval(store, context));
+                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
                         if (proto != null) {
                             TempTable.from(proto, typeDescriptor).getIterator().forEachRemaining(tempTable::add);
                         }
@@ -118,7 +116,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
             return getChild().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
                     .map(queryResult ->
                     {
-                        final var tempTable = Objects.requireNonNull((TempTable<QueryResult>)getTempTableReferenceValue().eval(store, context));
+                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
                         tempTable.add(queryResult);
                         return queryResult;
                     });
@@ -126,20 +124,16 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     }
 
     @Nullable
-    private Descriptors.Descriptor getInnerTypeDescriptor() {
+    private Descriptors.Descriptor getInnerTypeDescriptor(@Nonnull final EvaluationContext context) {
         final Descriptors.Descriptor typeDescriptor;
         if (tempTableReferenceValue.getResultType().isRelation() && ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType().isRecord()) {
             final var type = (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
-            final var builder = TypeRepository.newBuilder();
-            type.defineProtoType(builder);
-            typeDescriptor = builder.build().getMessageDescriptor(type);
+            typeDescriptor = context.getTypeRepository().getMessageDescriptor(type);
         } else {
             typeDescriptor = null;
         }
         return typeDescriptor;
     }
-
-
 
     @Nonnull
     @Override

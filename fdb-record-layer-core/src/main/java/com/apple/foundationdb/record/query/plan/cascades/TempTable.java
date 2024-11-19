@@ -49,12 +49,11 @@ import java.util.List;
  * {@link Collections#synchronizedList(List)} for more information. Moreover, it is unbounded leaving setting any upper
  * bound to the consumer.
  *
- * @param <T> The type of the temp table elements.
  */
-public class TempTable<T extends ProtoSerializable> implements ProtoSerializable {
+public class TempTable implements ProtoSerializable {
 
     @Nonnull
-    private final List<T> underlyingBuffer;
+    private final List<QueryResult> underlyingBuffer;
 
     @Nonnull
     private final PTempTable.Builder protoBuilder;
@@ -66,7 +65,7 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
         this(Collections.synchronizedList(new ArrayList<>()), PTempTable.newBuilder());
     }
 
-    private TempTable(@Nonnull final List<T> buffer, @Nonnull final PTempTable.Builder protoBuilder) {
+    private TempTable(@Nonnull final List<QueryResult> buffer, @Nonnull final PTempTable.Builder protoBuilder) {
         this.underlyingBuffer = buffer;
         this.protoBuilder = protoBuilder;
         this.cachedProto = null;
@@ -76,7 +75,7 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
      * Add a new {@link QueryResult} element to the underlying buffer.
      * @param element the new element to be added.
      */
-    public void add(@Nonnull T element) {
+    public void add(@Nonnull QueryResult element) {
         underlyingBuffer.add(element);
         protoBuilder.addBufferItems(element.toProto().toByteString());
         cachedProto = null;
@@ -92,7 +91,7 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
     }
 
     @Nonnull
-    public Iterator<T> getIterator() {
+    public Iterator<QueryResult> getIterator() {
         return underlyingBuffer.iterator();
     }
 
@@ -114,7 +113,7 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
      * @return A deserialized {@link TempTable}.
      */
     @Nonnull
-    public static TempTable<?> from(@Nonnull final byte[] bytes, @Nullable final Descriptors.Descriptor descriptor) {
+    public static TempTable from(@Nonnull final byte[] bytes, @Nullable final Descriptors.Descriptor descriptor) {
         return from(ZeroCopyByteString.wrap(bytes), descriptor);
     }
 
@@ -127,7 +126,7 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
      * @return A deserialized {@link TempTable}.
      */
     @Nonnull
-    public static TempTable<?> from(@Nonnull final ByteString byteString, @Nullable final Descriptors.Descriptor descriptor) {
+    public static TempTable from(@Nonnull final ByteString byteString, @Nullable final Descriptors.Descriptor descriptor) {
         final PTempTable tempTableProto;
         try {
             tempTableProto = PTempTable.parseFrom(byteString);
@@ -145,22 +144,21 @@ public class TempTable<T extends ProtoSerializable> implements ProtoSerializable
      * @return A deserialized {@link TempTable}.
      */
     @Nonnull
-    public static TempTable<QueryResult> from(@Nonnull final PTempTable tempTableProto,
-                                              @Nullable final Descriptors.Descriptor descriptor) {
+    public static TempTable from(@Nonnull final PTempTable tempTableProto,
+                                 @Nullable final Descriptors.Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
         for (final var element : tempTableProto.getBufferItemsList()) {
             underlyingBuffer.add(QueryResult.from(descriptor, element));
         }
-        return new TempTable<>(underlyingBuffer, tempTableProto.toBuilder());
+        return new TempTable(underlyingBuffer, tempTableProto.toBuilder());
     }
 
     /**
      * Creates a new instance of {@link TempTable} backed by a synchronized list.
-     * @param <T> The type of the temporary table elements.
      * @return a new instance of {@link TempTable}.
      */
     @Nonnull
-    public static <T extends ProtoSerializable> TempTable<T> newInstance() {
-        return new TempTable<>();
+    public static TempTable newInstance() {
+        return new TempTable();
     }
 }

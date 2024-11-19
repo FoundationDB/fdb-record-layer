@@ -94,7 +94,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
     void scanTempTableWorksCorrectly() throws Exception {
         try (FDBRecordContext context = openContext()) {
             // select rec_no, str_value_indexed from <tempTable>.
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var plan = getTempTableScanPlan(tempTable, tempTableId, true);
             assertEquals(ImmutableSet.of(Pair.of(42L, "fortySecondValue"),
@@ -108,7 +108,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         // select rec_no, str_value_indexed from <tempTable> where rec_no < 44L.
         try (FDBRecordContext context = openContext()) {
             final var type = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")));
             tempTable.add(QueryResult.ofComputed(item(45L, "fortyFifthValue")));
             final var tempTableId = CorrelationIdentifier.uniqueID();
@@ -132,7 +132,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
     void insertIntoTempTableWorksCorrectly() throws Exception {
         // insert into <tempTable> values ((1, 'first', 10, 1), (2, 'second', 11, 2))
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var firstRecord = RecordConstructorValue.ofUnnamed(
                     ImmutableList.of(LiteralValue.ofScalar(1L),
@@ -150,9 +150,8 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
                             emptyArray(Type.primitiveType(Type.TypeCode.INT))));
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
-
             qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
-                    tempTableId, tempTableId.getId(), Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+                    tempTableId, tempTableId.getId(), explodeExpression.getResultType().getInnerType())));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
@@ -177,7 +176,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan planToResume = null;
         final var tempTableId = CorrelationIdentifier.uniqueID();
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final var firstRecord = RecordConstructorValue.ofColumns(
                     ImmutableList.of(Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no")), LiteralValue.ofScalar(1L)),
                             Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("str_value_indexed")), LiteralValue.ofScalar("first")),
@@ -196,7 +195,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
             qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
-                    tempTableId, tempTableId.getId(), Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+                    tempTableId, tempTableId.getId(), explodeExpression.getResultType().getInnerType())));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
@@ -222,7 +221,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            final var tempTable = TempTable.<QueryResult>newInstance();
+            final var tempTable = TempTable.newInstance();
             final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
             constants.put(tempTableId.getId(), tempTable);
             final var usedTypes = UsedTypesProperty.evaluate(planToResume);
@@ -246,7 +245,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private Set<Pair<Long, String>> collectResults(@Nonnull FDBRecordContext context,
                                                    @Nonnull RecordQueryPlan plan,
-                                                   @Nonnull TempTable<QueryResult> tempTable,
+                                                   @Nonnull TempTable tempTable,
                                                    @Nonnull CorrelationIdentifier tempTableId) throws Exception {
         ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
         final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
@@ -272,7 +271,7 @@ public class TempTableTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private RecordQueryPlan getTempTableScanPlan(@Nonnull TempTable<QueryResult> tempTable, @Nonnull CorrelationIdentifier tempTableId, boolean addData) {
+    private RecordQueryPlan getTempTableScanPlan(@Nonnull TempTable tempTable, @Nonnull CorrelationIdentifier tempTableId, boolean addData) {
         final var type = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         if (addData) {
             tempTable.add(QueryResult.ofComputed(item(42L, "fortySecondValue")));
