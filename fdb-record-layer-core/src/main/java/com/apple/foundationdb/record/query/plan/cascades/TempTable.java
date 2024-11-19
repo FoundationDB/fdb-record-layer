@@ -45,8 +45,9 @@ import java.util.List;
  * placeholder for computation results produced by some physical operator (i.e. {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan}),
  * but can be leveraged to represent, for example, SQL temporary tables as well.<br/>
  * The actual implementation leverages a synchronized list, however, similar to synchronized list, it does not synchronize
- * the returned {@link Iterator} in {@link TempTable#getIterator()} method, leaving it to the user to decide, see
- * {@link Collections#synchronizedList(List)} for more information. Moreover, it is unbounded leaving setting any upper
+ * the returned {@link List} in {@link TempTable#getList()} method, leaving it to the user to decide whether they
+ * want to lock the entire list of not.<br>
+ * See {@link Collections#synchronizedList(List)} for more information. Moreover, it is unbounded leaving setting any upper
  * bound to the consumer.
  *
  */
@@ -90,9 +91,22 @@ public class TempTable implements ProtoSerializable {
         cachedProto = null;
     }
 
+    /**
+     * Returns a iterator of the underlying buffer, note that this iterator is not synchronized.
+     * @return an iterator of the underlying buffer.
+     */
     @Nonnull
     public Iterator<QueryResult> getIterator() {
         return underlyingBuffer.iterator();
+    }
+
+    /**
+     * Returns the underlying buffer, note that this method is not synchronized.
+     * @return The underlying buffer.
+     */
+    @Nonnull
+    public List<QueryResult> getList() {
+        return underlyingBuffer;
     }
 
     @Nonnull

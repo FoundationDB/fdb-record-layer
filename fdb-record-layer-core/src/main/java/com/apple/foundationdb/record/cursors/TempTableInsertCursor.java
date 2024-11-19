@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ByteArrayContinuation;
-import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
