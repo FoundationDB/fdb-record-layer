@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.planprotos.PTempTableScanPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -76,8 +77,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final var tempTable = (TempTable)this.tempTableReferenceValue.eval(store, context);
-        return tempTable.getReadCursor(continuation);
+        final var tempTable = Objects.requireNonNull((TempTable)this.tempTableReferenceValue.eval(store, context));
+        return new ListCursor<>(tempTable.getList(), continuation);
     }
 
     @Nonnull

@@ -120,3 +120,8 @@ message MultidimensionalIndexScanContinuation {
     optional bytes lastHilbertValue = 1;
     optional bytes lastKey = 2;
 }
+
+message TempTableInsertContinuation {
+    optional bytes child_continuation = 1;
+    optional bytes tempTable = 2;
+}

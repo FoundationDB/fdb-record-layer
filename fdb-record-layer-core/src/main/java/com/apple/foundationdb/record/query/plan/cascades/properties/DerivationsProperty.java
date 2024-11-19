@@ -340,19 +340,9 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         public Derivations visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
             final Quantifier rangesOver = Iterables.getOnlyElement(tempTableInsertPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
-            final var childResultValues = childDerivations.getResultValues();
-            final var computationValue = tempTableInsertPlan.getComputationValue();
-
             final var resultValuesBuilder = ImmutableList.<Value>builder();
             final var localValuesBuilder = ImmutableList.<Value>builder();
             localValuesBuilder.addAll(childDerivations.getLocalValues());
-            for (final var childResultValue : childResultValues) {
-                final var resultsTranslationMap = TranslationMap.builder()
-                        .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
-                        .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(tempTableInsertPlan.getTargetRecordType())))
-                        .build();
-                resultValuesBuilder.add(computationValue.translateCorrelationsAndSimplify(resultsTranslationMap));
-            }
             return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
         }
 

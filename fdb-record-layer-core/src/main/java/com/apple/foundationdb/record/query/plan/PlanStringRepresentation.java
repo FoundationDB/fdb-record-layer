@@ -410,7 +410,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     public PlanStringRepresentation visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan element) {
         return visit(element.getChild())
                 .append(" | TEMP TABLE INSERT INTO ")
-                .append(element.getTargetRecordType());
+                .append(element.getResultType());
     }
 
     @Nonnull
