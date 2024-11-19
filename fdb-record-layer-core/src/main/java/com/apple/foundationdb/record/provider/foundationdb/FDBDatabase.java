@@ -1209,12 +1209,11 @@ public class FDBDatabase {
                         LogMessageKeys.CLUSTER, clusterFile);
 
                 // We want to log with the MDC context that created the transaction if we can.
-                // If none is specified, go ahead and use the thread's.
+                // This allows us to link any information from the original creator to this
+                // closing event
                 @Nullable Map<String, String> contextMdc = context.getMdcContext();
                 if (contextMdc != null) {
                     msg.addKeysAndValues(contextMdc);
-                } else if (threadMdc != null) {
-                    msg.addKeysAndValues(threadMdc);
                 }
 
                 if (LOGGER.isWarnEnabled()) {
