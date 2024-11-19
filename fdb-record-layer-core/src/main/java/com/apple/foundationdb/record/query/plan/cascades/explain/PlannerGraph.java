@@ -87,7 +87,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             if (quantifier instanceof Quantifier.Existential) {
                 edge = new ExistentialQuantifierEdge(label, dependsOn);
             } else if (quantifier instanceof Quantifier.ForEach) {
-                edge = new ForEachQuantifierEdge(label, dependsOn);
+                edge = new ForEachQuantifierEdge(label, ((Quantifier.ForEach)quantifier).isNullOnEmpty(), dependsOn);
             } else if (quantifier instanceof Quantifier.Physical) {
                 edge = new PhysicalQuantifierEdge(label, dependsOn);
             } else {
@@ -384,6 +384,26 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         String getToolTip() {
             return type.describe(new Formatter());
+        }
+    }
+
+    /**
+     * Node class for temporary data objects.
+     */
+    public static class TemporaryDataNodeWithInfo extends DataNodeWithInfo {
+
+        public TemporaryDataNodeWithInfo(@Nonnull final Type type, @Nullable final List<String> sources) {
+            super(NodeInfo.TEMPORARY_BUFFER_DATA, type, sources);
+        }
+
+        public TemporaryDataNodeWithInfo(@Nonnull Type type, @Nullable final List<String> sources, @Nonnull final Map<String, Attribute> additionalAttributes) {
+            super(NodeInfo.TEMPORARY_BUFFER_DATA, type, sources, additionalAttributes);
+        }
+
+        @Nonnull
+        @Override
+        public String getFillColor() {
+            return "goldenrod2";
         }
     }
 
@@ -799,16 +819,30 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      * Edge class for for-each quantifiers.
      */
     public static class ForEachQuantifierEdge extends ReferenceEdge {
+
+        private final boolean isNullIsEmpty;
+
         public ForEachQuantifierEdge() {
             this(null, ImmutableSet.of());
         }
 
         public ForEachQuantifierEdge(final Set<? extends AbstractEdge> dependsOn) {
-            super(null, dependsOn);
+            this(null, dependsOn);
         }
 
         public ForEachQuantifierEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+            this(label, false, dependsOn);
+        }
+
+        public ForEachQuantifierEdge(@Nullable final String label, boolean isNullIfEmpty, final Set<? extends AbstractEdge> dependsOn) {
             super(label, dependsOn);
+            this.isNullIsEmpty = isNullIfEmpty;
+        }
+
+        @Nonnull
+        @Override
+        public String getColor() {
+            return isNullIsEmpty ? "khaki3" : super.getColor();
         }
     }
 

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import org.apache.lucene.store.IndexOutput;
 
 import java.io.IOException;
@@ -36,7 +38,7 @@ public class EmptyIndexOutput extends IndexOutput {
     private final String resourceDescription;
     private final long id;
 
-    protected EmptyIndexOutput(final String resourceDescription, final String name, final FDBDirectory fdbDirectory) {
+    protected EmptyIndexOutput(final String resourceDescription, final String name, final FDBDirectory fdbDirectory) throws IOException {
         super(resourceDescription, name);
         this.resourceDescription = resourceDescription;
         this.fdbDirectory = fdbDirectory;
@@ -45,8 +47,12 @@ public class EmptyIndexOutput extends IndexOutput {
 
     @Override
     public void close() throws IOException {
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription,
-                new FDBLuceneFileReference(id, 0, 0, 0));
+        try {
+            fdbDirectory.writeFDBLuceneFileReference(resourceDescription,
+                    new FDBLuceneFileReference(id, 0, 0, 0));
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @Override

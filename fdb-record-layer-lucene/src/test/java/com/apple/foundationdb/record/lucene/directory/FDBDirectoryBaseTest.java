@@ -36,6 +36,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -52,7 +54,7 @@ public abstract class FDBDirectoryBaseTest {
     protected Subspace subspace;
     protected FDBDirectory directory;
     protected Random random = new Random();
-    private FDBRecordContext context;
+    protected FDBRecordContext context;
 
     protected FDBStoreTimer timer = new FDBStoreTimer();
 
@@ -62,7 +64,11 @@ public abstract class FDBDirectoryBaseTest {
         path = pathManager.createPath(TestKeySpace.RAW_DATA);
         context = fdb.openContext(getContextConfig());
         subspace = fdb.run(path::toSubspace);
-        directory = new FDBDirectory(subspace, context, null);
+        directory = createDirectory(subspace, context, null);
+    }
+
+    protected @Nonnull FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, final Map<String, String> indexOptions) {
+        return new FDBDirectory(subspace, context, indexOptions);
     }
 
     @AfterEach

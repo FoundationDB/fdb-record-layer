@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
+import com.apple.foundationdb.util.LoggableKeysAndValues;
 import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.IOException;
@@ -32,13 +33,13 @@ import java.io.IOException;
  */
 public class LuceneExceptions {
     /**
-     * Convert the exception thrown by Lucene by a {@link RecordCoreException} that can be later interpreted by the higher levels.
+     * Convert the exception thrown by Lucene to a {@link RecordCoreException} that can be later interpreted by the higher levels.
      * @param message the exception's message to use; the cause's message will be appended to this one
      * @param ex the exception thrown by Lucene
      * @param additionalLogInfo (optional) additional log infos to add to the created exception
      * @return the {@link RecordCoreException} that should be thrown
      */
-    public static RecordCoreException toRecordCoreException(String message, IOException ex, Object... additionalLogInfo) {
+    public static RuntimeException toRecordCoreException(String message, IOException ex, Object... additionalLogInfo) {
         if (ex instanceof LockObtainFailedException) {
             // Use the retryable exception for this case
             return new FDBExceptions.FDBStoreLockTakenException(message + ": " + ex.getMessage(), ex)
@@ -48,7 +49,9 @@ public class LuceneExceptions {
             Throwable cause = ex.getCause();
             // Normally that would wrap the actual transaction-too-long from FDB
             if (cause instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
-                return (FDBExceptions.FDBStoreTransactionIsTooOldException)cause;
+                FDBExceptions.FDBStoreTransactionIsTooOldException transactionIsTooOldException = (FDBExceptions.FDBStoreTransactionIsTooOldException)cause;
+                transactionIsTooOldException.addSuppressed(ex);
+                return transactionIsTooOldException;
             } else {
                 // This should not happen - LuceneTransactionTooOldException should have FDBStoreTransactionIsTooOldException as cause
                 RecordCoreException result = new FDBExceptions.FDBStoreTransactionIsTooOldException(message + ": " + ex.getMessage(), null)
@@ -57,7 +60,21 @@ public class LuceneExceptions {
                 return result;
             }
         }
+        // This should handle a RecordCoreException wrapped by an IOException, as well as any other RuntimeExceptions:
+        // They should both be unwrapped (and add any loggable info if we can), then forwarded upward.
+        // If this is a RecordCoreException then we should just pass it along.
+        // If this is an unknown RuntimeException, we should also not wrap it to allow higher levels to interpret it -
+        // it may be the result of the generic wrapping by IOException in toIoException.
+        if (ex.getCause() instanceof RuntimeException) {
+            RuntimeException runtimeException = (RuntimeException)ex.getCause();
+            runtimeException.addSuppressed(ex);
+            if (runtimeException instanceof LoggableKeysAndValues) {
+                ((LoggableKeysAndValues)runtimeException).addLogInfo(additionalLogInfo);
+            }
+            return runtimeException;
+        }
 
+        // All else failed - wrap with RecordCoreException
         return new RecordCoreException(message + ": " + ex.getMessage(), ex)
                 .addLogInfo(additionalLogInfo);
     }

@@ -74,7 +74,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
         final RequestedOrdering.Distinctness distinctness = RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS;
         final var requestedOrderingParts =
                 sortValues.stream().map(value -> new OrderingPart.RequestedOrderingPart(value, order)).collect(Collectors.toList());
-        return RequestedOrdering.ofParts(requestedOrderingParts, distinctness, inner.getCorrelatedTo());
+        return RequestedOrdering.ofParts(requestedOrderingParts, distinctness, false, inner.getCorrelatedTo());
     }
 
     @Nonnull

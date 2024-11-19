@@ -22,6 +22,7 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
+import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.annotation.Nonnull;
@@ -34,13 +35,17 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.async.AsyncUtil.collect;
@@ -54,12 +59,21 @@ import static com.apple.foundationdb.async.AsyncUtil.whileTrue;
 @API(API.Status.UNSTABLE)
 public class MoreAsyncUtil {
 
-    private static ScheduledThreadPoolExecutor scheduledThreadPoolExecutor
-            = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder().setDaemon(true).build());
-
-    static {
+    private static final Supplier<ScheduledThreadPoolExecutor> scheduledExecutorSupplier = Suppliers.memoize(() -> {
+        ThreadFactory threadFactory = new ThreadFactoryBuilder()
+                .setDaemon(true)
+                .setNameFormat("fdb-scheduled-executor-%d")
+                .build();
+        ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(1, threadFactory);
         scheduledThreadPoolExecutor.setKeepAliveTime(30, TimeUnit.SECONDS);
         scheduledThreadPoolExecutor.allowCoreThreadTimeOut(true);
+        return scheduledThreadPoolExecutor;
+    });
+
+    public static <T> CompletableFuture<T> alreadyCancelled() {
+        final CompletableFuture<T> alreadyCancelled = new CompletableFuture<>();
+        alreadyCancelled.cancel(false);
+        return alreadyCancelled;
     }
 
     @Nonnull
@@ -788,24 +802,62 @@ public class MoreAsyncUtil {
     }
 
     /**
-     * Creates a future that will be ready after the given delay. Creating the delayed future does
-     * not use more than one thread for all of the futures together, and it is safe to create many delayed
-     * futures at once. The guarantee given by this function is that the future will not be ready sooner
+     * Get the default scheduled executor service. This is used to schedule delayed tasks
+     * in an efficient way by {@link #delayedFuture(long, TimeUnit)}. Adopters can provide their
+     * own {@link ScheduledExecutorService} by using the overloaded method.
+     *
+     * <p>
+     * By default, the returned executor service is a {@link ScheduledThreadPoolExecutor}
+     * with a single thread used for executing delayed tasks. In practice, with a future chain,
+     * this should be quick asynchronous callbacks, and blocking in such a callback can
+     * block the task thread.
+     * </p>
+     *
+     * @return an executor service that allows for tasks to be efficiently scheduled for later
+     * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
+     */
+    @Nonnull
+    public static ScheduledExecutorService getDefaultScheduledExecutor() {
+        return scheduledExecutorSupplier.get();
+    }
+
+    /**
+     * Creates a future that will be ready after the given delay. This uses the
+     * {@link #getDefaultScheduledExecutor()} to schedule tasks but is otherwise identical to
+     * {@link #delayedFuture(long, TimeUnit, ScheduledExecutorService)}.
+     *
+     * @param delay the time from now to delay execution
+     * @param unit the time unit of the delay parameter
+     * @return a future that will be ready after the given delay
+     * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
+     */
+    @API(API.Status.MAINTAINED)
+    @Nonnull
+    public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit) {
+        return delayedFuture(delay, unit, getDefaultScheduledExecutor());
+    }
+
+    /**
+     * Creates a future that will be ready after the given delay. The delayed future will be executed
+     * using the supplied {@link ScheduledExecutorService} to complete the returned future. Exact
+     * performance can depend on the scheduled executor implementation, but it should generally be
+     * safe to create many delayed futures at once. The guarantee given by this function is that the future will not be ready sooner
      * than the delay specified. It may, however, fire after the given delay (especially if there are multiple delayed
      * futures that are trying to fire at once).
      *
      * @param delay the time from now to delay execution
      * @param unit the time unit of the delay parameter
+     * @param scheduledExecutor executor service used to complete the returned future and run any same-thread callbacks
      * @return a {@link CompletableFuture} that will fire after the given delay
      */
     @API(API.Status.MAINTAINED)
     @Nonnull
-    public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit) {
+    public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit, @Nonnull ScheduledExecutorService scheduledExecutor) {
         if (delay <= 0) {
             return AsyncUtil.DONE;
         }
         CompletableFuture<Void> future = new CompletableFuture<>();
-        scheduledThreadPoolExecutor.schedule(() -> future.complete(null), delay, unit);
+        scheduledExecutor.schedule(() -> future.complete(null), delay, unit);
         return future;
     }
 
@@ -816,18 +868,20 @@ public class MoreAsyncUtil {
      *
      * @param deadlineTimeMillis the maximum time to wait for the asynchronous operation to complete, specified in milliseconds
      * @param supplier the {@link Supplier} of the asynchronous result
+     * @param scheduledExecutor executor used to handle managing the deadline
      * @param <T> the return type for the get operation
      * @return a future that will either complete with the result of the asynchronous get operation or
      * complete exceptionally if the deadline is exceeded
      */
     @API(API.Status.EXPERIMENTAL)
     public static <T> CompletableFuture<T> getWithDeadline(long deadlineTimeMillis,
-                                                           @Nonnull Supplier<CompletableFuture<T>> supplier) {
+                                                           @Nonnull Supplier<CompletableFuture<T>> supplier,
+                                                           @Nonnull ScheduledExecutorService scheduledExecutor) {
         final CompletableFuture<T> valueFuture = supplier.get();
         if (deadlineTimeMillis == Long.MAX_VALUE) {
             return valueFuture;
         }
-        return CompletableFuture.anyOf(MoreAsyncUtil.delayedFuture(deadlineTimeMillis, TimeUnit.MILLISECONDS), valueFuture)
+        return CompletableFuture.anyOf(MoreAsyncUtil.delayedFuture(deadlineTimeMillis, TimeUnit.MILLISECONDS, scheduledExecutor), valueFuture)
                 .thenCompose(ignore -> {
                     if (!valueFuture.isDone()) {
                         // if the future is not ready then we exceeded the timeout
@@ -974,6 +1028,30 @@ public class MoreAsyncUtil {
     }
 
     /**
+     * Swallows exceptions matching a given predicate from a future.
+     * @param future a future which you expect to potentially throw an exception
+     * @param shouldSwallow a predicate on whether to swallow the error from the future. Note that if the future failed
+     * with a {@link CompletionException}, {@code swallowException} will also be called with its cause so that you don't
+     * need special handling to cover this.
+     *
+     * @return a future that will complete successfully if  {@code future} completed successfully, <em>or</em> the
+     * {@code shouldSwallow} predicate returned {@code true} for the error that {@code future} threw
+     */
+    public static CompletableFuture<Void> swallowException(@Nonnull CompletableFuture<Void> future,
+                                                           @Nonnull Predicate<Throwable> shouldSwallow) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        future.whenComplete((vignore, err) -> {
+            if (err == null || shouldSwallow.test(err) ||
+                    (err instanceof CompletionException && err.getCause() != null && shouldSwallow.test(err.getCause()))) {
+                result.complete(null);
+            } else {
+                result.completeExceptionally(err);
+            }
+        });
+        return result;
+    }
+
+    /**
      * A {@code Boolean} function that is always true.
      * @param <T> the type of the (ignored) argument to the function
      */
@@ -993,7 +1071,7 @@ public class MoreAsyncUtil {
     }
 
     /**
-     * Exception that will be thrown when the <code>supplier</code> in {@link #getWithDeadline(long, Supplier)} fails to
+     * Exception that will be thrown when the <code>supplier</code> in {@link #getWithDeadline(long, Supplier, ScheduledExecutorService)} fails to
      * complete within the specified deadline time.
      */
     @SuppressWarnings("serial")

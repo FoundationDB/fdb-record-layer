@@ -602,6 +602,16 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return keyValues.map(kv -> unpackKeyValue(uniquenessViolationsSubspace, kv));
     }
 
+    @Override
+    public CompletableFuture<Void> clearUniquenessViolations() {
+        if (state.index.isUnique()) {
+            throw new RecordCoreException(state.index.getName() + " is unique and cannot clear uniqueness violations");
+        } else {
+            state.context.ensureActive().clear(state.store.indexUniquenessViolationsSubspace(state.index).range());
+            return AsyncUtil.DONE;
+        }
+    }
+
     /**
      * Validate the integrity of the index (such as identifying index entries that do not point to records or
      * identifying records that do not point to valid index entries). The default implementation provided by the

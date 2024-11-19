@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -57,6 +58,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
@@ -282,6 +285,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
+        public Ordering visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+            return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
         public Ordering visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
             return Ordering.empty();
         }
@@ -290,6 +299,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
             return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+            return orderingFromSingleChild(tempTableInsertPlan);
         }
 
         @Nonnull
@@ -321,6 +336,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             // TODO This plan is sorted by anything it's flowing as its max cardinality is one.
             //      We cannot express that as of yet.
             return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan element) {
+            return orderingFromSingleChild(element);
         }
 
         @Nonnull

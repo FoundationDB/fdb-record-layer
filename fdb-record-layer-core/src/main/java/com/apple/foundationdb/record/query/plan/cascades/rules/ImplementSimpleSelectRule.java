@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -103,6 +104,13 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
         if (quantifier instanceof Quantifier.Existential) {
             referenceBuilder = call.memoizePlansBuilder(
                     new RecordQueryFirstOrDefaultPlan(
+                            Quantifier.physicalBuilder()
+                                    .withAlias(quantifier.getAlias())
+                                    .build(referenceBuilder.reference()),
+                            new NullValue(quantifier.getFlowedObjectType())));
+        } else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
+            referenceBuilder = call.memoizePlansBuilder(
+                    new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
                                     .build(referenceBuilder.reference()),

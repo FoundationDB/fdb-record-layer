@@ -1128,9 +1128,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                 } catch (UnsupportedRemoteFetchIndexException ex) {
                     // In this case (e.g. the index maintainer does not support remote fetch), log as info
                     if (LOGGER.isInfoEnabled()) {
-                        LOGGER.info(KeyValueLogMessage.of("scanIndexRecords: Remote fetch unsupported, continuing with Index scan",
+                        KeyValueLogMessage msg = KeyValueLogMessage.build("scanIndexRecords: Remote fetch unsupported, continuing with Index scan",
                                 LogMessageKeys.MESSAGE, ex.getMessage(),
-                                LogMessageKeys.INDEX_NAME, index.getName()));
+                                LogMessageKeys.INDEX_NAME, index.getName());
+                        final SubspaceProvider subspaceProvider = getSubspaceProvider();
+                        if (subspaceProvider != null) {
+                            msg.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(getContext()));
+                        }
+                        LOGGER.info(msg.toString());
                     }
                     return scanIndexRecords(index, scanRange.getScanType(), scanRange.getScanRange(), continuation, orphanBehavior, scanProperties);
                 } catch (Exception ex) {

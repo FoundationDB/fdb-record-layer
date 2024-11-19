@@ -25,11 +25,13 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -160,9 +162,8 @@ public interface AgilityContext {
     }
 
     @Nullable
-    default <T> T asyncToSync(StoreTimer.Wait event,
-                              @Nonnull CompletableFuture<T> async) {
-        return getCallerContext().asyncToSync(event, async);
+    default <T> T asyncToSync(StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+        return LuceneConcurrency.asyncToSync(event, async, getCallerContext());
     }
 
     @Nullable
@@ -177,6 +178,10 @@ public interface AgilityContext {
      * @param commitCheck callback
      */
     void setCommitCheck(Function<FDBRecordContext, CompletableFuture<Void>> commitCheck);
+
+    default void commit(@Nonnull FDBRecordContext context) {
+        LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, context.commitAsync(), context);
+    }
 
     /**
      * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
@@ -308,7 +313,7 @@ public interface AgilityContext {
                     final long stamp = lock.writeLock();
 
                     try (FDBRecordContext commitContext = currentContext) {
-                        commitContext.commit();
+                        commit(commitContext);
                     } catch (RuntimeException ex) {
                         closed = true;
                         reportFdbException(ex);
@@ -373,7 +378,7 @@ public interface AgilityContext {
                 future = function.apply(recoveryContext)
                         .whenComplete((result, ex) -> {
                             if (ex == null) {
-                                recoveryContext.commit();
+                                commit(recoveryContext);
                             }
                             recoveryContext.close();
                         });

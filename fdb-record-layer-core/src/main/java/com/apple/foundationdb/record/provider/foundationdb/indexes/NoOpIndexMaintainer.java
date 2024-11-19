@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -83,6 +84,14 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
     @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return RecordCursor.empty();
+    }
+
+    @Override
+    public CompletableFuture<Void> clearUniquenessViolations() {
+        if (state.index.isUnique()) {
+            throw new RecordCoreException(state.index.getName() + " is unique and cannot clear uniqueness violations;");
+        }
+        return AsyncUtil.DONE;
     }
 
     @Nonnull

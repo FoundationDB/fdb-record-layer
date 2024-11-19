@@ -172,7 +172,7 @@ public class DefaultTextTokenizer implements TextTokenizer {
     @Override
     public Iterator<String> tokenize(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
         validateVersion(version);
-        final BreakIterator breakIterator = BreakIterator.getWordInstance();
+        final BreakIterator breakIterator = BreakIterator.getWordInstance(Locale.ROOT);
         breakIterator.setText(text);
         return new BreakIteratorWrapper(breakIterator, text);
     }

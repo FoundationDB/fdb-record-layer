@@ -129,7 +129,7 @@ public final class CjkUnigramFilter extends TokenFilter {
             index -= last;
         }
 
-        char[] termBuffer = termAtt.buffer();
+        final char[] termBuffer = termAtt.buffer();
         int len = termAtt.length();
 
         int newSize = bufferLen + len;

@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.lucene.codec;
 
 
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FieldInfosStorage;
@@ -52,8 +54,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +68,7 @@ import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
  * Low-level test for {@link LuceneOptimizedFieldInfosFormatTest}.
@@ -197,7 +202,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         FieldInfos fieldInfos1 = new FieldInfos(new FieldInfo[] { fieldInfo1 });
         FieldInfos fieldInfos2 = new FieldInfos(new FieldInfo[] { });
 
-        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2);
+        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2, 1);
     }
 
     @ParameterizedTest
@@ -208,7 +213,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         FieldInfos fieldInfos1 = new FieldInfos(new FieldInfo[] { fieldInfo1 });
         FieldInfos fieldInfos2 = new FieldInfos(new FieldInfo[] { fieldInfo1, fieldInfo2 });
 
-        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2);
+        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2, 1);
     }
 
     @ParameterizedTest
@@ -219,7 +224,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         FieldInfos fieldInfos1 = new FieldInfos(new FieldInfo[] { fieldInfo1, fieldInfo2 });
         FieldInfos fieldInfos2 = new FieldInfos(new FieldInfo[] { fieldInfo1 });
 
-        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2);
+        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2, 1);
     }
 
     @ParameterizedTest
@@ -230,7 +235,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         FieldInfos fieldInfos1 = new FieldInfos(new FieldInfo[] { fieldInfo1, fieldInfo2 });
         FieldInfos fieldInfos2 = new FieldInfos(new FieldInfo[] { fieldInfo2 });
 
-        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2);
+        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2, 1);
     }
 
     /**
@@ -239,9 +244,13 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @BooleanSource
     void mixedFieldNumbers(boolean oneTransaction) throws Exception {
+        // It is fine for these to all go in the Global FieldInfos, because each segment has its own bitset as to which
+        // fields it sees, so the first segment will have just field number 0, and the second will have just
+        // field number 1
         testWithTwoSegments(oneTransaction,
                 singleFieldInfos("foo", 0),
-                singleFieldInfos("foo", 1));
+                singleFieldInfos("foo", 1),
+                1);
     }
 
     /**
@@ -252,7 +261,8 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
     void mixedFieldNames(boolean oneTransaction) throws Exception {
         testWithTwoSegments(oneTransaction,
                 singleFieldInfos("foo", 0),
-                singleFieldInfos("bar", 0));
+                singleFieldInfos("bar", 0),
+                2);
     }
 
     /**
@@ -269,7 +279,93 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 simpleFieldInfo("bar", 0),
                 simpleFieldInfo("foo", 1)
         });
-        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2);
+        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2, 2);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void mixedOrderAttributes(boolean oneTransaction) throws Exception {
+        final Map<String, String> attributes1 = new LinkedHashMap<>();
+        final Map<String, String> attributes2 = new LinkedHashMap<>();
+        attributes1.put("first", "a");
+        attributes1.put("second", "b");
+        attributes2.put("second", "b");
+        attributes2.put("first", "a");
+        // sanity checks that the iteration behaves as expected
+        assertEquals(attributes1, attributes2);
+        assertNotEquals(List.copyOf(attributes1.entrySet()), List.copyOf(attributes2.entrySet()));
+        final FieldInfos fieldInfos1 = new FieldInfos(new FieldInfo[] {
+                fieldInfo("foo", 0, attributes1),
+        });
+        final FieldInfos fieldInfos2 = new FieldInfos(new FieldInfo[] {
+                fieldInfo("foo", 0, attributes2),
+        });
+        testWithTwoSegments(oneTransaction, fieldInfos1, fieldInfos2, 1);
+    }
+
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3})
+    void fixGlobalOrdering(int transactionBreak) throws Exception {
+        final Map<String, String> attributes = Map.of("first", "a", "second", "b");
+        final FieldInfos fieldInfos1 = new FieldInfos(new FieldInfo[] {
+                fieldInfo("foo", 0, attributes),
+        });
+        final FieldInfos fieldInfos2 = new FieldInfos(new FieldInfo[] {
+                fieldInfo("foo", 0, attributes),
+        });
+        final var segment1 = new LightSegmentInfo();
+        final var segment2 = new LightSegmentInfo();
+
+        sameOrMultiTransaction(transactionBreak, List.of(
+                directory -> {
+                    write(directory, segment1, fieldInfos1);
+                },
+                directory -> {
+                    final FieldInfosStorage fieldInfoStorage = directory.getFieldInfosStorage();
+                    final LuceneFieldInfosProto.FieldInfos global = fieldInfoStorage
+                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID);
+                    final LuceneFieldInfosProto.FieldInfos.Builder builder = global.toBuilder();
+                    final LuceneFieldInfosProto.FieldInfo.Builder fieldInfoBuilder = builder.getFieldInfoBuilder(0);
+                    final List<LuceneFieldInfosProto.Attribute> reversedAttributes = new ArrayList<>();
+                    final List<LuceneFieldInfosProto.Attribute> serializedAttributes = fieldInfoBuilder.getAttributesList();
+                    for (int i = serializedAttributes.size() - 1; i >= 0; i--) {
+                        reversedAttributes.add(serializedAttributes.get(i));
+                    }
+                    fieldInfoBuilder.clearAttributes();
+                    fieldInfoBuilder.addAllAttributes(reversedAttributes);
+                    final LuceneFieldInfosProto.FieldInfos newGlobal = builder.build();
+                    assertNotEquals(global.getFieldInfo(0), newGlobal.getFieldInfo(0));
+                    fieldInfoStorage.updateGlobalFieldInfos(newGlobal);
+                },
+                directory -> {
+                    final FieldInfosStorage fieldInfoStorage = directory.getFieldInfosStorage();
+                    final LuceneFieldInfosProto.FieldInfos global = fieldInfoStorage
+                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID);
+                    assertEquals(
+                            global.getFieldInfo(0).getAttributesList().stream()
+                                    .map(LuceneFieldInfosProto.Attribute::getKey)
+                                    .collect(Collectors.toList()),
+                            List.of("second", "first")
+                    );
+                    write(directory, segment2, fieldInfos2);
+                },
+                directory -> {
+                    assertFieldInfosEqual(fieldInfos1, read(directory, segment1));
+                    assertFieldInfosEqual(fieldInfos2, read(directory, segment2));
+                    assertEquals(1, directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
+                            directory.getFieldInfosCount()));
+
+                    final FieldInfosStorage fieldInfoStorage = directory.getFieldInfosStorage();
+                    final LuceneFieldInfosProto.FieldInfos global = fieldInfoStorage
+                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID);
+                    assertEquals(
+                            global.getFieldInfo(0).getAttributesList().stream()
+                                    .map(LuceneFieldInfosProto.Attribute::getKey)
+                                    .collect(Collectors.toList()),
+                            List.of("first", "second")
+                    );
+                }));
     }
 
     @ParameterizedTest
@@ -347,7 +443,8 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
 
     private void testWithTwoSegments(final boolean oneTransaction,
                                      final FieldInfos fieldInfos1,
-                                     final FieldInfos fieldInfos2) throws Exception {
+                                     final FieldInfos fieldInfos2,
+                                     final int expectedCount) throws Exception {
         final var segment1 = new LightSegmentInfo();
         final var segment2 = new LightSegmentInfo();
 
@@ -359,6 +456,8 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 directory -> {
                     assertFieldInfosEqual(fieldInfos1, read(directory, segment1));
                     assertFieldInfosEqual(fieldInfos2, read(directory, segment2));
+                    assertEquals(expectedCount, directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
+                            directory.getFieldInfosCount()));
                 });
     }
 
@@ -425,8 +524,13 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private static FieldInfo simpleFieldInfo(final String name, final int number) {
+        return fieldInfo(name, number, Map.of());
+    }
+
+    @Nonnull
+    private static FieldInfo fieldInfo(final String name, final int number, final Map<String, String> attributes) {
         return new FieldInfo(name, number, false, false, false,
-                IndexOptions.DOCS, DocValuesType.NUMERIC, 1, Map.of(), 0, 0, 0, false);
+                IndexOptions.DOCS, DocValuesType.NUMERIC, 1, attributes, 0, 0, 0, false);
     }
 
     private void assertFieldInfosEqual(final FieldInfos expectedFieldInfos, final FieldInfos actualFieldInfos) {

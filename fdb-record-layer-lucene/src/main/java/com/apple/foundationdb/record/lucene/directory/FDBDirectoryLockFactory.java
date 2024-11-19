@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -40,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -62,7 +64,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         // dir is ignored
         try {
             return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
-        } catch (FDBDirectoryLockException ex) {
+        } catch (FDBDirectoryLockException | RecordCoreException ex) {
             // Wrap in a Lucene-compatible exception (that extends IOException)
             throw LuceneExceptions.toIoException(ex, null);
         }
@@ -83,6 +85,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         private final int timeWindowMilliseconds;
         private final byte[] fileLockKey;
         private boolean closed;
+        private final long lockStartTime;
         /**
          * When closing this lock, we set this to the current context, so that when the pre-commit hook runs we won't
          * fail to heartbeat, as it will expect the lock to be deleted.
@@ -96,6 +99,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.fileLockKey = fileLockKey;
             this.timeWindowMilliseconds = timeWindowMilliseconds;
             logSelf("FileLock: Attempt to create a file Lock");
+            lockStartTime = System.nanoTime();
             fileLockSet(false);
             agilityContext.flush();
             agilityContext.setCommitCheck(this::ensureValidIfNotClosed);
@@ -107,7 +111,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         @Override
-        public void ensureValid() {
+        public void ensureValid() throws IOException {
             // ... and implement heartbeat
             if (closed) {
                 throw new AlreadyClosedException("Lock instance already released. This=" + this);
@@ -116,7 +120,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (now > timeStampMillis + timeWindowMilliseconds) {
                 throw new AlreadyClosedException("Lock is too old. This=" + this + " now=" + now);
             }
-            fileLockSet(true);
+            try {
+                fileLockSet(true);
+            } catch (RecordCoreException ex) {
+                throw LuceneExceptions.toIoException(ex, null);
+            }
         }
 
 
@@ -227,6 +235,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
+            agilityContext.recordEvent(LuceneEvents.Events.LUCENE_FILE_LOCK_DURATION, System.nanoTime() - lockStartTime);
             boolean flushed = false;
             try {
                 closed = true; // prevent lock stamp update
@@ -248,11 +257,15 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         @Override
-        public void close() {
+        public void close() throws IOException {
             if (closed) {
                 throw new AlreadyClosedException("Lock file is already closed. This=" + this);
             }
-            fileLockClearFlushAndClose(false);
+            try {
+                fileLockClearFlushAndClose(false);
+            } catch (RecordCoreException ex) {
+                throw LuceneExceptions.toIoException(ex, null);
+            }
         }
 
         @Override
@@ -264,7 +277,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of(staticMessage,
                         LogMessageKeys.TIME_LIMIT_MILLIS, timeWindowMilliseconds,
-                        LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis,
+                        LuceneLogMessageKeys.LOCK_TIMESTAMP, Duration.ofNanos(lockStartTime).toMillis(),
                         LuceneLogMessageKeys.LOCK_UUID, selfStampUuid,
                         LogMessageKeys.KEY, ByteArrayUtil2.loggable(fileLockKey)));
             }

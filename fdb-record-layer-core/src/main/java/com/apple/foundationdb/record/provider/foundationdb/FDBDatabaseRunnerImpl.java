@@ -177,7 +177,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         private RunRetriable(@Nullable List<Object> additionalLogMessageKeyValues) {
             this.additionalLogMessageKeyValues = additionalLogMessageKeyValues;
-            this.delay = new ExponentialDelay(getInitialDelayMillis(), getMaxDelayMillis());
+            this.delay = createExponentialDelay();
         }
 
         @Nonnull

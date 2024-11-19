@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LoggableKeysAndValues;
 import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
@@ -405,7 +406,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     assertFalse(requireFailure && i < 15, i + " merge should have failed");
                     success = true;
                 } catch (RecordCoreException e) {
-                    final LoggableTimeoutException timeoutException = findTimeoutException(e);
+                    final LoggableKeysAndValues<? extends Exception> timeoutException = findTimeoutException(e);
                     LOGGER.info(KeyValueLogMessage.of("Merge failed",
                             "iteration", i,
                             "cause", e.getClass(),
@@ -479,7 +480,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                     index,
                     LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                List<Tuple> primaryKeys = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList())
+                List<Tuple> primaryKeys = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList(), context)
                         .stream()
                         .map(IndexEntry::getPrimaryKey)
                         .collect(Collectors.toList());
@@ -561,8 +562,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                                     index,
                                     LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                                List<IndexEntry> matches = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
-                                        cursor.asList());
+                                List<IndexEntry> matches = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList(), context);
                                 assertFalse(matches.isEmpty());
                             }
 
@@ -959,15 +959,18 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
-    private static LoggableTimeoutException findTimeoutException(final RecordCoreException e) {
+    private static LoggableKeysAndValues<? extends Exception> findTimeoutException(final RecordCoreException e) {
         Map<Throwable, String> visited = new IdentityHashMap<>();
         ArrayDeque<Throwable> toVisit = new ArrayDeque<>();
         toVisit.push(e);
         while (!toVisit.isEmpty()) {
             Throwable cause = toVisit.removeFirst();
             if (!visited.containsKey(cause)) {
+                // This will get throws when the legacy asyncToSync is called
                 if (cause instanceof LoggableTimeoutException) {
                     return (LoggableTimeoutException) cause;
+                } else if (cause instanceof LuceneConcurrency.AsyncToSyncTimeoutException) {
+                    return (LuceneConcurrency.AsyncToSyncTimeoutException) cause;
                 }
                 if (cause.getCause() != null) {
                     toVisit.addLast(cause.getCause());

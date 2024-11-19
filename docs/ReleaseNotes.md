@@ -18,7 +18,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Scope the IndexUniquenessCommitCheck by subspace [(Issue #2919)](https://github.com/FoundationDB/fdb-record-layer/issues/2919)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,61 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.554.0
+
+* `DefaultTextTokenizer` (and `TextTokenizer`s that use it) now uses `Locale.ROOT` for tokenizing instead of the default
+locale. This could have an impact if it's being used in an environment with a default locale that is not compatible with
+`Locale.ROOT` for this purpose. For example if the default locale is `th`, Thai text may be tokenized differently with
+this version. This also means that if you have TEXT indexes using one of these tokenizers, they will need to be rebuilt
+with the new code.
+
+
+* **Bug fix** DefaultTextTokenizer behaved differently depending on system locale [(Issue #2966)](https://github.com/FoundationDB/fdb-record-layer/issues/2966)
+* **Bug fix** Sort FieldInfos attributes before serializing, reducing unique FieldInfos [(Issue #2968)](https://github.com/FoundationDB/fdb-record-layer/issues/2968)
+* **Feature** Support temporary table planning and execution [(Issue #2962)](https://github.com/FoundationDB/fdb-record-layer/pull/2962)
+
+### 3.4.553.0
+
+* **Bug fix** Make test not timeout in Nightly build [(Issue #2909)](https://github.com/FoundationDB/fdb-record-layer/issues/2909)
+* **Bug fix** Fix concurrency issues with `MapPipelinedCursor.close` [(Issue #548)](https://github.com/FoundationDB/fdb-record-layer/issues/548)
+* **Bug fix** Fix concurrency issues with `FlatMapPipelinedCursor.close` [(Issue #2953)](https://github.com/FoundationDB/fdb-record-layer/issues/2953)
+* **Feature** Add more lucene exception handling tests [(Issue #2939)](https://github.com/FoundationDB/fdb-record-layer/issues/2939)
+* **Feature** Methods interacting with delayed futures can now supply their own `ScheduledExecutorService` [(Issue #2929)](https://github.com/FoundationDB/fdb-record-layer/issues/2929)
+
+### 3.4.552.0
+
+* **Bug fix** Expand `ForEach` quantifier semantics [(Issue #2930)](https://github.com/FoundationDB/fdb-record-layer/issues/2930)
+* **Performance** The old planner can now be configured to avoid generating IN-union plans with IN-sources that are not pushed into the underlying scan [(Issue #2941)](https://github.com/FoundationDB/fdb-record-layer/issues/2941)
+* **Breaking change** Planning logic for IN-joins in the old planner means that some plans may change in scenarios where no index is able to be matched to the plan. Only users who have set the maximum number of replans for in-to-join planner configuration parameter to greater than or equal to 0 should be affected [(PR #2942)](https://github.com/FoundationDB/fdb-record-layer/pull/2942)
+
+### 3.4.551.0
+
+* **Bug fix** Missing subspace provider information added to `FDBRecordStore` logs [(Issue #2936)](https://github.com/FoundationDB/fdb-record-layer/issues/2936)
+* **Performance** avoid creating useless/redundant intersections when planning data access [(Issue #2940)](https://github.com/FoundationDB/fdb-record-layer/issues/2940)
+* **Feature** Add Lucene lock duration to store timer [(Issue #2951)](https://github.com/FoundationDB/fdb-record-layer/issues/2951)
+* **Feature** indexer: Add information to "build index online" log message [(Issue #2946)](https://github.com/FoundationDB/fdb-record-layer/issues/2946)
+
+### 3.4.549.0
+
+* **Feature** Translate IOException to/from RecordCoreException for Lucene [(Issue #2934)](https://github.com/FoundationDB/fdb-record-layer/issues/2934)
+
+### 3.4.548.0
+
+* **Feature** asyncToSync without exception mapping for Lucene [(Issue #2926)](https://github.com/FoundationDB/fdb-record-layer/issues/2926)
+* **Feature** Allow converting a single/multi target indexing session to mutual one [(Issue #2917)](https://github.com/FoundationDB/fdb-record-layer/issues/2917)
+
+### 3.4.547.0
+
+* For implementors of `IndexMaintainer`, there is a new method `clearUniquenessViolations` that is used to clear any
+  uniqueness violations if the index is not unique. By default this is a no-op, but `StandardIndexMaintainer` clears
+  the violations it maintains. This can be utilized to change an index from unique to non-unique without having to
+  rebuild, by keeping everything else  about the index the same, including `lastModifiedVersion` and the `subspaceKey`.
+  However, this functionality should only be used if you know the the associated `IndexMaintainer` properly implements
+  `clearUniquenessViolations`.
+
+* **Bug fix** Scope the IndexUniquenessCommitCheck by subspace [(Issue #2919)](https://github.com/FoundationDB/fdb-record-layer/issues/2919)
+* **Feature** Mark READABLE_UNIQUE_PENDING indexes to READABLE if they are not unique [(Issue #1991)](https://github.com/FoundationDB/fdb-record-layer/issues/1991)
 
 ### 3.4.545.0
 

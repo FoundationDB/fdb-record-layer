@@ -84,6 +84,12 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void compareSkipsAndCursors(RecordQueryPlan plan) throws Exception {
+        for (int amount : amounts) {
+            compareSkipsAndCursors(plan, amount);
+        }
+    }
+
     private void compareSkipsAndCursors(RecordQueryPlan plan, int amount) throws Exception {
         final Function<FDBQueriedRecord<Message>, Long> getRecNo = r -> {
             TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -140,12 +146,6 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     }
 
     final int[] amounts = { 1, 2, 3, 10 };
-
-    private void compareSkipsAndCursors(RecordQueryPlan plan) throws Exception {
-        for (int amount : amounts) {
-            compareSkipsAndCursors(plan, amount);
-        }
-    }
 
     private RecordQueryPlan scanPlan() {
         return new RecordQueryScanPlan(ScanComparisons.EMPTY, false);

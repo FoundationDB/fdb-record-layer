@@ -151,6 +151,15 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
+     * Checks whether a {@link Type} is {@link Relation}.
+     *
+     * @return <code>true</code> if the {@link Type} is {@link Relation}, otherwise <code>false</code>.
+     */
+    default boolean isRelation() {
+        return getTypeCode().equals(TypeCode.RELATION);
+    }
+
+    /**
      * Checks whether a {@link Type} is {@link Enum}.
      *
      * @return <code>true</code> if the {@link Type} is {@link Enum}, otherwise <code>false</code>.

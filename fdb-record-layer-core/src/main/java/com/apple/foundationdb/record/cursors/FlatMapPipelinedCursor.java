@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.cursors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -38,6 +39,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Queue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -56,6 +58,8 @@ import java.util.function.Function;
 @API(API.Status.MAINTAINED)
 @SuppressWarnings("PMD.CloseResource")
 public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
+
+    private static final CompletableFuture<Boolean> ALREADY_CANCELLED = MoreAsyncUtil.alreadyCancelled();
     @Nonnull
     private final RecordCursor<T> outerCursor;
     @Nonnull
@@ -69,11 +73,21 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     private byte[] initialInnerContinuation;
     private final int pipelineSize;
+    /**
+     * The pipeline used to add some parallelism to reads. Note this queue is not thread safe, so access
+     * should generally be mediated through one of the {@code synchronized} methods.
+     */
     @Nonnull
     private final Queue<PipelineQueueEntry> pipeline;
+    /**
+     * The next value to pull from the outer cursor. This value is cleared out by {@link #close()}, so
+     * some care should be taken when accessing it. In general, it should be set via one of the {@code synchronized}
+     * methods.
+     */
     @Nullable
-    private CompletableFuture<RecordCursorResult<T>> outerNextFuture;
-    private boolean outerExhausted = false;
+    private volatile CompletableFuture<RecordCursorResult<T>> outerNextFuture;
+    private volatile boolean outerExhausted = false;
+    private volatile boolean closed = false;
 
     @Nullable
     private RecordCursorResult<V> lastResult;
@@ -110,13 +124,17 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             return CompletableFuture.completedFuture(lastResult);
         }
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
-            lastResult = pipeline.peek().nextResult();
+            PipelineQueueEntry peeked = peekPipeline();
+            if (peeked == null) {
+                throw new CancellationException("cursor closed while iterating");
+            }
+            lastResult = peeked.nextResult();
             return lastResult;
         });
     }
 
-    @Override
-    public void close() {
+    private synchronized void markClosed() {
+        closed = true;
         while (!pipeline.isEmpty()) {
             pipeline.remove().close();
         }
@@ -127,9 +145,15 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         outerCursor.close();
     }
 
+
+    @Override
+    public void close() {
+        markClosed();
+    }
+
     @Override
     public boolean isClosed() {
-        return pipeline.isEmpty() && outerNextFuture == null && outerCursor.isClosed();
+        return closed;
     }
 
     @Override
@@ -150,31 +174,34 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * Take items from inner cursor and put in pipeline until no more or a mapped cursor item is available.
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
+    @Nonnull
     protected CompletableFuture<Boolean> tryToFillPipeline() {
-        // Clear pipeline entries left behind by exhausted inner cursors.
-        while (!pipeline.isEmpty() && pipeline.peek().doesNotHaveReturnableResult()) {
-            pipeline.remove().close();
+        if (closed) {
+            return ALREADY_CANCELLED;
         }
-        
-        while (!outerExhausted && pipeline.size() < pipelineSize) {
-            if (outerNextFuture == null) {
-                outerNextFuture = outerCursor.onNext();
+        // Clear pipeline entries left behind by exhausted inner cursors.
+        clearUnusedPipelineEntries();
+
+        while (continueFillingPipeline()) {
+            CompletableFuture<RecordCursorResult<T>> outerNext = ensureOuterCursorAdvanced();
+            if (outerNext == null) {
+                return ALREADY_CANCELLED;
             }
 
-            if (!outerNextFuture.isDone()) {
+            if (!outerNext.isDone()) {
                 // Still waiting for outer future. Check back when it has finished.
-                final PipelineQueueEntry nextEntry = pipeline.peek();
+                final PipelineQueueEntry nextEntry = peekPipeline();
                 if (nextEntry == null) {
-                    return outerNextFuture.thenApply(vignore -> true); // loop back to process outer result
+                    return outerNext.thenApply(vignore -> true); // loop back to process outer result
                 } else {
                     // keep looping unless we get something from the next entry's inner cursor or the next cursor is ready
                     final CompletableFuture<PipelineQueueEntry> innerPipelineFuture = nextEntry.getNextInnerPipelineFuture();
-                    return CompletableFuture.anyOf(outerNextFuture, innerPipelineFuture).thenApply(vignore ->
+                    return CompletableFuture.anyOf(outerNext, innerPipelineFuture).thenApply(vignore ->
                         !innerPipelineFuture.isDone() || innerPipelineFuture.join().doesNotHaveReturnableResult());
                 }
             }
 
-            final RecordCursorResult<T> outerResult = outerNextFuture.join();
+            final RecordCursorResult<T> outerResult = outerNext.join();
 
             if (outerResult.hasNext()) {
                 final RecordCursorContinuation priorOuterContinuation = outerContinuation;
@@ -193,12 +220,12 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
                 }
                 final RecordCursor<V> innerCursor = innerCursorFunction.apply(outerValue, innerContinuation);
                 outerContinuation = outerResult.getContinuation();
-                pipeline.add(new PipelineQueueEntry(innerCursor, priorOuterContinuation, outerResult, outerCheckValue));
+                addEntryToPipeline(new PipelineQueueEntry(innerCursor, priorOuterContinuation, outerResult, outerCheckValue));
                 outerNextFuture = null; // done with this future, advance outer cursor next time
                 // keep looping to fill pipeline
             } else { // don't have next, and won't ever with this cursor
                 // Add sentinel to end of pipeline
-                pipeline.add(new PipelineQueueEntry(null, outerContinuation, outerResult, null));
+                addEntryToPipeline(new PipelineQueueEntry(null, outerContinuation, outerResult, null));
                 outerExhausted = true;
                 // Wait for next entry, as if pipeline were full
                 break;
@@ -209,8 +236,47 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         // 1) The pipeline is full.
         // 2) We just added something to it.
         // 3) The outer cursor is exhausted and so the last element in the pipeline is a sentinel that will never be removed.
-        // In any case, it contains an entry so pipeline.peek() will be non-null.
-        return pipeline.peek().getNextInnerPipelineFuture().thenApply(PipelineQueueEntry::doesNotHaveReturnableResult);
+        // 4) A concurrent operation cancelled this cursor and so the pipeline is empty
+        // The only case where the element should be null is when the cursor has been closed, so return CANCELLED in
+        // that case.
+        PipelineQueueEntry peeked = peekPipeline();
+        if (peeked == null) {
+            return ALREADY_CANCELLED;
+        }
+        return peeked.getNextInnerPipelineFuture().thenApply(PipelineQueueEntry::doesNotHaveReturnableResult);
+    }
+
+    private synchronized void clearUnusedPipelineEntries() {
+        while (!pipeline.isEmpty() && pipeline.peek().doesNotHaveReturnableResult()) {
+            pipeline.remove().close();
+        }
+    }
+
+    @Nullable
+    private synchronized CompletableFuture<RecordCursorResult<T>> ensureOuterCursorAdvanced() {
+        if (closed) {
+            return null;
+        }
+        if (outerNextFuture == null) {
+            outerNextFuture = outerCursor.onNext();
+        }
+        return outerNextFuture;
+    }
+
+    private synchronized void addEntryToPipeline(PipelineQueueEntry pipelineQueueEntry) {
+        if (closed) {
+            pipelineQueueEntry.close();
+        }
+        pipeline.add(pipelineQueueEntry);
+    }
+
+    private synchronized boolean continueFillingPipeline() {
+        return !closed && !outerExhausted && pipeline.size() < pipelineSize;
+    }
+
+    private synchronized PipelineQueueEntry peekPipeline() {
+        // Not a lot in this method, but the underlying queue isn't thread safe so
+        return pipeline.peek();
     }
 
     private class PipelineQueueEntry {

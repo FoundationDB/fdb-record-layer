@@ -132,7 +132,8 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         for (final var entry : transformMap.entrySet()) {
             translatedTransformMapBuilder.put(entry.getKey(), entry.getValue().translateCorrelations(translationMap));
         }
-        return new UpdateExpression(inner, targetRecordType, targetType, translatedTransformMapBuilder.build());
+        return new UpdateExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class),
+                targetRecordType, targetType, translatedTransformMapBuilder.build());
     }
 
     @Nonnull

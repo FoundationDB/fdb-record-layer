@@ -97,7 +97,7 @@ class BlockingInAsyncDetectionTest {
 
         FDBDatabase database = factory.getDatabase();
         TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_RETURNING_ASYNC_MESSAGE,
-                () -> returnAnAsync(database, MoreAsyncUtil.delayedFuture(200L, TimeUnit.MILLISECONDS)));
+                () -> returnAnAsync(database, MoreAsyncUtil.delayedFuture(200L, TimeUnit.MILLISECONDS, database.getScheduledExecutor())));
     }
 
     @Test

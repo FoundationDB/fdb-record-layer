@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -48,11 +49,14 @@ public class ExponentialDelay {
     private final long maxDelayMillis;
     private long currentDelayMillis;
     private long nextDelayMillis;
+    @Nonnull
+    private ScheduledExecutorService scheduledExecutor;
 
-    public ExponentialDelay(final long initialDelayMillis, final long maxDelayMillis) {
+    public ExponentialDelay(final long initialDelayMillis, final long maxDelayMillis, @Nonnull ScheduledExecutorService scheduledExecutor) {
         currentDelayMillis = initialDelayMillis;
         this.maxDelayMillis = maxDelayMillis;
         this.nextDelayMillis = calculateNextDelayMillis();
+        this.scheduledExecutor = scheduledExecutor;
     }
 
     public CompletableFuture<Void> delay() {
@@ -70,7 +74,7 @@ public class ExponentialDelay {
     @Nonnull
     @VisibleForTesting
     protected CompletableFuture<Void> delayedFuture(final long nextDelayMillis) {
-        return MoreAsyncUtil.delayedFuture(nextDelayMillis, TimeUnit.MILLISECONDS);
+        return MoreAsyncUtil.delayedFuture(nextDelayMillis, TimeUnit.MILLISECONDS, scheduledExecutor);
     }
 
     public long getNextDelayMillis() {

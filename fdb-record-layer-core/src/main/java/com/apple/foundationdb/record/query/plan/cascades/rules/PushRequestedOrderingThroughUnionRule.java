@@ -33,9 +33,11 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -60,20 +62,39 @@ public class PushRequestedOrderingThroughUnionRule extends CascadesRule<LogicalU
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final Optional<Set<RequestedOrdering>> requestedOrderingOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
-        if (requestedOrderingOptional.isEmpty()) {
+        final Optional<Set<RequestedOrdering>> requestedOrderingsOptional =
+                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
 
-        final PlannerBindings bindings = call.getBindings();
-        final List<? extends Quantifier.ForEach> rangesOverQuantifiers = bindings.getAll(innerQuantifierMatcher);
+        // push only exhaustive requested orderings
+        final var requestedOrderings = requestedOrderingsOptional.get();
+        final var exhaustiveRequestedOrderings =
+                requestedOrderings
+                        .stream()
+                        .map(RequestedOrdering::exhaustive)
+                        .collect(ImmutableSet.toImmutableSet());
 
-        rangesOverQuantifiers
-                .stream()
-                .map(Quantifier.ForEach::getRangesOver)
-                .forEach(lowerReference ->
-                        call.pushConstraint(lowerReference,
-                                RequestedOrderingConstraint.REQUESTED_ORDERING,
-                                requestedOrderingOptional.get()));
+        final PlannerBindings bindings = call.getBindings();
+        final List<? extends Quantifier.ForEach> rangesOverQuantifiers =
+                bindings.getAll(innerQuantifierMatcher);
+
+        for (int i = 0; i < rangesOverQuantifiers.size(); i++) {
+            final var rangesOverQuantifier = rangesOverQuantifiers.get(i);
+            //
+            // The first quantifier needs to produce all possible orderings, the other ones get specifically requested
+            // in the union implementation rule.
+            //
+            call.pushConstraint(rangesOverQuantifier.getRangesOver(),
+                    RequestedOrderingConstraint.REQUESTED_ORDERING,
+                    i == 0 ? exhaustiveRequestedOrderings : requestedOrderings);
+        }
+
+        final var firstQuantifier =
+                Objects.requireNonNull(Iterables.getFirst(rangesOverQuantifiers, null));
+        call.pushConstraint(firstQuantifier.getRangesOver(),
+                RequestedOrderingConstraint.REQUESTED_ORDERING,
+                exhaustiveRequestedOrderings);
     }
 }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.search;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.util.pair.Pair;
 import org.apache.lucene.index.IndexReader;
@@ -90,6 +91,8 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
                 searchOptimized(executor, weight, leafContexts, results).join();
             } catch (WrapperException we) {
                 throw we.unwrap();
+            } catch (RecordCoreException ex) {
+                throw LuceneExceptions.toIoException(ex, null);
             }
         }
     }
