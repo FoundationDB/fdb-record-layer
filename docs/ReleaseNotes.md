@@ -5,13 +5,11 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 3.4
+## 3.5
 
 ### Breaking Changes
 
-Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior]()) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
-
-Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType` were changed in response to [Issue #2512](https://github.com/FoundationDB/fdb-record-layer/issues/2512). It was identified that extraneous synthetic records were being produced when one of the children was empty. This did not match the semantics of `FanOut` expressions, and so the unnesting calculation was changed. This means that any index on an existing `UnnestedRecordType` requires rebuilding to clear out any such entries from older indexes.
+The Apache Commons library has been removed as a dependency. There were a few locations where the `Pair` class from that library was exposed via the API. This has necessitated making API incompatible changes. These have mostly been replaced by classes defined in the repository, or with other JDK classes. 
 
 <!--
 // begin next release
@@ -40,6 +38,14 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+## 3.4
+
+### Breaking Changes
+
+Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior]()) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
+
+Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType` were changed in response to [Issue #2512](https://github.com/FoundationDB/fdb-record-layer/issues/2512). It was identified that extraneous synthetic records were being produced when one of the children was empty. This did not match the semantics of `FanOut` expressions, and so the unnesting calculation was changed. This means that any index on an existing `UnnestedRecordType` requires rebuilding to clear out any such entries from older indexes.
 
 ### 3.4.554.0
 
