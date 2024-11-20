@@ -106,17 +106,16 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         if (isOwningTempTable) {
-            final var evaluationContextContainingOwnedTempTable = initTempTable(context);
             final var typeDescriptor = getInnerTypeDescriptor(context);
             return TempTableInsertCursor.from(continuation,
                     proto -> {
-                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, evaluationContextContainingOwnedTempTable));
+                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
                         if (proto != null) {
                             TempTable.from(proto, typeDescriptor).getIterator().forEachRemaining(tempTable::add);
                         }
                         return tempTable;
                     },
-                    childContinuation -> getChild().executePlan(store, evaluationContextContainingOwnedTempTable, childContinuation, executeProperties.clearSkipAndLimit()));
+                    childContinuation -> getChild().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()));
         } else {
             return getChild().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
                     .map(queryResult ->
@@ -126,22 +125,6 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                         return queryResult;
                     });
         }
-    }
-
-    /**
-     * Returns a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
-     * @param context The context to add the new binding to.
-     * @return a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
-     */
-    @Nonnull
-    private EvaluationContext initTempTable(@Nonnull final EvaluationContext context) {
-        if (tempTableReferenceValue instanceof ConstantObjectValue) {
-            final var tempTableConstantReferenceValue = (ConstantObjectValue)tempTableReferenceValue;
-            return context.withNewTempTableBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias());
-        }
-        Verify.verify(tempTableReferenceValue instanceof QuantifiedObjectValue);
-        final var tempTableQuantifiedReferenceValue = (QuantifiedObjectValue)tempTableReferenceValue;
-        return context.withNewTempTableBinding(Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias());
     }
 
     @Nullable

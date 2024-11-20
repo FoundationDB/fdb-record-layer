@@ -99,6 +99,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
     private boolean initialIsRead;
 
+    private boolean isInitialState;
+
     public RecursiveUnionQueryPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                    @Nonnull final Value initialTempTableValueReference,
                                    @Nonnull final Value recursiveTempTableValueReference) {
@@ -109,7 +111,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         this.correlationsSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.computeChildren = Suppliers.memoize(this::computeChildren);
         this.computeComplexity = Suppliers.memoize(this::computeComplexity);
-        this.initialIsRead = false;
+        this.initialIsRead = true;
+        this.isInitialState = true;
     }
 
     @Override
@@ -125,17 +128,19 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
     private <M extends Message> EvaluationContext resetTempTableBindings(@Nonnull final FDBRecordStoreBase<M> store,
                                                                          @Nonnull final EvaluationContext context) {
-        if (readTempTable == null) {
-            readTempTable = getRecursiveTempTable(store, context);
+        if (isInitialState) {
+            readTempTable = getInitialTempTable(store, context);
             writeTempTable = getInitialTempTable(store, context);
-            return context;
-        }
-        if (initialIsRead) {
             final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, readTempTable);
-            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, writeTempTable);
+            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, getRecursiveTempTable(store, context));
         } else {
-            final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, writeTempTable);
-            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, readTempTable);
+            if (initialIsRead) {
+                final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, readTempTable);
+                return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, writeTempTable);
+            } else {
+                final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, writeTempTable);
+                return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, readTempTable);
+            }
         }
     }
 
@@ -154,6 +159,11 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nonnull
     private <M extends Message> TempTable getReadTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return initialIsRead ? getInitialTempTable(store, context) : getRecursiveTempTable(store, context);
+    }
+
+    @Nonnull
+    private <M extends Message> TempTable getWriteTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        return initialIsRead ? getRecursiveTempTable(store, context) : getInitialTempTable(store, context);
     }
 
     @Nonnull
@@ -201,20 +211,46 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        final var contextWithTempTables = initTempTable(initialTempTableValueReference,
+                initTempTable(recursiveTempTableValueReference, context));
+        final var contextWithTempTablesSet = resetTempTableBindings(store, contextWithTempTables);
         return RecursiveUnionCursor.from(continuation,
-                initialContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(store, context),
+                initialContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(store, contextWithTempTablesSet),
                         initialContinuation == null ? null : initialContinuation.toByteArray(), executeProperties),
-                recursiveContinuation -> getRecursiveStatePlan().executePlan(store, resetTempTableBindings(store, context),
+                recursiveContinuation -> getRecursiveStatePlan().executePlan(store, resetTempTableBindings(store, contextWithTempTablesSet),
                         recursiveContinuation == null ? null : recursiveContinuation.toByteArray(), executeProperties),
                 () -> initialIsRead,
                 resumedInitialIsRead -> initialIsRead = resumedInitialIsRead,
-                () -> {
-                    getReadTempTable(store, context).clear();
+                initialToRecursiveTransition -> {
+                    // if we're transitioning from initial state to recursive state, do not flip the buffers, as we intend
+                    // to continue reading from the initial buffer.
+                    if (initialToRecursiveTransition) {
+                        isInitialState = false;
+                        writeTempTable = getRecursiveTempTable(store, contextWithTempTablesSet);
+                        return true;
+                    }
+                    getReadTempTable(store, contextWithTempTablesSet).clear();
                     initialIsRead = !initialIsRead;
-                    resetTempTableBindings(store, context);
-                    return !getReadTempTable(store, context).isEmpty();
+                    return !getReadTempTable(store, contextWithTempTablesSet).isEmpty();
                 },
                 store.getExecutor());
+    }
+
+    /**
+     * Returns a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
+     * @param tempTableReferenceValue The temp table reference.
+     * @param context The context to add the new binding to.
+     * @return a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
+     */
+    @Nonnull
+    private EvaluationContext initTempTable(@Nonnull final Value tempTableReferenceValue, @Nonnull final EvaluationContext context) {
+        if (tempTableReferenceValue instanceof ConstantObjectValue) {
+            final var tempTableConstantReferenceValue = (ConstantObjectValue)tempTableReferenceValue;
+            return context.withNewTempTableBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias());
+        }
+        Verify.verify(tempTableReferenceValue instanceof QuantifiedObjectValue);
+        final var tempTableQuantifiedReferenceValue = (QuantifiedObjectValue)tempTableReferenceValue;
+        return context.withNewTempTableBinding(Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias());
     }
 
     @Nonnull

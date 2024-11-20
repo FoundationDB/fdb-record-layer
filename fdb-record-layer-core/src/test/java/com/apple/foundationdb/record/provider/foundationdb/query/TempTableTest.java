@@ -136,9 +136,10 @@ public class TempTableTest extends TempTableTestBase {
         // insert into <tempTable> values ((1, 'first'), stop, resume, then insert (2, 'second'))
         byte[] continuation = null;
         RecordQueryPlan planToResume = null;
+        final var tempTableId = CorrelationIdentifier.uniqueID();
 
         {
-            final var tempTableId = CorrelationIdentifier.uniqueID();
+            final var tempTable = tempTableInstance();
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
@@ -152,8 +153,7 @@ public class TempTableTest extends TempTableTestBase {
             planToResume = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),
                     IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
             assertMatchesExactly(planToResume, tempTableInsertPlan(explodePlan()));
-            final var tempTablesTracker = TrackingTempTableFactory.newInstance();
-            final var evaluationContext = setUpPlanContextTypesAndTempTableFactory(planToResume, tempTablesTracker);
+            final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
             try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext,
                     null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 assertTrue(cursor.hasNext());
@@ -161,13 +161,12 @@ public class TempTableTest extends TempTableTestBase {
                 assertEquals(Pair.of(1L, "first"), asIdValue(message));
                 continuation = cursor.getContinuation();
             }
-            final var tempTable = tempTablesTracker.getTrackedTempTables().get(0);
             assertEquals(ImmutableList.of(Pair.of(1L, "first")), collectResults(tempTable));
         }
 
         {
-            final var tempTablesTracker = TrackingTempTableFactory.newInstance();
-            final var evaluationContext = setUpPlanContextTypesAndTempTableFactory(planToResume, tempTablesTracker);
+            final var tempTable = tempTableInstance();
+            final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
             try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext,
                     continuation, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 assertTrue(cursor.hasNext());
@@ -176,7 +175,6 @@ public class TempTableTest extends TempTableTestBase {
                 assertFalse(cursor.hasNext());
                 assertTrue(cursor.getNoNextReason().isSourceExhausted());
             }
-            final var tempTable = tempTablesTracker.getTrackedTempTables().get(0);
             assertEquals(ImmutableList.of(Pair.of(1L, "first"), Pair.of(2L, "second")), collectResults(tempTable));
         }
     }

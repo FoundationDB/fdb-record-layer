@@ -124,6 +124,15 @@ public class TempTable implements ProtoSerializable {
         return cachedProto;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        for (final var item : underlyingBuffer) {
+            sb.append(item).append('\n');
+        }
+        return sb.toString();
+    }
+
     /**
      * Deserializes a byte buffer to a corresponding {@link TempTable}.
      *
