@@ -220,7 +220,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 recursiveContinuation -> getRecursiveStatePlan().executePlan(store, resetTempTableBindings(store, contextWithTempTablesSet),
                         recursiveContinuation == null ? null : recursiveContinuation.toByteArray(), executeProperties),
                 () -> initialIsRead,
-                resumedInitialIsRead -> initialIsRead = resumedInitialIsRead,
+                wasInitialState -> isInitialState = wasInitialState,
+                wasInitialIsRead -> initialIsRead = wasInitialIsRead,
                 initialToRecursiveTransition -> {
                     // if we're transitioning from initial state to recursive state, do not flip the buffers, as we intend
                     // to continue reading from the initial buffer.
