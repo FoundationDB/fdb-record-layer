@@ -54,6 +54,7 @@ import org.junit.jupiter.api.BeforeEach;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -108,27 +109,6 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
         fetchResultValues(context, plan, record -> {
             resultBuilder.add(asIdValue(record));
-            return record;
-        }, evaluationContext, c -> {
-        }, ExecuteProperties.newBuilder().build());
-        return resultBuilder.build();
-    }
-
-    /**
-     * Utility method that executes a {@code plan} returning its results.
-     * @param context The transaction used to execute the plan.
-     * @param plan The plan to be executed.
-     * @param evaluationContext The evaluation context.
-     * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code parent}.
-     * @throws Exception If the execution fails.
-     */
-    @Nonnull
-    Set<Pair<Long, Long>> extractResultsAsIdParentPairs(@Nonnull final FDBRecordContext context,
-                                                         @Nonnull final RecordQueryPlan plan,
-                                                         @Nonnull final EvaluationContext evaluationContext) throws Exception {
-        ImmutableSet.Builder<Pair<Long, Long>> resultBuilder = ImmutableSet.builder();
-        fetchResultValues(context, plan, record -> {
-            resultBuilder.add(asIdParent(record));
             return record;
         }, evaluationContext, c -> {
         }, ExecuteProperties.newBuilder().build());

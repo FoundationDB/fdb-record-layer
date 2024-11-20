@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestHierarchiesProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -43,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableSc
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -50,15 +53,19 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -135,7 +142,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void recursiveUnionWorksCorrectlyCase6() throws Exception {
         var result = ancestorsOf(sampleHierarchy(), ImmutableMap.of(250L, 50L, 40L, 10L));
-        assertEquals(ImmutableList.of(250L, 40L, 50L, 10L, 1L), result);
+        assertEquals(ImmutableList.of(250L, 40L, 50L, 10L, 10L, 1L, 1L), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -273,10 +280,44 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             final var seedingTempTable = TempTable.newInstance();
             initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
-            var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
+            var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
             evaluationContext = putTempTableInContext(recuTempTableAlias, TempTable.newInstance(), evaluationContext);
             evaluationContext = putTempTableInContext(initTempTableAlias, TempTable.newInstance(), evaluationContext);
-            return extractResultsAsIdParentPairs(context, plan, evaluationContext).stream().map(Pair::getKey).collect(ImmutableList.toImmutableList());
+            return executeHierarchyPlan(plan, null, evaluationContext, -1).getKey();
+        }
+    }
+
+    /**
+     * Executes a hierarchical plan, created by invoking {@link RecursiveUnionTest#hierarchicalQuery(Map, Map, BiFunction)},
+     * or resumes a previous execution given its continuation. The execution can be bounded to return a specific number
+     * of elements only.
+     *
+     * @param hierarchyPlan The hierarchy plan, created by invoking {@link RecursiveUnionTest#hierarchicalQuery(Map, Map, BiFunction)}.
+     * @param continuation An optional continuation belonging to previous interrupted execution.
+     * @param numberOfItemsToReturn An optional number of items to return, {@code -1} to get all items.
+     * @return the {@code id} portion of plan execution results
+     */
+    @Nonnull
+    private Pair<List<Long>, byte[]> executeHierarchyPlan(@Nonnull final RecordQueryPlan hierarchyPlan,
+                                                          @Nullable final byte[] continuation,
+                                                          @Nonnull EvaluationContext evaluationContext,
+                                                          int numberOfItemsToReturn) {
+        int counter = 0;
+        final var resultBuilder = ImmutableList.<Pair<Long, Long>>builder();
+        try (RecordCursorIterator<QueryResult> cursor = hierarchyPlan.executePlan(
+                recordStore, evaluationContext, continuation,
+                ExecuteProperties.newBuilder().build()).asIterator()) {
+            while (cursor.hasNext()) {
+                if (counter != -1 && counter++ == numberOfItemsToReturn) {
+                    return Pair.of(resultBuilder.build().stream().map(Pair::getKey).collect(ImmutableList.toImmutableList()),
+                            cursor.getContinuation());
+                }
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                resultBuilder.add(asIdParent(message));
+            }
+            // todo: check if the continuation here is an END continuation.
+            return Pair.of(resultBuilder.build().stream().map(Pair::getKey).collect(ImmutableList.toImmutableList()),
+                    cursor.getContinuation());
         }
     }
 
@@ -298,7 +339,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
                 initTempTableAlias, initTempTableAlias.getId(), getType(blaSelectQun))));
 
         final var hierarchyScanQun = generateHierarchyScan();
-        
+
         final var recuTempTableReferenceValue = ConstantObjectValue.of(recuTempTableAlias, recuTempTableAlias.getId(), new Type.Relation(getType()));
 
         final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(recuTempTableAlias, recuTempTableAlias.getId(), getType())));
