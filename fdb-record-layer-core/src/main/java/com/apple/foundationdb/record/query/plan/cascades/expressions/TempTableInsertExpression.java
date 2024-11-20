@@ -56,15 +56,21 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     private final Quantifier.ForEach inner;
+
     @Nonnull
     private final Value resultValue;
+
     @Nonnull
     private final Value tempTableReferenceValue;
 
+    private final boolean isOwningTempTable;
+
     private TempTableInsertExpression(@Nonnull final Quantifier.ForEach inner,
-                                      @Nonnull final Value tempTableReferenceValue) {
+                                      @Nonnull final Value tempTableReferenceValue,
+                                      boolean isOwningTempTable) {
         this.inner = inner;
         this.tempTableReferenceValue = tempTableReferenceValue;
+        this.isOwningTempTable = isOwningTempTable;
         Verify.verify(tempTableReferenceValue.getResultType().isRelation());
         final var innerType = ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
         this.resultValue = new QueriedValue(Objects.requireNonNull(innerType));
@@ -92,7 +98,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     public TempTableInsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                            @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new TempTableInsertExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class),
-                tempTableReferenceValue.translateCorrelations(translationMap));
+                tempTableReferenceValue.translateCorrelations(translationMap), isOwningTempTable);
     }
 
     @Nonnull
@@ -104,7 +110,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     @Nonnull
     public TempTableInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
-        return TempTableInsertPlan.insertPlan(physicalInner, tempTableReferenceValue);
+        return TempTableInsertPlan.insertPlan(physicalInner, tempTableReferenceValue, isOwningTempTable);
     }
 
     @Override
@@ -167,7 +173,8 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
 
     /**
      * Creates a new instance of {@link TempTableInsertExpression} that adds records to a constant-bound {@link TempTable},
-     * i.e. a temporary table that is not correlated to any other plan operator.
+     * i.e. a temporary table that is not correlated to any other plan operator. Note that this expression generates a
+     * physical operator that <li>owns</li> the lifecycle management of the underlying {@link TempTable}.
      *
      * @param inner The source of the inserted records
      * @param constantAlias The alias of the constant-bound temporary table.
@@ -180,7 +187,46 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
                                                        @Nonnull final CorrelationIdentifier constantAlias,
                                                        @Nonnull final String constantId,
                                                        @Nonnull final Type type) {
-        return new TempTableInsertExpression(inner, ConstantObjectValue.of(constantAlias, constantId, new Type.Relation(type)));
+        return ofConstant(inner, constantAlias, constantId, type, true);
+    }
+
+    /**
+     * Creates a new instance of {@link TempTableInsertExpression} that adds records to a constant-bound {@link TempTable},
+     * i.e. a temporary table that is not correlated to any other plan operator.
+     *
+     * @param inner The source of the inserted records
+     * @param constantAlias The alias of the constant-bound temporary table.
+     * @param constantId The id of the constant in the constant map.
+     * @param type The type of the temporary table records.
+     * @param isOwningTempTable if set to {@code True} then the expression will own the lifecycle of the underlying
+     *                          {@link TempTable}, otherwise {@code False}.
+     * @return A new {@link TempTableInsertExpression} that adds records to a constant-bound {@link TempTable}.
+     */
+    @Nonnull
+    public static TempTableInsertExpression ofConstant(@Nonnull final Quantifier.ForEach inner,
+                                                       @Nonnull final CorrelationIdentifier constantAlias,
+                                                       @Nonnull final String constantId,
+                                                       @Nonnull final Type type,
+                                                       boolean isOwningTempTable) {
+        return new TempTableInsertExpression(inner, ConstantObjectValue.of(constantAlias, constantId, new Type.Relation(type)), isOwningTempTable);
+    }
+
+    /**
+     * Creates a new instance of {@link TempTableInsertExpression} that adds records to its own correlated {@link TempTable},
+     * i.e. a temporary table that is the result of a table-valued correlation. Note that this expression generates a
+     * physical operator that <li>owns</li> the lifecycle management of the underlying {@link TempTable}.
+     *
+     * @param inner The source of the inserted records
+     * @param correlation The table-valued correlation.
+     * @param type The type of the temporary table records.
+     *
+     * @return A new {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable}.
+     */
+    @Nonnull
+    public static TempTableInsertExpression ofCorrelated(@Nonnull final Quantifier.ForEach inner,
+                                                         @Nonnull final CorrelationIdentifier correlation,
+                                                         @Nonnull final Type type) {
+        return ofCorrelated(inner, correlation, type, true);
     }
 
     /**
@@ -190,12 +236,16 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
      * @param inner The source of the inserted records
      * @param correlation The table-valued correlation.
      * @param type The type of the temporary table records.
+     * @param isOwningTempTable if set to {@code True} then the expression will own the lifecycle of the underlying
+     *                          {@link TempTable}, otherwise {@code False}.
+     *
      * @return A new {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable}.
      */
     @Nonnull
     public static TempTableInsertExpression ofCorrelated(@Nonnull final Quantifier.ForEach inner,
                                                          @Nonnull final CorrelationIdentifier correlation,
-                                                         @Nonnull final Type type) {
-        return new TempTableInsertExpression(inner, QuantifiedObjectValue.of(correlation, new Type.Relation(type)));
+                                                         @Nonnull final Type type,
+                                                         boolean isOwningTempTable) {
+        return new TempTableInsertExpression(inner, QuantifiedObjectValue.of(correlation, new Type.Relation(type)), isOwningTempTable);
     }
 }

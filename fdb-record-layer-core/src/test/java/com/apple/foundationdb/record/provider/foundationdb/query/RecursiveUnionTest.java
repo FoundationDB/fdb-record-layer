@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
@@ -45,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableSc
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -65,7 +63,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -176,7 +173,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
     @Nonnull
     private List<Long> multiplesOf(@Nonnull final List<Long> initial, long limit) throws Exception {
         try (FDBRecordContext context = openContext()) {
-            final var seedingTempTable = TempTable.<QueryResult>newInstance();
+            final var seedingTempTable = tempTableInstance();
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
             initial.forEach(value -> seedingTempTable.add(queryResult(value)));
 
@@ -186,14 +183,14 @@ public class RecursiveUnionTest extends TempTableTestBase {
                     .build().buildSelect();
             final var seedingSelectQun = Quantifier.forEach(Reference.of(selectExpression));
 
-            final var initTempTable = TempTable.<QueryResult>newInstance();
+            final var initTempTable = tempTableInstance();
             final var initTempTableAlias = CorrelationIdentifier.of("Init");
             final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
 
             final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(seedingSelectQun,
                     initTempTableAlias, initTempTableAlias.getId(), getType(seedingSelectQun))));
 
-            final var recuTempTable = TempTable.<QueryResult>newInstance();
+            final var recuTempTable = tempTableInstance();
             final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
             final var recuTempTableReferenceValue = ConstantObjectValue.of(recuTempTableAlias, recuTempTableAlias.getId(), new Type.Relation(getType()));
 
@@ -278,11 +275,11 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, initTempTableAlias, recuTempTableAlias, queryPredicate);
 
-            final var seedingTempTable = TempTable.newInstance();
+            final var seedingTempTable = tempTableInstance();
             initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
             var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
-            evaluationContext = putTempTableInContext(recuTempTableAlias, TempTable.newInstance(), evaluationContext);
-            evaluationContext = putTempTableInContext(initTempTableAlias, TempTable.newInstance(), evaluationContext);
+            evaluationContext = putTempTableInContext(recuTempTableAlias, tempTableInstance(), evaluationContext);
+            evaluationContext = putTempTableInContext(initTempTableAlias, tempTableInstance(), evaluationContext);
             return executeHierarchyPlan(plan, null, evaluationContext, -1).getKey();
         }
     }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -177,7 +178,30 @@ public class TempTable implements ProtoSerializable {
      * @return a new instance of {@link TempTable}.
      */
     @Nonnull
-    public static TempTable newInstance() {
+    private static TempTable newInstance() {
         return new TempTable();
+    }
+
+    /**
+     * Factory of {@link TempTable} instances.
+     */
+    public static class Factory {
+
+        @VisibleForTesting // through injection
+        protected Factory() {
+        }
+
+        @Nonnull
+        public TempTable createTempTable() {
+            return TempTable.newInstance();
+        }
+
+        @Nonnull
+        private static final Factory INSTANCE = new Factory();
+
+        @Nonnull
+        public static Factory instance() {
+            return INSTANCE;
+        }
     }
 }

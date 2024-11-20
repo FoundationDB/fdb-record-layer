@@ -54,10 +54,12 @@ import org.junit.jupiter.api.BeforeEach;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableScanPlan;
@@ -86,12 +88,17 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @throws Exception If the execution fails.
      */
     @Nonnull
-    Set<Pair<Long, String>> collectResults(@Nonnull final FDBRecordContext context,
+    List<Pair<Long, String>> collectResults(@Nonnull final FDBRecordContext context,
                                            @Nonnull final RecordQueryPlan plan,
                                            @Nonnull final TempTable inputTempTable,
                                            @Nonnull final CorrelationIdentifier tempTableId) throws Exception {
         final var evaluationContext = putTempTableInContext(tempTableId, inputTempTable, null);
         return extractResultsAsIdValuePairs(context, plan, evaluationContext);
+    }
+
+    @Nonnull
+    List<Pair<Long, String>> collectResults(@Nonnull final TempTable inputTempTable) {
+        return inputTempTable.getList().stream().map(TempTableTestBase::asIdValue).collect(ImmutableList.toImmutableList());
     }
 
     /**
@@ -103,10 +110,10 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @throws Exception If the execution fails.
      */
     @Nonnull
-    Set<Pair<Long, String>> extractResultsAsIdValuePairs(@Nonnull final FDBRecordContext context,
+    List<Pair<Long, String>> extractResultsAsIdValuePairs(@Nonnull final FDBRecordContext context,
                                                          @Nonnull final RecordQueryPlan plan,
                                                          @Nonnull final EvaluationContext evaluationContext) throws Exception {
-        ImmutableSet.Builder<Pair<Long, String>> resultBuilder = ImmutableSet.builder();
+        ImmutableList.Builder<Pair<Long, String>> resultBuilder = ImmutableList.builder();
         fetchResultValues(context, plan, record -> {
             resultBuilder.add(asIdValue(record));
             return record;
@@ -122,6 +129,11 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 (String)message.getField(descriptor.findFieldByName("value")));
     }
 
+    @Nonnull
+    static Pair<Long, String> asIdValue(@Nonnull final QueryResult queryResult) {
+        final Message message = queryResult.getMessage();
+        return asIdValue(message);
+    }
 
     @Nonnull
     static Pair<Long, Long> asIdParent(@Nonnull final Message message) {
@@ -233,13 +245,26 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static EvaluationContext setUpPlanContext(@Nonnull RecordQueryPlan recordQueryPlan,
+    static EvaluationContext setUpPlanContext(@Nonnull final RecordQueryPlan recordQueryPlan,
                                               @Nonnull final CorrelationIdentifier tempTableAlias,
                                               @Nonnull final TempTable tempTable) {
-        final var usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
-        final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        final var evaluationContext = setUpPlanContextTypes(recordQueryPlan);
         return putTempTableInContext(tempTableAlias, tempTable, evaluationContext);
     }
+
+    @Nonnull
+    static EvaluationContext setUpPlanContextTypes(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        final var usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+        return EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+    }
+
+    @Nonnull
+    static EvaluationContext setUpPlanContextTypesAndTempTableFactory(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                                                      @Nonnull final TempTable.Factory tempTableFactory) {
+        final var usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+        return EvaluationContext.forTypeRepositoryAndTempTableFactory(TypeRepository.newBuilder().addAllTypes(usedTypes).build(), tempTableFactory);
+    }
+
 
     @Nonnull
     static FieldValue getIdField(@Nonnull final Quantifier.ForEach quantifier) {
@@ -279,5 +304,42 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     @Nonnull
     static Descriptors.Descriptor getDescriptor() {
         return TestHierarchiesProto.SimpleHierarchicalRecord.getDescriptor();
+    }
+
+    static class TrackingTempTableFactory extends TempTable.Factory {
+
+        @Nonnull
+        private final List<TempTable> trackedTempTables;
+
+        private TrackingTempTableFactory() {
+            trackedTempTables = new LinkedList<>();
+        }
+
+        @Nonnull
+        @Override
+        public TempTable createTempTable() {
+            final var result = super.createTempTable();
+            trackedTempTables.add(result);
+            return result;
+        }
+
+        @Nonnull
+        public List<TempTable> getTrackedTempTables() {
+            return trackedTempTables;
+        }
+
+        public void clearTrackedTempTables() {
+            trackedTempTables.clear();
+        }
+
+        @Nonnull
+        public static TrackingTempTableFactory newInstance() {
+            return new TrackingTempTableFactory();
+        }
+    }
+
+    @Nonnull
+    public static TempTable tempTableInstance() {
+        return TempTable.Factory.instance().createTempTable();
     }
 }

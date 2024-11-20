@@ -106,7 +106,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         if (isOwningTempTable) {
-            final var evaluationContextContainingOwnedTempTable = context; //initTempTable(context);
+            final var evaluationContextContainingOwnedTempTable = initTempTable(context);
             final var typeDescriptor = getInnerTypeDescriptor(context);
             return TempTableInsertCursor.from(continuation,
                     proto -> {
@@ -137,13 +137,11 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     private EvaluationContext initTempTable(@Nonnull final EvaluationContext context) {
         if (tempTableReferenceValue instanceof ConstantObjectValue) {
             final var tempTableConstantReferenceValue = (ConstantObjectValue)tempTableReferenceValue;
-            final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
-            constants.put(tempTableConstantReferenceValue.getConstantId(), TempTable.newInstance());
-            return context.withBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias(), constants.build());
+            return context.withNewTempTableBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias());
         }
         Verify.verify(tempTableReferenceValue instanceof QuantifiedObjectValue);
         final var tempTableQuantifiedReferenceValue = (QuantifiedObjectValue)tempTableReferenceValue;
-        return context.withBinding(Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias(), TempTable.newInstance());
+        return context.withNewTempTableBinding(Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias());
     }
 
     @Nullable
@@ -272,8 +270,9 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
      */
     @Nonnull
     public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
-                                                 @Nonnull final Value tempTableReferenceValue) {
-        return new TempTableInsertPlan(inner, tempTableReferenceValue, true);
+                                                 @Nonnull final Value tempTableReferenceValue,
+                                                 boolean isOwningTempTable) {
+        return new TempTableInsertPlan(inner, tempTableReferenceValue, isOwningTempTable);
     }
 
     @Nonnull
