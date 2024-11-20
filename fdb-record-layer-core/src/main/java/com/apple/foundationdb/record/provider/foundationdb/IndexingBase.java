@@ -224,6 +224,7 @@ public abstract class IndexingBase {
                     .addKeyAndValue(LogMessageKeys.TOTAL_MICROS, TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos));
             if (LOGGER.isWarnEnabled() && (ex != null)) {
                 message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
+                message.addKeysAndValues(throttle.logMessageKeyValues()); // this "last attempt" snapshot information can help debugging
                 LOGGER.warn(message.toString(), ex);
             } else if (LOGGER.isInfoEnabled()) {
                 message.addKeyAndValue(LogMessageKeys.RESULT, "success");
@@ -499,7 +500,7 @@ public abstract class IndexingBase {
     }
 
     private boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        return policy.shouldAllowTypeConversionContinue(newStamp.getMethod(), savedStamp.getMethod());
+        return policy.shouldAllowTypeConversionContinue(newStamp, savedStamp);
     }
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
@@ -668,7 +669,7 @@ public abstract class IndexingBase {
 
         validateTimeLimit(toWait);
 
-        CompletableFuture<Boolean> delay = MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
+        CompletableFuture<Boolean> delay = MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS, common.getRunner().getScheduledExecutor()).thenApply(vignore3 -> true);
         if (getRunner().getTimer() != null) {
             delay = getRunner().getTimer().instrument(FDBStoreTimer.Events.INDEXER_DELAY, delay, getRunner().getExecutor());
         }
@@ -1226,7 +1227,7 @@ public abstract class IndexingBase {
      * thrown when partly built by another method.
      */
     @SuppressWarnings("serial")
-    public static class  PartlyBuiltException extends RecordCoreException {
+    public static class PartlyBuiltException extends RecordCoreException {
         final IndexBuildProto.IndexBuildIndexingStamp savedStamp;
         final IndexBuildProto.IndexBuildIndexingStamp expectedStamp;
         final String indexName;

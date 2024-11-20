@@ -319,8 +319,7 @@ public class IndexingThrottle {
         AtomicLong recordsScanned = new AtomicLong(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
         booker.resetStoreTimerSnapshot();
-        final ExponentialDelay delay = new ExponentialDelay(common.getRunner().getDatabase().getFactory().getInitialDelayMillis(),
-                common.getRunner().getDatabase().getFactory().getMaxDelayMillis());
+        final ExponentialDelay delay = common.getRunner().createExponentialDelay();
         AsyncUtil.whileTrue(() -> {
             loadConfig();
             // TODO: eliminate the usage of the runner - call (and handle) every transaction here

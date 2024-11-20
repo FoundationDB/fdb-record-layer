@@ -34,11 +34,13 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTempTableInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTempTableScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUnorderedUnionRule;
@@ -52,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.NormalizePredicat
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionBinarySelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PullUpNullOnEmptyRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushFilterThroughFetchRule;
@@ -109,7 +112,8 @@ public class PlannerRuleSet {
     private static final List<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
             new InComparisonToExplodeRule(),
-            new SplitSelectExtractIndependentQuantifiersRule()
+            new SplitSelectExtractIndependentQuantifiersRule(),
+            new PullUpNullOnEmptyRule()
     );
     private static final List<CascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableList.of(
             new MatchLeafRule(),
@@ -134,6 +138,7 @@ public class PlannerRuleSet {
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
+            new ImplementTempTableScanRule(),
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
@@ -167,6 +172,7 @@ public class PlannerRuleSet {
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),
             new ImplementInsertRule(),
+            new ImplementTempTableInsertRule(),
             new ImplementUpdateRule()
     );
 

@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokeniz
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -572,28 +573,47 @@ public class LuceneIndexTestUtils {
                 .build();
     }
 
+    // TODO: This looks similar to the code in FDBRecordStoreTestBase. Can we consolidate?
     public static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
                                                                           final KeySpacePath path,
                                                                           final String document,
                                                                           final Index index,
                                                                           boolean useCascadesPlanner) {
-        FDBRecordStore store = openRecordStore(context, path, metaDataBuilder -> {
-            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(document, index);
-        });
+        return rebuildIndexMetaData(context, path, document, index, useCascadesPlanner, null);
+    }
+
+    public static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
+                                                                          final KeySpacePath path,
+                                                                          final String document,
+                                                                          final Index index,
+                                                                          boolean useCascadesPlanner,
+                                                                          @Nullable IndexMaintainerRegistry indexMaintainerRegistry) {
+        FDBRecordStore store = openRecordStore(context,
+                path,
+                metaDataBuilder -> {
+                    metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                    metaDataBuilder.addIndex(document, index);
+                },
+                indexMaintainerRegistry);
 
         QueryPlanner planner = setupPlanner(store, null, useCascadesPlanner);
         return Pair.of(store, planner);
     }
 
-
     static FDBRecordStore openRecordStore(FDBRecordContext context,
                                           @Nonnull KeySpacePath path,
                                           FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        return openRecordStore(context, path, hook, null);
+    }
+
+    static FDBRecordStore openRecordStore(FDBRecordContext context,
+                                          @Nonnull KeySpacePath path,
+                                          FDBRecordStoreTestBase.RecordMetaDataHook hook,
+                                          @Nullable IndexMaintainerRegistry indexMaintainerRegistry) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
-        return getStoreBuilder(context, path, metaDataBuilder.getRecordMetaData())
+        return getStoreBuilder(context, path, metaDataBuilder.getRecordMetaData(), indexMaintainerRegistry)
                 .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
                 .createOrOpen();
     }
@@ -601,12 +621,17 @@ public class LuceneIndexTestUtils {
     @Nonnull
     private static FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
                                                           @Nonnull KeySpacePath path,
-                                                          @Nonnull RecordMetaData metaData) {
-        return FDBRecordStore.newBuilder()
+                                                          @Nonnull RecordMetaData metaData,
+                                                          @Nullable IndexMaintainerRegistry indexMaintainerRegistry) {
+        final FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
                 .setKeySpacePath(path)
                 .setContext(context)
                 .setMetaDataProvider(metaData);
+        if (indexMaintainerRegistry != null) {
+            builder.setIndexMaintainerRegistry(indexMaintainerRegistry);
+        }
+        return builder;
     }
 
     static QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore,

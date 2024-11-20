@@ -210,7 +210,7 @@ class FDBDirectoryLockTest {
         }
     }
 
-    private void forceClearLock(final String lockName) {
+    private void forceClearLock(final String lockName) throws IOException {
         try (FDBRecordContext context = fdb.openContext()) {
             final AgilityContext agilityContext = AgilityContext.nonAgile(context);
             try (FDBDirectory directory2 = createDirectory(agilityContext)) {

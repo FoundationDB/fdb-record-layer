@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -31,7 +32,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -201,17 +201,17 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
-        final var targetDescriptor = store.getRecordMetaData().getRecordType(targetRecordType).getDescriptor();
+        final var targetDescriptor = store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
         return results
                 .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult, targetDescriptor)))
-                .mapPipelined(pair -> saveRecordAsync(store, pair.getRight(), executeProperties.isDryRun())
-                                .thenApply(storedRecord -> {
+                .mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
+                                .thenApply(queryResult -> {
                                     final var nestedContext = context.childBuilder()
-                                            .setBinding(inner.getAlias(), pair.getLeft()) // pre-mutation
-                                            .setBinding(currentModifiedRecordAlias, storedRecord.getRecord()) // post-mutation
+                                            .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
+                                            .setBinding(getCurrentModifiedRecordAlias(), queryResult.getMessage()) // post-mutation
                                             .build(context.getTypeRepository());
                                     final var result = computationValue.eval(store, nestedContext);
-                                    return QueryResult.ofComputed(result, null, storedRecord.getPrimaryKey(), null);
+                                    return QueryResult.ofComputed(result, queryResult.getPrimaryKey());
                                 }),
                         store.getPipelineSize(getPipelineOperation()));
     }
@@ -224,7 +224,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                               @Nonnull final QueryResult queryResult, @Nonnull final Descriptors.Descriptor targetDescriptor) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
         return (M)MessageHelpers.transformMessage(store,
-                context.withBinding(inner.getAlias(), queryResult),
+                context.withBinding(Bindings.Internal.CORRELATION, getInner().getAlias(), queryResult),
                 transformationsTrie,
                 coercionTrie,
                 targetType,
@@ -235,7 +235,9 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message, boolean isDryRun);
+    public abstract <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store,
+                                                                                       @Nonnull EvaluationContext context,
+                                                                                       @Nonnull M message, boolean isDryRun);
 
     @Override
     public boolean isReverse() {
@@ -245,7 +247,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(this.inner);
+        return ImmutableList.of(this.getInner());
     }
 
     @Nonnull
@@ -258,7 +260,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var resultValueCorrelatedTo =
                 Sets.filter(computationValue.getCorrelatedTo(),
-                        alias -> !alias.equals(currentModifiedRecordAlias));
+                        alias -> !alias.equals(getCurrentModifiedRecordAlias()));
         if (transformationsTrie != null) {
             final var aliasesFromTransformationsTrieIterator =
                     transformationsTrie.values()
@@ -346,7 +348,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     public RecordQueryPlan getInnerPlan() {
-        return inner.getRangesOverPlan();
+        return getInner().getRangesOverPlan();
     }
 
     @Override
@@ -374,7 +376,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nonnull
     public PRecordQueryAbstractDataModificationPlan toRecordQueryAbstractModificationPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PRecordQueryAbstractDataModificationPlan.Builder builder = PRecordQueryAbstractDataModificationPlan.newBuilder()
-                .setInner(inner.toProto(serializationContext))
+                .setInner(getInner().toProto(serializationContext))
                 .setTargetRecordType(targetRecordType)
                 .setTargetType(targetType.toProto(serializationContext));
         if (transformationsTrie != null) {
@@ -384,12 +386,22 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
             builder.setCoercionTrie(coercionTrie.toProto(serializationContext));
         }
         builder.setComputationValue(computationValue.toValueProto(serializationContext));
-        builder.setCurrentModifiedRecordAlias(currentModifiedRecordAlias.getId());
+        builder.setCurrentModifiedRecordAlias(getCurrentModifiedRecordAlias().getId());
         return builder.build();
     }
 
     @Nonnull
     public static CorrelationIdentifier currentModifiedRecordAlias() {
         return CorrelationIdentifier.uniqueSingletonID(CURRENT_MODIFIED_RECORD, "𝓆");
+    }
+
+    @Nonnull
+    Quantifier.Physical getInner() {
+        return inner;
+    }
+
+    @Nonnull
+    CorrelationIdentifier getCurrentModifiedRecordAlias() {
+        return currentModifiedRecordAlias;
     }
 }

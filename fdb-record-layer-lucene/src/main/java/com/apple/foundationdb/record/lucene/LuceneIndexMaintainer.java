@@ -126,7 +126,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
         this.executor = executor;
-        this.directoryManager = FDBDirectoryManager.getManager(state);
+        this.directoryManager = createDirectoryManager(state);
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
         this.indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         this.autoCompleteAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
@@ -586,13 +586,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        LOG.trace("scanUniquenessViolations");
-        return RecordCursor.empty(executor);
-    }
-
-    @Nonnull
-    @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {
         LOG.trace("validateEntries");
         return RecordCursor.empty(executor);
@@ -728,6 +721,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @VisibleForTesting
     protected FDBDirectory getDirectory(@Nonnull Tuple groupingKey, @Nullable Integer partitionId) {
         return directoryManager.getDirectory(groupingKey, partitionId);
+    }
+
+    @VisibleForTesting
+    public FDBDirectoryManager getDirectoryManager() {
+        return directoryManager;
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    protected FDBDirectoryManager createDirectoryManager(final @Nonnull IndexMaintainerState state) {
+        return FDBDirectoryManager.getManager(state);
     }
 
     /**

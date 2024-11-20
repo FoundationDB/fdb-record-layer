@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * Wrapper class for an open FDB {@link Transaction}.
@@ -77,6 +78,17 @@ public class FDBTransactionContext {
     @Nonnull
     public Executor getExecutor() {
         return executor;
+    }
+
+    /**
+     * Get the scheduled executor to use when scheduling delayed tasks in the context of this transaction.
+     *
+     * @return a scheduled executor to use for scheduling delayed tasks
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public ScheduledExecutorService getScheduledExecutor() {
+        return database.getScheduledExecutor();
     }
 
     @Nonnull

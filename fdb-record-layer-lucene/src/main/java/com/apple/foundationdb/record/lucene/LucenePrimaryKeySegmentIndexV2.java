@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsReader;
@@ -79,7 +80,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
                  RecordCursor<Tuple> entries = kvs.map(kv -> subspace.unpack(kv.getKey()))) {
-            tuples = aContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList());
+            tuples = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext);
         }
         list.set(tuples.stream().map(t -> {
             List<Object> items = t.getItems();
@@ -95,33 +96,41 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public List<String> findSegments(@Nonnull Tuple primaryKey) {
-        return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
-                directory.getAgilityContext().apply(context -> {
-                    final Subspace keySubspace = subspace.subspace(primaryKey);
-                    final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
-                            .setContext(context)
-                            .setScanProperties(ScanProperties.FORWARD_SCAN)
-                            .build();
-                    return kvs.map(kv -> {
-                        final Tuple segdoc = keySubspace.unpack(kv.getKey());
-                        final long segid = segdoc.getLong(0);
-                        final String segmentName = directory.primaryKeySegmentName(segid);
-                        if (segmentName != null) {
-                            return segmentName;
-                        } else {
-                            return "#" + segid;
-                        }
-                    }).asList().whenComplete((result, err) -> kvs.close());
-                }));
+    public List<String> findSegments(@Nonnull Tuple primaryKey) throws IOException {
+        try {
+            return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+                    directory.getAgilityContext().apply(context -> {
+                        final Subspace keySubspace = subspace.subspace(primaryKey);
+                        final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
+                                .setContext(context)
+                                .setScanProperties(ScanProperties.FORWARD_SCAN)
+                                .build();
+                        return kvs.map(kv -> {
+                            final Tuple segdoc = keySubspace.unpack(kv.getKey());
+                            final long segid = segdoc.getLong(0);
+                            final String segmentName = directory.primaryKeySegmentName(segid);
+                            if (segmentName != null) {
+                                return segmentName;
+                            } else {
+                                return "#" + segid;
+                            }
+                        }).asList().whenComplete((result, err) -> kvs.close());
+                    }));
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @Override
     @Nullable
-    public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
-        final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
-        directory.getAgilityContext().accept(aContext -> findDocument(aContext, doc, directoryReader, primaryKey));
-        return doc.get();
+    public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException {
+        try {
+            final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
+            directory.getAgilityContext().accept(aContext -> findDocument(aContext, doc, directoryReader, primaryKey));
+            return doc.get();
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,

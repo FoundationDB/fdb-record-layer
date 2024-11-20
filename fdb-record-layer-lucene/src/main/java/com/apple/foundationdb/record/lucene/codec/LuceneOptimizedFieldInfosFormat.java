@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -69,8 +70,12 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     @Override
     @SuppressWarnings("PMD.CloseResource") // we extract the FDBDirectory, and that is closeable, but we aren't in charge of closing
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
-        final String fileName = getFileName(directory, segmentInfo, segmentSuffix);
-        return read(directory, fileName);
+        try {
+            final String fileName = getFileName(directory, segmentInfo, segmentSuffix);
+            return read(directory, fileName);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @VisibleForTesting
@@ -114,11 +119,15 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
 
     @Override
     public void write(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final FieldInfos infos, final IOContext context) throws IOException {
-        final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
-        // create the output so that we create the file reference, and so that it is correctly tracked in the segment
-        // info
-        directory.createOutput(fileName, context).close();
-        write(directory, infos, fileName);
+        try {
+            final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
+            // create the output so that we create the file reference, and so that it is correctly tracked in the segment
+            // info
+            directory.createOutput(fileName, context).close();
+            write(directory, infos, fileName);
+        } catch (RecordCoreException ex) {
+            throw LuceneExceptions.toIoException(ex, null);
+        }
     }
 
     @SuppressWarnings("java:S3776") // more complicated than sonarcloud wants, but not by enough to warrant creating new classes
@@ -147,8 +156,23 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
                     globalNeedsUpdating = true;
                 } else {
                     if (!globalVersion.equals(fieldInfo)) {
-                        canReuseGlobal = false;
-                        break;
+                        // Originally the Attributes were not sorted before serializing, so the global might have
+                        // attributes in a random order. If this is the case we want to fix the global FieldInfos so
+                        // that future code doesn't have to make compensation.
+                        // This was added to support some level of backwards compatibility while the Lucene Index was in
+                        // its early, experimental stages, so this compensation probably does not need to be kept as
+                        // long as other backwards-compatibility support, especially since the consequence would be that
+                        // lucene indexes would just save a new FieldInfos per-segment, making the index less efficient
+                        // in terms of performance and size, but should not result in corruption.
+                        // This code should fixup the global fairly quickly, as soon as a field is put into a new
+                        // segment, it should fix that field in global.
+                        if (sameExceptAttributesOrdering(globalVersion, fieldInfo)) {
+                            globalFieldInfosBuilder.setFieldInfo(fieldInfo.getNumber(), fieldInfo);
+                            globalNeedsUpdating = true;
+                        } else {
+                            canReuseGlobal = false;
+                            break;
+                        }
                     } // The field is already in the global, and we can continue to reuse
                 }
             }
@@ -172,6 +196,16 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
             }
         }
         fieldInfosStorage.setFieldInfoId(directory, fileName, id, bitSet);
+    }
+
+    private boolean sameExceptAttributesOrdering(@Nonnull final LuceneFieldInfosProto.FieldInfo globalVersion,
+                                                 @Nonnull final LuceneFieldInfosProto.FieldInfo newVersion) {
+        if (protoToLucene(globalVersion.getAttributesList()).equals(protoToLucene(newVersion.getAttributesList()))) {
+            // the only difference between this version and the new version is the ordering of the attributes
+            return globalVersion.toBuilder().clearAttributes().build().equals(
+                    newVersion.toBuilder().clearAttributes().build());
+        }
+        return false;
     }
 
     private Map<String, String> protoToLucene(final List<LuceneFieldInfosProto.Attribute> attributesList) {
@@ -232,13 +266,16 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
                     .setPointIndexDimensionCount(fieldInfo.getPointIndexDimensionCount())
                     .setPointNumBytes(fieldInfo.getPointNumBytes())
                     .setSoftDeletesField(fieldInfo.isSoftDeletesField());
-            for (final Map.Entry<String, String> attribute : fieldInfo.attributes().entrySet()) {
-                // Lucene doesn't explicitly state that these can't be null, but Lucene50 and Lucene60 FieldInfosFormat
-                // will throw a NPE if they are
-                builder.addAttributesBuilder()
-                        .setKey(Objects.requireNonNull(attribute.getKey(), "FieldInfo attribute key"))
-                        .setValue(Objects.requireNonNull(attribute.getValue(), "FieldInfo attribute value"));
-            }
+            fieldInfo.attributes().entrySet().stream()
+                    // sort the entries to ensure that two maps always present as the same list of attributes, so that
+                    // protobuf equality is equivalent to object equality
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(attribute ->
+                            builder.addAttributesBuilder()
+                                    // Lucene doesn't explicitly state that these can't be null, but Lucene50 and Lucene60
+                                    // FieldInfosFormat will throw a NPE if they are
+                                    .setKey(Objects.requireNonNull(attribute.getKey(), "FieldInfo attribute key"))
+                                    .setValue(Objects.requireNonNull(attribute.getValue(), "FieldInfo attribute value")));
             bitSet.set(fieldInfo.number);
         }
         return protobuf;

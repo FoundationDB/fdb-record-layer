@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -34,6 +35,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for FDBDirectory validating it can function as a backing store
@@ -65,7 +68,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testGetIncrement() {
+    public void testGetIncrement() throws IOException {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, 2);
@@ -78,11 +81,17 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testConcurrentGetIncrement() {
+    public void testConcurrentGetIncrement() throws IOException {
         final int threads = 50;
         List<CompletableFuture<Long>> futures = new ArrayList<>(threads);
         for (int i = 0; i < threads; i++) {
-            futures.add(CompletableFuture.supplyAsync(directory::getIncrement, directory.getCallerContext().getExecutor()));
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    return directory.getIncrement();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, directory.getCallerContext().getExecutor()));
         }
         List<Long> values = AsyncUtil.getAll(futures).join();
         assertThat(values, containsInAnyOrder(LongStream.range(1, threads + 1).mapToObj(Matchers::equalTo).collect(Collectors.toList())));
@@ -132,7 +141,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         );
         final FDBRecordContext context = directory.getCallerContext();
         assertThrows(RecordCoreArgumentException.class,
-                () -> context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, seekFuture));
+                () -> LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, seekFuture, context));
     }
 
     @Test
@@ -152,7 +161,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testListAll() {
+    public void testListAll() throws IOException {
         assertEquals(directory.listAll().length, 0);
         directory.writeFDBLuceneFileReference("test1", new FDBLuceneFileReference(1, 1, 1, 1));
         directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1, 1));
@@ -219,9 +228,11 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testRename() {
-        assertThrows(RecordCoreArgumentException.class, () -> directory.rename("NoExist", "newName"));
+        final IOException ioException = assertThrows(IOException.class, () -> directory.rename("NoExist", "newName"));
+        assertTrue(ioException.getCause() instanceof RecordCoreArgumentException);
 
-        assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_RENAME, 1);
+        // In the case where the Future was already completed, WAIT_LUCENE_RENAME will not be recorded, but LUCENE_RENAME_FILE will
+        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_RENAME_FILE, 1);
     }
 
     private void assertCorrectMetricCount(StoreTimer.Event metric, int expectedValue) {

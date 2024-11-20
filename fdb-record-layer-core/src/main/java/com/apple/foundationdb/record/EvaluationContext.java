@@ -127,11 +127,13 @@ public class EvaluationContext {
     /**
      * Get the value bound to a single parameter.
      *
+     * @param type the type of the parameter
      * @param alias the correlation identifier
+     *
      * @return the value bound to the given parameter
      */
-    public Object getBinding(@Nonnull CorrelationIdentifier alias) {
-        return bindings.get(Bindings.Internal.CORRELATION.bindingName(alias.getId()));
+    public Object getBinding(@Nonnull final Bindings.Internal type, @Nonnull final CorrelationIdentifier alias) {
+        return bindings.get(type.bindingName(alias.getId()));
     }
 
     /**
@@ -201,11 +203,13 @@ public class EvaluationContext {
      * context included all bindings except that it will bind an additional
      * parameter to an additional value.
      *
+     * @param type the type of the binding.
      * @param alias the alias determining the binding name to add
      * @param value the value to bind the name to
+     *
      * @return a new <code>EvaluationContext</code> with the new binding
      */
-    public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build(typeRepository);
+    public EvaluationContext withBinding(final Bindings.Internal type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+        return childBuilder().setBinding(type.bindingName(alias.getId()), value).build(typeRepository);
     }
 }

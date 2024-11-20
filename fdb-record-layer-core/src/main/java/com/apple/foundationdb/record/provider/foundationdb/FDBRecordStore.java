@@ -1503,8 +1503,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @API(API.Status.INTERNAL)
-    public void addIndexUniquenessCommitCheck(@Nonnull Index index, @Nonnull CompletableFuture<Void> check) {
-        IndexUniquenessCommitCheck commitCheck = new IndexUniquenessCommitCheck(index, check);
+    public void addIndexUniquenessCommitCheck(@Nonnull Index index, @Nonnull Subspace indexSubspace,
+                                              @Nonnull CompletableFuture<Void> check) {
+        IndexUniquenessCommitCheck commitCheck = new IndexUniquenessCommitCheck(index, indexSubspace, check);
         getRecordContext().addCommitCheck(commitCheck);
     }
 
@@ -1520,9 +1521,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @VisibleForTesting
     CompletableFuture<Void> whenAllIndexUniquenessCommitChecks(@Nonnull Index index) {
+        // we need to check based on the index subspace instead of the index, in case there are two stores open in
+        // the same context, and one has uniqueness violations, and the other does not
+        final Subspace indexSubspace = indexSubspace(index);
         List<FDBRecordContext.CommitCheckAsync> indexUniquenessChecks = getRecordContext().getCommitChecks(commitCheck -> {
             if (commitCheck instanceof IndexUniquenessCommitCheck) {
-                return ((IndexUniquenessCommitCheck)commitCheck).getIndex().equals(index);
+                return ((IndexUniquenessCommitCheck)commitCheck).getIndexSubspace().equals(indexSubspace);
             } else {
                 return false;
             }
@@ -1981,7 +1985,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private CompletableFuture<Void> run() {
             if (evaluated == null) {
                 // no record types
-                LOGGER.warn("Tried to delete prefix with no record types");
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.of("Tried to delete prefix with no record types",
+                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                }
                 return AsyncUtil.DONE;
             }
 
@@ -3164,7 +3171,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("index state change",
                     LogMessageKeys.INDEX_NAME, indexName,
-                    LogMessageKeys.TARGET_INDEX_STATE, indexState.name()
+                    LogMessageKeys.TARGET_INDEX_STATE, indexState.name(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context)
             ));
         }
         if (recordStoreStateRef.get() == null) {
@@ -3449,6 +3457,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
         CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture;
         if (index.isUnique()) {
+            // we wait for all the commit checks and then scan, because if the index is WriteOnly, the commit check
+            // won't throw an error, it will just record a violation.
+            // If the index is ReadableUniquePending it will throw an error here, but this would only happen if you
+            // added the violation in this transaction, and you normally aren't allowed to add violations to
+            // indexes that ReadableUniquePending
             uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
                     .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
         } else {
@@ -3498,6 +3511,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     message.addKeysAndValues(((LoggableException)ex).getLogInfo());
                 }
             }
+            message.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider.toString(context));
             LOGGER.warn(message.toString(), exception);
         }
     }
@@ -4217,7 +4231,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
                                 LogMessageKeys.REASON, reason.name(),
-                                subspaceProvider.logKey(), subspaceProvider.toString(context),
                                 LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey()), t);
                     }
                     // Only call method that builds in the current transaction, so never any pending work,
@@ -4357,6 +4370,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
         final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
+        handleNoLongerUniqueIndex(metaData, work, indexes);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
             RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
@@ -4401,6 +4415,47 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             });
         } else {
             return work.isEmpty() ? AsyncUtil.DONE : AsyncUtil.whenAll(work);
+        }
+    }
+
+    /**
+     * It is legal to remove a uniqueness constraint from an index without changing the {@code lastModifiedVersion},
+     * if this is done this method will clear any violations, and transition {@link IndexState#READABLE_UNIQUE_PENDING}
+     * to {@link IndexState#READABLE}.
+     * @param metaData the current metadata
+     * @param work work to be done as part of {@code checkVersion}
+     * @param indexesToBuildSince the list of indexes whose {@code lastModifiedVersion} has changed since we last did
+     * {@code checkVersion}
+     */
+    private void handleNoLongerUniqueIndex(@Nonnull final RecordMetaData metaData,
+                                           @Nonnull final List<CompletableFuture<Void>> work,
+                                           @Nonnull final Map<Index, List<RecordType>> indexesToBuildSince) {
+        for (Index index : metaData.getAllIndexes()) {
+            if (!indexesToBuildSince.containsKey(index) &&
+                    !index.isUnique()) {
+                final IndexState indexState = getIndexState(index);
+                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState == IndexState.WRITE_ONLY) {
+                    final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
+                            commitCheck -> {
+                                if (commitCheck instanceof IndexUniquenessCommitCheck) {
+                                    return ((IndexUniquenessCommitCheck)commitCheck).getIndexSubspace().equals(indexSubspace(index));
+                                } else {
+                                    return false;
+                                }
+                            },
+                            // swallow any uniqueness violations, which may happen if the index was READABLE_UNIQUE_PENDING
+                            err -> err instanceof RecordIndexUniquenessViolation))
+                            // Regardless, we want to clear any existing uniqueness violations on disk
+                            .thenCompose(vignore -> getIndexMaintainer(index).clearUniquenessViolations());
+                    if (indexState == IndexState.READABLE_UNIQUE_PENDING) {
+                        work.add(uniquenessFuture
+                                .thenCompose(vignore -> markIndexReadable(index, false))
+                                .thenApply(vignore2 -> null));
+                    } else {
+                        work.add(uniquenessFuture);
+                    }
+                }
+            }
         }
     }
 
@@ -4653,9 +4708,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         context.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
         context.clear(indexSecondarySubspace(index).range());
         IndexingRangeSet.forIndexBuild(this, index).clear();
-        if (index.isUnique()) {
-            context.clear(indexUniquenessViolationsSubspace(index).range());
-        }
+        // clear even if non-unique in case the index was previously unique
+        context.clear(indexUniquenessViolationsSubspace(index).range());
         // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
         // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
         // run online index jobs which may invoke this method. We should clear:

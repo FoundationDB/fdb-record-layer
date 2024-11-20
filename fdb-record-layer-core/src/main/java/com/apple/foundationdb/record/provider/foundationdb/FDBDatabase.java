@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -112,6 +113,8 @@ public class FDBDatabase {
     /* Null until openFDB is called. */
     @Nullable
     private Database database;
+    @Nonnull
+    private final ScheduledExecutorService scheduledExecutor;
     @Nullable
     private Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout;
     @Nonnull
@@ -183,7 +186,8 @@ public class FDBDatabase {
                 .maximumSize(factory.getDirectoryCacheSize())
                 .recordStats()
                 .build();
-        this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis());
+        this.scheduledExecutor = factory.getScheduledExecutor();
+        this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis(), AsyncLoadingCache.DEFAULT_DEADLINE_TIME_MILLIS, AsyncLoadingCache.UNLIMITED, scheduledExecutor);
         this.latencyInjector = factory.getLatencyInjector();
         this.datacenterId = factory.getDatacenterId();
         this.localityProvider = factory.getLocalityProvider();
@@ -603,7 +607,7 @@ public class FDBDatabase {
     @VisibleForTesting
     public void setResolverStateRefreshTimeMillis(long resolverStateRefreshTimeMillis) {
         resolverStateCache.clear();
-        resolverStateCache = new AsyncLoadingCache<>(resolverStateRefreshTimeMillis);
+        resolverStateCache = new AsyncLoadingCache<>(resolverStateRefreshTimeMillis, resolverStateCache.getDeadlineTimeMillis(), resolverStateCache.getMaxSize(), getScheduledExecutor());
     }
 
     @Nonnull
@@ -738,6 +742,19 @@ public class FDBDatabase {
 
     protected Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
         return factory.newContextExecutor(mdcContext);
+    }
+
+    /**
+     * Get an executor service that can be used for scheduling tasks. It is primarily used
+     * by the {@link AsyncLoadingCache} to manage deadlines and by
+     * {@link com.apple.foundationdb.async.MoreAsyncUtil#delayedFuture(long, TimeUnit, ScheduledExecutorService) MoreAsyncUtil.delayedFuture()}
+     * to schedule tasks that are run later, e.g., injecting delay during retry loops.
+     *
+     * @return the scheduled executor service to use when interacting with this database
+     */
+    @Nonnull
+    public ScheduledExecutorService getScheduledExecutor() {
+        return scheduledExecutor;
     }
 
     /**
@@ -1238,7 +1255,8 @@ public class FDBDatabase {
         return latencyInjector.apply(fdbLatencySource);
     }
 
-    private void checkIfBlockingInFuture(CompletableFuture<?> future) {
+    @API(API.Status.INTERNAL)
+    public void checkIfBlockingInFuture(CompletableFuture<?> future) {
         BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
         if (behavior == BlockingInAsyncDetection.DISABLED) {
             return;

@@ -26,7 +26,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
-import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
@@ -65,6 +64,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * A transaction-scoped manager of {@link FDBDirectory} objects. For a single transaction, all {@link FDBDirectory}
@@ -82,7 +82,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     private final int mergeDirectoryCount;
     private final Exception exceptionAtCreation;
 
-    private FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
+    protected FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
         this.mergeDirectoryCount = getMergeDirectoryCount(state);
@@ -274,7 +274,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                     // Close the directory and associated readers/writers
                     item.getValue().close();
                 } catch (IOException e) {
-                    throw new RecordCoreStorageException("unable to close index writer", e);
+                    throw LuceneExceptions.toRecordCoreException("unable to close index writer", e);
                 }
                 iterator.remove();
             }
@@ -287,12 +287,16 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
         final Tuple mapKey = getDirectoryKey(groupingKey, partitionId);
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize()));
+        return createdDirectories.computeIfAbsent(mapKey, key -> createNewDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize()));
     }
 
-    public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
+    private FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
                                                       final AgilityContext agilityContext) {
-        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
+        return createNewDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
+    }
+
+    protected @Nonnull FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
+        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
     }
 
     private int getBlockCacheMaximumSize() {
@@ -355,21 +359,25 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
     public static FDBDirectoryManager getManager(@Nonnull IndexMaintainerState state) {
+        return getOrCreateManager(state, () -> new FDBDirectoryManager(state));
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    protected static @Nonnull FDBDirectoryManager getOrCreateManager(final @Nonnull IndexMaintainerState state, Supplier<FDBDirectoryManager> managerSupplier) {
         synchronized (state.context) {
             FDBRecordContext context = state.context;
             FDBDirectoryManager existing = context.getInSession(state.indexSubspace, FDBDirectoryManager.class);
             if (existing != null) {
                 return existing;
             }
-            FDBDirectoryManager newManager = new FDBDirectoryManager(state);
+            FDBDirectoryManager newManager = managerSupplier.get();
             context.putInSessionIfAbsent(state.indexSubspace, newManager);
             context.addCommitCheck(() -> {
                 try {
                     newManager.close();
                 } catch (IOException e) {
-                    throw new RecordCoreStorageException("unable to close directories", e);
+                    throw LuceneExceptions.toRecordCoreException("unable to close directories", e);
                 }
                 return AsyncUtil.DONE;
             });

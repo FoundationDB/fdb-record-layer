@@ -195,7 +195,7 @@ public class LucenePartitioner {
      * no partitioning metadata exist for the given query
      */
     public PartitionedQueryHint selectQueryPartition(@Nonnull Tuple groupKey, @Nullable LuceneScanQuery luceneScanQuery) {
-        return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, selectQueryPartitionAsync(groupKey, luceneScanQuery));
+        return LuceneConcurrency.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, selectQueryPartitionAsync(groupKey, luceneScanQuery), state.context);
     }
 
     /**
@@ -1060,7 +1060,7 @@ public class LucenePartitioner {
                     try {
                         indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
                     } catch (IOException e) {
-                        throw new RecordCoreException(e);
+                        throw LuceneExceptions.toRecordCoreException(e.getMessage(), e);
                     }
                 });
                 timings.deleteNanos = System.nanoTime();

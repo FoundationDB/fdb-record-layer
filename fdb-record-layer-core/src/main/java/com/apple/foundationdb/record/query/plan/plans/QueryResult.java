@@ -22,11 +22,22 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.planprotos.PQueryResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,32 +51,35 @@ import java.util.Optional;
  * responsibility of the planner to ensure that these casts cannot fail during the execution time of a query.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueryResult {
+public class QueryResult implements ProtoSerializable {
     @Nullable
     private final Object datum;
 
+    // TODO: this can be removed because it is (probably) redundant. The `queriedRecord` is mostly kept here to flow
+    //       information that already exist in the `datum` such as the primary key constituents. There are however
+    //       some extra information that are exclusive to the `queriedRecord` such as the record type and the record
+    //       version, and the size, however this information can be carried out through modelling the plan operators
+    //       differently such that they include any relevant information (such as record version) in the flown result
+    //       (i.e. the `datum`) itself.
     @Nullable
     private final FDBQueriedRecord<?> queriedRecord;
 
-    @Nullable
-    private final IndexEntry indexEntry;
-
+    // TODO: this can be removed because it is redundant. The primary key information is encoded
+    //       inside the `datum` object, and can be retrieved by a `Value` that knows how to reconstruct
+    //       the primary key from it correctly.
     @Nullable
     private final Tuple primaryKey;
 
+    // transient field that amortizes the calculation of the serialized form of this immutable object.
     @Nullable
-    private final RecordType recordType;
+    private PQueryResult cachedProto;
 
     private QueryResult(@Nullable final Object datum,
                         @Nullable final FDBQueriedRecord<?> queriedRecord,
-                        @Nullable final IndexEntry indexEntry,
-                        @Nullable final Tuple primaryKey,
-                        @Nullable final RecordType recordType) {
+                        @Nullable final Tuple primaryKey) {
         this.datum = datum;
         this.queriedRecord = queriedRecord;
-        this.indexEntry = indexEntry;
         this.primaryKey = primaryKey;
-        this.recordType = recordType;
     }
 
     /**
@@ -145,7 +159,10 @@ public class QueryResult {
 
     @Nullable
     public IndexEntry getIndexEntry() {
-        return indexEntry;
+        if (queriedRecord != null) {
+            return queriedRecord.getIndexEntry();
+        }
+        return null;
     }
 
     @Nullable
@@ -155,12 +172,45 @@ public class QueryResult {
 
     @Nullable
     public RecordType getRecordType() {
-        return recordType;
+        if (queriedRecord != null) {
+            return queriedRecord.getRecordType();
+        }
+        return null;
     }
 
     @Nonnull
     public QueryResult withComputed(@Nullable final Object computed) {
-        return new QueryResult(computed, queriedRecord, indexEntry, primaryKey, recordType);
+        return new QueryResult(computed, queriedRecord, primaryKey);
+    }
+
+    @Nonnull
+    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final PQueryResult parsed) {
+        try {
+            if (parsed.hasPrimitive()) {
+                return QueryResult.ofComputed(PlanSerialization.protoToValueObject(parsed.getPrimitive()));
+            } else {
+                return QueryResult.ofComputed(DynamicMessage.parseFrom(Verify.verifyNotNull(descriptor), parsed.getComplex()));
+            }
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("invalid bytes", ex)
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(parsed.toByteArray()));
+        }
+    }
+
+
+    @Nonnull
+    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final ByteString byteString) {
+        try {
+            return from(descriptor, PQueryResult.parseFrom(byteString));
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("invalid bytes", ex)
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
+        }
+    }
+
+    @Nonnull
+    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final byte[] unparsed) {
+        return from(descriptor, ZeroCopyByteString.wrap(unparsed));
     }
 
     /**
@@ -169,21 +219,19 @@ public class QueryResult {
      * @return the newly created query result
      */
     @Nonnull
-    public static QueryResult ofComputed(@Nullable Object computed) {
-        return new QueryResult(computed, null, null, null, null);
+    public static QueryResult ofComputed(@Nullable final Object computed) {
+        return new QueryResult(computed, null, null);
     }
 
     /**
      * Create a new result with the given element while inheriting other parts from a caller-provided entities.
      * @param computed the given computed result
-     * @param indexEntry an index entry (if appropriate) or {@code null}
      * @param primaryKey a primary key (if available) or {@code null}
-     * @param recordType a record type (if available) or {@code null}
      * @return the newly created query result
      */
     @Nonnull
-    public static QueryResult ofComputed(@Nullable Object computed, @Nullable IndexEntry indexEntry, @Nullable Tuple primaryKey, @Nullable RecordType recordType) {
-        return new QueryResult(computed, null, indexEntry, primaryKey, recordType);
+    public static QueryResult ofComputed(@Nullable final Object computed, @Nullable final Tuple primaryKey) {
+        return new QueryResult(computed, null, primaryKey);
     }
 
     /**
@@ -192,14 +240,29 @@ public class QueryResult {
      * @return the newly created query queriedRecord
      */
     @Nonnull
-    public static QueryResult fromQueriedRecord(@Nullable FDBQueriedRecord<?> queriedRecord) {
+    public static QueryResult fromQueriedRecord(@Nullable final FDBQueriedRecord<?> queriedRecord) {
         if (queriedRecord == null) {
-            return new QueryResult(null, null, null, null, null);
+            return new QueryResult(null, null, null);
         }
         return new QueryResult(queriedRecord.getRecord(),
                 queriedRecord,
-                queriedRecord.getIndexEntry(),
-                queriedRecord.getPrimaryKey(),
-                queriedRecord.getRecordType());
+                queriedRecord.getPrimaryKey());
+    }
+
+    @Nonnull
+    @Override
+    public PQueryResult toProto() {
+        if (cachedProto == null) {
+            final var builder = PQueryResult.newBuilder();
+            if (datum instanceof FDBQueriedRecord) {
+                builder.setComplex(((FDBQueriedRecord<?>)datum).getRecord().toByteString());
+            } else if (datum instanceof Message) {
+                builder.setComplex(((Message)datum).toByteString());
+            } else {
+                builder.setPrimitive(PlanSerialization.valueObjectToProto(datum));
+            }
+            cachedProto = builder.build();
+        }
+        return cachedProto;
     }
 }

@@ -77,7 +77,9 @@ public class LuceneEvents {
         /**
          * Amount of time spent moving documents during partition rebalancing.
          */
-        LUCENE_REBALANCE_PARTITION("Lucene rebalance partition")
+        LUCENE_REBALANCE_PARTITION("Lucene rebalance partition"),
+        /** The duration of which the file lock was taken, in nanoseconds. */
+        LUCENE_FILE_LOCK_DURATION("Lucene lock duration")
         ;
 
         private final String title;

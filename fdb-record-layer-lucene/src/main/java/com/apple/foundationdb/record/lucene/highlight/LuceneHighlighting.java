@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.lucene.highlight;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerCombinationProvider;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LuceneRecordCursor;
 import com.apple.foundationdb.record.lucene.LuceneScanQueryParameters;
@@ -175,7 +175,7 @@ public class LuceneHighlighting {
         try {
             return highlighter.highlightWithoutSearcher(termName, luceneQueryHighlightParameters.getQuery(), value, luceneQueryHighlightParameters.getMaxMatchCount());
         } catch (IOException e) {
-            throw new RecordCoreException("Unexpected error processing highlights", e);
+            throw LuceneExceptions.toRecordCoreException("Unexpected error processing highlights", e);
         }
     }
 
