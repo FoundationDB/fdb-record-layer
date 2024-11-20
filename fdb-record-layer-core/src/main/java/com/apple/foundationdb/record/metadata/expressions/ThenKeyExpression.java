@@ -171,7 +171,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Then toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         final RecordMetaDataProto.Then.Builder builder = RecordMetaDataProto.Then.newBuilder();
         for (KeyExpression child : children) {
             builder.addChild(child.toKeyExpression());

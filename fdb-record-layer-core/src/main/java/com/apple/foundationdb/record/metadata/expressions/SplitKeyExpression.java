@@ -110,7 +110,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Split toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         final RecordMetaDataProto.Split.Builder builder = RecordMetaDataProto.Split.newBuilder();
         builder.setJoined(getJoined().toKeyExpression());
         builder.setSplitSize(splitSize);

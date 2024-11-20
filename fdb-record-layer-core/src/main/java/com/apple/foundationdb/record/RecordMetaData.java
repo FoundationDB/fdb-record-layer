@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.UDF;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -46,6 +47,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -83,6 +85,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
+    private final Map<String, UDF> udfMap;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -112,6 +116,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
+                Collections.unmodifiableMap(orig.udfMap),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -131,6 +136,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
+                             @Nonnull Map<String, UDF> udfMap,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -147,6 +153,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
+        this.udfMap = udfMap;
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
@@ -341,6 +348,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
     public List<FormerIndex> getFormerIndexes() {
         return formerIndexes;
     }
+
+    @Nullable
+    public UDF getUDF(@Nonnull String name) {return udfMap.get(name);}
 
     public boolean isSplitLongRecords() {
         return splitLongRecords;
@@ -693,6 +703,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
 
         // Add in the final options.
+        builder.addAllUdfs(udfMap.values().stream().map(UDF::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.UDF;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -110,6 +111,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
+    private final Map<String, UDF> udfMap;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -144,6 +147,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
         evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
         syntheticRecordTypes = new HashMap<>();
+        udfMap = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -221,6 +225,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             if (typeProto.hasExplicitKey()) {
                 typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
             }
+        }
+        for (RecordMetaDataProto.UDF udf: metaDataProto.getUdfsList()) {
+            udfMap.put(udf.getFunction().getName(), new UDF(udf.getFunction().getName(), KeyExpression.fromProto(udf.getFunction().getArguments())));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1179,6 +1186,15 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(formerIndex);
     }
 
+    public void addUDF(@Nonnull UDF udf) {
+        // (TODO): check
+        udfMap.put(udf.getUdfName(), udf);
+    }
+
+    public void addUDFList(@Nonnull List<UDF> udfList) {
+        udfList.forEach(this::addUDF);
+    }
+
     public boolean isSplitLongRecords() {
         return splitLongRecords;
     }
@@ -1420,7 +1436,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes,
+                indexes, universalIndexes, formerIndexes, udfMap,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

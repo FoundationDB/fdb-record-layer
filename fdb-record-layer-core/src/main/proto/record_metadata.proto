@@ -97,7 +97,12 @@ message MetaData {
   optional bool uses_subspace_key_counter = 11;
   repeated JoinedRecordType joined_record_types = 12;
   repeated UnnestedRecordType unnested_record_types = 13;
+  repeated UDF udfs = 14;
   extensions 1000 to 2000;
+}
+
+message UDF {
+  optional Function function = 1;
 }
 
 message Then {

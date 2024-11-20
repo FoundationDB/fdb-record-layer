@@ -114,7 +114,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Dimensions toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         final RecordMetaDataProto.Dimensions.Builder builder = RecordMetaDataProto.Dimensions.newBuilder();
         builder.setWholeKey(getWholeKey().toKeyExpression());
         builder.setPrefixSize(prefixSize);

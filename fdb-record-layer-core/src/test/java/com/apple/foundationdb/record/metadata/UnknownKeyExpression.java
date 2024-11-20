@@ -81,7 +81,7 @@ public class UnknownKeyExpression extends BaseKeyExpression {
 
     @Nonnull
     @Override
-    public Message toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         throw new UnsupportedOperationException("UnknownKeyExpressions cannot be converted to Protobuf");
     }
 

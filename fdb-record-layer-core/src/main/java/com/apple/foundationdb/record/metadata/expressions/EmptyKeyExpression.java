@@ -75,7 +75,7 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Empty toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         return RecordMetaDataProto.Empty.getDefaultInstance();
     }
 

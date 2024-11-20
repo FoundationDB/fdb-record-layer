@@ -140,7 +140,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.List toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         final RecordMetaDataProto.List.Builder builder = RecordMetaDataProto.List.newBuilder();
         for (KeyExpression child : children) {
             builder.addChild(child.toKeyExpression());

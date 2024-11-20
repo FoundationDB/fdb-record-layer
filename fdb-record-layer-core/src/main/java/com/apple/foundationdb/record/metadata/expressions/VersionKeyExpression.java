@@ -97,7 +97,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Version toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         return RecordMetaDataProto.Version.getDefaultInstance();
     }
 

@@ -242,7 +242,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public final RecordMetaDataProto.Function toProto() throws SerializationException {
+    public final RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         RecordMetaDataProto.Function.Builder builder = RecordMetaDataProto.Function.newBuilder()
                 .setName(getName());
         builder.setArguments(getArguments().toKeyExpression());

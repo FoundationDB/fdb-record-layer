@@ -201,7 +201,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     @Nonnull
-    Message toProto() throws SerializationException;
+    RecordMetaDataProto.KeyExpression toProto() throws SerializationException;
 
     @Nonnull
     RecordMetaDataProto.KeyExpression toKeyExpression();

@@ -100,7 +100,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Grouping toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
         final RecordMetaDataProto.Grouping.Builder builder = RecordMetaDataProto.Grouping.newBuilder();
         builder.setWholeKey(getWholeKey().toKeyExpression());
         builder.setGroupedCount(groupedCount);
