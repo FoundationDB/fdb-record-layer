@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -44,9 +45,12 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -102,16 +106,17 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         if (isOwningTempTable) {
+            final var evaluationContextContainingOwnedTempTable = context; //initTempTable(context);
             final var typeDescriptor = getInnerTypeDescriptor(context);
             return TempTableInsertCursor.from(continuation,
                     proto -> {
-                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
+                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, evaluationContextContainingOwnedTempTable));
                         if (proto != null) {
                             TempTable.from(proto, typeDescriptor).getIterator().forEachRemaining(tempTable::add);
                         }
                         return tempTable;
                     },
-                    childContinuation -> getChild().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()));
+                    childContinuation -> getChild().executePlan(store, evaluationContextContainingOwnedTempTable, childContinuation, executeProperties.clearSkipAndLimit()));
         } else {
             return getChild().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
                     .map(queryResult ->
@@ -121,6 +126,24 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                         return queryResult;
                     });
         }
+    }
+
+    /**
+     * Returns a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
+     * @param context The context to add the new binding to.
+     * @return a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
+     */
+    @Nonnull
+    private EvaluationContext initTempTable(@Nonnull final EvaluationContext context) {
+        if (tempTableReferenceValue instanceof ConstantObjectValue) {
+            final var tempTableConstantReferenceValue = (ConstantObjectValue)tempTableReferenceValue;
+            final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
+            constants.put(tempTableConstantReferenceValue.getConstantId(), TempTable.newInstance());
+            return context.withBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias(), constants.build());
+        }
+        Verify.verify(tempTableReferenceValue instanceof QuantifiedObjectValue);
+        final var tempTableQuantifiedReferenceValue = (QuantifiedObjectValue)tempTableReferenceValue;
+        return context.withBinding(Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias(), TempTable.newInstance());
     }
 
     @Nullable

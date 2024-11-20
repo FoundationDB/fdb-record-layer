@@ -326,7 +326,6 @@ public class RecursiveUnionTest extends TempTableTestBase {
                                                             @Nonnull final CorrelationIdentifier initTempTableAlias,
                                                             @Nonnull final CorrelationIdentifier recuTempTableAlias,
                                                             @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate) {
-
         final var ttScanBla = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(seedingTempTableAlias, seedingTempTableAlias.getId(), getType())));
         var selectExpression = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(ttScanBla), getValueCol(ttScanBla), getParentCol(ttScanBla))).addQuantifier(ttScanBla)
