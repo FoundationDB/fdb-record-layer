@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -168,22 +169,22 @@ public class RecursiveUnionTest extends TempTableTestBase {
     @Nonnull
     private List<Long> multiplesOf(@Nonnull final List<Long> initial, long limit) throws Exception {
         try (FDBRecordContext context = openContext()) {
-            final var blaTempTable = TempTable.<QueryResult>newInstance();
-            final var blaTempTableAlias = CorrelationIdentifier.of("Bla");
-            initial.forEach(value -> blaTempTable.add(queryResult(value)));
+            final var seedingTempTable = TempTable.<QueryResult>newInstance();
+            final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
+            initial.forEach(value -> seedingTempTable.add(queryResult(value)));
 
-            final var ttScanBla = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(blaTempTableAlias, blaTempTableAlias.getId(), getType())));
+            final var ttScanBla = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(seedingTempTableAlias, seedingTempTableAlias.getId(), getType())));
             var selectExpression = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(getIdCol(ttScanBla), getValueCol(ttScanBla))).addQuantifier(ttScanBla)
                     .build().buildSelect();
-            final var blaSelectQun = Quantifier.forEach(Reference.of(selectExpression));
+            final var seedingSelectQun = Quantifier.forEach(Reference.of(selectExpression));
 
             final var initTempTable = TempTable.<QueryResult>newInstance();
             final var initTempTableAlias = CorrelationIdentifier.of("Init");
             final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
 
-            final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(blaSelectQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType(blaSelectQun))));
+            final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(seedingSelectQun,
+                    initTempTableAlias, initTempTableAlias.getId(), getType(seedingSelectQun))));
 
             final var recuTempTable = TempTable.<QueryResult>newInstance();
             final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
@@ -214,7 +215,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
             final var cascadesPlanner = (CascadesPlanner)planner;
             final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
 
-            var evaluationContext = putTempTableInContext(blaTempTableAlias, blaTempTable, null);
+            var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
             evaluationContext = putTempTableInContext(recuTempTableAlias, recuTempTable, evaluationContext);
             evaluationContext = putTempTableInContext(initTempTableAlias, initTempTable, evaluationContext);
             return extractResultsAsIdValuePairs(context, plan, evaluationContext).stream().map(Pair::getKey).collect(ImmutableList.toImmutableList());
@@ -255,6 +256,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
         });
     }
 
+    @Nonnull
     private List<Long> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy, @Nonnull final Map<Long, Long> initial,
                                          @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate) throws Exception {
         try (FDBRecordContext context = openContext()) {
@@ -263,58 +265,64 @@ public class RecursiveUnionTest extends TempTableTestBase {
                 final var message = item(entry.getKey(), entry.getValue());
                 recordStore.saveRecord(message);
             }
-
-            final var blaTempTable = TempTable.<QueryResult>newInstance();
-            final var blaTempTableAlias = CorrelationIdentifier.of("Bla");
-            initial.forEach((id, parent) -> blaTempTable.add(queryResult(id, parent)));
-
-            final var ttScanBla = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(blaTempTableAlias, blaTempTableAlias.getId(), getType())));
-            var selectExpression = GraphExpansion.builder()
-                    .addAllResultColumns(ImmutableList.of(getIdCol(ttScanBla), getValueCol(ttScanBla), getParentCol(ttScanBla))).addQuantifier(ttScanBla)
-                    .build().buildSelect();
-            final var blaSelectQun = Quantifier.forEach(Reference.of(selectExpression));
-
-            final var initTempTable = TempTable.<QueryResult>newInstance();
+            final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
             final var initTempTableAlias = CorrelationIdentifier.of("Init");
-            final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
-
-            final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(blaSelectQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType(blaSelectQun))));
-
-            final var hierarchyScanQun = generateHierarchyScan();
-
-            final var recuTempTable = TempTable.<QueryResult>newInstance();
             final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
-            final var recuTempTableReferenceValue = ConstantObjectValue.of(recuTempTableAlias, recuTempTableAlias.getId(), new Type.Relation(getType()));
 
-            final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(recuTempTableAlias, recuTempTableAlias.getId(), getType())));
-            selectExpression = GraphExpansion.builder()
-                    .addAllResultColumns(ImmutableList.of(getIdCol(ttScanRecuQun), getValueCol(ttScanRecuQun), getParentCol(ttScanRecuQun)))
-                    .addQuantifier(ttScanRecuQun)
-                    .build().buildSelect();
-            final var ttSelectQun = Quantifier.forEach(Reference.of(selectExpression));
-            final var predicate = queryPredicate.apply(hierarchyScanQun, ttSelectQun);
-            final var joinExpression = GraphExpansion.builder()
-                    .addAllResultColumns(ImmutableList.of(getIdCol(hierarchyScanQun), getValueCol(hierarchyScanQun), getParentCol(hierarchyScanQun)))
-                    .addPredicate(predicate)
-                    .addQuantifier(hierarchyScanQun)
-                    .addQuantifier(ttSelectQun)
-                    .build().buildSelect();
+            final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, initTempTableAlias, recuTempTableAlias, queryPredicate);
 
-            final var joinQun = Quantifier.forEach(Reference.of(joinExpression));
-            final var recuInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(joinQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType(joinQun))));
-            final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, initialTempTableReferenceValue, recuTempTableReferenceValue);
-
-            final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(recursiveUnionPlan))));
-            final var cascadesPlanner = (CascadesPlanner)planner;
-            final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
-
-            var evaluationContext = putTempTableInContext(blaTempTableAlias, blaTempTable, null);
-            evaluationContext = putTempTableInContext(recuTempTableAlias, recuTempTable, evaluationContext);
-            evaluationContext = putTempTableInContext(initTempTableAlias, initTempTable, evaluationContext);
+            final var seedingTempTable = TempTable.newInstance();
+            initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
+            var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
+            evaluationContext = putTempTableInContext(recuTempTableAlias, TempTable.newInstance(), evaluationContext);
+            evaluationContext = putTempTableInContext(initTempTableAlias, TempTable.newInstance(), evaluationContext);
             return extractResultsAsIdParentPairs(context, plan, evaluationContext).stream().map(Pair::getKey).collect(ImmutableList.toImmutableList());
         }
+    }
+
+    @Nonnull
+    private RecordQueryPlan createAndOptimizeHierarchyQuery(@Nonnull final CorrelationIdentifier seedingTempTableAlias,
+                                                            @Nonnull final CorrelationIdentifier initTempTableAlias,
+                                                            @Nonnull final CorrelationIdentifier recuTempTableAlias,
+                                                            @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate) {
+
+        final var ttScanBla = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(seedingTempTableAlias, seedingTempTableAlias.getId(), getType())));
+        var selectExpression = GraphExpansion.builder()
+                .addAllResultColumns(ImmutableList.of(getIdCol(ttScanBla), getValueCol(ttScanBla), getParentCol(ttScanBla))).addQuantifier(ttScanBla)
+                .build().buildSelect();
+        final var blaSelectQun = Quantifier.forEach(Reference.of(selectExpression));
+
+        final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
+
+        final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(blaSelectQun,
+                initTempTableAlias, initTempTableAlias.getId(), getType(blaSelectQun))));
+
+        final var hierarchyScanQun = generateHierarchyScan();
+        
+        final var recuTempTableReferenceValue = ConstantObjectValue.of(recuTempTableAlias, recuTempTableAlias.getId(), new Type.Relation(getType()));
+
+        final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(recuTempTableAlias, recuTempTableAlias.getId(), getType())));
+        selectExpression = GraphExpansion.builder()
+                .addAllResultColumns(ImmutableList.of(getIdCol(ttScanRecuQun), getValueCol(ttScanRecuQun), getParentCol(ttScanRecuQun)))
+                .addQuantifier(ttScanRecuQun)
+                .build().buildSelect();
+        final var ttSelectQun = Quantifier.forEach(Reference.of(selectExpression));
+        final var predicate = queryPredicate.apply(hierarchyScanQun, ttSelectQun);
+        final var joinExpression = GraphExpansion.builder()
+                .addAllResultColumns(ImmutableList.of(getIdCol(hierarchyScanQun), getValueCol(hierarchyScanQun), getParentCol(hierarchyScanQun)))
+                .addPredicate(predicate)
+                .addQuantifier(hierarchyScanQun)
+                .addQuantifier(ttSelectQun)
+                .build().buildSelect();
+
+        final var joinQun = Quantifier.forEach(Reference.of(joinExpression));
+        final var recuInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(joinQun,
+                initTempTableAlias, initTempTableAlias.getId(), getType(joinQun))));
+        final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, initialTempTableReferenceValue, recuTempTableReferenceValue);
+
+        final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(recursiveUnionPlan))));
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        return cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
     }
 
     @Nonnull
