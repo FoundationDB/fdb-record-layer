@@ -127,7 +127,10 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         true);
 
         final var keyValueExpansion =
-                pop(rootExpression.expand(push(initialState)));
+                pop(rootExpression.expand(push(initialState)))
+                        .toBuilder()
+                        .removeAllResultColumns()
+                        .build();
 
         allExpansionsBuilder.add(keyValueExpansion);
 
@@ -176,7 +179,10 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                                 false,
                                 true);
                 final var primaryKeyPartExpansion =
-                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
+                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)))
+                                .toBuilder()
+                                .removeAllResultColumns()
+                                .build();
                 allExpansionsBuilder
                         .add(primaryKeyPartExpansion);
             }

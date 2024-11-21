@@ -24,9 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.collect.ImmutableList;
 
@@ -51,7 +50,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that implements a select expression without predicates over a single {@link RecordQueryPlan} as a
+ * A rule that implements a select expression without predicates over a single partition as a
  * {@link RecordQueryMapPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -93,13 +92,6 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
         final var isSimpleResultValue =
                 resultValue instanceof QuantifiedObjectValue &&
                 ((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
-
-        if (quantifier instanceof Quantifier.ForEach &&
-                predicates.isEmpty() &&
-                isSimpleResultValue) {
-            call.yieldExpression(referenceBuilder.members());
-            return;
-        }
 
         if (quantifier instanceof Quantifier.Existential) {
             referenceBuilder = call.memoizePlansBuilder(

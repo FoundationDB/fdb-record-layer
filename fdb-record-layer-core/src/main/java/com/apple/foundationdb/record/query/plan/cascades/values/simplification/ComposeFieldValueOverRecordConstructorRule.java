@@ -42,7 +42,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
 /**
- * A rule that composes a field access and an underlying record construction.
+ * A rule that composes a field access and an underlying record construction, for example
+ * <br>
+ * {@code (("Hello" as a, "World" as b).b} is transformed to {@code "World"}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

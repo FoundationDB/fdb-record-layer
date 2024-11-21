@@ -195,18 +195,39 @@ class ValueSimplificationTest {
         // (_ as a, 5 as b)#0 => _
         Assertions.assertEquals(someCurrentValue, simplifiedValue);
     }
+
+    @Test
+    void testCollapseRecordConstructorOverFieldsToStar1() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+
+        // (_.a as a, _.x as x, _.z as z)
+        final ImmutableList<Column<? extends Value>> columns =
+                ImmutableList.of(
+                        Column.of(Optional.of("a"), FieldValue.ofFieldName(someCurrentValue, "a")),
+                        Column.of(Optional.of("x"), FieldValue.ofFieldName(someCurrentValue, "x")),
+                        Column.of(Optional.of("z"), FieldValue.ofFieldName(someCurrentValue, "z")));
+        final var rcv = RecordConstructorValue.ofColumns(columns, true);
+
+        final var simplifiedValue = defaultSimplify(rcv);
+
+        Assertions.assertEquals(someCurrentValue, simplifiedValue);
+    }
     
     @Test
     void testProjectionPushDown1() {
+        final var _fieldValue_ = LiteralValue.ofScalar("fieldValue");
+        final var _10_ = LiteralValue.ofScalar(10);
+        final var _World_ = LiteralValue.ofScalar("World");
         // ('fieldValue' as a, 10 as b, 'World' as c)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValue")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
-                                LiteralValue.ofScalar(10)),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("c")),
-                                LiteralValue.ofScalar("World")));
+                        Column.of(Type.Record.Field.of(_fieldValue_.getResultType(), Optional.of("a")),
+                                _fieldValue_),
+                        Column.of(Type.Record.Field.of(_10_.getResultType(), Optional.of("b")),
+                                _10_),
+                        Column.of(Type.Record.Field.of(_World_.getResultType(), Optional.of("c")),
+                                _World_));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
         // ('fieldValue' as a, 10 as b, 'World' as c).a
@@ -222,12 +243,11 @@ class ValueSimplificationTest {
 
         // (('fieldValue' as a, 10 as b, 'World' as c).a, ('fieldValue' as a, 10 as b, 'World' as c).b) => ('fieldValue, 10)
         Assertions.assertEquals(RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                LiteralValue.ofScalar("fieldValue"),
-                LiteralValue.ofScalar(10))), simplifiedValue);
+                _fieldValue_, _10_)), simplifiedValue);
     }
 
     @Test
-    void testInvalidSimplification() {
+    void testSimplificationPullUp() {
         final var recordType = Type.Record.fromFields(ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("pk")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i")),
