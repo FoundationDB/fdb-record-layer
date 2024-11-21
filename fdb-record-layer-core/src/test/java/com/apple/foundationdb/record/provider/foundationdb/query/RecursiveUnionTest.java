@@ -56,6 +56,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Triple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -160,6 +161,12 @@ public class RecursiveUnionTest extends TempTableTestBase {
         assertEquals(ImmutableList.of(10L, 40L, 50L, 70L, 250L), result);
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void recursiveUnionWorksCorrectlyCase10() throws Exception {
+        var result = ancestorsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(250L, 50L), ImmutableList.of(1, 2, 1));
+        assertEquals(ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L), ImmutableList.of(1L)), result);
+    }
+
     /**
      * Creates a recursive union plan that calculates multiple series recursively {@code F(X) = F(X-1) * 2} up until
      * a given limit.
@@ -260,26 +267,73 @@ public class RecursiveUnionTest extends TempTableTestBase {
         });
     }
 
+    /**
+     * Creates a recursive union plan that calculates the ancestors of a node (or multiple nodes) in a given hierarchy
+     * modelled with an adjacency list.
+     *
+     * @param hierarchy The hierarchy, represented a list of {@code child -> parent} edges.
+     * @param initial List of edges whose {@code child}'s ancestors are to be calculated.
+     * @return A list of nodes representing the path from the given path from child(ren) to the parent.
+     */
     @Nonnull
-    private List<Long> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy, @Nonnull final Map<Long, Long> initial,
+    private List<List<Long>> ancestorsOfAcrossContinuations(@Nonnull final Map<Long, Long> hierarchy,
+                                                            @Nonnull final Map<Long, Long> initial,
+                                                            @Nonnull final List<Integer> successiveRowLimits) throws Exception {
+        final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
+            final var idField = getIdField(hierarchyScanQun);
+            final var parentField = getParentField(ttSelectQun);
+            return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
+        };
+        final ImmutableList.Builder<List<Long>> resultBuilder = ImmutableList.builder();
+        try (FDBRecordContext context = openContext()) {
+            var planAndResultAndContinuation = hierarchicalQuery(hierarchy, initial, predicate, context, null, successiveRowLimits.get(0));
+            final var plan = planAndResultAndContinuation.getLeft();
+            var continuation = planAndResultAndContinuation.getRight();
+            resultBuilder.add(planAndResultAndContinuation.getMiddle());
+            final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
+            for (final var rowLimit : successiveRowLimits.stream().skip(1).collect(ImmutableList.toImmutableList())) {
+                final var seedingTempTable = tempTableInstance();
+                initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
+                var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
+                final var pair = executeHierarchyPlan(plan, continuation, evaluationContext, rowLimit);
+                continuation = pair.getRight();
+                resultBuilder.add(pair.getLeft());
+            }
+        }
+        return resultBuilder.build();
+    }
+
+    @Nonnull
+    private List<Long> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy,
+                                         @Nonnull final Map<Long, Long> initial,
                                          @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate) throws Exception {
         try (FDBRecordContext context = openContext()) {
-            createOrOpenRecordStore(context, RecordMetaData.build(TestHierarchiesProto.getDescriptor()));
-            for (final var entry : hierarchy.entrySet()) {
-                final var message = item(entry.getKey(), entry.getValue());
-                recordStore.saveRecord(message);
-            }
-            final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
-            final var initTempTableAlias = CorrelationIdentifier.of("Init");
-            final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
-
-            final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, initTempTableAlias, recuTempTableAlias, queryPredicate);
-
-            final var seedingTempTable = tempTableInstance();
-            initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
-            var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
-            return executeHierarchyPlan(plan, null, evaluationContext, -1).getKey();
+            return hierarchicalQuery(hierarchy, initial, queryPredicate, context, null, -1).getMiddle();
         }
+    }
+
+    @Nonnull
+    private Triple<RecordQueryPlan, List<Long>, byte[]> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy, @Nonnull final Map<Long, Long> initial,
+                                                                          @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
+                                                                          @Nonnull final FDBRecordContext context,
+                                                                          @Nullable final byte[] continuation,
+                                                                          int numberOfItemsToReturn) throws Exception {
+        createOrOpenRecordStore(context, RecordMetaData.build(TestHierarchiesProto.getDescriptor()));
+        for (final var entry : hierarchy.entrySet()) {
+            final var message = item(entry.getKey(), entry.getValue());
+            recordStore.saveRecord(message);
+        }
+        final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
+        final var initTempTableAlias = CorrelationIdentifier.of("Init");
+        final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
+
+        final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, initTempTableAlias, recuTempTableAlias, queryPredicate);
+
+        final var seedingTempTable = tempTableInstance();
+        initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
+        var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
+        final var resultAndContinuation = executeHierarchyPlan(plan, continuation, evaluationContext, numberOfItemsToReturn);
+        return Triple.of(plan, resultAndContinuation.getKey(), resultAndContinuation.getRight());
     }
 
     /**
@@ -303,12 +357,12 @@ public class RecursiveUnionTest extends TempTableTestBase {
                 recordStore, evaluationContext, continuation,
                 ExecuteProperties.newBuilder().build()).asIterator()) {
             while (cursor.hasNext()) {
-                if (counter != -1 && counter++ == numberOfItemsToReturn) {
+                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                resultBuilder.add(asIdParent(message));
+                if (counter != -1 && ++counter == numberOfItemsToReturn) {
                     return Pair.of(resultBuilder.build().stream().map(Pair::getKey).collect(ImmutableList.toImmutableList()),
                             cursor.getContinuation());
                 }
-                Message message = Verify.verifyNotNull(cursor.next()).getMessage();
-                resultBuilder.add(asIdParent(message));
             }
             // todo: check if the continuation here is an END continuation.
             return Pair.of(resultBuilder.build().stream().map(Pair::getKey).collect(ImmutableList.toImmutableList()),

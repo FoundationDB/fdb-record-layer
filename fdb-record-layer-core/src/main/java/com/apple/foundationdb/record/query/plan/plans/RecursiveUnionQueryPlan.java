@@ -126,22 +126,22 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         return quantifiers.size();
     }
 
-    private <M extends Message> EvaluationContext resetTempTableBindings(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                         @Nonnull final EvaluationContext context) {
-        if (isInitialState) {
-            readTempTable = getInitialTempTable(store, context);
-            writeTempTable = getInitialTempTable(store, context);
+    private <M extends Message> EvaluationContext resetTempTableBindings(@Nonnull final EvaluationContext context) {
+        if (initialIsRead) {
             final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, readTempTable);
-            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, getRecursiveTempTable(store, context));
+            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, writeTempTable);
         } else {
-            if (initialIsRead) {
-                final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, readTempTable);
-                return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, writeTempTable);
-            } else {
-                final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, writeTempTable);
-                return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, readTempTable);
-            }
+            final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, writeTempTable);
+            return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, readTempTable);
         }
+    }
+
+    private <M extends Message> EvaluationContext initTempTableBindings(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                         @Nonnull final EvaluationContext context) {
+        readTempTable = getInitialTempTable(store, context);
+        writeTempTable = getRecursiveTempTable(store, context);
+        final var newEvaluationContext = overrideTempTableBinding(context, initialTempTableValueReference, readTempTable);
+        return overrideTempTableBinding(newEvaluationContext, recursiveTempTableValueReference, writeTempTable);
     }
 
     @Nonnull
@@ -213,11 +213,11 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var contextWithTempTables = initTempTable(initialTempTableValueReference,
                 initTempTable(recursiveTempTableValueReference, context));
-        final var contextWithTempTablesSet = resetTempTableBindings(store, contextWithTempTables);
+        final var contextWithTempTablesSet = initTempTableBindings(store, contextWithTempTables);
         return RecursiveUnionCursor.from(continuation,
-                initialContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(store, contextWithTempTablesSet),
+                initialContinuation -> getInitialStatePlan().executePlan(store, resetTempTableBindings(contextWithTempTablesSet),
                         initialContinuation == null ? null : initialContinuation.toByteArray(), executeProperties),
-                recursiveContinuation -> getRecursiveStatePlan().executePlan(store, resetTempTableBindings(store, contextWithTempTablesSet),
+                recursiveContinuation -> getRecursiveStatePlan().executePlan(store, resetTempTableBindings(contextWithTempTablesSet),
                         recursiveContinuation == null ? null : recursiveContinuation.toByteArray(), executeProperties),
                 () -> initialIsRead,
                 wasInitialState -> isInitialState = wasInitialState,
@@ -227,7 +227,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                     // to continue reading from the initial buffer.
                     if (initialToRecursiveTransition) {
                         isInitialState = false;
-                        writeTempTable = getRecursiveTempTable(store, contextWithTempTablesSet);
                         return true;
                     }
                     getReadTempTable(store, contextWithTempTablesSet).clear();
