@@ -313,8 +313,8 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         openSimpleMetaData(hook2);
         buildIndexClean(nonValueIndex);
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(nonValueIndex).build()) {
-            assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
-            assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubMissingIndexEntries);
+            assertThrows(UnsupportedOperationException.class, indexScrubber::scrubDanglingIndexEntries);
+            assertThrows(UnsupportedOperationException.class, indexScrubber::scrubMissingIndexEntries);
         }
     }
 

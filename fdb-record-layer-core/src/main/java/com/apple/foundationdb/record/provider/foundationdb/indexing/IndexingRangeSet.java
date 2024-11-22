@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.record.provider.foundationdb.IndexingBase;
 
 import javax.annotation.Nonnull;
@@ -245,4 +246,26 @@ public class IndexingRangeSet {
         RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubRecordsRangeSubspace(store, index));
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
+
+    /**
+     * return either a {@link #forScrubbingRecords(FDBRecordStore, Index)} or {@link #forScrubbingIndex(FDBRecordStore, Index)} - according to the scrubbing type.
+     *
+     * @param scrubbingType the index scrubbing type
+     * @param store the record store associated with the index build
+     * @param index the index being built
+     *
+     * @return a {@code WrappedRangeSet} for scrubbing the index's records
+     */
+    @Nonnull
+    public static IndexingRangeSet forScrubbing(IndexScrubbingTools.ScrubbingType scrubbingType, @Nonnull FDBRecordStore store, @Nonnull Index index) {
+        switch (scrubbingType) {
+            case DANGLING:
+                return forScrubbingIndex(store, index);
+            case MISSING:
+                return forScrubbingRecords(store, index);
+            default:
+                throw new UnsupportedOperationException();
+        }
+    }
+
 }

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,7 +48,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
     /**
      * The type of problem to scan for.
      */
-    public enum ScrubbingType {
+    private enum ScrubbingType {
         DANGLING,
         MISSING
     }
@@ -79,19 +78,26 @@ public class OnlineIndexScrubber implements AutoCloseable {
     private IndexingBase getScrubber(ScrubbingType type, AtomicLong count) {
         switch (type) {
             case DANGLING:
-                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
+                if (scrubbingPolicy.ignoreIndexTypeCheck) {
+                    // TODO: eliminate old scrubbing class and always trust the maintainers (i.e remove the ignoreIndexTypeCheck option)
+                    return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
+                }
+                return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, IndexScrubbingTools.ScrubbingType.DANGLING);
 
             case MISSING:
-                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
+                if (scrubbingPolicy.ignoreIndexTypeCheck) {
+                    // TODO: eliminate old scrubbing class and always trust the maintainers (i.e remove the ignoreIndexTypeCheck option)
+                    return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
+                }
+                return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, IndexScrubbingTools.ScrubbingType.MISSING);
 
             default:
-                throw new MetaDataException("bad type");
+                throw new MetaDataException("unknown index scrubbing type");
         }
     }
 
-    @VisibleForTesting
     @Nonnull
-    CompletableFuture<Void> scrubIndexAsync(ScrubbingType type, AtomicLong count) {
+    private CompletableFuture<Void> scrubIndexAsync(ScrubbingType type, AtomicLong count) {
         return AsyncUtil.composeHandle(
                 getScrubber(type, count).buildIndexAsync(false, common.config.shouldUseSynchronizedSession()),
                 (ignore, ex) -> {
