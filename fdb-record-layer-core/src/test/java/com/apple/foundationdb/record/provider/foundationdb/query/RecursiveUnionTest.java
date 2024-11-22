@@ -167,6 +167,24 @@ public class RecursiveUnionTest extends TempTableTestBase {
         assertEquals(ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L), ImmutableList.of(1L)), result);
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void recursiveUnionWorksCorrectlyCase11() throws Exception {
+        var result = ancestorsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(250L, 50L), ImmutableList.of(1, 1, 2));
+        assertEquals(ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L), ImmutableList.of(10L, 1L)), result);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void recursiveUnionWorksCorrectlyCase12() throws Exception {
+        var result = ancestorsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(250L, 50L), ImmutableList.of(1, -1));
+        assertEquals(ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L, 1L)), result);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void recursiveUnionWorksCorrectlyCase13() throws Exception {
+        var result = descendantsOf(sampleHierarchy(), ImmutableMap.of(10L, 1L));
+        assertEquals(ImmutableList.of(10L, 40L, 50L, 70L, 250L), result);
+    }
+
     /**
      * Creates a recursive union plan that calculates multiple series recursively {@code F(X) = F(X-1) * 2} up until
      * a given limit.
@@ -278,12 +296,40 @@ public class RecursiveUnionTest extends TempTableTestBase {
     @Nonnull
     private List<List<Long>> ancestorsOfAcrossContinuations(@Nonnull final Map<Long, Long> hierarchy,
                                                             @Nonnull final Map<Long, Long> initial,
-                                                            @Nonnull final List<Integer> successiveRowLimits) throws Exception {
+                                                            @Nonnull final List<Integer> successiveRowLimits) {
         final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
             final var idField = getIdField(hierarchyScanQun);
             final var parentField = getParentField(ttSelectQun);
             return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
         };
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits);
+    }
+
+    /**
+     * Creates a recursive union plan that calculates the ancestors of a node (or multiple nodes) in a given hierarchy
+     * modelled with an adjacency list.
+     *
+     * @param hierarchy The hierarchy, represented a list of {@code child -> parent} edges.
+     * @param initial List of edges whose {@code child}'s ancestors are to be calculated.
+     * @return A list of nodes representing the path from the given path from child(ren) to the parent.
+     */
+    @Nonnull
+    private List<List<Long>> descendantsOfAcrossContinuations(@Nonnull final Map<Long, Long> hierarchy,
+                                                            @Nonnull final Map<Long, Long> initial,
+                                                            @Nonnull final List<Integer> successiveRowLimits) {
+        final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
+            final var idField = getIdField(hierarchyScanQun);
+            final var parentField = getParentField(ttSelectQun);
+            return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
+        };
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits);
+    }
+
+    @Nonnull
+    private List<List<Long>> hierarchyQueryAcrossContinuations(@Nonnull final Map<Long, Long> hierarchy,
+                                                               @Nonnull final Map<Long, Long> initial,
+                                                               @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate,
+                                                               @Nonnull final List<Integer> successiveRowLimits) {
         final ImmutableList.Builder<List<Long>> resultBuilder = ImmutableList.builder();
         try (FDBRecordContext context = openContext()) {
             var planAndResultAndContinuation = hierarchicalQuery(hierarchy, initial, predicate, context, null, successiveRowLimits.get(0));
@@ -313,11 +359,12 @@ public class RecursiveUnionTest extends TempTableTestBase {
     }
 
     @Nonnull
-    private Triple<RecordQueryPlan, List<Long>, byte[]> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy, @Nonnull final Map<Long, Long> initial,
+    private Triple<RecordQueryPlan, List<Long>, byte[]> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy,
+                                                                          @Nonnull final Map<Long, Long> initial,
                                                                           @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
                                                                           @Nonnull final FDBRecordContext context,
                                                                           @Nullable final byte[] continuation,
-                                                                          int numberOfItemsToReturn) throws Exception {
+                                                                          int numberOfItemsToReturn) {
         createOrOpenRecordStore(context, RecordMetaData.build(TestHierarchiesProto.getDescriptor()));
         for (final var entry : hierarchy.entrySet()) {
             final var message = item(entry.getKey(), entry.getValue());

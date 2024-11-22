@@ -61,7 +61,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     private final Supplier<Boolean> isReadingFromInitialCursorSupplier;
 
     @Nonnull
-    private final Function<Boolean, Boolean> recursiveStepCompletionCallback;
+    private final Supplier<Boolean> recursiveStepCompletionCallback;
 
     @Nonnull
     private final Executor executor;
@@ -73,7 +73,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                                  @Nonnull final RecordCursor<T> recursiveCursor,
                                  @Nonnull final Executor executor,
                                  @Nonnull final Supplier<Boolean> isReadingFromInitialCursorSupplier,
-                                 @Nonnull final Function<Boolean, Boolean> recursiveStepCompletionCallback,
+                                 @Nonnull final Supplier<Boolean> recursiveStepCompletionCallback,
                                  boolean isInitialState) {
         this.initialCursor = initialCursor;
         this.recursiveCursorSupplier = recursiveCursorSupplier;
@@ -92,7 +92,8 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                 if (!recordCursorResult.hasNext()) {
                     isInitialState = false;
                     if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
-                        return recurse(true);
+                        recursiveCursor = recursiveCursorSupplier.get();
+                        return onNextRecursive();
                     } else {
                         return wrapLastResult(recordCursorResult);
                     }
@@ -110,7 +111,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         return recursiveCursor.onNext().thenCompose(recordCursorResult -> {
             if (!recordCursorResult.hasNext()) {
                 if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
-                    return recurse(false);
+                    return recurse();
                 } else {
                     return wrapLastResult(recordCursorResult);
                 }
@@ -121,8 +122,8 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     }
 
     @Nonnull
-    private CompletableFuture<RecordCursorResult<T>> recurse(boolean initialToRecursiveTransition) {
-        if (recursiveStepCompletionCallback.apply(initialToRecursiveTransition)) {
+    private CompletableFuture<RecordCursorResult<T>> recurse() {
+        if (recursiveStepCompletionCallback.get()) {
             // restart the cursor of the recursive state, without plugging in any continuation from previous recursive
             // state.
             recursiveCursor = recursiveCursorSupplier.get();
@@ -179,7 +180,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                                                    @Nonnull final Supplier<Boolean> isReadingFromInitialCursorSupplier,
                                                    @Nonnull final Consumer<Boolean> wasInInitialStateConsumer,
                                                    @Nonnull final Consumer<Boolean> wasReadingFromFirstTempTableConsumer,
-                                                   @Nonnull final Function<Boolean, Boolean> recursiveStepCompletionCallback,
+                                                   @Nonnull final Supplier<Boolean> recursiveStepCompletionCallback,
                                                    @Nonnull Executor executor) {
         if (unparsed == null) {
             final var initialCursor = initialCursorCreator.apply(null);

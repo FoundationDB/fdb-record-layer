@@ -99,8 +99,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
     private boolean initialIsRead;
 
-    private boolean isInitialState;
-
     public RecursiveUnionQueryPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                    @Nonnull final Value initialTempTableValueReference,
                                    @Nonnull final Value recursiveTempTableValueReference) {
@@ -112,7 +110,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         this.computeChildren = Suppliers.memoize(this::computeChildren);
         this.computeComplexity = Suppliers.memoize(this::computeComplexity);
         this.initialIsRead = true;
-        this.isInitialState = true;
     }
 
     @Override
@@ -220,15 +217,10 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 recursiveContinuation -> getRecursiveStatePlan().executePlan(store, resetTempTableBindings(contextWithTempTablesSet),
                         recursiveContinuation == null ? null : recursiveContinuation.toByteArray(), executeProperties),
                 () -> initialIsRead,
-                wasInitialState -> isInitialState = wasInitialState,
+                wasInitialState -> {
+                },
                 wasInitialIsRead -> initialIsRead = wasInitialIsRead,
-                initialToRecursiveTransition -> {
-                    // if we're transitioning from initial state to recursive state, do not flip the buffers, as we intend
-                    // to continue reading from the initial buffer.
-                    if (initialToRecursiveTransition) {
-                        isInitialState = false;
-                        return true;
-                    }
+                () -> {
                     getReadTempTable(store, contextWithTempTablesSet).clear();
                     initialIsRead = !initialIsRead;
                     return !getReadTempTable(store, contextWithTempTablesSet).isEmpty();
