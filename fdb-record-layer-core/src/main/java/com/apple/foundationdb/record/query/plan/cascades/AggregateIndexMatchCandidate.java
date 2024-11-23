@@ -38,9 +38,11 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
@@ -92,7 +94,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     private final Value groupByResultValue;
 
     @Nonnull
-    private final Value selectHavingResultValue;
+    private final SelectExpression selectHavingExpression;
 
     /**
      * Creates a new instance of {@link AggregateIndexMatchCandidate}.
@@ -103,7 +105,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
      * @param recordTypes The underlying base record types.
      * @param baseType The base type.
      * @param groupByResultValue The group by expression result value.
-     * @param selectHavingResultValue The select-having expression result value.
+     * @param selectHavingExpression The select-having expression.
      */
     public AggregateIndexMatchCandidate(@Nonnull final Index index,
                                         @Nonnull final Traversal traversal,
@@ -111,7 +113,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                                         @Nonnull final Collection<RecordType> recordTypes,
                                         @Nonnull final Type baseType,
                                         @Nonnull final Value groupByResultValue,
-                                        @Nonnull final Value selectHavingResultValue) {
+                                        @Nonnull final SelectExpression selectHavingExpression) {
         Preconditions.checkArgument(!recordTypes.isEmpty());
         this.index = index;
         this.traversal = traversal;
@@ -119,7 +121,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.baseType = baseType;
         this.groupByResultValue = groupByResultValue;
-        this.selectHavingResultValue = selectHavingResultValue;
+        this.selectHavingExpression = selectHavingExpression;
     }
 
     @Nonnull
@@ -195,8 +197,9 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var candidateParameterIds = getOrderingAliases();
         final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
-        final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
-        final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
+        final var selectHavingResultValue = selectHavingExpression.getResultValue();
+        final var deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
+        final var aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
         // Compute the ordering for this index by collecting the result values of the selectHaving statement
         // associated with each sortParameterId. Note that for most aggregate indexes, the aggregate value is
@@ -269,12 +272,28 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             return Ordering.empty();
         }
 
-        final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
-        final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
+        final var selectHavingResultValue = selectHavingExpression.getResultValue();
+        final var selectHavingResultType = (Type.Record)selectHavingResultValue.getResultType();
+
+        // Massaging the right type for the base object value
+        var baseObjectAlias =
+                Iterables.getOnlyElement(selectHavingExpression.getQuantifiers()).getAlias();
+        var baseObjectValue = QuantifiedObjectValue.of(baseObjectAlias,
+                selectHavingResultType);
+        final var deconstructedValuesBuilder = ImmutableList.<Value>builder();
+        for (final var field : selectHavingResultType.getFields()) {
+            deconstructedValuesBuilder.add(FieldValue.ofFieldName(baseObjectValue, field.getFieldName()));
+        }
+        final var deconstructedValues = deconstructedValuesBuilder.build();
+
+        //final var deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
+        final var aliasMap =
+                AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()),
+                        Quantifier.current());
 
         // Note: the aggregate Value itself only influences the ordering if the index type is permuted, as it otherwise
         // will appear in the value of the FDB key-value pair and thus does not participate in ordering.
-        final var orderingColumnCount = isPermuted() ? deconstructedValue.size() : groupingCount;
+        final var orderingColumnCount = isPermuted() ? deconstructedValues.size() : groupingCount;
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
         // We keep a set for normalized values in order to check for duplicate values in the index definition.
@@ -284,7 +303,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         for (var i = 0; i < equalityComparisons.size(); i++) {
             int permutedIndex = indexWithPermutation(i);
             final var comparison = equalityComparisons.get(i);
-            final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
+            final var value = deconstructedValues.get(permutedIndex).rebase(aliasMap);
 
             final var simplifiedComparisonPairOptional =
                     MatchCandidate.simplifyComparisonMaybe(value, comparison);
@@ -306,7 +325,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
+            final var normalizedValue = deconstructedValues.get(permutedIndex).rebase(aliasMap);
 
             final var providedOrderingPart =
                     normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
@@ -335,9 +354,13 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                                             final boolean reverseScanOrder) {
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
 
-        final var resultType = groupByResultValue.getResultType();
-        final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build().newMessageBuilder(resultType);
-        final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
+        final var selectHavingResultValue = selectHavingExpression.getResultValue();
+        final var resultType = selectHavingResultValue.getResultType();
+        final var messageDescriptor =
+                Objects.requireNonNull(TypeRepository.newBuilder()
+                        .addTypeIfNeeded(resultType)
+                        .build()
+                        .getMessageDescriptor(resultType));
         final var constraintMaybe = partialMatch.getRegularMatchInfo().getConstraint();
 
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
@@ -355,6 +378,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
+                selectHavingResultValue,
                 groupByResultValue,
                 constraintMaybe);
     }
@@ -372,17 +396,35 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                : keyExpressionGroupingCount;
     }
 
+    /**
+     * Creates a new {@link IndexKeyValueToPartialRecord} to facilitate the correct copying of information from the
+     * index-tuple structure to a partial record (which in this case is dynamically-typed).
+     * @param messageDescriptor message descriptor for the select having result {@link Value}
+     *        TODO This message descriptor is not actually needed as the logic it is used for might as well just use
+     *             the type directly. The problem is that {@link IndexKeyValueToPartialRecord} is shared between the
+     *             heuristic and the cascades planner and the heuristic planner does not maintain a type system. So
+     *             in the heuristic planner, this descriptor is always a descriptor of a record type or synthetic
+     *             type, while here we use it for a dynamically derived type. We should maybe use separate structures
+     *             for the respective planners.
+     * @return a new {@link IndexKeyValueToPartialRecord}
+     */
     @Nonnull
-    private IndexKeyValueToPartialRecord createIndexEntryConverter(final Descriptors.Descriptor messageDescriptor) {
-        final var selectHavingFields = Values.deconstructRecord(selectHavingResultValue);
+    private IndexKeyValueToPartialRecord createIndexEntryConverter(@Nonnull final Descriptors.Descriptor messageDescriptor) {
+        final var selectHavingResultValue = selectHavingExpression.getResultValue();
+        final var selectHavingResultType = (Type.Record)selectHavingResultValue.getResultType();
         final var groupingCount = getGroupingCount();
-        Verify.verify(selectHavingFields.size() >= groupingCount);
+        Verify.verify(selectHavingResultType.getFields().size() >= groupingCount);
+
+        // Massaging the right type for the base object value
+        var baseObjectAlias =
+                Iterables.getOnlyElement(selectHavingExpression.getQuantifiers()).getAlias();
+        var baseObjectValue = QuantifiedObjectValue.of(baseObjectAlias, selectHavingResultType);
 
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(messageDescriptor);
         if (isPermuted()) {
-            addFieldsForPermutedIndexEntry(selectHavingFields, groupingCount, builder);
+            addFieldsForPermutedIndexEntry(selectHavingResultType, baseObjectValue, groupingCount, builder);
         } else {
-            addFieldsForNonPermutedIndexEntry(selectHavingFields, groupingCount, builder);
+            addFieldsForNonPermutedIndexEntry(selectHavingResultType, baseObjectValue, groupingCount, builder);
         }
 
         if (!builder.isValid()) {
@@ -391,63 +433,95 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return builder.build();
     }
 
-    private void addFieldsForPermutedIndexEntry(@Nonnull List<Value> selectHavingFields, int groupingCount, @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
-        // The selectHavingFields come in an order matching the original columns in the key expression. That is, if there are n grouping columns and m aggregate
-        // columns, we have fields like:
+    private void addFieldsForPermutedIndexEntry(@Nonnull final Type.Record selectHavingResultType,
+                                                @Nonnull final Value baseObjectValue,
+                                                int groupingCount,
+                                                @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
+        //
+        // The selectHavingFields come in an order matching the original columns in the key expression.
+        // That is, if there are n grouping columns and m aggregate columns, we have fields like:
         //
         // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1), ..., agg(coln+m))
         //
-        // But the actual index transposes the aggregate values with the last permutedCount columns, so the actual key structure is:
+        // But the actual index transposes the aggregate values with the last permutedCount columns,
+        // so the actual key structure is:
         //
-        // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn-permuted, agg(coln+1), ..., agg(coln+m), groupingColn-permuted+1, ..., groupingColn) VALUE()
+        // key structure : KEY(groupingCol1, groupingCol2, ... groupingColn-permuted, agg(coln+1), ...,
+        //                     agg(coln+m), groupingColn-permuted+1, ..., groupingColn) VALUE()
         //
-        // This function then needs to take the index from the first list and find its corresponding spot. That means that:
+        // This function then needs to take the index from the first list and find its corresponding spot. That means
+        // that:
         //
         //  1. The first (groupingCount - permutedCount) columns preserve their position
-        //  2. The final permutedCount grouping columns need to be shifted over by the number of aggregate columns (typically 1)
+        //  2. The final permutedCount grouping columns need to be shifted over by the number of aggregate columns
+        //     (typically 1)
         //  3. The aggregate columns need to be shifted over permutedCount columns
         //
+
+        final var selectHavingResultFields = selectHavingResultType.getFields();
+
         int permutedCount = getPermutedCount();
         int groupedCount = getColumnSize() - groupingCount;
 
-        for (int i = 0; i < selectHavingFields.size(); i++) {
-            final Value keyValue = selectHavingFields.get(i);
-            if (keyValue instanceof FieldValue) {
-                int havingIndex;
-                if (i >= groupingCount - permutedCount && i < groupingCount) {
-                    // Grouping column after the permuted aggregate. Adjust by skipping over the grouped aggregate columns
-                    havingIndex = i + groupedCount;
-                } else if (i >= groupingCount) {
-                    // Aggregate column. Adjust by removing the permuted columns
-                    havingIndex = i - permutedCount;
-                } else {
-                    // Grouping column before the permuted aggregate. Preserve original index
-                    havingIndex = i;
-                }
-                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(havingIndex));
-                addCoveringField(builder, (FieldValue)keyValue, fieldData);
+        for (int i = 0; i < selectHavingResultFields.size(); i++) {
+            final var field = selectHavingResultFields.get(i);
+
+            int havingIndex;
+            if (i >= groupingCount - permutedCount && i < groupingCount) {
+                // Grouping column after the permuted aggregate. Adjust by skipping over the grouped aggregate columns
+                havingIndex = i + groupedCount;
+            } else if (i >= groupingCount) {
+                // Aggregate column. Adjust by removing the permuted columns
+                havingIndex = i - permutedCount;
+            } else {
+                // Grouping column before the permuted aggregate. Preserve original index
+                havingIndex = i;
             }
+            addCoveringField(builder, field, baseObjectValue, IndexKeyValueToPartialRecord.TupleSource.KEY, havingIndex);
         }
     }
 
-    private void addFieldsForNonPermutedIndexEntry(@Nonnull List<Value> selectHavingFields, int groupingCount, @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
-        // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn), VALUE(agg(coln+1))
-        // groupingCount                : n+1
+    private void addFieldsForNonPermutedIndexEntry(@Nonnull final Type.Record selectHavingResultType,
+                                                   @Nonnull final Value baseObjectValue,
+                                                   final int groupingCount,
+                                                   @Nonnull final IndexKeyValueToPartialRecord.Builder builder) {
+        //
+        // key structure : KEY(groupingCol1, groupingCol2, ... groupingColn), VALUE(agg(coln+1))
+        // groupingCount : n+1
         // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1))
+        //
+
+        final var selectHavingResultFields = selectHavingResultType.getFields();
 
         for (int i = 0; i < groupingCount; i++) {
-            final Value keyValue = selectHavingFields.get(i);
-            if (keyValue instanceof FieldValue) {
-                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-                addCoveringField(builder, (FieldValue)keyValue, fieldData);
-            }
+            final var field = selectHavingResultFields.get(i);
+            addCoveringField(builder, field, baseObjectValue, IndexKeyValueToPartialRecord.TupleSource.KEY, i);
         }
-        for (int i = groupingCount; i < selectHavingFields.size(); i++) {
-            final Value keyValue = selectHavingFields.get(i);
-            if (keyValue instanceof FieldValue) {
-                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i - groupingCount));
-                addCoveringField(builder, (FieldValue)keyValue, fieldData);
-            }
+        for (int i = groupingCount; i < selectHavingResultFields.size(); i++) {
+            final var field = selectHavingResultFields.get(i);
+            addCoveringField(builder, field, baseObjectValue, IndexKeyValueToPartialRecord.TupleSource.VALUE,
+                    i - groupingCount);
+        }
+    }
+
+    private static void addCoveringField(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
+                                         @Nonnull final Type.Record.Field field,
+                                         @Nonnull final Value baseObjectValue,
+                                         @Nonnull final IndexKeyValueToPartialRecord.TupleSource tupleSource,
+                                         final int index) {
+        final var fieldName = field.getFieldName();
+        final var fieldValue = FieldValue.ofFieldName(baseObjectValue, fieldName);
+
+        final var extractFromIndexEntryPairOptional =
+                fieldValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
+                        tupleSource, ImmutableIntArray.of(index));
+
+        Verify.verify(extractFromIndexEntryPairOptional.isPresent());
+        final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+        final var extractValue = extractFromIndexEntryPair.getRight();
+
+        if (!builder.hasField(fieldName)) {
+            builder.addField(fieldName, extractValue);
         }
     }
 

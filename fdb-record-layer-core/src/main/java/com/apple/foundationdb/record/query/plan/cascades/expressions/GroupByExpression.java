@@ -279,48 +279,78 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
-        final var translatedAggregateValue = aggregateValue.translateCorrelations(translationMap, true);
-        final var subsumedBy = translatedAggregateValue.semanticEquals(otherAggregateValue, valueEquivalence)
-                .compose(ignored -> {
-                    if (groupingValue == null && otherGroupingValue == null) {
-                        return BooleanWithConstraint.alwaysTrue();
-                    }
-                    if (groupingValue == null || otherGroupingValue == null) {
-                        return BooleanWithConstraint.falseValue();
-                    }
-
-                    final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap);
-                    final var groupingValues =
-                            Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
-                                            () -> translatedGroupingValue).stream()
-                                    .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                            ImmutableSet.of()))
-                                    .collect(ImmutableSet.toImmutableSet());
-
-                    final var otherGroupingValues =
-                            Values.primitiveAccessorsForType(otherGroupingValue.getResultType(),
-                                            () -> otherGroupingValue).stream()
-                                    .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                            ImmutableSet.of()))
-                                    .collect(ImmutableSet.toImmutableSet());
-
-                    return valueEquivalence.semanticEquals(groupingValues, otherGroupingValues);
-                });
-
-        if (subsumedBy.isTrue()) {
-            final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
-            final var maxMatchMap =
-                    MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
-                            Quantifiers.aliases(candidateExpression.getQuantifiers()), valueEquivalence);
-            final var queryPlanConstraint =
-                    subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
-
-            return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                            maxMatchMap, queryPlanConstraint)
-                    .map(ImmutableList::of)
-                    .orElse(ImmutableList.of());
+        final var translatedAggregateValue =
+                aggregateValue.translateCorrelations(translationMap, true);
+        final var aggregateValues =
+                Values.primitiveAccessorsForType(translatedAggregateValue.getResultType(),
+                                () -> translatedAggregateValue).stream()
+                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                ImmutableSet.of()))
+                        .collect(ImmutableSet.toImmutableSet());
+        if (aggregateValues.size() != 1) {
+            return ImmutableList.of();
         }
-        return ImmutableList.of();
+
+        final var otherAggregateValues =
+                Values.primitiveAccessorsForType(otherAggregateValue.getResultType(),
+                                () -> otherAggregateValue).stream()
+                        .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(AliasMap.emptyMap(),
+                                ImmutableSet.of()))
+                        .collect(ImmutableSet.toImmutableSet());
+        if (aggregateValues.size() != 1) {
+            return ImmutableList.of();
+        }
+
+        final var subsumedAggregations =
+                Iterables.getOnlyElement(aggregateValues).semanticEquals(Iterables.getOnlyElement(otherAggregateValues),
+                        valueEquivalence);
+        if (subsumedAggregations.isFalse()) {
+            return ImmutableList.of();
+        }
+
+        final var subsumedGroupings =
+                subsumedAggregations
+                        .compose(ignored -> {
+                            if (groupingValue == null && otherGroupingValue == null) {
+                                return BooleanWithConstraint.alwaysTrue();
+                            }
+                            if (groupingValue == null || otherGroupingValue == null) {
+                                return BooleanWithConstraint.falseValue();
+                            }
+
+                            final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap);
+                            final var groupingValues =
+                                    Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
+                                                    () -> translatedGroupingValue).stream()
+                                            .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                                    ImmutableSet.of()))
+                                            .collect(ImmutableSet.toImmutableSet());
+
+                            final var otherGroupingValues =
+                                    Values.primitiveAccessorsForType(otherGroupingValue.getResultType(),
+                                                    () -> otherGroupingValue).stream()
+                                            .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                                    ImmutableSet.of()))
+                                            .collect(ImmutableSet.toImmutableSet());
+
+                            return valueEquivalence.semanticEquals(groupingValues, otherGroupingValues);
+                        });
+
+        if (subsumedAggregations.isFalse()) {
+            return ImmutableList.of();
+        }
+
+        final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
+        final var maxMatchMap =
+                MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()), valueEquivalence);
+        final var queryPlanConstraint =
+                subsumedGroupings.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
+
+        return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
+                        maxMatchMap, queryPlanConstraint)
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
     }
 
     @Nonnull

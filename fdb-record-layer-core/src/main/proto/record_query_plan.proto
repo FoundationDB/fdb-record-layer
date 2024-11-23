@@ -1202,6 +1202,7 @@ message PRecordQueryAggregateIndexPlan {
   optional PIndexKeyValueToPartialRecord to_record = 3;
   optional PValue result_value = 4;
   optional PQueryPlanConstraint constraint = 5;
+  optional PValue group_by_result_value = 6;
 }
 
 //
