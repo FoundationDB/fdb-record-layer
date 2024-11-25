@@ -22,20 +22,27 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.cursors.TempTableInsertCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PTempTableInsertPlan;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -52,55 +59,80 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
 
 /**
  * A query plan that inserts records into a temporary in-memory buffer {@link TempTable}.
  */
 @API(API.Status.INTERNAL)
-public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan {
+public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
+
+
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Insert-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(TempTableInsertPlan.class);
 
     @Nonnull
+    private final Quantifier.Physical inner;
+
+    @Nonnull
     private final Value tempTableReferenceValue;
+
+    private final boolean isOwningTempTable;
 
     protected TempTableInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
                                   @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
-        super(serializationContext, Objects.requireNonNull(tempTableInsertPlanProto.getSuper()));
+        this.inner = Quantifier.Physical.fromProto(serializationContext, tempTableInsertPlanProto.getInner());
         this.tempTableReferenceValue = Value.fromValueProto(serializationContext, tempTableInsertPlanProto.getTempTableReferenceValue());
+        this.isOwningTempTable = tempTableInsertPlanProto.getIsOwningTempTable();
     }
 
     private TempTableInsertPlan(@Nonnull final Quantifier.Physical inner,
-                                @Nonnull final Value computationValue,
-                                @Nonnull final Value tempTableReferenceValue) {
-        super(inner, null, (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType(), null,
-                null, computationValue, currentModifiedRecordAlias());
+                                @Nonnull final Value tempTableReferenceValue,
+                                boolean isOwningTempTable) {
+        this.inner = inner;
         this.tempTableReferenceValue = tempTableReferenceValue;
+        this.isOwningTempTable = isOwningTempTable;
     }
 
+    @Nonnull
     @Override
-    public PipelineOperation getPipelineOperation() {
-        return PipelineOperation.INSERT;
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
+        if (isOwningTempTable) {
+            final var typeDescriptor = getInnerTypeDescriptor(context);
+            return TempTableInsertCursor.from(continuation,
+                    proto -> {
+                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
+                        if (proto != null) {
+                            TempTable.from(proto, typeDescriptor).getIterator().forEachRemaining(tempTable::add);
+                        }
+                        return tempTable;
+                    },
+                    childContinuation -> getChild().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()));
+        } else {
+            return getChild().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
+                    .map(queryResult ->
+                    {
+                        final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
+                        tempTable.add(queryResult);
+                        return queryResult;
+                    });
+        }
     }
 
     @Nullable
-    @Override
-    protected <M extends Message> Descriptors.Descriptor getTargetDescriptor(@Nonnull final FDBRecordStoreBase<M> ignored) {
-        return null;
-    }
-
-    @Override
-    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                                       @Nonnull final EvaluationContext context,
-                                                                                       @Nonnull final M message,
-                                                                                       boolean isDryRun) {
-        // dry run is ignored since inserting into a table queue has no storage side effects.
-        final var queryResult = QueryResult.ofComputed(message);
-        final var tempTable = (TempTable)getTempTableReferenceValue().eval(store, context);
-        tempTable.add(queryResult);
-        return CompletableFuture.completedFuture(queryResult);
+    private Descriptors.Descriptor getInnerTypeDescriptor(@Nonnull final EvaluationContext context) {
+        final Descriptors.Descriptor typeDescriptor;
+        if (tempTableReferenceValue.getResultType().isRelation() && ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType().isRecord()) {
+            final var type = (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
+            typeDescriptor = context.getTypeRepository().getMessageDescriptor(type);
+        } else {
+            typeDescriptor = null;
+        }
+        return typeDescriptor;
     }
 
     @Nonnull
@@ -109,27 +141,48 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new TempTableInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getComputationValue().translateCorrelations(translationMap),
-                getTempTableReferenceValue().translateCorrelations(translationMap));
+                getTempTableReferenceValue().translateCorrelations(translationMap),
+                isOwningTempTable);
+    }
+
+    @Override
+    public RecordQueryPlan getChild() {
+        return inner.getRangesOverPlan();
     }
 
     @Nonnull
     @Override
     public TempTableInsertPlan withChild(@Nonnull final Reference childRef) {
         return new TempTableInsertPlan(Quantifier.physical(childRef),
-                getComputationValue(),
-                getTempTableReferenceValue());
+                getTempTableReferenceValue(),
+                isOwningTempTable);
+    }
+
+    @Nonnull
+    @Override
+    public Value getResultValue() {
+        return tempTableReferenceValue;
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(inner);
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
+        return false;
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), getTempTableReferenceValue(),
-                super.hashCodeWithoutChildren());
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), getTempTableReferenceValue());
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getTempTableReferenceValue(), super.planHash(mode));
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getTempTableReferenceValue());
     }
 
     @Nonnull
@@ -152,7 +205,7 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
-                        new PlannerGraph.TemporaryDataNodeWithInfo(getTargetType(), ImmutableList.of(getTempTableReferenceValue().toString())),
+                        new PlannerGraph.TemporaryDataNodeWithInfo(getResultType(), ImmutableList.of(getTempTableReferenceValue().toString())),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(
@@ -167,8 +220,9 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
     @Override
     public PTempTableInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PTempTableInsertPlan.newBuilder()
-                .setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext))
+                .setInner(inner.toProto(serializationContext))
                 .setTempTableReferenceValue(getTempTableReferenceValue().toValueProto(serializationContext))
+                .setIsOwningTempTable(isOwningTempTable)
                 .build();
     }
 
@@ -188,7 +242,6 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
      * Factory method to create a {@link TempTableInsertPlan}.
      *
      * @param inner an input value to transform
-     * @param computationValue a value to be computed based on the {@code inner} and
      * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
      * @param tempTableReferenceValue The table queue identifier to insert into.
      *
@@ -196,14 +249,35 @@ public class TempTableInsertPlan extends RecordQueryAbstractDataModificationPlan
      */
     @Nonnull
     public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
-                                                 @Nonnull final Value computationValue,
                                                  @Nonnull final Value tempTableReferenceValue) {
-        return new TempTableInsertPlan(inner, computationValue, tempTableReferenceValue);
+        return new TempTableInsertPlan(inner, tempTableReferenceValue, true);
     }
 
     @Nonnull
     public Value getTempTableReferenceValue() {
         return tempTableReferenceValue;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return tempTableReferenceValue.getCorrelatedToWithoutChildren();
+    }
+
+    @Override
+    public boolean isReverse() {
+        return getChild().isReverse();
+    }
+
+    @Override
+    public void logPlanStructure(final StoreTimer timer) {
+        // TODO timer.increment(FDBStoreTimer.Counts.PLAN_TYPE_FILTER);
+        getChild().logPlanStructure(timer);
+    }
+
+    @Override
+    public int getComplexity() {
+        return 1 + getChild().getComplexity();
     }
 
     /**

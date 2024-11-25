@@ -46,6 +46,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,7 +54,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -1194,31 +1194,43 @@ public class FDBDatabase {
     @VisibleForTesting
     @SuppressWarnings({"PMD.CloseResource", "PMD.GuardLogStatement"})
     public int warnAndCloseOldTrackedOpenContexts(long minAgeSeconds) {
-        long nanoTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
-        if (trackedOpenContexts.isEmpty()) {
+        long cutoffTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
+        @Nullable Map.Entry<Long, FDBRecordContext> firstEntry = trackedOpenContexts.firstEntry();
+        if (firstEntry == null || firstEntry.getKey() > cutoffTime) {
             return 0;
         }
-        try {
-            if (trackedOpenContexts.firstKey() > nanoTime) {
-                return 0;
-            }
-        } catch (NoSuchElementException ex) {
-            return 0;
-        }
+        @Nullable Map<String, String> threadMdc = MDC.getCopyOfContextMap();
+        MDC.clear();
         int count = 0;
-        for (FDBRecordContext context : trackedOpenContexts.headMap(nanoTime, true).values()) {
-            KeyValueLogMessage msg = KeyValueLogMessage.build("context not closed",
-                    LogMessageKeys.AGE_SECONDS, TimeUnit.NANOSECONDS.toSeconds(nanoTime - context.getTrackOpenTimeNanos()),
-                    LogMessageKeys.TRANSACTION_ID, context.getTransactionId());
-            if (LOGGER.isWarnEnabled()) {
-                if (context.getOpenStackTrace() != null) {
-                    LOGGER.warn(msg.toString(), context.getOpenStackTrace());
-                } else {
-                    LOGGER.warn(msg.toString());
+        try {
+            for (FDBRecordContext context : trackedOpenContexts.headMap(cutoffTime, true).values()) {
+                KeyValueLogMessage msg = KeyValueLogMessage.build("context not closed",
+                        LogMessageKeys.AGE_SECONDS, TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - context.getTrackOpenTimeNanos()),
+                        LogMessageKeys.TRANSACTION_ID, context.getTransactionId(),
+                        LogMessageKeys.CLUSTER, clusterFile);
+
+                // We want to log with the MDC context that created the transaction if we can.
+                // This allows us to link any information from the original creator to this
+                // closing event
+                @Nullable Map<String, String> contextMdc = context.getMdcContext();
+                if (contextMdc != null) {
+                    msg.addKeysAndValues(contextMdc);
                 }
+
+                if (LOGGER.isWarnEnabled()) {
+                    if (context.getOpenStackTrace() != null) {
+                        LOGGER.warn(msg.toString(), context.getOpenStackTrace());
+                    } else {
+                        LOGGER.warn(msg.toString());
+                    }
+                }
+                context.closeTransaction(true);
+                count++;
             }
-            context.closeTransaction(true);
-            count++;
+        } finally {
+            if (threadMdc != null) {
+                MDC.setContextMap(threadMdc);
+            }
         }
         return count;
     }

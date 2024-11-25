@@ -32,10 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -106,9 +104,7 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     @Nonnull
     public TempTableInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
-        return TempTableInsertPlan.insertPlan(physicalInner,
-                makeComputationValue(tempTableReferenceValue.getResultType()),
-                tempTableReferenceValue);
+        return TempTableInsertPlan.insertPlan(physicalInner, tempTableReferenceValue);
     }
 
     @Override
@@ -167,11 +163,6 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
                         ImmutableList.of("TempTableInsert"),
                         ImmutableMap.of()),
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
-    }
-
-    @Nonnull
-    private static Value makeComputationValue(@Nonnull final Type targetType) {
-        return ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType);
     }
 
     /**

@@ -24,8 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.planprotos.PComparableObject;
+import com.apple.foundationdb.record.planprotos.PEnumLightValue;
+import com.apple.foundationdb.record.planprotos.PFDBRecordVersion;
+import com.apple.foundationdb.record.planprotos.PUUID;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
@@ -62,22 +65,22 @@ public class PlanSerialization {
      * round-trip as the instance of the actual enum is not deserializable as such. Instead, we resort to deserializing
      * an enum as a {@link com.apple.foundationdb.record.util.ProtoUtils.DynamicEnum}.
      * @param object object that also happens to be a plan fragment
-     * @return a {@link RecordMetaDataProto.PComparableObject} that can be serialized.
+     * @return a {@link PComparableObject} that can be serialized.
      */
     @Nonnull
-    public static RecordMetaDataProto.PComparableObject valueObjectToProto(@Nullable final Object object) {
-        final RecordMetaDataProto.PComparableObject.Builder builder = RecordMetaDataProto.PComparableObject.newBuilder();
+    public static PComparableObject valueObjectToProto(@Nullable final Object object) {
+        final PComparableObject.Builder builder = PComparableObject.newBuilder();
         if (object instanceof Internal.EnumLite) {
-            builder.setEnumObject(RecordMetaDataProto.PEnumLightValue.newBuilder()
+            builder.setEnumObject(PEnumLightValue.newBuilder()
                             .setName(object.toString()).setNumber(((Internal.EnumLite)object).getNumber()));
         } else if (object instanceof UUID) {
             final UUID uuid = (UUID)object;
-            builder.setUuid(RecordMetaDataProto.PUUID.newBuilder()
+            builder.setUuid(PUUID.newBuilder()
                     .setMostSigBits(uuid.getMostSignificantBits())
                     .setLeastSigBits(uuid.getLeastSignificantBits()))
                     .build();
         } else if (object instanceof FDBRecordVersion) {
-            builder.setFdbRecordVersion(RecordMetaDataProto.PFDBRecordVersion.newBuilder()
+            builder.setFdbRecordVersion(PFDBRecordVersion.newBuilder()
                     .setRawBytes(ByteString.copyFrom(((FDBRecordVersion)object).toBytes(false))).build());
         } else if (object instanceof ByteString) {
             builder.setBytesAsByteString((ByteString)object);
@@ -94,20 +97,20 @@ public class PlanSerialization {
      * should be able to deal with all kinds of objects that can appear in these cases. Note that enums do not
      * round-trip as the instance of the actual enum is not deserializable as such. Instead, we resort to deserializing
      * an enum as a {@link com.apple.foundationdb.record.util.ProtoUtils.DynamicEnum}.
-     * @param proto a {@link RecordMetaDataProto.PComparableObject} that can be deserialized
+     * @param proto a {@link PComparableObject} that can be deserialized
      * @return a value object
      */
     @Nullable
-    public static Object protoToValueObject(@Nonnull final RecordMetaDataProto.PComparableObject proto) {
+    public static Object protoToValueObject(@Nonnull final PComparableObject proto) {
         if (proto.hasEnumObject()) {
-            final RecordMetaDataProto.PEnumLightValue enumProto = Objects.requireNonNull(proto.getEnumObject());
+            final PEnumLightValue enumProto = Objects.requireNonNull(proto.getEnumObject());
             Verify.verify(enumProto.hasNumber());
             return new ProtoUtils.DynamicEnum(enumProto.getNumber(), Objects.requireNonNull(enumProto.getName()));
         } else if (proto.hasUuid()) {
-            final RecordMetaDataProto.PUUID uuidProto = Objects.requireNonNull(proto.getUuid());
+            final PUUID uuidProto = Objects.requireNonNull(proto.getUuid());
             return new UUID(uuidProto.getMostSigBits(), uuidProto.getLeastSigBits());
         } else if (proto.hasFdbRecordVersion()) {
-            final RecordMetaDataProto.PFDBRecordVersion fdbRecordVersion = Objects.requireNonNull(proto.getFdbRecordVersion());
+            final PFDBRecordVersion fdbRecordVersion = Objects.requireNonNull(proto.getFdbRecordVersion());
             return FDBRecordVersion.fromBytes(fdbRecordVersion
                     .getRawBytes().toByteArray(), false);
         } else if (proto.hasBytesAsByteString()) {

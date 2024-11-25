@@ -22,10 +22,11 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.planprotos.PQueryResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -50,7 +51,7 @@ import java.util.Optional;
  * responsibility of the planner to ensure that these casts cannot fail during the execution time of a query.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueryResult {
+public class QueryResult implements ProtoSerializable {
     @Nullable
     private final Object datum;
 
@@ -71,11 +72,7 @@ public class QueryResult {
 
     // transient field that amortizes the calculation of the serialized form of this immutable object.
     @Nullable
-    private ByteString cachedByteString;
-
-    // transient field that amortizes the calculation of the serialized form of this immutable object.
-    @Nullable
-    private byte[] cachedBytes;
+    private PQueryResult cachedProto;
 
     private QueryResult(@Nullable final Object datum,
                         @Nullable final FDBQueriedRecord<?> queriedRecord,
@@ -186,42 +183,9 @@ public class QueryResult {
         return new QueryResult(computed, queriedRecord, primaryKey);
     }
 
-    @SuppressWarnings("unchecked")
     @Nonnull
-    public <M extends Message> ByteString toByteString() {
-        if (cachedByteString == null) {
-            final var builder = RecordMetaDataProto.PQueryResult.newBuilder();
-            if (datum instanceof FDBQueriedRecord) {
-                builder.setComplex(((FDBQueriedRecord<M>)datum).getRecord().toByteString());
-            } else if (datum instanceof Message) {
-                builder.setComplex(((Message)datum).toByteString());
-            } else {
-                builder.setPrimitive(PlanSerialization.valueObjectToProto(datum));
-            }
-            cachedByteString = builder.build().toByteString();
-        }
-        return cachedByteString;
-    }
-
-    @Nonnull
-    public byte[] toBytes() {
-        if (cachedBytes == null) {
-            cachedBytes = toByteString().toByteArray();
-        }
-        return cachedBytes;
-    }
-
-
-
-    @Nonnull
-    public static QueryResult deserialize(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final byte[] bytes) {
-        return deserialize(descriptor, ZeroCopyByteString.wrap(bytes));
-    }
-
-    @Nonnull
-    public static QueryResult deserialize(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final ByteString byteString) {
+    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final PQueryResult parsed) {
         try {
-            final var parsed = RecordMetaDataProto.PQueryResult.parseFrom(byteString);
             if (parsed.hasPrimitive()) {
                 return QueryResult.ofComputed(PlanSerialization.protoToValueObject(parsed.getPrimitive()));
             } else {
@@ -229,8 +193,24 @@ public class QueryResult {
             }
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(parsed.toByteArray()));
+        }
+    }
+
+
+    @Nonnull
+    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final ByteString byteString) {
+        try {
+            return from(descriptor, PQueryResult.parseFrom(byteString));
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("invalid bytes", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
         }
+    }
+
+    @Nonnull
+    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final byte[] unparsed) {
+        return from(descriptor, ZeroCopyByteString.wrap(unparsed));
     }
 
     /**
@@ -267,5 +247,22 @@ public class QueryResult {
         return new QueryResult(queriedRecord.getRecord(),
                 queriedRecord,
                 queriedRecord.getPrimaryKey());
+    }
+
+    @Nonnull
+    @Override
+    public PQueryResult toProto() {
+        if (cachedProto == null) {
+            final var builder = PQueryResult.newBuilder();
+            if (datum instanceof FDBQueriedRecord) {
+                builder.setComplex(((FDBQueriedRecord<?>)datum).getRecord().toByteString());
+            } else if (datum instanceof Message) {
+                builder.setComplex(((Message)datum).toByteString());
+            } else {
+                builder.setPrimitive(PlanSerialization.valueObjectToProto(datum));
+            }
+            cachedProto = builder.build();
+        }
+        return cachedProto;
     }
 }
