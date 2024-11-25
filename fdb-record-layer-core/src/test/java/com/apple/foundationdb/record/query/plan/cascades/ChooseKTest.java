@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
@@ -41,12 +42,12 @@ public class ChooseKTest {
 
         final EnumeratingIterable<String> combinationsIterable = ChooseK.chooseK(elements, 3);
 
-        final ImmutableSet<ImmutableSet<String>> combinations =
+        final ImmutableList<ImmutableSet<String>> combinations =
                 StreamSupport.stream(combinationsIterable.spliterator(), false)
                         .map(ImmutableSet::copyOf)
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
-        assertEquals(ImmutableSet.of(
+        assertEquals(ImmutableList.of(
                 ImmutableSet.of("a", "b", "c"),
                 ImmutableSet.of("a", "b", "d"),
                 ImmutableSet.of("a", "c", "d"),
@@ -60,12 +61,12 @@ public class ChooseKTest {
 
         // 0
         EnumeratingIterable<String> combinationsIterable = ChooseK.chooseK(elements, 0);
-        ImmutableSet<ImmutableSet<String>> combinations =
+        ImmutableList<ImmutableSet<String>> combinations =
                 StreamSupport.stream(combinationsIterable.spliterator(), false)
                         .map(ImmutableSet::copyOf)
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
-        assertEquals(ImmutableSet.of(ImmutableSet.of()),
+        assertEquals(ImmutableList.of(ImmutableSet.of()),
                 combinations);
 
         // 1
@@ -73,9 +74,9 @@ public class ChooseKTest {
         combinations =
                 StreamSupport.stream(combinationsIterable.spliterator(), false)
                         .map(ImmutableSet::copyOf)
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
-        assertEquals(ImmutableSet.of(
+        assertEquals(ImmutableList.of(
                 ImmutableSet.of("a"),
                 ImmutableSet.of("b"),
                 ImmutableSet.of("c"),
@@ -88,9 +89,9 @@ public class ChooseKTest {
         combinations =
                 StreamSupport.stream(combinationsIterable.spliterator(), false)
                         .map(ImmutableSet::copyOf)
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
-        assertEquals(ImmutableSet.<Set<String>>builder()
+        assertEquals(ImmutableList.<Set<String>>builder()
                         .add(ImmutableSet.of("a", "b"))
                         .add(ImmutableSet.of("a", "c"))
                         .add(ImmutableSet.of("a", "d"))
@@ -109,9 +110,9 @@ public class ChooseKTest {
         combinations =
                 StreamSupport.stream(combinationsIterable.spliterator(), false)
                         .map(ImmutableSet::copyOf)
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
-        assertEquals(ImmutableSet.<Set<String>>builder()
+        assertEquals(ImmutableList.<Set<String>>builder()
                         .add(ImmutableSet.of("a", "b", "c"))
                         .add(ImmutableSet.of("a", "b", "d"))
                         .add(ImmutableSet.of("a", "b", "e"))
@@ -130,9 +131,9 @@ public class ChooseKTest {
         combinations =
                 StreamSupport.stream(combinationsIterable.spliterator(), false)
                         .map(ImmutableSet::copyOf)
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
-        assertEquals(ImmutableSet.<Set<String>>builder()
+        assertEquals(ImmutableList.<Set<String>>builder()
                         .add(ImmutableSet.of("a", "b", "c", "d"))
                         .add(ImmutableSet.of("a", "b", "c", "e"))
                         .add(ImmutableSet.of("a", "b", "d", "e"))
@@ -146,9 +147,9 @@ public class ChooseKTest {
         combinations =
                 StreamSupport.stream(combinationsIterable.spliterator(), false)
                         .map(ImmutableSet::copyOf)
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
-        assertEquals(ImmutableSet.<Set<String>>builder()
+        assertEquals(ImmutableList.<Set<String>>builder()
                         .add(ImmutableSet.of("a", "b", "c", "d", "e"))
                         .build(),
                 combinations);
@@ -161,14 +162,14 @@ public class ChooseKTest {
         final EnumeratingIterable<String> combinationsIterable = ChooseK.chooseK(elements, 4);
         final EnumeratingIterator<String> iterator = combinationsIterable.iterator();
 
-        final var actualSetBuilder = ImmutableSet.builder();
+        final var actualSetBuilder = ImmutableList.builder();
 
         actualSetBuilder.add(ImmutableSet.copyOf(iterator.next())); // a,b,c,d
         iterator.skip(1);                                     // skip subtree a,[b,...] combinations.
         actualSetBuilder.add(ImmutableSet.copyOf(iterator.next())); // a,c,d,e
         actualSetBuilder.add(ImmutableSet.copyOf(iterator.next())); // b,c,d,e
 
-        assertEquals(ImmutableSet.<Set<String>>builder()
+        assertEquals(ImmutableList.<Set<String>>builder()
                         .add(ImmutableSet.of("a", "b", "c", "d"))
                         // .add(ImmutableSet.of("a", "b", "c", "e")) // skipped
                         // .add(ImmutableSet.of("a", "b", "d", "e")) // skipped
