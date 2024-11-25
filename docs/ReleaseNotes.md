@@ -25,19 +25,24 @@ The Apache Commons library has been removed as a dependency. There were a few lo
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Logs for unclosed contexts contain improved information [(Issue #2982)](https://github.com/FoundationDB/fdb-record-layer/issues/2982)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Apache commons has been removed as a depencency, which required updating several APIs that exposed Apache commons data types [(Issue #2484)](https://github.com/FoundationDB/fdb-record-layer/issues/2484)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.5.555.0
+
+* **Feature** Logs for unclosed contexts contain improved information [(Issue #2982)](https://github.com/FoundationDB/fdb-record-layer/issues/2982)
+* **Breaking change** Apache commons has been removed as a depencency, which required updating several APIs that exposed Apache commons data types [(Issue #2484)](https://github.com/FoundationDB/fdb-record-layer/issues/2484)
 
 ## 3.4
 
