@@ -34,6 +34,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Testcase class for {@link ChooseK}.
+ *
+ * <p>
+ * Note: the order of elements returned by {@link ChooseK} can be important for plan stability and for skips.
+ * For that reason, these tests assert on the order that the combinations are returned.
+ * </p>
  */
 public class ChooseKTest {
     @Test
