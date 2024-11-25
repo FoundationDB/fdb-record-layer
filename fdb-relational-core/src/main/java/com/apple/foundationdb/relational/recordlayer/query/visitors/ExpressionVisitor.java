@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
@@ -46,13 +47,11 @@ import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -620,12 +619,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Pair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
+    public NonnullPair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
         final var uid = visitUid(ctx.uid());
         if (ctx.uidListWithNestingsInParens() == null) {
-            return Pair.of(uid.getName(), StringTrieNode.leafNode());
+            return NonnullPair.of(uid.getName(), StringTrieNode.leafNode());
         } else {
-            return Pair.of(uid.getName(), visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens()));
+            return NonnullPair.of(uid.getName(), visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens()));
         }
     }
 

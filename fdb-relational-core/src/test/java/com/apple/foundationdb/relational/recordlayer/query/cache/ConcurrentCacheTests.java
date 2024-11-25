@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -100,18 +100,18 @@ public class ConcurrentCacheTests {
     }
 
     private static void getOrLoadT1lt300(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
-        final var result = cache.reduce("T1", "1", ppeFor(ecFor(300)), () -> Pair.of(ppeFor(lt500Constraint),
+        final var result = cache.reduce("T1", "1", ppeFor(ecFor(300)), () -> NonnullPair.of(ppeFor(lt500Constraint),
                 generateIScan(500)), s -> s + " overriden with 300", ConcurrentCacheTests::pickFirst, e -> { });
         Assertions.assertThat(result).doesNotContain("150"); // we must not scan index <150 as the returned results would be incorrect
     }
 
     private static void getOrLoadT1lt90(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
-        cache.reduce("T1", "1", ppeFor(ecFor(90)), () -> Pair.of(ppeFor(lt150Constraint),
+        cache.reduce("T1", "1", ppeFor(ecFor(90)), () -> NonnullPair.of(ppeFor(lt150Constraint),
                 generateIScan(150)), s -> s + " overriden with 90", ConcurrentCacheTests::pickFirst, e -> { });
     }
 
     private static void getOrLoadT1lt1000(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
-        final var result = cache.reduce("T1", "1", ppeFor(ecFor(1000)), () -> Pair.of(ppeFor(lt1000Constraint),
+        final var result = cache.reduce("T1", "1", ppeFor(ecFor(1000)), () -> NonnullPair.of(ppeFor(lt1000Constraint),
                 generateFullScan()), s -> s + " overriden with 1000", ConcurrentCacheTests::pickFirst, e -> { });
         Assertions.assertThat(result).doesNotContain("150", "500"); // we must not scan index <150 or <500 as the returned results would be incorrect
     }

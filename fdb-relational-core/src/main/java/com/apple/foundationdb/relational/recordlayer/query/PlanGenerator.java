@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
@@ -58,7 +59,6 @@ import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -180,7 +180,7 @@ public final class PlanGenerator {
                                     throw vE.toUncheckedWrappedException();
                                 }
                                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
-                                return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
+                                return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
                             plans -> plans.reduce(null, (acc, candidate) -> {

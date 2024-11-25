@@ -65,20 +65,19 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
-import org.apache.commons.lang3.mutable.MutableInt;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -92,6 +91,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -375,8 +375,8 @@ public final class IndexGenerator {
 
     @SuppressWarnings({"OptionalIsPresent", "deprecation"})
     @Nonnull
-    private Pair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull AggregateValue aggregateValue,
-                                                                            @Nonnull Optional<KeyExpression> maybeGroupingExpression) {
+    private NonnullPair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull AggregateValue aggregateValue,
+                                                                                   @Nonnull Optional<KeyExpression> maybeGroupingExpression) {
         Assert.thatUnchecked(aggregateValue instanceof IndexableAggregateValue);
         final var indexableAggregateValue = (IndexableAggregateValue) aggregateValue;
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
@@ -443,7 +443,7 @@ public final class IndexGenerator {
                 indexTypeName = IndexTypes.MIN_EVER_TUPLE;
             }
         }
-        return Pair.of(keyExpression, indexTypeName);
+        return NonnullPair.of(keyExpression, indexTypeName);
     }
 
     /*
@@ -672,19 +672,19 @@ public final class IndexGenerator {
     }
 
     private void collectQuantifiers(@Nonnull RelationalExpression relationalExpression) {
-        MutableInt counter = new MutableInt(0);
+        AtomicInteger counter = new AtomicInteger(0);
         collectQuantifiersInternal(relationalExpression, counter);
     }
 
-    private void collectQuantifiersInternal(@Nonnull RelationalExpression relationalExpression, @Nonnull MutableInt explodeCounter) {
+    private void collectQuantifiersInternal(@Nonnull RelationalExpression relationalExpression, @Nonnull AtomicInteger explodeCounter) {
         for (final var qun : relationalExpression.getQuantifiers()) {
             if (qun.getRangesOver().get() instanceof ExplodeExpression) {
-                explodeCounter.increment();
+                explodeCounter.incrementAndGet();
                 final var collectionValue = ((ExplodeExpression) qun.getRangesOver().get()).getCollectionValue();
                 if (collectionValue instanceof FieldValue) {
                     final var field = (FieldValue) collectionValue;
                     final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
-                    fieldAccessors.set(fieldAccessors.size() - 1, AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), explodeCounter.getValue()));
+                    fieldAccessors.set(fieldAccessors.size() - 1, AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), explodeCounter.get()));
                     correlatedKeyExpressions.put(qun.getAlias(), FieldValue.ofFields(((FieldValue) collectionValue).getChild(), new FieldValue.FieldPath(fieldAccessors)));
                 } else {
                     correlatedKeyExpressions.put(qun.getAlias(), collectionValue);

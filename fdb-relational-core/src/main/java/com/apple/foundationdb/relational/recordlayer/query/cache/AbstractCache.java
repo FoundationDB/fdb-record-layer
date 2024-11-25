@@ -20,10 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -138,7 +137,7 @@ public abstract class AbstractCache<K, S, T, V> {
     public abstract V reduce(@Nonnull final K key,
                              @Nonnull final S secondaryKey,
                              @Nonnull final T tertiaryKey,
-                             @Nonnull final Supplier<Pair<T, V>> tertiaryKeyValueSupplier,
+                             @Nonnull final Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
                              @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
                              @Nonnull final Function<Stream<V>, V> reductionFunction,
                              Consumer<RelationalMetric.RelationalCount> registerCacheEvent);

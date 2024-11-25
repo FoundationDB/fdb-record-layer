@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+
 import com.google.common.testing.FakeTicker;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
@@ -362,7 +364,7 @@ public class MultiStageCacheTests {
     private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache, @Nonnull String key,
                                     @Nonnull String secondaryKey, @Nonnull String tertiaryKey) {
         return cache.reduce(key, secondaryKey, tertiaryKey,
-                () -> Pair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
+                () -> NonnullPair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
                 MultiStageCacheTests::fetchFromCache,
                 MultiStageCacheTests::pickFirst, e -> { });
     }
