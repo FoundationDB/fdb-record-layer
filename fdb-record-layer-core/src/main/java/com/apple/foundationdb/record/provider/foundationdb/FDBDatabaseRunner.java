@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
+import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -350,7 +350,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      */
     @Nonnull
     default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
-        return runAsync(retriable, Pair::of);
+        return runAsync(retriable, Result::of);
     }
 
     /**
@@ -367,7 +367,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     @Nonnull
     default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                               @Nullable List<Object> additionalLogMessageKeyValues) {
-        return runAsync(retriable, Pair::of, additionalLogMessageKeyValues);
+        return runAsync(retriable, Result::of, additionalLogMessageKeyValues);
     }
 
     /**
@@ -384,7 +384,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      */
     @Nonnull
     default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                              @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
+                                              @Nonnull BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
         return runAsync(retriable, handlePostTransaction, null);
     }
 
@@ -404,7 +404,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                      @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
+                                      @Nonnull BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
                                       @Nullable List<Object> additionalLogMessageKeyValues);
 
     @Nullable
