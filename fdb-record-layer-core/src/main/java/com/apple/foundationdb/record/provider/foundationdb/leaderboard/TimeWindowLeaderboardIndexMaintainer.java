@@ -529,16 +529,18 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
      * Struct containing both the time window leaderboard entry and the rank.
      */
     public static class TimeWindowRankAndEntry {
-        private final long rank;
+        @Nullable
+        private final Long rank;
         @Nonnull
         private final Tuple entry;
 
-        private TimeWindowRankAndEntry(long rank, @Nonnull Tuple entry) {
+        private TimeWindowRankAndEntry(@Nullable Long rank, @Nonnull Tuple entry) {
             this.rank = rank;
             this.entry = entry;
         }
 
-        public long getRank() {
+        @Nullable
+        public Long getRank() {
             return rank;
         }
 
@@ -556,7 +558,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 return false;
             }
             final TimeWindowRankAndEntry that = (TimeWindowRankAndEntry)o;
-            return rank == that.rank && Objects.equals(entry, that.entry);
+            return Objects.equals(rank, that.rank) && Objects.equals(entry, that.entry);
         }
 
         @Override
@@ -566,7 +568,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
         @Override
         public String toString() {
-            return "TimeWindowRankAndEnrty{" +
+            return "TimeWindowRankAndEntry{" +
                     "rank=" + rank +
                     ", entry=" + entry +
                     '}';
