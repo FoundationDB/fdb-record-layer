@@ -162,27 +162,69 @@ public class RecursiveUnionTest extends TempTableTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void recursiveUnionWorksCorrectlyCase10() throws Exception {
+    void recursiveUnionWorksCorrectlyCase10() {
         var result = ancestorsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(250L, 50L), ImmutableList.of(1, 2, 1));
         assertEquals(ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L), ImmutableList.of(1L)), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void recursiveUnionWorksCorrectlyCase11() throws Exception {
+    void recursiveUnionWorksCorrectlyCase11() {
         var result = ancestorsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(250L, 50L), ImmutableList.of(1, 1, 2));
         assertEquals(ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L), ImmutableList.of(10L, 1L)), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void recursiveUnionWorksCorrectlyCase12() throws Exception {
+    void recursiveUnionWorksCorrectlyCase12() {
         var result = ancestorsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(250L, 50L), ImmutableList.of(1, -1));
         assertEquals(ImmutableList.of(ImmutableList.of(250L), ImmutableList.of(50L, 10L, 1L)), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void recursiveUnionWorksCorrectlyCase13() throws Exception {
-        var result = descendantsOf(sampleHierarchy(), ImmutableMap.of(10L, 1L));
-        assertEquals(ImmutableList.of(10L, 40L, 50L, 70L, 250L), result);
+    void recursiveUnionWorksCorrectlyCase13() {
+        var result = descendantsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, -1));
+        assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)), result);
+    }
+
+    /**
+     * Sample hierarchy, visually looking like the following.
+     * <pre>
+     * {@code
+     *                              1
+     *                            /   \
+     *                         /        \
+     *                       /            \
+     *                     10             20
+     *                    / | \          /   \
+     *                  /   |  \        /   /  \
+     *                 /    |   \      /   /    \
+     *                70   40   50   100  150   210
+     *                          |
+     *                          |
+     *                         250
+     * }
+     * </pre>
+     * @return a sample hierarchy represented by a list of {@code child -> parent} edges.
+     */
+    @Nonnull
+    private static Map<Long, Long> sampleHierarchy2() {
+        return ImmutableMap.of(
+                1L, -1L,
+                10L, 1L,
+                20L, 1L,
+                40L, 10L,
+                50L, 10L,
+                70L, 10L,
+                100L, 20L,
+                150L, 20L,
+                210L, 20L,
+                250L, 50L
+        );
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void recursiveUnionWorksCorrectlyCase14() {
+        var result = descendantsOfAcrossContinuations(sampleHierarchy2(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, 2, 4, -1));
+        assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L), ImmutableList.of(40L, 50L, 70L, 100L), ImmutableList.of(150L, 210L, 250L)), result);
     }
 
     /**
@@ -318,8 +360,8 @@ public class RecursiveUnionTest extends TempTableTestBase {
                                                             @Nonnull final Map<Long, Long> initial,
                                                             @Nonnull final List<Integer> successiveRowLimits) {
         final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
-            final var idField = getIdField(hierarchyScanQun);
-            final var parentField = getParentField(ttSelectQun);
+            final var idField = getIdField(ttSelectQun);
+            final var parentField = getParentField(hierarchyScanQun);
             return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
         };
         return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits);

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -200,10 +201,15 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
             wasReadingFromFirstTempTableConsumer.accept(proto.getIsReadingInitialCursor());
             final var initialCursor = initialCursorCreator.apply(proto.getInitialCursorContinuation());
             final var recursiveCursor = recursiveCursorCreator.apply(proto.getRecursiveCursorContinuation());
+            System.out.println("finished deserializing continuation");
+            System.out.println("isReadingFromInitial ? " + proto.getIsReadingInitialCursor());
+            System.out.println("isInitialState ? " + proto.getIsInitialState());
             return new RecursiveUnionCursor<>(initialCursor, () -> recursiveCursorCreator.apply(null), recursiveCursor, executor, isReadingFromInitialCursorSupplier,
                     recursiveStepCompletionCallback, proto.getIsReadingInitialCursor());
         }
     }
+
+
 
     private static class Continuation implements RecordCursorContinuation {
 

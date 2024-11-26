@@ -92,6 +92,13 @@ public class TempTable implements ProtoSerializable {
         cachedProto = null;
     }
 
+    public static void printTempTableContent(@Nonnull final TempTable tempTable) {
+        System.out.println("content of temp table " + tempTable);
+        for (final var item : tempTable.getList()) {
+            System.out.println(" * " + item.getMessage().toString().replace("\n", " "));
+        }
+    }
+
     public boolean isEmpty() {
         return underlyingBuffer.isEmpty();
     }
@@ -122,15 +129,6 @@ public class TempTable implements ProtoSerializable {
             cachedProto = protoBuilder.build();
         }
         return cachedProto;
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        for (final var item : underlyingBuffer) {
-            sb.append(item).append('\n');
-        }
-        return sb.toString();
     }
 
     /**
