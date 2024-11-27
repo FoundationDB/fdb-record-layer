@@ -223,6 +223,10 @@ public class Reference implements Correlated<Reference>, Typed {
     public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
+
+        Debugger.sanityCheck(() -> Verify.verify(members.isEmpty() ||
+                getResultType().equals(newValue.getResultType())));
+
         members.add(newValue);
         if (newValue instanceof RecordQueryPlan) {
             final var newRecordQueryPlan = (RecordQueryPlan)newValue;

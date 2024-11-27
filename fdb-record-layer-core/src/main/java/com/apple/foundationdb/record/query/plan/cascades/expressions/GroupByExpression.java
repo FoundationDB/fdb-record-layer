@@ -257,19 +257,19 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        final var translationMapOptional =
-                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
-        if (translationMapOptional.isEmpty()) {
-            return ImmutableList.of();
-        }
-        final var translationMap = translationMapOptional.get();
-
         // the candidate must be a GROUP-BY expression.
         if (candidateExpression.getClass() != this.getClass()) {
             return ImmutableList.of();
         }
 
         final var candidateGroupByExpression = (GroupByExpression)candidateExpression;
+
+        final var translationMapOptional =
+                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
+        if (translationMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
+        final var translationMap = translationMapOptional.get();
 
         // check that the aggregate value is the same, and that the grouping value is the same.
         final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
@@ -336,7 +336,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                             return valueEquivalence.semanticEquals(groupingValues, otherGroupingValues);
                         });
 
-        if (subsumedAggregations.isFalse()) {
+        if (subsumedGroupings.isFalse()) {
             return ImmutableList.of();
         }
 

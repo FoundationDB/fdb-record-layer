@@ -312,6 +312,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
+        Verify.verify(this != candidateExpression);
+
+        if (getClass() != candidateExpression.getClass()) {
+            return ImmutableList.of();
+        }
+        final var candidateSelectExpression = (SelectExpression)candidateExpression;
+
         final var translationMapOptional =
                 RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
         if (translationMapOptional.isEmpty()) {
@@ -320,13 +327,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var translationMap = translationMapOptional.get();
 
         final Collection<MatchInfo> matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
-
-        Verify.verify(this != candidateExpression);
-
-        if (getClass() != candidateExpression.getClass()) {
-            return ImmutableList.of();
-        }
-        final var candidateSelectExpression = (SelectExpression)candidateExpression;
 
         // merge parameter maps -- early out if a binding clashes
         final var parameterBindingMaps =
