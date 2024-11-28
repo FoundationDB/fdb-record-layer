@@ -282,6 +282,11 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
+    static Column<Value> getIdColAs(@Nonnull final Quantifier.ForEach quantifier, @Nonnull final String name) {
+        return Column.of(Optional.of(name), FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "id"));
+    }
+
+    @Nonnull
     static Column<Value> getValueCol(@Nonnull final Quantifier.ForEach quantifier) {
         return Column.of(Optional.of("value"), FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "value"));
     }
@@ -293,7 +298,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Type getType() {
-        return Type.Record.fromDescriptor(getDescriptor());
+        return Type.Record.fromDescriptor(getDescriptor()).notNullable();
     }
 
     @Nonnull

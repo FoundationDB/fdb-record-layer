@@ -133,7 +133,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                             });
                 },
                 continuation,
-                5).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+                1).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override

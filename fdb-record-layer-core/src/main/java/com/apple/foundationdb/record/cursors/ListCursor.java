@@ -72,10 +72,8 @@ public class ListCursor<T> implements RecordCursor<T> {
         RecordCursorResult<T> nextResult;
         if (nextPosition < list.size()) {
             nextResult = RecordCursorResult.withNextValue(list.get(nextPosition), new Continuation(nextPosition + 1, list.size()));
-            System.out.println("list cursor --> returning item " + nextPosition);
             nextPosition++;
         } else {
-            System.out.println("list cursor --> exhausted");
             nextResult = RecordCursorResult.exhausted();
         }
         return nextResult;

@@ -78,8 +78,6 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var tempTable = Objects.requireNonNull((TempTable)this.tempTableReferenceValue.eval(store, context));
-        System.out.println("scanning through a list cursor over a temp table");
-        TempTable.printTempTableContent(tempTable);
         return new ListCursor<>(tempTable.getList(), continuation);
     }
 

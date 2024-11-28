@@ -57,6 +57,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Triple;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,6 +67,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test suite for {@link com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan} planning and execution.
@@ -185,46 +187,10 @@ public class RecursiveUnionTest extends TempTableTestBase {
         assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)), result);
     }
 
-    /**
-     * Sample hierarchy, visually looking like the following.
-     * <pre>
-     * {@code
-     *                              1
-     *                            /   \
-     *                         /        \
-     *                       /            \
-     *                     10             20
-     *                    / | \          /   \
-     *                  /   |  \        /   /  \
-     *                 /    |   \      /   /    \
-     *                70   40   50   100  150   210
-     *                          |
-     *                          |
-     *                         250
-     * }
-     * </pre>
-     * @return a sample hierarchy represented by a list of {@code child -> parent} edges.
-     */
-    @Nonnull
-    private static Map<Long, Long> sampleHierarchy2() {
-        return ImmutableMap.of(
-                1L, -1L,
-                10L, 1L,
-                20L, 1L,
-                40L, 10L,
-                50L, 10L,
-                70L, 10L,
-                100L, 20L,
-                150L, 20L,
-                210L, 20L,
-                250L, 50L
-        );
-    }
-
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void recursiveUnionWorksCorrectlyCase14() {
-        var result = descendantsOfAcrossContinuations(sampleHierarchy2(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, 2, 4, -1));
-        assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L), ImmutableList.of(40L, 50L, 70L, 100L), ImmutableList.of(150L, 210L, 250L)), result);
+        var result = descendantsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, 2, 4, -1));
+        assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L), ImmutableList.of(40L, 50L, 70L, 100L), ImmutableList.of(210L, 250L)), result);
     }
 
     /**
@@ -381,6 +347,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
             for (final var rowLimit : successiveRowLimits.stream().skip(1).collect(ImmutableList.toImmutableList())) {
                 final var seedingTempTable = tempTableInstance();
+                System.out.println("seeding (bla) temp table" + seedingTempTable);
                 initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
                 var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
                 final var pair = executeHierarchyPlan(plan, continuation, evaluationContext, rowLimit);
@@ -413,12 +380,14 @@ public class RecursiveUnionTest extends TempTableTestBase {
             recordStore.saveRecord(message);
         }
         final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
-        final var initTempTableAlias = CorrelationIdentifier.of("Init");
-        final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
+        final var insertTempTableAlias = CorrelationIdentifier.of("Insert");
+        final var scanTempTableAlias = CorrelationIdentifier.of("Scan");
 
-        final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, initTempTableAlias, recuTempTableAlias, queryPredicate);
+        final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, queryPredicate);
 
         final var seedingTempTable = tempTableInstance();
+        System.out.println("seeding (bla) temp table" + seedingTempTable);
+
         initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
         var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
         final var resultAndContinuation = executeHierarchyPlan(plan, continuation, evaluationContext, numberOfItemsToReturn);
@@ -461,25 +430,25 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
     @Nonnull
     private RecordQueryPlan createAndOptimizeHierarchyQuery(@Nonnull final CorrelationIdentifier seedingTempTableAlias,
-                                                            @Nonnull final CorrelationIdentifier initTempTableAlias,
-                                                            @Nonnull final CorrelationIdentifier recuTempTableAlias,
+                                                            @Nonnull final CorrelationIdentifier insertTempTableAlias,
+                                                            @Nonnull final CorrelationIdentifier scanTempTableAlias,
                                                             @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate) {
-        final var ttScanBla = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(seedingTempTableAlias, seedingTempTableAlias.getId(), getType())));
+        final var ttScanSeeding = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(seedingTempTableAlias, seedingTempTableAlias.getId(), getType())));
         var selectExpression = GraphExpansion.builder()
-                .addAllResultColumns(ImmutableList.of(getIdCol(ttScanBla), getValueCol(ttScanBla), getParentCol(ttScanBla))).addQuantifier(ttScanBla)
+                .addAllResultColumns(ImmutableList.of(getIdCol(ttScanSeeding), getValueCol(ttScanSeeding), getParentCol(ttScanSeeding))).addQuantifier(ttScanSeeding)
                 .build().buildSelect();
         final var seedingSelectQun = Quantifier.forEach(Reference.of(selectExpression));
 
-        final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
+        final var insertTempTableReferenceValue = ConstantObjectValue.of(insertTempTableAlias, insertTempTableAlias.getId(), new Type.Relation(getType()));
 
         final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(seedingSelectQun,
-                initTempTableAlias, initTempTableAlias.getId(), getType(seedingSelectQun))));
+                insertTempTableAlias, insertTempTableAlias.getId(), getType(seedingSelectQun))));
 
         final var hierarchyScanQun = generateHierarchyScan();
 
-        final var recuTempTableReferenceValue = ConstantObjectValue.of(recuTempTableAlias, recuTempTableAlias.getId(), new Type.Relation(getType()));
+        final var scanTempTableReferenceValue = ConstantObjectValue.of(scanTempTableAlias, scanTempTableAlias.getId(), new Type.Relation(getType()));
 
-        final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(initTempTableAlias, initTempTableAlias.getId(), getType())));
+        final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(scanTempTableAlias, scanTempTableAlias.getId(), getType())));
         selectExpression = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(ttScanRecuQun), getValueCol(ttScanRecuQun), getParentCol(ttScanRecuQun)))
                 .addQuantifier(ttScanRecuQun)
@@ -495,8 +464,8 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
         final var joinQun = Quantifier.forEach(Reference.of(joinExpression));
         final var recuInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(joinQun,
-                recuTempTableAlias, recuTempTableAlias.getId(), getType(joinQun))));
-        final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, initialTempTableReferenceValue, recuTempTableReferenceValue);
+                insertTempTableAlias, insertTempTableAlias.getId(), getType(joinQun))));
+        final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, scanTempTableReferenceValue, insertTempTableReferenceValue);
 
         final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(recursiveUnionPlan))));
         final var cascadesPlanner = (CascadesPlanner)planner;
@@ -516,5 +485,126 @@ public class RecursiveUnionTest extends TempTableTestBase {
                 .addQuantifier(qun);
         qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
         return qun;
+    }
+
+    @Nonnull
+    private Quantifier.ForEach generateHierarchyScanOverTempTable() {
+        var qun = Quantifier.forEach(Reference.of(
+                new FullUnorderedScanExpression(ImmutableSet.of("SimpleHierarchicalRecord"),
+                        new Type.AnyRecord(false),
+                        new AccessHints())));
+
+        qun = Quantifier.forEach(Reference.of(new LogicalTypeFilterExpression(ImmutableSet.of("SimpleHierarchicalRecord"), qun, getType())));
+        final var selectBuilder = GraphExpansion.builder()
+                .addAllResultColumns(ImmutableList.of(getIdCol(qun), getValueCol(qun), getParentCol(qun)))
+                .addQuantifier(qun);
+        qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
+        return qun;
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void joinTest() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.build(TestHierarchiesProto.getDescriptor()));
+            for (final var entry : sampleHierarchy().entrySet()) {
+                final var message = item(entry.getKey(), entry.getValue());
+                recordStore.saveRecord(message);
+            }
+
+
+            final var leg1 = generateHierarchyScanOverTempTable();
+            final var leg2 = generateHierarchyScan();
+
+            final var joinExpression = GraphExpansion.builder()
+                    .addAllResultColumns(ImmutableList.of(getIdColAs(leg1, "leg1Id"), getIdColAs(leg2, "leg2Id"), getParentCol(leg1)))
+                    .addQuantifier(leg1)
+                    .addQuantifier(leg2)
+                    .build().buildSelect();
+
+            final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(joinExpression))));
+            final var cascadesPlanner = (CascadesPlanner)planner;
+            final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+
+            final var evaluationContext = setUpPlanContextTypes(plan);
+
+            final var continuationBoundaries = ImmutableList.of(1, 2, 4, -1);
+
+            byte[] continuation = null;
+            final ImmutableList.Builder<List<Pair<Long, Long>>> resultBuilder = ImmutableList.builder();
+            for (final var continuationBoundary : continuationBoundaries) {
+                try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(
+                        recordStore, evaluationContext, continuation,
+                        ExecuteProperties.newBuilder().build()).asIterator()) {
+                    int counter = 0;
+                    final var continuationBoundResults = ImmutableList.<Pair<Long, Long>>builder();
+                    while (cursor.hasNext()) {
+                        Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                        final var descriptor = message.getDescriptorForType();
+                        continuationBoundResults.add(Pair.of((Long)message.getField(descriptor.findFieldByName("leg1Id")),
+                                (Long)message.getField(descriptor.findFieldByName("leg2Id"))));
+                        if (continuationBoundary != -1 && ++counter == continuationBoundary) {
+                            break;
+                        }
+                    }
+                    continuation = cursor.getContinuation();
+                    resultBuilder.add(continuationBoundResults.build());
+                }
+            }
+            final var values = resultBuilder.build();
+            assertNotNull(values);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void joinTest2() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.build(TestHierarchiesProto.getDescriptor()));
+            for (final var entry : sampleHierarchy().entrySet()) {
+                final var message = item(entry.getKey(), entry.getValue());
+                recordStore.saveRecord(message);
+            }
+
+
+            final var leg1 = generateHierarchyScan();
+            final var leg2 = generateHierarchyScan();
+
+            final var joinExpression = GraphExpansion.builder()
+                    .addAllResultColumns(ImmutableList.of(getIdColAs(leg1, "leg1Id"), getIdColAs(leg2, "leg2Id"), getParentCol(leg1)))
+                    .addQuantifier(leg1)
+                    .addQuantifier(leg2)
+                    .build().buildSelect();
+
+            final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(joinExpression))));
+            final var cascadesPlanner = (CascadesPlanner)planner;
+            final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+
+            final var evaluationContext = setUpPlanContextTypes(plan);
+
+            final var continuationBoundaries = ImmutableList.of(1, 2, 4, -1);
+
+            byte[] continuation = null;
+            final ImmutableList.Builder<List<Pair<Long, Long>>> resultBuilder = ImmutableList.builder();
+            for (final var continuationBoundary : continuationBoundaries) {
+                try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(
+                        recordStore, evaluationContext, continuation,
+                        ExecuteProperties.newBuilder().build()).asIterator()) {
+                    int counter = 0;
+                    final var continuationBoundResults = ImmutableList.<Pair<Long, Long>>builder();
+                    while (cursor.hasNext()) {
+                        Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                        final var descriptor = message.getDescriptorForType();
+                        continuationBoundResults.add(Pair.of((Long)message.getField(descriptor.findFieldByName("leg1Id")),
+                                (Long)message.getField(descriptor.findFieldByName("leg2Id"))));
+                        if (continuationBoundary != -1 && ++counter == continuationBoundary) {
+                            break;
+                        }
+                    }
+                    continuation = cursor.getContinuation();
+                    resultBuilder.add(continuationBoundResults.build());
+                }
+            }
+            final var values = resultBuilder.build();
+            assertNotNull(values);
+        }
     }
 }

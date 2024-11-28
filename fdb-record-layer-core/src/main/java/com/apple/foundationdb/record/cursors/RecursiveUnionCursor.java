@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
@@ -37,9 +39,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * A cursor that returns repeatedly executes its children until reaching a fix-point. Specifically, it returns the results
@@ -49,114 +49,84 @@ import java.util.function.Supplier;
  */
 public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
-    @Nonnull
-    private final RecordCursor<T> initialCursor;
+    /**
+     * TODO.
+     * @param <T> TODO.
+     */
+    public interface RecursiveStateManager<T> {
+
+        void onCursorDone();
+
+        boolean shouldContinue();
+
+        RecordCursor<T> getActiveStateCursor();
+
+        TempTable getRecursiveUnionTempTable();
+
+        boolean isInitialState();
+
+        boolean buffersAreFlipped();
+    }
 
     @Nonnull
-    private final Supplier<RecordCursor<T>> recursiveCursorSupplier;
-
-    @Nonnull
-    private RecordCursor<T> recursiveCursor;
-
-    @Nonnull
-    private final Supplier<Boolean> isReadingFromInitialCursorSupplier;
-
-    @Nonnull
-    private final Supplier<Boolean> recursiveStepCompletionCallback;
+    private RecordCursor<T> activeStateCursor;
 
     @Nonnull
     private final Executor executor;
 
-    private boolean isInitialState;
+    @Nonnull
+    private final RecursiveStateManager<T> recursiveStateManager;
 
-    private RecursiveUnionCursor(@Nonnull final RecordCursor<T> initialCursor,
-                                 @Nonnull final Supplier<RecordCursor<T>> recursiveCursorSupplier,
-                                 @Nonnull final RecordCursor<T> recursiveCursor,
-                                 @Nonnull final Executor executor,
-                                 @Nonnull final Supplier<Boolean> isReadingFromInitialCursorSupplier,
-                                 @Nonnull final Supplier<Boolean> recursiveStepCompletionCallback,
-                                 boolean isInitialState) {
-        this.initialCursor = initialCursor;
-        this.recursiveCursorSupplier = recursiveCursorSupplier;
-        this.recursiveCursor = recursiveCursor;
-        this.isReadingFromInitialCursorSupplier = isReadingFromInitialCursorSupplier;
-        this.isInitialState = isInitialState;
-        this.recursiveStepCompletionCallback = recursiveStepCompletionCallback;
+    public RecursiveUnionCursor(@Nonnull final RecursiveStateManager<T> recursiveStateManager,
+                                @Nonnull final Executor executor) {
+        this.recursiveStateManager = recursiveStateManager;
         this.executor = executor;
+        activeStateCursor = recursiveStateManager.getActiveStateCursor();
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        if (isInitialState) {
-            return initialCursor.onNext().thenCompose(recordCursorResult -> {
-                if (!recordCursorResult.hasNext()) {
-                    isInitialState = false;
-                    if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
-                        recursiveCursor = recursiveCursorSupplier.get();
-                        return onNextRecursive();
+        return activeStateCursor.onNext().thenCompose(cursorResult -> {
+            if (!cursorResult.hasNext()) {
+                recursiveStateManager.onCursorDone();
+                if (cursorResult.getNoNextReason().isSourceExhausted()) {
+                    if (recursiveStateManager.shouldContinue()) {
+                        activeStateCursor = recursiveStateManager.getActiveStateCursor();
+                        return onNext();
                     } else {
-                        return wrapLastResult(recordCursorResult);
+                        return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
                     }
                 } else {
-                    return wrapNextResult(recordCursorResult);
-                }
-            });
-        } else {
-            return onNextRecursive();
-        }
-    }
-
-    @Nonnull
-    private CompletableFuture<RecordCursorResult<T>> onNextRecursive() {
-        return recursiveCursor.onNext().thenCompose(recordCursorResult -> {
-            if (!recordCursorResult.hasNext()) {
-                if (recordCursorResult.getNoNextReason().isSourceExhausted()) {
-                    return recurse();
-                } else {
-                    return wrapLastResult(recordCursorResult);
+                    return wrapLastResult(cursorResult);
                 }
             } else {
-                return wrapNextResult(recordCursorResult);
+                return wrapNextResult(cursorResult);
             }
         });
     }
 
     @Nonnull
-    private CompletableFuture<RecordCursorResult<T>> recurse() {
-        if (recursiveStepCompletionCallback.get()) {
-            // restart the cursor of the recursive state, without plugging in any continuation from previous recursive
-            // state.
-            recursiveCursor = recursiveCursorSupplier.get();
-            return onNextRecursive();
-        }
-        return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
-    }
-
-    @Nonnull
     private CompletableFuture<RecordCursorResult<T>> wrapLastResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
         return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(
-                new Continuation(isInitialState, isReadingFromInitialCursorSupplier,
-                        innerCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false),
+                new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(), recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped(), false),
                 innerCursorResult.getNoNextReason()));
     }
 
     @Nonnull
     private CompletableFuture<RecordCursorResult<T>> wrapNextResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
-        final var continuation = new Continuation(isInitialState, isReadingFromInitialCursorSupplier,
-                innerCursorResult::getContinuation, () -> RecordCursorStartContinuation.START, false);
+        final var continuation = new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(), recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped(), false);
         return CompletableFuture.completedFuture(RecordCursorResult.withNextValue(innerCursorResult.get(), continuation));
     }
 
     @Override
     public void close() {
-        initialCursor.close();
-        recursiveCursor.close();
+        activeStateCursor.close();
     }
 
     @Override
     public boolean isClosed() {
-        return recursiveCursor.isClosed(); // todo: improve.
+        return activeStateCursor.isClosed(); // todo: improve.
     }
 
     @Nonnull
@@ -168,73 +138,37 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     @Override
     public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
-            initialCursor.accept(visitor);
-            recursiveCursor.accept(visitor);
+            activeStateCursor.accept(visitor);
         }
         return visitor.visitLeave(this);
     }
 
-    @Nonnull
-    public static <T> RecursiveUnionCursor<T> from(@Nullable final byte[] unparsed,
-                                                   @Nonnull final Function<ByteString, RecordCursor<T>> initialCursorCreator,
-                                                   @Nonnull final Function<ByteString, RecordCursor<T>> recursiveCursorCreator,
-                                                   @Nonnull final Supplier<Boolean> isReadingFromInitialCursorSupplier,
-                                                   @Nonnull final Consumer<Boolean> wasInInitialStateConsumer,
-                                                   @Nonnull final Consumer<Boolean> wasReadingFromFirstTempTableConsumer,
-                                                   @Nonnull final Supplier<Boolean> recursiveStepCompletionCallback,
-                                                   @Nonnull Executor executor) {
-        if (unparsed == null) {
-            final var initialCursor = initialCursorCreator.apply(null);
-            final var recursiveCursor = recursiveCursorCreator.apply(null);
-            return new RecursiveUnionCursor<>(initialCursor, () -> recursiveCursorCreator.apply(null), recursiveCursor, executor, isReadingFromInitialCursorSupplier,
-                    recursiveStepCompletionCallback, true);
-        } else {
-            RecordCursorProto.RecursiveCursorContinuation proto;
-            try {
-                proto = RecordCursorProto.RecursiveCursorContinuation.parseFrom(unparsed);
-            } catch (InvalidProtocolBufferException ex) {
-                throw new RecordCoreException("invalid continuation", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsed));
-            }
-            // resume the state.
-            wasInInitialStateConsumer.accept(proto.getIsInitialState());
-            wasReadingFromFirstTempTableConsumer.accept(proto.getIsReadingInitialCursor());
-            final var initialCursor = initialCursorCreator.apply(proto.getInitialCursorContinuation());
-            final var recursiveCursor = recursiveCursorCreator.apply(proto.getRecursiveCursorContinuation());
-            System.out.println("finished deserializing continuation");
-            System.out.println("isReadingFromInitial ? " + proto.getIsReadingInitialCursor());
-            System.out.println("isInitialState ? " + proto.getIsInitialState());
-            return new RecursiveUnionCursor<>(initialCursor, () -> recursiveCursorCreator.apply(null), recursiveCursor, executor, isReadingFromInitialCursorSupplier,
-                    recursiveStepCompletionCallback, proto.getIsReadingInitialCursor());
-        }
-    }
-
-
-
-    private static class Continuation implements RecordCursorContinuation {
+    /**
+     * Continuation. TODO.
+     */
+    public static class Continuation implements RecordCursorContinuation {
 
         private final boolean isInitialState;
 
         @Nonnull
-        private final Supplier<Boolean> isReadingInitialCursorSupplier;
+        private final RecordCursorContinuation activeStateContinuation;
 
         @Nonnull
-        private final Supplier<RecordCursorContinuation> initialCursorContinuation;
+        private final TempTable tempTable;
 
-        @Nonnull
-        private final Supplier<RecordCursorContinuation> recursiveCursorContinuation;
+        private final boolean buffersAreFlipped;
 
         private final boolean isEnd;
 
         Continuation(boolean isInitialState,
-                     @Nonnull final Supplier<Boolean> isReadingInitialCursorSupplier,
-                     @Nonnull final Supplier<RecordCursorContinuation> initialCursorContinuation,
-                     @Nonnull final Supplier<RecordCursorContinuation> recursiveCursorContinuation,
+                     @Nonnull final RecordCursorContinuation activeStateContinuation,
+                     @Nonnull final TempTable tempTable,
+                     boolean buffersAreFlipped,
                      boolean isEnd) {
             this.isInitialState = isInitialState;
-            this.isReadingInitialCursorSupplier = isReadingInitialCursorSupplier;
-            this.initialCursorContinuation = initialCursorContinuation;
-            this.recursiveCursorContinuation = recursiveCursorContinuation;
+            this.activeStateContinuation = activeStateContinuation;
+            this.tempTable = tempTable;
+            this.buffersAreFlipped = buffersAreFlipped;
             this.isEnd = isEnd;
         }
 
@@ -254,10 +188,9 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                 return ByteString.EMPTY;
             } else {
                 return RecordCursorProto.RecursiveCursorContinuation.newBuilder()
-                        .setInitialCursorContinuation(initialCursorContinuation.get().toByteString())
-                        .setRecursiveCursorContinuation(recursiveCursorContinuation.get().toByteString())
-                        .setIsReadingInitialCursor(isReadingInitialCursorSupplier.get())
-                        .setIsInitialState(isInitialState)
+                        .setIsInitialState(isInitialState())
+                        .setTempTable(getTempTable().toProto().toByteString())
+                        .setActiveStateContinuation(getActiveStateContinuation().toByteString())
                         .build().toByteString();
             }
         }
@@ -265,6 +198,52 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         @Override
         public boolean isEnd() {
             return isEnd;
+        }
+
+        @Nonnull
+        public static Continuation from(@Nonnull RecordCursorProto.RecursiveCursorContinuation message, @Nonnull Function<PTempTable, TempTable> tempTableDeserializer) {
+            final var childContinuation = message.hasActiveStateContinuation()
+                                          ? ByteArrayContinuation.fromNullable(message.getActiveStateContinuation().toByteArray())
+                                          : RecordCursorStartContinuation.START;
+            PTempTable parsedTempTable;
+            try {
+                parsedTempTable = PTempTable.parseFrom(message.getTempTable());
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreException("invalid continuation", ex)
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(message.toByteArray()));
+            }
+            final var buffersAreFlipped = message.getBuffersAreFlipped();
+            return new Continuation(message.getIsInitialState(), childContinuation, tempTableDeserializer.apply(parsedTempTable), buffersAreFlipped, false);
+        }
+
+        @Nonnull
+        public static Continuation from(@Nonnull byte[] unparsed, @Nonnull Function<PTempTable, TempTable> tempTableDeserializer) {
+            try {
+                final var parsed = RecordCursorProto.RecursiveCursorContinuation.parseFrom(unparsed);
+                return from(parsed, tempTableDeserializer);
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreException("invalid continuation", ex)
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsed));
+            }
+        }
+
+        public boolean isInitialState() {
+            return isInitialState;
+        }
+
+        @Nonnull
+        public RecordCursorContinuation getActiveStateContinuation() {
+            return activeStateContinuation;
+        }
+
+        @Nonnull
+        public TempTable getTempTable() {
+            return tempTable;
+        }
+
+
+        public boolean isBuffersAreFlipped() {
+            return buffersAreFlipped;
         }
     }
 }

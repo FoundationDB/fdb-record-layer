@@ -74,7 +74,6 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
                 }
             } else {
                 tempTable.add(Objects.requireNonNull(childCursorResult.get()));
-                System.out.println("   --> adding " + childCursorResult.get().getMessage().toString().replace("\n", " ") + " to " + tempTable);
                 return RecordCursorResult.withNextValue(childCursorResult.get(), new Continuation(tempTable, childCursorResult.getContinuation()));
             }
         });
@@ -184,8 +183,6 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
                                           @Nullable final PTempTable parsedTempTable,
                                           @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
             final var tempTable = tempTableDeserializer.apply(parsedTempTable);
-            System.out.println("parsing temp table insert cursor from continuation");
-            TempTable.printTempTableContent(tempTable);
             final var childContinuation = parsed.hasChildContinuation()
                                           ? ByteArrayContinuation.fromNullable(parsed.getChildContinuation().toByteArray())
                                           : RecordCursorStartContinuation.START;

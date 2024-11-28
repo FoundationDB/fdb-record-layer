@@ -50,10 +50,10 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     private final List<Quantifier> quantifiers;
 
     @Nonnull
-    private final Value initialTempTableValueReference;
+    private final Value tempTableScanValueReference;
 
     @Nonnull
-    private final Value recursiveTempTableValueReference;
+    private final Value tempTableInsertValueReference;
 
     @Nonnull
     private final Value resultValue;
@@ -63,11 +63,11 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     public RecursiveUnionExpression(@Nonnull final Quantifier initialState,
                                     @Nonnull final Quantifier recursiveState,
-                                    @Nonnull final Value initialTempTableValueReference,
-                                    @Nonnull final Value recursiveTempTableValueReference) {
+                                    @Nonnull final Value tempTableScanValueReference,
+                                    @Nonnull final Value tempTableInsertValueReference) {
         this.quantifiers = ImmutableList.of(initialState, recursiveState);
-        this.initialTempTableValueReference = initialTempTableValueReference;
-        this.recursiveTempTableValueReference = recursiveTempTableValueReference;
+        this.tempTableScanValueReference = tempTableScanValueReference;
+        this.tempTableInsertValueReference = tempTableInsertValueReference;
         this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
         this.correlationsSupplier = Suppliers.memoize(this::computeCorrelatedTo);
     }
@@ -86,8 +86,8 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     @Nonnull
     private Set<CorrelationIdentifier> computeCorrelatedTo() {
         return ImmutableSet.<CorrelationIdentifier>builder()
-                .addAll(getInitialTempTableValueReference().getCorrelatedTo())
-                .addAll(getRecursiveTempTableValueReference().getCorrelatedTo())
+                .addAll(getTempTableScanValueReference().getCorrelatedTo())
+                .addAll(getTempTableInsertValueReference().getCorrelatedTo())
                 .build();
     }
 
@@ -115,8 +115,8 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
         final var otherRecursiveUnionExpression = (RecursiveUnionExpression)otherExpression;
 
-        return getInitialTempTableValueReference().semanticEquals(otherRecursiveUnionExpression.getInitialTempTableValueReference(), equivalences)
-                && getRecursiveTempTableValueReference().semanticEquals(otherRecursiveUnionExpression.getRecursiveTempTableValueReference(), equivalences);
+        return getTempTableScanValueReference().semanticEquals(otherRecursiveUnionExpression.getTempTableScanValueReference(), equivalences)
+                && getTempTableInsertValueReference().semanticEquals(otherRecursiveUnionExpression.getTempTableInsertValueReference(), equivalences);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -132,7 +132,7 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getInitialTempTableValueReference(), getRecursiveTempTableValueReference());
+        return Objects.hash(getTempTableScanValueReference(), getTempTableInsertValueReference());
     }
 
     @Nonnull
@@ -141,24 +141,24 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
-        final var translatedInitialTempTableValueReference = getInitialTempTableValueReference().translateCorrelations(translationMap);
-        final var translatedRecursiveTempTableValueReference = getRecursiveTempTableValueReference().translateCorrelations(translationMap);
-        if (translatedInitialTempTableValueReference != getInitialTempTableValueReference()
-                || translatedRecursiveTempTableValueReference != getRecursiveTempTableValueReference()) {
+        final var translatedInitialTempTableValueReference = getTempTableScanValueReference().translateCorrelations(translationMap);
+        final var translatedRecursiveTempTableValueReference = getTempTableInsertValueReference().translateCorrelations(translationMap);
+        if (translatedInitialTempTableValueReference != getTempTableScanValueReference()
+                || translatedRecursiveTempTableValueReference != getTempTableInsertValueReference()) {
             return new RecursiveUnionExpression(translatedQuantifiers.get(0), translatedQuantifiers.get(1),
-                    getInitialTempTableValueReference().translateCorrelations(translationMap),
-                    getRecursiveTempTableValueReference().translateCorrelations(translationMap));
+                    getTempTableScanValueReference().translateCorrelations(translationMap),
+                    getTempTableInsertValueReference().translateCorrelations(translationMap));
         }
         return this;
     }
 
     @Nonnull
-    public Value getInitialTempTableValueReference() {
-        return initialTempTableValueReference;
+    public Value getTempTableScanValueReference() {
+        return tempTableScanValueReference;
     }
 
     @Nonnull
-    public Value getRecursiveTempTableValueReference() {
-        return recursiveTempTableValueReference;
+    public Value getTempTableInsertValueReference() {
+        return tempTableInsertValueReference;
     }
 }

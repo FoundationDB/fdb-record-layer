@@ -36,10 +36,13 @@ import com.google.protobuf.ZeroCopyByteString;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.function.Consumer;
 
 /**
  * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
@@ -93,7 +96,9 @@ public class TempTable implements ProtoSerializable {
     }
 
     public static void printTempTableContent(@Nonnull final TempTable tempTable) {
-        System.out.println("content of temp table " + tempTable);
+        if (tempTable.isEmpty()) {
+            System.out.println("EMPTY");
+        }
         for (final var item : tempTable.getList()) {
             System.out.println(" * " + item.getMessage().toString().replace("\n", " "));
         }

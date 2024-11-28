@@ -84,9 +84,9 @@ public class ImplementRecursiveUnionRule extends CascadesRule<RecursiveUnionExpr
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
-        final var initialTempTableValueReference = recursiveUnionExpression.getInitialTempTableValueReference();
-        final var recursiveTempTableValueReference = recursiveUnionExpression.getRecursiveTempTableValueReference();
-        final var recursiveUnionPlan = new RecursiveUnionQueryPlan(quantifiers, initialTempTableValueReference, recursiveTempTableValueReference);
+        final var tempTableScanValueReference = recursiveUnionExpression.getTempTableScanValueReference();
+        final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertValueReference();
+        final var recursiveUnionPlan = new RecursiveUnionQueryPlan(quantifiers, tempTableScanValueReference, tempTableInsertValueReference);
 
         call.yieldExpression(recursiveUnionPlan);
     }

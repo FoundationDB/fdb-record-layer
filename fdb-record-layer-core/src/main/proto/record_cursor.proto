@@ -127,8 +127,8 @@ message TempTableInsertContinuation {
 }
 
 message RecursiveCursorContinuation {
-    optional bool isReadingInitialCursor = 1;
-    optional bool isInitialState = 2;
-    optional bytes initialCursorContinuation = 3;
-    optional bytes recursiveCursorContinuation = 4;
+    optional bool isInitialState = 1;
+    optional bool buffersAreFlipped = 2;
+    optional bytes tempTable = 3;
+    optional bytes activeStateContinuation = 4;
 }
