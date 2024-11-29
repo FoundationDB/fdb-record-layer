@@ -61,6 +61,6 @@ public class ExpandFusedFieldValueRule extends ValueSimplificationRule<FieldValu
                 ofFields(ofFields(fieldValue.getChild(), fieldPath.getFieldPrefix()),
                         new FieldPath(ImmutableList.of(lastAccessor)));
 
-        call.yieldExpression(expandedFieldValue);
+        call.yieldAndReExplore(expandedFieldValue);
     }
 }

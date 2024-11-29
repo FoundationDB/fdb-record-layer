@@ -83,6 +83,6 @@ public class ExpandRecordRule extends ValueSimplificationRule<Value> {
         final var resultValue =
                 RecordConstructorValue.ofColumns(resultBuilder.build(), originalResultType.isNullable());
         Verify.verify(originalResultType.isNullable() == resultValue.getResultType().isNullable());
-        call.yieldExpression(resultValue);
+        call.yieldAndReExplore(resultValue);
     }
 }

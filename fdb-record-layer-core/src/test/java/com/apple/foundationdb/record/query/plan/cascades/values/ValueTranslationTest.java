@@ -1101,7 +1101,7 @@ public class ValueTranslationTest {
     }
 
     /**
-     * Test to establish that simple QOV(T') can be matched to a deconstructed RCV(T'.a, T'.b, T'.j).
+     * Test to establish that simple QOV(T') can be matched to a deconstructed RCV(T'.b, T'.a, T'.j).
      */
     @Test
     public void maxMatchQovUsingExpandedQovReorderedFields() {

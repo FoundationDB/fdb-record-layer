@@ -127,7 +127,6 @@ public class Simplification {
                         (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings,
                                 aliasMap, constantAliases),
                         Iterables::getOnlyElement);
-        Verify.verify(!executionResult.shouldReExplore());
         return executionResult.getBase();
     }
 
