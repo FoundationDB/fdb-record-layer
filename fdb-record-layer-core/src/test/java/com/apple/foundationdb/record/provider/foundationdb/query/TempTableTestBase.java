@@ -346,8 +346,8 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * size chosen with a uniform probability distribution
          */
         @Nonnull
-        public static Pair<List<Integer>, List<List<Integer>>> partitionUsingNormalDistribution(int numberOfPartitions,
-                                                                                                @Nonnull final List<Integer> input) {
+        public static Pair<List<Integer>, List<List<Long>>> partitionUsingNormalDistribution(int numberOfPartitions,
+                                                                                          @Nonnull final List<Long> input) {
             return randomPartition(numberOfPartitions, input, random::nextInt);
         }
 
@@ -360,14 +360,14 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
          * size chosen with a power probability distribution
          */
         @Nonnull
-        public static Pair<List<Integer>, List<List<Integer>>> partitionUsingPowerDistribution(int numberOfPartitions,
-                                                                                               @Nonnull final List<Integer> input) {
+        public static Pair<List<Integer>, List<List<Long>>> partitionUsingPowerDistribution(int numberOfPartitions,
+                                                                                         @Nonnull final List<Long> input) {
             return randomPartition(numberOfPartitions, input, ListPartitioner::nextIntWithPowerDistribution);
         }
 
         @Nonnull
-        private static Pair<List<Integer>, List<List<Integer>>> randomPartition(int numberOfPartitions,
-                                                                                @Nonnull final List<Integer> input,
+        private static Pair<List<Integer>, List<List<Long>>> randomPartition(int numberOfPartitions,
+                                                                                @Nonnull final List<Long> input,
                                                                                 @Nonnull final Function<Integer, Integer> randomGenerator) {
             numberOfPartitions = Math.min(numberOfPartitions, input.size());
             numberOfPartitions = Math.max(numberOfPartitions, 1);
@@ -375,19 +375,19 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                 return NonnullPair.of(ImmutableList.of(-1), ImmutableList.of(ImmutableList.copyOf(input)));
             }
             final var left = ImmutableList.<Integer>builder();
-            final var right = ImmutableList.<List<Integer>>builder();
+            final var right = ImmutableList.<List<Long>>builder();
 
             int size = 0;
             for (int i = 0; i < numberOfPartitions; i++) {
                 int partitionSize = size + randomGenerator.apply(input.size());
-                if (size + partitionSize >= input.size()) {
+                if (size + partitionSize >= input.size() || (i == numberOfPartitions - 1 && size + partitionSize < input.size())) {
                     left.add(-1);
                     right.add(input.subList(size, input.size()));
                     break;
                 }
                 left.add(partitionSize + 1);
-                right.add(ImmutableList.copyOf(input.subList(size, partitionSize + 1)));
-                size = partitionSize + 1;
+                right.add(ImmutableList.copyOf(input.subList(size, partitionSize + 1 + size)));
+                size += partitionSize + 1;
             }
             return NonnullPair.of(left.build(), right.build());
         }
@@ -483,6 +483,11 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         }
 
         @Nonnull
+        public Map<Long, Long> getEdges() {
+            return edges;
+        }
+
+        @Nonnull
         public static Hierarchy fromEdges(@Nonnull final Map<Long, Long> edges) {
             return new Hierarchy(edges);
         }
@@ -491,20 +496,20 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         public static Hierarchy generateRandomHierarchy(int maxChildrenCountPerLevel, int maxDepth) {
             var result = new LinkedHashMap<Long, Long>();
             result.put(ROOT, SENTINEL);
-            int firstItemCurrentLevel = 1;
-            int firstItemNextLevel = 2;
+            long firstItemCurrentLevel = 1;
+            long firstItemNextLevel = 2;
             for (int i = 0; i < maxDepth; i++) {
-                final var listOfItems = new ArrayList<Integer>(maxChildrenCountPerLevel);
+                final var listOfItems = new ArrayList<Long>(maxChildrenCountPerLevel);
                 int j = 0;
                 while (j < maxChildrenCountPerLevel) {
                     listOfItems.add(firstItemNextLevel + j++);
                 }
-                final var levelPartitions = ListPartitioner.partitionUsingPowerDistribution(firstItemNextLevel - firstItemCurrentLevel, listOfItems);
+                final var levelPartitions = ListPartitioner.partitionUsingPowerDistribution((int)(firstItemNextLevel - firstItemCurrentLevel), listOfItems);
                 int newLevelSize = levelPartitions.getValue().stream().map(List::size).reduce(0, Integer::sum);
                 for (int partition = 0; partition < levelPartitions.getValue().size(); partition++) {
                     final var currentPartition = levelPartitions.getValue().get(partition);
                     for (int k = 0; k < currentPartition.size(); k++) {
-                        result.put((long)currentPartition.get(k), (long)partition + firstItemCurrentLevel);
+                        result.put(currentPartition.get(k), (long)partition + firstItemCurrentLevel);
                     }
                 }
                 firstItemCurrentLevel = firstItemNextLevel;

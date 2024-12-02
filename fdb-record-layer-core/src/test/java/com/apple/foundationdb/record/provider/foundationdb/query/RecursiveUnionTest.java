@@ -198,7 +198,16 @@ public class RecursiveUnionTest extends TempTableTestBase {
         assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L), ImmutableList.of(40L, 50L, 70L, 100L), ImmutableList.of(210L, 250L)), result);
     }
 
-
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void randomizedHierarchyTestCase1() {
+        final var randomHierarchy = Hierarchy.generateRandomHierarchy(100, 4);
+        final var descendants = randomHierarchy.calculateDescendants();
+        final var randomContinuationScenario = ListPartitioner.partitionUsingPowerDistribution(10, descendants);
+        final var continuationSnapshots = randomContinuationScenario.getKey();
+        final var expectedResults = randomContinuationScenario.getValue();
+        var result = descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots);
+        assertEquals(expectedResults, result);
+    }
 
     /**
      * Creates a recursive union plan that calculates multiple series recursively {@code F(X) = F(X-1) * 2} up until
