@@ -216,18 +216,18 @@ public class RecursiveUnionTest extends TempTableTestBase {
                     .build().buildSelect();
             final var seedingSelectQun = Quantifier.forEach(Reference.of(selectExpression));
 
-            final var initTempTable = tempTableInstance();
-            final var initTempTableAlias = CorrelationIdentifier.of("Init");
-            final var initialTempTableReferenceValue = ConstantObjectValue.of(initTempTableAlias, initTempTableAlias.getId(), new Type.Relation(getType()));
+            final var insertTempTable = tempTableInstance();
+            final var insertTempTableAlias = CorrelationIdentifier.of("Insert");
+            final var insertTempTableReferenceValue = ConstantObjectValue.of(insertTempTableAlias, insertTempTableAlias.getId(), new Type.Relation(getType()));
 
             final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(seedingSelectQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType(seedingSelectQun))));
+                    insertTempTableAlias, insertTempTableAlias.getId(), getType(seedingSelectQun))));
 
             final var recuTempTable = tempTableInstance();
             final var recuTempTableAlias = CorrelationIdentifier.of("Recu");
             final var recuTempTableReferenceValue = ConstantObjectValue.of(recuTempTableAlias, recuTempTableAlias.getId(), new Type.Relation(getType()));
 
-            final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(initTempTableAlias, initTempTableAlias.getId(), getType())));
+            final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(recuTempTableAlias, recuTempTableAlias.getId(), getType())));
             var idField = getIdCol(ttScanRecuQun);
             final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(2L))));
             selectExpression = GraphExpansion.builder()
@@ -244,9 +244,9 @@ public class RecursiveUnionTest extends TempTableTestBase {
             final var recuSelectQun = Quantifier.forEach(Reference.of(selectExpression));
 
             final var recuInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(recuSelectQun,
-                    initTempTableAlias, initTempTableAlias.getId(), getType(recuSelectQun))));
+                    insertTempTableAlias, insertTempTableAlias.getId(), getType(recuSelectQun))));
 
-            final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, initialTempTableReferenceValue, recuTempTableReferenceValue);
+            final var recursiveUnionPlan = new RecursiveUnionExpression(initInsertQun, recuInsertQun, recuTempTableReferenceValue, insertTempTableReferenceValue);
 
             final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(recursiveUnionPlan))));
             final var cascadesPlanner = (CascadesPlanner)planner;
@@ -254,7 +254,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
             evaluationContext = putTempTableInContext(recuTempTableAlias, recuTempTable, evaluationContext);
-            evaluationContext = putTempTableInContext(initTempTableAlias, initTempTable, evaluationContext);
+            evaluationContext = putTempTableInContext(insertTempTableAlias, insertTempTable, evaluationContext);
             return extractResultsAsIdValuePairs(context, plan, evaluationContext).stream().map(Pair::getKey).collect(ImmutableList.toImmutableList());
         }
     }
@@ -347,7 +347,6 @@ public class RecursiveUnionTest extends TempTableTestBase {
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
             for (final var rowLimit : successiveRowLimits.stream().skip(1).collect(ImmutableList.toImmutableList())) {
                 final var seedingTempTable = tempTableInstance();
-                System.out.println("seeding (bla) temp table" + seedingTempTable);
                 initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
                 var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
                 final var pair = executeHierarchyPlan(plan, continuation, evaluationContext, rowLimit);
@@ -386,7 +385,6 @@ public class RecursiveUnionTest extends TempTableTestBase {
         final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, queryPredicate);
 
         final var seedingTempTable = tempTableInstance();
-        System.out.println("seeding (bla) temp table" + seedingTempTable);
 
         initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
         var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);

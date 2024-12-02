@@ -145,8 +145,14 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
+    public Type.Relation getResultType() {
+        return (Type.Relation)tempTableReferenceValue.getResultType();
+    }
+
+    @Nonnull
+    @Override
     public Set<Type> getDynamicTypes() {
-        return ImmutableSet.of(tempTableReferenceValue.getResultType());
+        return ImmutableSet.of(Objects.requireNonNull(getResultType().getInnerType()));
     }
 
 

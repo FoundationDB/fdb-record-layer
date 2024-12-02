@@ -131,13 +131,9 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
     private EvaluationContext resetTempTableBindings(@Nonnull final EvaluationContext context) {
         if (initialIsRead) {
-            System.out.println("      ++++++++++> initialTempTable ---> " + readTempTable);
-            System.out.println("      ++++++++++> recursiveTempTable ----> " + writeTempTable);
             final var newEvaluationContext = overrideTempTableBinding(context, tempTableScanValueReference, readTempTable);
             return overrideTempTableBinding(newEvaluationContext, tempTableInsertValueReference, writeTempTable);
         } else {
-            System.out.println("      ++++++++++> initialTempTable ---> " + writeTempTable);
-            System.out.println("      ++++++++++> recursiveTempTable ----> " + readTempTable);
             final var newEvaluationContext = overrideTempTableBinding(context, tempTableScanValueReference, writeTempTable);
             return overrideTempTableBinding(newEvaluationContext, tempTableInsertValueReference, readTempTable);
         }
@@ -215,7 +211,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return ImmutableSet.of(tempTableScanValueReference.getResultType());
+        Verify.verify(tempTableScanValueReference.getResultType().isRelation());
+        return ImmutableSet.of(Objects.requireNonNull(((Type.Relation)tempTableScanValueReference.getResultType()).getInnerType()));
     }
 
     @Nonnull
@@ -465,7 +462,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 recursiveUnionTempTable = baseContext.getTempTableFactory().createTempTable();
                 activeCursor = initialCursorCreator.apply(null, overridenEvaluationContext);
             } else {
-                System.out.println("RESTORATION");
                 final var continuation = RecursiveUnionCursor.Continuation.from(continuationBytes, tempTableDeserializer);
                 isInitialState = continuation.isInitialState();
                 recursiveUnionTempTable = continuation.getTempTable();
@@ -478,9 +474,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                     }
                     activeCursor = recursiveCursorCreator.apply(continuation.getActiveStateContinuation().toByteString(), overridenEvaluationContext);
                 }
-                System.out.println("reading from: ");
-                TempTable.printTempTableContent(recursiveUnionTempTable);
-                System.out.println("RESTORATION COMPLETE");
             }
         }
 
@@ -534,14 +527,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 if (cleanBuffers) {
                     insertTempTable.clear();
                 }
-                System.out.println("*************************************************");
-                System.out.println("*************************************************");
-                System.out.println("flip complete, reading from: ");
-                TempTable.printTempTableContent(recursiveUnionTempTable);
-                System.out.println("writing to: ");
-                TempTable.printTempTableContent(insertTempTable);
-                System.out.println("*************************************************");
-                System.out.println("*************************************************");
                 return overrideTempTableBinding(
                         overrideTempTableBinding(baseContext, insertTempTableReference, insertTempTable),
                         scanTempTableReference, scanTempTable);
@@ -550,14 +535,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 if (cleanBuffers) {
                     scanTempTable.clear();
                 }
-                System.out.println("*************************************************");
-                System.out.println("*************************************************");
-                System.out.println("flip complete, reading from: ");
-                TempTable.printTempTableContent(recursiveUnionTempTable);
-                System.out.println("writing to: ");
-                TempTable.printTempTableContent(scanTempTable);
-                System.out.println("*************************************************");
-                System.out.println("*************************************************");
                 return overrideTempTableBinding(
                         overrideTempTableBinding(baseContext, insertTempTableReference, scanTempTable),
                         scanTempTableReference, insertTempTable);

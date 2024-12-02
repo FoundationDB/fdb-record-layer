@@ -95,15 +95,6 @@ public class TempTable implements ProtoSerializable {
         cachedProto = null;
     }
 
-    public static void printTempTableContent(@Nonnull final TempTable tempTable) {
-        if (tempTable.isEmpty()) {
-            System.out.println("EMPTY");
-        }
-        for (final var item : tempTable.getList()) {
-            System.out.println(" * " + item.getMessage().toString().replace("\n", " "));
-        }
-    }
-
     public boolean isEmpty() {
         return underlyingBuffer.isEmpty();
     }

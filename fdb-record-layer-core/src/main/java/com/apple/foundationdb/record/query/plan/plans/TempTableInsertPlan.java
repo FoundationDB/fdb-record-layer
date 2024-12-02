@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -109,7 +110,6 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                         final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
                         if (proto != null) {
                             final var deserialized = TempTable.from(proto, typeDescriptor);
-                            System.out.println("adding every row in " + deserialized + " to " + tempTable);
                             deserialized.getIterator().forEachRemaining(tempTable::add);
                         }
                         return tempTable;
@@ -165,6 +165,12 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     @Override
     public Value getResultValue() {
         return tempTableReferenceValue;
+    }
+
+    @Nonnull
+    @Override
+    public Type.Relation getResultType() {
+        return (Type.Relation)tempTableReferenceValue.getResultType();
     }
 
     @Nonnull
@@ -277,6 +283,12 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     public void logPlanStructure(final StoreTimer timer) {
         // TODO timer.increment(FDBStoreTimer.Counts.PLAN_TYPE_FILTER);
         getChild().logPlanStructure(timer);
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        return ImmutableSet.of(Objects.requireNonNull(getResultType().getInnerType()));
     }
 
     @Override
