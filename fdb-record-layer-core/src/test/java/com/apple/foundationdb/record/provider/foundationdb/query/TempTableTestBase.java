@@ -44,22 +44,31 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Queue;
+import java.util.Random;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableScanPlan;
@@ -68,6 +77,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Contains utility methods around {@link TempTable}s to make testing temp table planning and execution easier.
  */
 public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
+
+    @Nonnull
+    private static final Random random = new Random(42L);
 
     @BeforeEach
     void setupPlanner() {
@@ -84,14 +96,16 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
      * @param plan The plan to execute.
      * @param inputTempTable The input temp table, possibly containing the expected plan results.
      * @param tempTableId The id of the temp table, used to register it correctly in the {@link EvaluationContext}.
+     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
+     *
      * @throws Exception If the execution fails.
      */
     @Nonnull
     List<Pair<Long, String>> collectResults(@Nonnull final FDBRecordContext context,
-                                           @Nonnull final RecordQueryPlan plan,
-                                           @Nonnull final TempTable inputTempTable,
-                                           @Nonnull final CorrelationIdentifier tempTableId) throws Exception {
+                                            @Nonnull final RecordQueryPlan plan,
+                                            @Nonnull final TempTable inputTempTable,
+                                            @Nonnull final CorrelationIdentifier tempTableId) throws Exception {
         final var evaluationContext = putTempTableInContext(tempTableId, inputTempTable, null);
         return extractResultsAsIdValuePairs(context, plan, evaluationContext);
     }
@@ -103,16 +117,19 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     /**
      * Utility method that executes a {@code plan} returning its results.
+     *
      * @param context The transaction used to execute the plan.
      * @param plan The plan to be executed.
      * @param evaluationContext The evaluation context.
+     *
      * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
+     *
      * @throws Exception If the execution fails.
      */
     @Nonnull
     List<Pair<Long, String>> extractResultsAsIdValuePairs(@Nonnull final FDBRecordContext context,
-                                                         @Nonnull final RecordQueryPlan plan,
-                                                         @Nonnull final EvaluationContext evaluationContext) throws Exception {
+                                                          @Nonnull final RecordQueryPlan plan,
+                                                          @Nonnull final EvaluationContext evaluationContext) throws Exception {
         ImmutableList.Builder<Pair<Long, String>> resultBuilder = ImmutableList.builder();
         fetchResultValues(context, plan, record -> {
             resultBuilder.add(asIdValue(record));
@@ -311,40 +328,205 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         return TestHierarchiesProto.SimpleHierarchicalRecord.getDescriptor();
     }
 
-    static class TrackingTempTableFactory extends TempTable.Factory {
-
-        @Nonnull
-        private final List<TempTable> trackedTempTables;
-
-        private TrackingTempTableFactory() {
-            trackedTempTables = new LinkedList<>();
-        }
-
-        @Nonnull
-        @Override
-        public TempTable createTempTable() {
-            final var result = super.createTempTable();
-            trackedTempTables.add(result);
-            return result;
-        }
-
-        @Nonnull
-        public List<TempTable> getTrackedTempTables() {
-            return trackedTempTables;
-        }
-
-        public void clearTrackedTempTables() {
-            trackedTempTables.clear();
-        }
-
-        @Nonnull
-        public static TrackingTempTableFactory newInstance() {
-            return new TrackingTempTableFactory();
-        }
-    }
-
     @Nonnull
     public static TempTable tempTableInstance() {
         return TempTable.Factory.instance().createTempTable();
     }
+
+    static final class ListPartitioner {
+
+
+
+        /**
+         * Partitions a list of numbers into a number of sub-lists defined, each sub-list start and end is defined
+         * pseudo-randomly according to a random size chosen with a uniform probability distribution.
+         * @param numberOfPartitions The number of partitions.
+         * @param input The input list.
+         * @return A number of sub-lists, each sub-list start and end is defined pseudo-randomly according to a random
+         * size chosen with a uniform probability distribution
+         */
+        @Nonnull
+        public static Pair<List<Integer>, List<List<Integer>>> partitionUsingNormalDistribution(int numberOfPartitions,
+                                                                                                @Nonnull final List<Integer> input) {
+            return randomPartition(numberOfPartitions, input, random::nextInt);
+        }
+
+        /**
+         * Partitions a list of numbers into a number of sub-lists defined, each sub-list start and end is defined
+         * pseudo-randomly according to a random size chosen with a power probability distribution.
+         * @param numberOfPartitions The number of partitions.
+         * @param input The input list.
+         * @return A number of sub-lists, each sub-list start and end is defined pseudo-randomly according to a random
+         * size chosen with a power probability distribution
+         */
+        @Nonnull
+        public static Pair<List<Integer>, List<List<Integer>>> partitionUsingPowerDistribution(int numberOfPartitions,
+                                                                                               @Nonnull final List<Integer> input) {
+            return randomPartition(numberOfPartitions, input, ListPartitioner::nextIntWithPowerDistribution);
+        }
+
+        @Nonnull
+        private static Pair<List<Integer>, List<List<Integer>>> randomPartition(int numberOfPartitions,
+                                                                                @Nonnull final List<Integer> input,
+                                                                                @Nonnull final Function<Integer, Integer> randomGenerator) {
+            numberOfPartitions = Math.min(numberOfPartitions, input.size());
+            numberOfPartitions = Math.max(numberOfPartitions, 1);
+            if (numberOfPartitions == 1) {
+                return NonnullPair.of(ImmutableList.of(-1), ImmutableList.of(ImmutableList.copyOf(input)));
+            }
+            final var left = ImmutableList.<Integer>builder();
+            final var right = ImmutableList.<List<Integer>>builder();
+
+            int size = 0;
+            for (int i = 0; i < numberOfPartitions; i++) {
+                int partitionSize = size + randomGenerator.apply(input.size());
+                if (size + partitionSize >= input.size()) {
+                    left.add(-1);
+                    right.add(input.subList(size, input.size()));
+                    break;
+                }
+                left.add(partitionSize + 1);
+                right.add(ImmutableList.copyOf(input.subList(size, partitionSize + 1)));
+                size = partitionSize + 1;
+            }
+            return NonnullPair.of(left.build(), right.build());
+        }
+
+        /**
+         * Returns a random integer number between [1, {@code upperBound}] according to a power distribution.
+         * <br>
+         * This transforms the normal distribution as defined in standard Java {@link Random}
+         * to power distribution, for more information, see <a href="https://mathworld.wolfram.com/RandomNumber.html">https://mathworld.wolfram.com/RandomNumber.html</a>
+         * @param upperBound The upper bound (inclusive), must be larger than 1
+         * @return a random integer number between [1, {@code upperBound}] according to a power distribution.
+         * <br>
+         */
+        private static int nextIntWithPowerDistribution(int upperBound) {
+            Verify.verify(upperBound > 1);
+            double lowerRange = 1.0;
+            double upperRange = upperBound * 1.0d;
+            double temperature = -2.3;
+            double randomValue = random.nextDouble();
+            double leftTerm = Math.pow(upperRange, temperature + 1);
+            double rightTerm = Math.pow(lowerRange, temperature + 1);
+            double exponent = (1.0d / (temperature + 1));
+            double base = (leftTerm - rightTerm) * randomValue + rightTerm;
+            return (int)Math.round(Math.pow(base, exponent)) - 1;
+        }
+    }
+
+    static final class Hierarchy {
+
+        private static final long ROOT = 1;
+
+        private static final long SENTINEL = -1;
+
+        @Nonnull
+        private final Map<Long, Long> edges;
+
+        @Nonnull
+        private final Supplier<Multimap<Long, Long>> reverseLookup;
+
+        private Hierarchy(@Nonnull final Map<Long, Long> edges) {
+            this.edges = edges;
+            this.reverseLookup = Suppliers.memoize(this::calculateReverseLookup);
+        }
+
+        @Nonnull
+        public List<Long> calculateAncestors(long vertex) {
+            Verify.verify(vertex >= ROOT);
+            final var result = ImmutableList.<Long>builder();
+
+            var current = vertex;
+
+            do {
+                result.add(current);
+                current = edges.get(current);
+            } while (current != SENTINEL);
+
+            return result.build();
+        }
+
+        @Nonnull
+        public List<Long> calculateDescendants() {
+            return calculateDescendants(ROOT);
+        }
+
+        @Nonnull
+        public List<Long> calculateDescendants(long vertex) {
+            Verify.verify(vertex >= ROOT);
+            final var result = ImmutableList.<Long>builder();
+            final var reverseLookup = reverseLookup();
+
+            final Queue<Long> level = new LinkedList<>();
+            level.add(vertex);
+            while (!level.isEmpty()) {
+                final var current = level.poll();
+                result.add(current);
+                level.addAll(reverseLookup.get(current));
+            }
+            return result.build();
+        }
+
+        @Nonnull
+        public Multimap<Long, Long> reverseLookup() {
+            return reverseLookup.get();
+        }
+
+        @Nonnull
+        private Multimap<Long, Long> calculateReverseLookup() {
+            final var reverseLookup = ArrayListMultimap.<Long, Long>create();
+            for (final var entry : edges.entrySet()) {
+                reverseLookup.put(entry.getValue(), entry.getKey());
+            }
+            return reverseLookup;
+        }
+
+        @Nonnull
+        public static Hierarchy fromEdges(@Nonnull final Map<Long, Long> edges) {
+            return new Hierarchy(edges);
+        }
+
+        @Nonnull
+        public static Hierarchy generateRandomHierarchy(int maxChildrenCountPerLevel, int maxDepth) {
+            var result = new LinkedHashMap<Long, Long>();
+            result.put(ROOT, SENTINEL);
+            int firstItemCurrentLevel = 1;
+            int firstItemNextLevel = 2;
+            for (int i = 0; i < maxDepth; i++) {
+                final var listOfItems = new ArrayList<Integer>(maxChildrenCountPerLevel);
+                int j = 0;
+                while (j < maxChildrenCountPerLevel) {
+                    listOfItems.add(firstItemNextLevel + j++);
+                }
+                final var levelPartitions = ListPartitioner.partitionUsingPowerDistribution(firstItemNextLevel - firstItemCurrentLevel, listOfItems);
+                int newLevelSize = levelPartitions.getValue().stream().map(List::size).reduce(0, Integer::sum);
+                for (int partition = 0; partition < levelPartitions.getValue().size(); partition++) {
+                    final var currentPartition = levelPartitions.getValue().get(partition);
+                    for (int k = 0; k < currentPartition.size(); k++) {
+                        result.put((long)currentPartition.get(k), (long)partition + firstItemCurrentLevel);
+                    }
+                }
+                firstItemCurrentLevel = firstItemNextLevel;
+                firstItemNextLevel = firstItemNextLevel + newLevelSize;
+            }
+            return Hierarchy.fromEdges(result);
+        }
+
+        public void print() {
+            print(1, ROOT, reverseLookup());
+        }
+
+        private void print(int level, long value, @Nonnull final Multimap<Long, Long> reverseLookup) {
+            for (int i = 0; i < level; i++) {
+                System.out.print("\t");
+            }
+            System.out.println(value);
+            final var children = reverseLookup.get(value);
+            for (final var child : children) {
+                print(level + 1, child, reverseLookup);
+            }
+        }
+    }
 }
+
