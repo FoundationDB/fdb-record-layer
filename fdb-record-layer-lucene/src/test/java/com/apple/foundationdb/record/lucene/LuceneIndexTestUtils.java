@@ -845,14 +845,15 @@ public class LuceneIndexTestUtils {
     private static class TestAnalyzerChooser implements AnalyzerChooser {
         @Override
         @Nonnull
-        public LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull List<String> texts) {
-            if (texts.stream().anyMatch(t -> t.contains("synonym"))) {
-                return new LuceneAnalyzerWrapper("TEST_SYNONYM",
-                        new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
-            } else {
-                return new LuceneAnalyzerWrapper("TEST_NGRAM",
-                        new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, 3, 30, false));
-            }
+        public LuceneAnalyzerWrapper chooseAnalyzer() {
+            // TODO used to be:
+//            if (texts.stream().anyMatch(t -> t.contains("synonym"))) {
+//                return new LuceneAnalyzerWrapper("TEST_SYNONYM",
+//                        new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
+//            } else {
+            // Need to figure out how tests were structured to better test this
+            return new LuceneAnalyzerWrapper("TEST_NGRAM",
+                    new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, 3, 30, false));
         }
     }
 
