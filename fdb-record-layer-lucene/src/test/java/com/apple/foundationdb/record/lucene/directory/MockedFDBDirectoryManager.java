@@ -35,7 +35,11 @@ public class MockedFDBDirectoryManager extends FDBDirectoryManager {
 
     @Nonnull
     @Override
-    protected FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
+    protected FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key,
+                                                            final int mergeDirectoryCount,
+                                                            final AgilityContext agilityContext,
+                                                            final int blockCacheMaximumSize) {
+        return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize,
+                writerAnalyzer);
     }
 }
