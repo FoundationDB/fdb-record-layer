@@ -112,7 +112,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
 
     private final FDBDirectoryManager directoryManager;
-    private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
+    private final LuceneAnalyzerCombinationProvider queryAnalyzerSelector;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     public static final String PRIMARY_KEY_FIELD_NAME = "_p";
     protected static final String PRIMARY_KEY_SEARCH_NAME = "_s";
@@ -128,7 +128,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.executor = executor;
         this.directoryManager = FDBDirectoryManager.getManager(state);
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
-        this.indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
+        this.queryAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         this.autoCompleteAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
         String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
@@ -175,7 +175,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
                     scanQuery.getGroupKey(), partitionInfo, scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
-                    scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), indexAnalyzerSelector, autoCompleteAnalyzerSelector);
+                    scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), queryAnalyzerSelector, autoCompleteAnalyzerSelector);
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {
@@ -184,7 +184,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             LuceneScanSpellCheck scanSpellcheck = (LuceneScanSpellCheck)scanBounds;
             return new LuceneSpellCheckRecordCursor(scanSpellcheck.getFields(), scanSpellcheck.getWord(),
-                    executor, scanProperties, state, scanSpellcheck.getGroupKey(), partitioner.selectQueryPartitionId(scanSpellcheck.getGroupKey()));
+                    executor, scanProperties, state, scanSpellcheck.getGroupKey(),
+                    partitioner.selectQueryPartitionId(scanSpellcheck.getGroupKey()));
         }
 
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
@@ -255,7 +256,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
         Document document = new Document();
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer());
+        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
 
         BytesRef ref = new BytesRef(keySerializer.asPackedByteArray(primaryKey));
         // use packed Tuple for the Stored and Sorted fields
@@ -297,7 +298,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
     int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
         final long startTime = System.nanoTime();
-        final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer());
+        final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
 
         if (segmentIndex != null) {
@@ -358,7 +359,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return rebalancePartitions()
                 .thenCompose(ignored -> {
                     state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
-                    return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer());
+                    return directoryManager.mergeIndex(partitioner);
                 });
     }
 
@@ -366,8 +367,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
                                      @Nullable final Integer partitionId,
                                      @Nonnull final AgilityContext agilityContext) throws IOException {
-        directoryManager.mergeIndexWithContext(indexAnalyzerSelector.provideIndexAnalyzer(),
-                groupingKey, partitionId, agilityContext);
+        directoryManager.mergeIndexWithContext(groupingKey, partitionId, agilityContext);
     }
 
     @Nonnull

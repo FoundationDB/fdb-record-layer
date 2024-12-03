@@ -24,7 +24,7 @@
  * <p>
  * Lucene indexes are backed by FDB, using {@link com.apple.foundationdb.record.lucene.directory.FDBDirectory} to implement a virtual file system holding the inverted index files.
  * This is not fundamental, though. This maintainer used standard {@link org.apache.lucene.index.IndexWriter} and {@link org.apache.lucene.index.IndexReader}, gotten with
- * {@link com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager#getIndexWriter(com.apple.foundationdb.tuple.Tuple, java.lang.Integer, com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper)}  getIndexWriter},
+ * {@link #getIndexWriter(com.apple.foundationdb.tuple.Tuple, Integer)}  getIndexWriter},
  * for interfacing to Lucene.
  * </p>
  *
