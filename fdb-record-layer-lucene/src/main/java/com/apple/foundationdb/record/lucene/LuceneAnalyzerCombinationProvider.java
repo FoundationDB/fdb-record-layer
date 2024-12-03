@@ -36,7 +36,9 @@ import java.util.stream.Collectors;
  */
 public class LuceneAnalyzerCombinationProvider {
 
+    @Nonnull
     private final LuceneAnalyzerWrapper indexAnalyzerWrapper;
+    @Nonnull
     private final LuceneAnalyzerWrapper queryAnalyzerWrapper;
 
     public LuceneAnalyzerCombinationProvider(@Nonnull AnalyzerChooser defaultIndexAnalyzerChooser,
@@ -47,14 +49,17 @@ public class LuceneAnalyzerCombinationProvider {
         queryAnalyzerWrapper = buildAnalyzerWrapper(defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
     }
 
+    @Nonnull
     public LuceneAnalyzerWrapper provideIndexAnalyzer() {
         return indexAnalyzerWrapper;
     }
 
+    @Nonnull
     public LuceneAnalyzerWrapper provideQueryAnalyzer() {
         return queryAnalyzerWrapper;
     }
 
+    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull AnalyzerChooser defaultAnalyzerChooser,
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
