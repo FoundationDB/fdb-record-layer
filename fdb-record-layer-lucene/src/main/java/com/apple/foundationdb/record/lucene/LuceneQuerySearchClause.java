@@ -82,7 +82,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
 
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
-        final QueryParser parser = parserFactory.createQueryParser(defaultField, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
+        final QueryParser parser = parserFactory.createQueryParser(defaultField, analyzerSelector.provideQueryAnalyzer().getAnalyzer(), pointsConfigMap);
         try {
             return toBoundQuery(parser.parse(searchString));
         } catch (Exception ioe) {
