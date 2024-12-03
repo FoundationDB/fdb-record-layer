@@ -35,28 +35,24 @@ import java.util.stream.Collectors;
  * The default analyzer chooser is used for all fields of one Lucene index except the fields which has overrides in the analyzer chooser per field mapping.
  */
 public class LuceneAnalyzerCombinationProvider {
-    public static final String DELINEATOR_BETWEEN_KEY_AND_VALUE = ":";
 
-    public static final String DELINEATOR_BETWEEN_KEY_VALUE_PAIRS = ",";
-    private AnalyzerChooser defaultIndexAnalyzerChooser;
-    private AnalyzerChooser defaultQueryAnalyzerChooser;
-    private Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride;
-    private Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride;
+    private final LuceneAnalyzerWrapper indexAnalyzerWrapper;
+    private final LuceneAnalyzerWrapper queryAnalyzerWrapper;
 
-    public LuceneAnalyzerCombinationProvider(@Nonnull AnalyzerChooser defaultIndexAnalyzerChooser, @Nonnull AnalyzerChooser defaultQueryAnalyzerChooser,
-                                             @Nullable Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride, @Nullable Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride) {
-        this.defaultIndexAnalyzerChooser = defaultIndexAnalyzerChooser;
-        this.defaultQueryAnalyzerChooser = defaultQueryAnalyzerChooser;
-        this.indexAnalyzerChooserPerFieldOverride = indexAnalyzerChooserPerFieldOverride;
-        this.queryAnalyzerChooserPerFieldOverride = queryAnalyzerChooserPerFieldOverride;
+    public LuceneAnalyzerCombinationProvider(@Nonnull AnalyzerChooser defaultIndexAnalyzerChooser,
+                                             @Nonnull AnalyzerChooser defaultQueryAnalyzerChooser,
+                                             @Nullable Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride,
+                                             @Nullable Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride) {
+        indexAnalyzerWrapper = buildAnalyzerWrapper(defaultIndexAnalyzerChooser, indexAnalyzerChooserPerFieldOverride);
+        queryAnalyzerWrapper = buildAnalyzerWrapper(defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
     }
 
     public LuceneAnalyzerWrapper provideIndexAnalyzer() {
-        return buildAnalyzerWrapper(defaultIndexAnalyzerChooser, indexAnalyzerChooserPerFieldOverride);
+        return indexAnalyzerWrapper;
     }
 
     public LuceneAnalyzerWrapper provideQueryAnalyzer() {
-        return buildAnalyzerWrapper(defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
+        return queryAnalyzerWrapper;
     }
 
     @SuppressWarnings("PMD.CloseResource")
