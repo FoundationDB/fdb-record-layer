@@ -108,6 +108,11 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
     }
 
     @Nonnull
+    public Value getTempTableReferenceValue() {
+        return tempTableReferenceValue;
+    }
+
+    @Nonnull
     public TempTableInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
         return TempTableInsertPlan.insertPlan(physicalInner, tempTableReferenceValue, isOwningTempTable);

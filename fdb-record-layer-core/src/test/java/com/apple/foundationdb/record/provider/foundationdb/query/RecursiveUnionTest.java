@@ -450,17 +450,16 @@ public class RecursiveUnionTest extends TempTableTestBase {
                 .addAllResultColumns(ImmutableList.of(getIdCol(ttScanSeeding), getValueCol(ttScanSeeding), getParentCol(ttScanSeeding))).addQuantifier(ttScanSeeding)
                 .build().buildSelect();
         final var seedingSelectQun = Quantifier.forEach(Reference.of(selectExpression));
-
-        final var insertTempTableReferenceValue = ConstantObjectValue.of(insertTempTableAlias, insertTempTableAlias.getId(), new Type.Relation(getType()));
-
-        final var initInsertQun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(seedingSelectQun,
-                insertTempTableAlias, insertTempTableAlias.getId(), getType(seedingSelectQun))));
+        final var tempTableInsertExpression = TempTableInsertExpression.ofConstant(seedingSelectQun,
+                insertTempTableAlias, insertTempTableAlias.getId(), getType(seedingSelectQun));
+        final var initInsertQun = Quantifier.forEach(Reference.of(tempTableInsertExpression));
+        final var insertTempTableReferenceValue = tempTableInsertExpression.getTempTableReferenceValue();
 
         final var hierarchyScanQun = generateHierarchyScan();
 
-        final var scanTempTableReferenceValue = ConstantObjectValue.of(scanTempTableAlias, scanTempTableAlias.getId(), new Type.Relation(getType()));
-
-        final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(scanTempTableAlias, scanTempTableAlias.getId(), getType())));
+        final var tempTableScanExpression = TempTableScanExpression.ofConstant(scanTempTableAlias, scanTempTableAlias.getId(), getType());
+        final var scanTempTableReferenceValue = tempTableScanExpression.getTempTableReferenceValue();
+        final var ttScanRecuQun = Quantifier.forEach(Reference.of(tempTableScanExpression));
         selectExpression = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(ttScanRecuQun), getValueCol(ttScanRecuQun), getParentCol(ttScanRecuQun)))
                 .addQuantifier(ttScanRecuQun)

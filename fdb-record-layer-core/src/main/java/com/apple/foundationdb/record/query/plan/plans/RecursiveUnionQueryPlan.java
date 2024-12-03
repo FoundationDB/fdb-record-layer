@@ -392,12 +392,12 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             this.insertTempTableReference = insertTempTableReference;
             this.scanTempTableReference = scanTempTableReference;
             overridenEvaluationContext = withEmptyTempTable(insertTempTableReference, baseContext);
-            overridenEvaluationContext = withEmptyTempTable(scanTempTableReference, overridenEvaluationContext);
             buffersAreFlipped = false;
             this.store = store;
             if (continuationBytes == null) {
                 isInitialState = true;
                 recursiveUnionTempTable = baseContext.getTempTableFactory().createTempTable();
+                overridenEvaluationContext = overrideTempTableBinding(overridenEvaluationContext, scanTempTableReference, recursiveUnionTempTable);
                 activeCursor = initialCursorCreator.apply(null, overridenEvaluationContext);
             } else {
                 final var continuation = RecursiveUnionCursor.Continuation.from(continuationBytes, tempTableDeserializer);
