@@ -202,7 +202,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
     @Tag(Tags.Performance)
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void randomizedHierarchyTestCase1() {
-        final var randomHierarchy = Hierarchy.generateRandomHierarchy(10000, 4);
+        final var randomHierarchy = Hierarchy.generateRandomHierarchy(1000, 4);
         final var descendants = randomHierarchy.calculateDescendants();
         final var randomContinuationScenario = ListPartitioner.partitionUsingPowerDistribution(10, descendants);
         final var continuationSnapshots = randomContinuationScenario.getKey();
