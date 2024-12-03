@@ -736,7 +736,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
                 LuceneAnalyzerCombinationProvider indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
 
-                assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""), new Exception()), "invalid lock");
+                assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(), new Exception()), "invalid lock");
                 commit(context);
             }
         }

@@ -255,7 +255,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
         Document document = new Document();
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(texts));
+        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer());
 
         BytesRef ref = new BytesRef(keySerializer.asPackedByteArray(primaryKey));
         // use packed Tuple for the Stored and Sorted fields
@@ -297,7 +297,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
     int deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
         final long startTime = System.nanoTime();
-        final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(""));
+        final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer());
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
 
         if (segmentIndex != null) {
@@ -358,7 +358,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return rebalancePartitions()
                 .thenCompose(ignored -> {
                     state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
-                    return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer(""));
+                    return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer());
                 });
     }
 
@@ -366,7 +366,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
                                      @Nullable final Integer partitionId,
                                      @Nonnull final AgilityContext agilityContext) throws IOException {
-        directoryManager.mergeIndexWithContext(indexAnalyzerSelector.provideIndexAnalyzer(""),
+        directoryManager.mergeIndexWithContext(indexAnalyzerSelector.provideIndexAnalyzer(),
                 groupingKey, partitionId, agilityContext);
     }
 

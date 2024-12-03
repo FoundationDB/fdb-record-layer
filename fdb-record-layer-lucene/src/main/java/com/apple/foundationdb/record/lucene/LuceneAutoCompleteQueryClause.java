@@ -122,12 +122,11 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
         final QueryParser parser = parserFactory.createMultiFieldQueryParser(fields.toArray(new String[0]),
-                analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);
+                analyzerSelector.provideIndexAnalyzer().getAnalyzer(), pointsConfigMap);
 
 
-        final var finalQuery = phraseQueryNeeded
-                               ? buildQueryForPhraseMatching(parser, fields, searchKey)
-                               : buildQueryForTermsMatching(analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), fields, searchKey);
+        final Query finalQuery;
+        finalQuery = phraseQueryNeeded ? buildQueryForPhraseMatching(parser, fields, searchKey) : buildQueryForTermsMatching(analyzerSelector.provideIndexAnalyzer().getAnalyzer(), fields, searchKey);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.build("query for auto-complete")
                     .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
