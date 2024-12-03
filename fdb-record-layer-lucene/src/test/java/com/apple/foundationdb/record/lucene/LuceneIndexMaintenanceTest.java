@@ -735,7 +735,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 FDBDirectory fdbDirectory = new InvalidLockTestFDBDirectory(recordStore.indexSubspace(index).subspace(directoryKey), context, options, failurePercentage);
                 FDBDirectoryWrapper fdbDirectoryWrapper = new FDBDirectoryWrapper(state, fdbDirectory, directoryKey,
                         1, AgilityContext.agile(context, 1L, 1L),
-                        indexAnalyzerSelector.provideIndexAnalyzer());
+                        indexAnalyzerSelector.provideIndexAnalyzer(), new Exception());
 
 
                 assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(new Exception()), "invalid lock");

@@ -22,11 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-
-import javax.annotation.Nonnull;
-import java.util.Map;
 
 /**
  * A Testing-focused {@link FDBDirectoryWrapper} that allows a mocked-FDBDirectory to be injected into the system.
@@ -34,13 +30,12 @@ import java.util.Map;
 public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
     MockedFDBDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount,
                               final AgilityContext agilityContext, final int blockCacheMaximumSize,
-                              final LuceneAnalyzerWrapper writerAnalyzer) {
-        super(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer);
-    }
-
-    @Nonnull
-    @Override
-    protected FDBDirectory createFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new MockedFDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
+                              final LuceneAnalyzerWrapper writerAnalyzer, final Exception exceptionAtManagerCreation) {
+        super(state,
+                new MockedFDBDirectory(state.indexSubspace.subspace(key), state.index.getOptions(),
+                        null, null, // TODO support shared cache
+                        USE_COMPOUND_FILE, agilityContext, blockCacheMaximumSize),
+                key, mergeDirectoryCount, agilityContext, writerAnalyzer,
+                exceptionAtManagerCreation);
     }
 }

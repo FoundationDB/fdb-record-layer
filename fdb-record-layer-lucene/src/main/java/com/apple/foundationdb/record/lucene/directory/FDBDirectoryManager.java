@@ -82,7 +82,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     @Nonnull
     private final Map<Tuple, FDBDirectoryWrapper> createdDirectories;
     private final int mergeDirectoryCount;
-    private final Exception exceptionAtCreation;
+    protected final Exception exceptionAtCreation;
     @Nonnull
     protected final LuceneAnalyzerWrapper writerAnalyzer;
 
@@ -302,7 +302,8 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     protected @Nonnull FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer);
+        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize,
+                writerAnalyzer, exceptionAtCreation);
     }
 
     private int getBlockCacheMaximumSize() {

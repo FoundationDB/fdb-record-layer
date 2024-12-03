@@ -40,6 +40,6 @@ public class MockedFDBDirectoryManager extends FDBDirectoryManager {
                                                             final AgilityContext agilityContext,
                                                             final int blockCacheMaximumSize) {
         return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize,
-                writerAnalyzer);
+                writerAnalyzer, exceptionAtCreation);
     }
 }
