@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -186,7 +187,11 @@ public class TempTable implements ProtoSerializable {
      */
     public static class Factory {
 
+        @Nonnull
+        private static final Factory INSTANCE = new Factory();
+
         @VisibleForTesting // through injection
+        @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "This is made non-private for testing through dependency injection")
         protected Factory() {
         }
 
@@ -194,9 +199,6 @@ public class TempTable implements ProtoSerializable {
         public TempTable createTempTable() {
             return TempTable.newInstance();
         }
-
-        @Nonnull
-        private static final Factory INSTANCE = new Factory();
 
         @Nonnull
         public static Factory instance() {

@@ -454,6 +454,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
 
         @Nonnull
+        @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
         private EvaluationContext flipBuffers(@Nonnull final EvaluationContext evaluationContext, boolean cleanBuffers) {
             final var insertTempTable = getTempTable(evaluationContext, insertTempTableReference);
             final var scanTempTable = getTempTable(evaluationContext, scanTempTableReference);

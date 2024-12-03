@@ -69,54 +69,6 @@ import java.util.function.Function;
  */
 public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
-    /**
-     * Interface for recursive state management, the caller is expected to invoke respective callbacks when certain
-     * events occur so the internal state mutates accordingly, it also offers a set of methods that enable examining
-     * current state.
-     * @param <T> The type of the cursor elements.
-     */
-    public interface RecursiveStateManager<T> {
-
-        /**
-         * Callback notifying the manager that the current cursor is exhausted.
-         */
-        void notifyCursorIsExhausted();
-
-        /**
-         * Checks whether it is possible to transition from current recursive step {@code n} to next step {@code n + 1}.
-         * @return {@code True} if it is possible to transition from current recursive step {@code n} to next step {@code n + 1},
-         * otherwise {@code false}.
-         */
-        boolean canTransitionToNewStep();
-
-        /**
-         * Retrieve the currently active cursor, an active cursor is either the {@code initial} cursor or the {@code recursive} cursor.
-         * @return The currently active cursor.
-         */
-        @Nonnull
-        RecordCursor<T> getActiveStateCursor();
-
-        /**
-         * Retrieve the {@link TempTable} that is owned by the {@link RecursiveUnionQueryPlan}.
-         * @return The {@link TempTable} that is owned by the {@link RecursiveUnionQueryPlan}.
-         */
-        @Nonnull
-        TempTable getRecursiveUnionTempTable();
-
-        /**
-         * Checks whether the execution is still in the initial phase or not.
-         * @return {@code True} if the execution is still in the initial phase, otherwise {@code false}, i.e. the execution
-         * is in the recursive phase.
-         */
-        boolean isInitialState();
-
-        /**
-         * Checks whether read and write buffers ({@link TempTable}s) are swapped or not.
-         * @return {@code True} if the read and write buffers are swapped, otherwise {@code false}.
-         */
-        boolean buffersAreFlipped();
-    }
-
     @Nonnull
     private RecordCursor<T> activeStateCursor;
 
@@ -143,8 +95,8 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                     if (recursiveStateManager.canTransitionToNewStep()) {
                         activeStateCursor = recursiveStateManager.getActiveStateCursor();
                         // although this can take advantage of tail-recursion optimization, I am not certain it is done
-                        // by the compiler. perhaps a better approach would be to use something like AsyncUtil.whileTrue
-                        // instead of this recursive call.
+                        // by the (or a future) Java compiler. perhaps a better approach would be to use something like
+                        // AsyncUtil.whileTrue instead of this recursive call.
                         return onNext();
                     } else {
                         return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
@@ -201,7 +153,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
      * Continuation that captures the state of execution of a {@link RecursiveUnionCursor} that is orchestrated by
      * {@link RecursiveUnionQueryPlan} through a {@link RecursiveStateManager}.
      */
-    public static class Continuation implements RecordCursorContinuation {
+    public static final class Continuation implements RecordCursorContinuation {
 
         // whether the execution is still in initial phase or not.
         private final boolean isInitialState;
@@ -301,5 +253,53 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         public boolean buffersAreFlipped() {
             return buffersAreFlipped;
         }
+    }
+
+    /**
+     * Interface for recursive state management, the caller is expected to invoke respective callbacks when certain
+     * events occur so the internal state mutates accordingly, it also offers a set of methods that enable examining
+     * current state.
+     * @param <T> The type of the cursor elements.
+     */
+    public interface RecursiveStateManager<T> {
+
+        /**
+         * Callback notifying the manager that the current cursor is exhausted.
+         */
+        void notifyCursorIsExhausted();
+
+        /**
+         * Checks whether it is possible to transition from current recursive step {@code n} to next step {@code n + 1}.
+         * @return {@code True} if it is possible to transition from current recursive step {@code n} to next step {@code n + 1},
+         * otherwise {@code false}.
+         */
+        boolean canTransitionToNewStep();
+
+        /**
+         * Retrieve the currently active cursor, an active cursor is either the {@code initial} cursor or the {@code recursive} cursor.
+         * @return The currently active cursor.
+         */
+        @Nonnull
+        RecordCursor<T> getActiveStateCursor();
+
+        /**
+         * Retrieve the {@link TempTable} that is owned by the {@link RecursiveUnionQueryPlan}.
+         * @return The {@link TempTable} that is owned by the {@link RecursiveUnionQueryPlan}.
+         */
+        @Nonnull
+        TempTable getRecursiveUnionTempTable();
+
+        /**
+         * Checks whether the execution is still in the initial phase or not.
+         * @return {@code True} if the execution is still in the initial phase, otherwise {@code false}, i.e. the execution
+         * is in the recursive phase.
+         */
+        boolean isInitialState();
+
+        /**
+         * Checks whether read and write buffers ({@link TempTable}s) are swapped or not.
+         * @return {@code True} if the read and write buffers are swapped, otherwise {@code false}.
+         */
+        boolean buffersAreFlipped();
     }
 }
