@@ -148,8 +148,8 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     private Pair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(@Nonnull Index index, @Nullable String analyzerName, @Nonnull LuceneAnalyzerType type) {
         final Map<String, LuceneAnalyzerFactory> registryForType = Objects.requireNonNullElse(registry.get(type), Collections.emptyMap());
         if (analyzerName == null || !registryForType.containsKey(analyzerName)) {
-            return Pair.of(t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
-                    t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
+            return Pair.of(() -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
+                    () -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
         } else {
             LuceneAnalyzerFactory analyzerFactory = registryForType.get(analyzerName);
             if (analyzerFactory == null) {

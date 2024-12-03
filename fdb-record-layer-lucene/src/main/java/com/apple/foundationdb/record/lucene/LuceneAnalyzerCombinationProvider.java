@@ -73,11 +73,11 @@ public class LuceneAnalyzerCombinationProvider {
     private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull List<String> texts,
                                                               @Nonnull AnalyzerChooser defaultAnalyzerChooser,
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
-        final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer(texts);
+        final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer();
         if (customizedAnalyzerChooserPerField != null) {
             // The order of keys matters because the identifier for each map needs to be consistent
             SortedMap<String, LuceneAnalyzerWrapper> analyzerWrapperMap = new TreeMap<>(customizedAnalyzerChooserPerField.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().chooseAnalyzer(texts))));
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().chooseAnalyzer())));
 
             PerFieldAnalyzerWrapper analyzerWrapper = new PerFieldAnalyzerWrapper(defaultAnalyzerWrapper.getAnalyzer(),
                     analyzerWrapperMap.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getAnalyzer())));
