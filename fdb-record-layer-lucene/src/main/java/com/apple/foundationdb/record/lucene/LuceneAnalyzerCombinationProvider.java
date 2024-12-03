@@ -24,8 +24,6 @@ import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -53,25 +51,16 @@ public class LuceneAnalyzerCombinationProvider {
         this.queryAnalyzerChooserPerFieldOverride = queryAnalyzerChooserPerFieldOverride;
     }
 
-    public LuceneAnalyzerWrapper provideIndexAnalyzer(@Nonnull String text) {
-        return provideIndexAnalyzer(Collections.singletonList(text));
+    public LuceneAnalyzerWrapper provideIndexAnalyzer() {
+        return buildAnalyzerWrapper(defaultIndexAnalyzerChooser, indexAnalyzerChooserPerFieldOverride);
     }
 
-    public LuceneAnalyzerWrapper provideIndexAnalyzer(@Nonnull List<String> texts) {
-        return buildAnalyzerWrapper(texts, defaultIndexAnalyzerChooser, indexAnalyzerChooserPerFieldOverride);
-    }
-
-    public LuceneAnalyzerWrapper provideQueryAnalyzer(@Nonnull String text) {
-        return provideQueryAnalyzer(Collections.singletonList(text));
-    }
-
-    public LuceneAnalyzerWrapper provideQueryAnalyzer(@Nonnull List<String> texts) {
-        return buildAnalyzerWrapper(texts, defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
+    public LuceneAnalyzerWrapper provideQueryAnalyzer() {
+        return buildAnalyzerWrapper(defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull List<String> texts,
-                                                              @Nonnull AnalyzerChooser defaultAnalyzerChooser,
+    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull AnalyzerChooser defaultAnalyzerChooser,
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
         final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer();
         if (customizedAnalyzerChooserPerField != null) {

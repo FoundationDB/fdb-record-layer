@@ -197,7 +197,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
 
         try {
             // TODO: this is called to initialize the writer, else we get an exception at getDirectoryReader. Should it really be done for a RO operation?
-            directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(""));
+            directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer());
         } catch (IOException e) {
             throw LuceneExceptions.toRecordCoreException("failed getIndexWriter", e);
         }
