@@ -75,6 +75,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -86,6 +87,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -778,6 +781,75 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     }
                 }
             };
+        }
+    }
+
+    @Test
+    void concurrentUpdate() throws IOException {
+        AtomicInteger threadCounter = new AtomicInteger();
+        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(3,
+                pool -> {
+                    final ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+                    thread.setName("ConcurrentUpdatePool-" + threadCounter.getAndIncrement());
+                    return thread;
+                },
+                null, false));
+        final long seed = 320947L;
+        final boolean isGrouped = true;
+        final boolean isSynthetic = true;
+        final boolean primaryKeySegmentIndexEnabled = true;
+        final int partitionHighWatermark = 100_000;
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
+                .setPartitionHighWatermark(partitionHighWatermark)
+                .build();
+
+        final int repartitionCount = 10;
+        final int loopCount = 30;
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, dataModel.nextInt(1000) + repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+        for (int i = 0; i < loopCount; i++) {
+            LOGGER.info(KeyValueLogMessage.of("concurrentUpdate loop",
+                    "iteration", i,
+                    "groupCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.size(),
+                    "docCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum(),
+                    "docMinPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).min(),
+                    "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
+
+            long start = 234098;
+            try (FDBRecordContext context = openContext(contextProps)) {
+                dataModel.saveRecords(10, start, context, 1);
+                commit(context);
+            }
+            explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+        }
+
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            assertThat(dataModel.updateableRecords, Matchers.aMapWithSize(Matchers.greaterThan(30)));
+            LOGGER.info("concurrentUpdate: Starting updates");
+            RecordCursor.fromList(new ArrayList<>(dataModel.updateableRecords.entrySet()))
+                    .mapPipelined(entry -> {
+                        return dataModel.updateRecord(recordStore, entry.getKey(), entry.getValue());
+                    }, 10)
+                    .asList().join();
+            commit(context);
+        }
+
+
+        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
+        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+
+        if (isGrouped) {
+            validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
         }
     }
 
