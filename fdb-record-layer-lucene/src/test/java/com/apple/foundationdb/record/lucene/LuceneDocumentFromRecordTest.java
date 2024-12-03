@@ -55,8 +55,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  */
 class LuceneDocumentFromRecordTest {
 
-    private LuceneAnalyzerCombinationProvider analyzerProvider = new LuceneAnalyzerCombinationProvider(t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
-            t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
+    private LuceneAnalyzerCombinationProvider analyzerProvider = new LuceneAnalyzerCombinationProvider(() -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
+            () -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
             null, null);
 
     @Test
