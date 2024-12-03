@@ -30,7 +30,7 @@ Then the following dependency can be added:
 ```
   <groupId>org.foundationdb</groupId>
   <artifactId>fdb-record-layer-core</artifactId>
-  <version>3.4.+</version>
+  <version>3.5.+</version>
 ```
 
 Older builds are also available in the maven central repository, and newer builds will be published there upon the resolution of [Issue #1288](https://github.com/FoundationDB/fdb-record-layer/issues/1288).
@@ -51,7 +51,7 @@ repositories {
 Then the following dependency can be added:
 
 ```
-"org.foundationdb:fdb-record-layer-core:3.4.+"
+"org.foundationdb:fdb-record-layer-core:3.5.+"
 ```
 
 Older builds are also available in the `mavenCentral()` repository, and newer builds will be published there upon the resolution of [Issue #1288](https://github.com/FoundationDB/fdb-record-layer/issues/1288).

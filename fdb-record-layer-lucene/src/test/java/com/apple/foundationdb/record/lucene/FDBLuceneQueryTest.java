@@ -62,7 +62,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
@@ -77,6 +76,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -90,7 +90,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
@@ -1376,7 +1375,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 null, false));
         factory.getDatabase().setAsyncToSyncTimeout(event -> {
             // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
-            return new ImmutablePair<>(1L, TimeUnit.SECONDS);
+            return Duration.ofSeconds(1L);
         });
         // Save many records (create many segments)
         for (long i = 0; i < 20; i++) {

@@ -31,13 +31,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
-import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.RandomUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -52,6 +51,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,7 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AgilityContextTest extends FDBRecordStoreTestBase {
     int loopCount = 20;
     int threadCount = 5; // if exceeds a certain size, may cause an execution pool deadlock
-    final String prefix = ByteString.copyFrom(RandomUtils.nextBytes(100)).toString();
+    final String prefix = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100).toString();
 
     private AgilityContext getAgilityContextAgileProp(FDBRecordContext callerContext) {
         final long timeQuotaMillis =

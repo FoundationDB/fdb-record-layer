@@ -64,7 +64,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,6 +76,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -434,19 +434,19 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                                                               @Nonnull FDBRecord<M> record) {
         if (FunctionNames.RANK.equals(function.getName())) {
             final CompletableFuture<Long> rank = timeWindowRankAndEntry(record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
-                    .thenApply(re -> re == null ? null : re.getLeft());
+                    .thenApply(re -> re == null ? null : re.getRank());
             return (CompletableFuture<T>)rank;
         } else if (FunctionNames.TIME_WINDOW_RANK.equals(function.getName())) {
             final TimeWindowRecordFunction<Long> timeWindowRank = (TimeWindowRecordFunction<Long>) function;
             final TimeWindowForFunction timeWindow = timeWindowRank.getTimeWindow();
             final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, timeWindow, record)
-                    .thenApply(re -> re == null ? null : re.getLeft());
+                    .thenApply(re -> re == null ? null : re.getRank());
             return (CompletableFuture<T>)rank;
         } else if (FunctionNames.TIME_WINDOW_RANK_AND_ENTRY.equals(function.getName())) {
             final TimeWindowRecordFunction<Tuple> timeWindowRankAndEntry = (TimeWindowRecordFunction<Tuple>) function;
             final TimeWindowForFunction timeWindow = timeWindowRankAndEntry.getTimeWindow();
             final CompletableFuture<Tuple> rankAndEntry = timeWindowRankAndEntry(context, timeWindow, record)
-                    .thenApply(re -> re == null ? null : Tuple.from(re.getLeft()).addAll(re.getRight()));
+                    .thenApply(re -> re == null ? null : Tuple.from(re.getRank()).addAll(re.getEntry()));
             return (CompletableFuture<T>)rankAndEntry;
         } else {
             return unsupportedRecordFunction(function);
@@ -525,16 +525,66 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         });
     }
 
+    /**
+     * Struct containing both the time window leaderboard entry and the rank.
+     */
+    public static class TimeWindowRankAndEntry {
+        @Nullable
+        private final Long rank;
+        @Nonnull
+        private final Tuple entry;
+
+        private TimeWindowRankAndEntry(@Nullable Long rank, @Nonnull Tuple entry) {
+            this.rank = rank;
+            this.entry = entry;
+        }
+
+        @Nullable
+        public Long getRank() {
+            return rank;
+        }
+
+        @Nonnull
+        public Tuple getEntry() {
+            return entry;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final TimeWindowRankAndEntry that = (TimeWindowRankAndEntry)o;
+            return Objects.equals(rank, that.rank) && Objects.equals(entry, that.entry);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(entry, rank);
+        }
+
+        @Override
+        public String toString() {
+            return "TimeWindowRankAndEntry{" +
+                    "rank=" + rank +
+                    ", entry=" + entry +
+                    '}';
+        }
+    }
+
     @Nonnull
-    public <M extends Message> CompletableFuture<Pair<Long, Tuple>> timeWindowRankAndEntry(@Nonnull EvaluationContext context,
-                                                                                           @Nonnull TimeWindowForFunction timeWindow,
-                                                                                           @Nonnull FDBRecord<M> record) {
+    public <M extends Message> CompletableFuture<TimeWindowRankAndEntry> timeWindowRankAndEntry(@Nonnull EvaluationContext context,
+                                                                                                @Nonnull TimeWindowForFunction timeWindow,
+                                                                                                @Nonnull FDBRecord<M> record) {
         return timeWindowRankAndEntry(record, timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context));
     }
 
     @Nonnull
-    public <M extends Message> CompletableFuture<Pair<Long, Tuple>> timeWindowRankAndEntry(@Nonnull FDBRecord<M> record,
-                                                                                           int type, long timestamp) {
+    public <M extends Message> CompletableFuture<TimeWindowRankAndEntry> timeWindowRankAndEntry(@Nonnull FDBRecord<M> record,
+                                                                                                int type, long timestamp) {
         final List<IndexEntry> indexEntries = evaluateIndex(record);
 
         final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);
@@ -571,7 +621,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                             final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboardConfig);
                             // Undo any negation needed to find entry.
                             final Tuple entry = highScoreFirst ? negateScoreForHighScoreFirst(indexKey.scoreKey, 0) : indexKey.scoreKey;
-                            return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey, true).thenApply(rank -> Pair.of(rank, entry));
+                            return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey, true).thenApply(rank -> new TimeWindowRankAndEntry(rank, entry));
                         });
             });
         });

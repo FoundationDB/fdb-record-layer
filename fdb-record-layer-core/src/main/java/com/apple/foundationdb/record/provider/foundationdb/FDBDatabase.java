@@ -38,22 +38,22 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResu
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.PassThroughRecordStoreStateCache;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -116,7 +116,7 @@ public class FDBDatabase {
     @Nonnull
     private final ScheduledExecutorService scheduledExecutor;
     @Nullable
-    private Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout;
+    private Function<FDBStoreTimer.Wait, Duration> asyncToSyncTimeout;
     @Nonnull
     private ExceptionMapper asyncToSyncExceptionMapper;
     @Nonnull
@@ -162,9 +162,9 @@ public class FDBDatabase {
     private final APIVersion apiVersion;
 
     @Nonnull
-    private static final ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
+    private static final Pair<Long, Long> initialVersionPair = Pair.of(null, null);
     @Nonnull
-    private final AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
+    private final AtomicReference<Pair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
 
     private final NavigableMap<Long, FDBRecordContext> trackedOpenContexts = new ConcurrentSkipListMap<>();
 
@@ -622,7 +622,7 @@ public class FDBDatabase {
     public void updateLastSeenFDBVersion(long startTime, long readVersion) {
         lastSeenFDBVersion.updateAndGet(pair ->
                 (pair.getLeft() == null || readVersion > pair.getLeft()) ?
-                        new ImmutablePair<>(readVersion, versionTimeEstimate(startTime)) : pair);
+                        Pair.of(readVersion, versionTimeEstimate(startTime)) : pair);
     }
 
     @Nonnull
@@ -1058,7 +1058,7 @@ public class FDBDatabase {
     }
 
     @Nullable
-    public Pair<Long, TimeUnit> getAsyncToSyncTimeout(FDBStoreTimer.Wait event) {
+    public Duration getAsyncToSyncTimeout(FDBStoreTimer.Wait event) {
         if (asyncToSyncTimeout == null) {
             return null;
         } else {
@@ -1067,16 +1067,17 @@ public class FDBDatabase {
     }
 
     @Nullable
-    public Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> getAsyncToSyncTimeout() {
+    public Function<FDBStoreTimer.Wait, Duration> getAsyncToSyncTimeout() {
         return asyncToSyncTimeout;
     }
 
-    public void setAsyncToSyncTimeout(@Nullable Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout) {
+    public void setAsyncToSyncTimeout(@Nullable Function<FDBStoreTimer.Wait, Duration> asyncToSyncTimeout) {
         this.asyncToSyncTimeout = asyncToSyncTimeout;
     }
 
     public void setAsyncToSyncTimeout(long asyncToSyncTimeout, @Nonnull TimeUnit asyncToSyncTimeoutUnit) {
-        setAsyncToSyncTimeout(event -> new ImmutablePair<>(asyncToSyncTimeout, asyncToSyncTimeoutUnit));
+        Duration timeout = Duration.ofNanos(asyncToSyncTimeoutUnit.toNanos(asyncToSyncTimeout));
+        setAsyncToSyncTimeout(event -> timeout);
     }
 
     public void clearAsyncToSyncTimeout() {
@@ -1105,18 +1106,18 @@ public class FDBDatabase {
             }
         } else {
 
-            final Pair<Long, TimeUnit> timeout = getAsyncToSyncTimeout(event);
+            final Duration timeout = getAsyncToSyncTimeout(event);
             final long startTime = System.nanoTime();
             try {
                 if (timeout != null) {
-                    return async.get(timeout.getLeft(), timeout.getRight());
+                    return async.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
                 } else {
                     return async.get();
                 }
             } catch (TimeoutException ex) {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
-                    throw asyncToSyncExceptionMapper.apply(new LoggableTimeoutException(ex, LogMessageKeys.TIME_LIMIT.toString(), timeout.getLeft(), LogMessageKeys.TIME_UNIT.toString(), timeout.getRight()), event);
+                    throw asyncToSyncExceptionMapper.apply(new LoggableTimeoutException(ex, LogMessageKeys.TIME_LIMIT.toString(), timeout.toNanos(), LogMessageKeys.TIME_UNIT.toString(), TimeUnit.NANOSECONDS), event);
                 }
                 throw asyncToSyncExceptionMapper.apply(ex, event);
             } catch (ExecutionException ex) {
@@ -1193,31 +1194,43 @@ public class FDBDatabase {
     @VisibleForTesting
     @SuppressWarnings({"PMD.CloseResource", "PMD.GuardLogStatement"})
     public int warnAndCloseOldTrackedOpenContexts(long minAgeSeconds) {
-        long nanoTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
-        if (trackedOpenContexts.isEmpty()) {
+        long cutoffTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
+        @Nullable Map.Entry<Long, FDBRecordContext> firstEntry = trackedOpenContexts.firstEntry();
+        if (firstEntry == null || firstEntry.getKey() > cutoffTime) {
             return 0;
         }
-        try {
-            if (trackedOpenContexts.firstKey() > nanoTime) {
-                return 0;
-            }
-        } catch (NoSuchElementException ex) {
-            return 0;
-        }
+        @Nullable Map<String, String> threadMdc = MDC.getCopyOfContextMap();
+        MDC.clear();
         int count = 0;
-        for (FDBRecordContext context : trackedOpenContexts.headMap(nanoTime, true).values()) {
-            KeyValueLogMessage msg = KeyValueLogMessage.build("context not closed",
-                    LogMessageKeys.AGE_SECONDS, TimeUnit.NANOSECONDS.toSeconds(nanoTime - context.getTrackOpenTimeNanos()),
-                    LogMessageKeys.TRANSACTION_ID, context.getTransactionId());
-            if (LOGGER.isWarnEnabled()) {
-                if (context.getOpenStackTrace() != null) {
-                    LOGGER.warn(msg.toString(), context.getOpenStackTrace());
-                } else {
-                    LOGGER.warn(msg.toString());
+        try {
+            for (FDBRecordContext context : trackedOpenContexts.headMap(cutoffTime, true).values()) {
+                KeyValueLogMessage msg = KeyValueLogMessage.build("context not closed",
+                        LogMessageKeys.AGE_SECONDS, TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - context.getTrackOpenTimeNanos()),
+                        LogMessageKeys.TRANSACTION_ID, context.getTransactionId(),
+                        LogMessageKeys.CLUSTER, clusterFile);
+
+                // We want to log with the MDC context that created the transaction if we can.
+                // This allows us to link any information from the original creator to this
+                // closing event
+                @Nullable Map<String, String> contextMdc = context.getMdcContext();
+                if (contextMdc != null) {
+                    msg.addKeysAndValues(contextMdc);
                 }
+
+                if (LOGGER.isWarnEnabled()) {
+                    if (context.getOpenStackTrace() != null) {
+                        LOGGER.warn(msg.toString(), context.getOpenStackTrace());
+                    } else {
+                        LOGGER.warn(msg.toString());
+                    }
+                }
+                context.closeTransaction(true);
+                count++;
             }
-            context.closeTransaction(true);
-            count++;
+        } finally {
+            if (threadMdc != null) {
+                MDC.setContextMap(threadMdc);
+            }
         }
         return count;
     }
