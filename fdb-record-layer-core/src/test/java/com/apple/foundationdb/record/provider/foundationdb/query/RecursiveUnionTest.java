@@ -57,7 +57,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
@@ -356,9 +355,9 @@ public class RecursiveUnionTest extends TempTableTestBase {
         final ImmutableList.Builder<List<Long>> resultBuilder = ImmutableList.builder();
         try (FDBRecordContext context = openContext()) {
             var planAndResultAndContinuation = hierarchicalQuery(hierarchy, initial, predicate, context, null, successiveRowLimits.get(0));
-            final var plan = planAndResultAndContinuation.getLeft();
-            var continuation = planAndResultAndContinuation.getRight();
-            resultBuilder.add(planAndResultAndContinuation.getMiddle());
+            final var plan = planAndResultAndContinuation.getPlan();
+            var continuation = planAndResultAndContinuation.getContinuation();
+            resultBuilder.add(planAndResultAndContinuation.getExecutionResult());
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
             for (final var rowLimit : successiveRowLimits.stream().skip(1).collect(ImmutableList.toImmutableList())) {
                 final var seedingTempTable = tempTableInstance();
@@ -377,17 +376,17 @@ public class RecursiveUnionTest extends TempTableTestBase {
                                          @Nonnull final Map<Long, Long> initial,
                                          @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate) {
         try (FDBRecordContext context = openContext()) {
-            return hierarchicalQuery(hierarchy, initial, queryPredicate, context, null, -1).getMiddle();
+            return hierarchicalQuery(hierarchy, initial, queryPredicate, context, null, -1).getExecutionResult();
         }
     }
 
     @Nonnull
-    private Triple<RecordQueryPlan, List<Long>, byte[]> hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy,
-                                                                          @Nonnull final Map<Long, Long> initial,
-                                                                          @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
-                                                                          @Nonnull final FDBRecordContext context,
-                                                                          @Nullable final byte[] continuation,
-                                                                          int numberOfItemsToReturn) {
+    private HierarchyExecutionResult hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy,
+                                                                         @Nonnull final Map<Long, Long> initial,
+                                                                         @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
+                                                                         @Nonnull final FDBRecordContext context,
+                                                                         @Nullable final byte[] continuation,
+                                                                         int numberOfItemsToReturn) {
         createOrOpenRecordStore(context, RecordMetaData.build(TestHierarchiesProto.getDescriptor()));
         for (final var entry : hierarchy.entrySet()) {
             final var message = item(entry.getKey(), entry.getValue());
@@ -404,7 +403,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
         initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
         var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
         final var resultAndContinuation = executeHierarchyPlan(plan, continuation, evaluationContext, numberOfItemsToReturn);
-        return Triple.of(plan, resultAndContinuation.getKey(), resultAndContinuation.getRight());
+        return new HierarchyExecutionResult(plan, resultAndContinuation.getKey(), resultAndContinuation.getRight());
     }
 
     /**
@@ -498,5 +497,40 @@ public class RecursiveUnionTest extends TempTableTestBase {
                 .addQuantifier(qun);
         qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
         return qun;
+    }
+
+    private static final class HierarchyExecutionResult {
+
+        @Nonnull
+        private final RecordQueryPlan plan;
+
+        @Nonnull
+        private final List<Long> executionResult;
+
+        @Nullable
+        private final byte[] continuation;
+
+        HierarchyExecutionResult(@Nonnull final RecordQueryPlan plan,
+                                 @Nonnull final List<Long> executionResult,
+                                 @Nullable final byte[] continuation) {
+            this.plan = plan;
+            this.executionResult = executionResult;
+            this.continuation = continuation;
+        }
+
+        @Nonnull
+        public RecordQueryPlan getPlan() {
+            return plan;
+        }
+
+        @Nonnull
+        public List<Long> getExecutionResult() {
+            return executionResult;
+        }
+
+        @Nullable
+        public byte[] getContinuation() {
+            return continuation;
+        }
     }
 }
