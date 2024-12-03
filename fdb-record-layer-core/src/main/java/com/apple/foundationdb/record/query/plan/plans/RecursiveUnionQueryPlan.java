@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.RecursiveUnionCursor;
+import com.apple.foundationdb.record.cursors.RecursiveUnionCursor.RecursiveStateManager;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecursiveUnionQueryPlan;
 import com.apple.foundationdb.record.planprotos.PTempTable;
@@ -69,13 +70,21 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * This is a physical representation of a recursive union, it delegates most of its execution to an underlying
- * {@link RecursiveUnionCursor}, sharing its state, through a number of suppliers and consumers, with it to orchestrate
- * the recursive execution.
+ * This is a physical representation of a recursive union, as with any other plan operator, its creates a {@link RecordCursor}
+ * upon execution, however it is heavily involved in the execution orchestration of the created cursor due to the recursive
+ * nature of execution and the necessity of mutating the execution state at its own level by means of overriding the
+ * {@link EvaluationContext}'s reference to read and write {@link TempTable} used to execute current recursive step {@code n}
+ * while preparing at the same time the state required to execute next recursive step {@code n+1}.
+ * <br>
+ * The recursive state is abstracted by the interface {@link RecursiveStateManager} which is implemented internally by
+ * {@link RecursiveStateManagerImpl}.
+ * <br>
+ * for more information see {@link RecursiveUnionCursor}.
  */
 @API(API.Status.INTERNAL)
 public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
+    @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Recursive-Union-Query-Plan");
 
     @Nonnull
@@ -99,12 +108,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nonnull
     private final Supplier<Integer> computeComplexity;
 
-    private TempTable readTempTable;
-
-    private TempTable writeTempTable;
-
-    private boolean initialIsRead;
-
     public RecursiveUnionQueryPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                    @Nonnull final Value tempTableScanValueReference,
                                    @Nonnull final Value tempTableInsertValueReference) {
@@ -115,7 +118,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         this.correlationsSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.computeChildren = Suppliers.memoize(this::computeChildren);
         this.computeComplexity = Suppliers.memoize(this::computeComplexity);
-        this.initialIsRead = true;
     }
 
     @Override
@@ -127,61 +129,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Override
     public int getRelationalChildCount() {
         return quantifiers.size();
-    }
-
-    private EvaluationContext resetTempTableBindings(@Nonnull final EvaluationContext context) {
-        if (initialIsRead) {
-            final var newEvaluationContext = overrideTempTableBinding(context, tempTableScanValueReference, readTempTable);
-            return overrideTempTableBinding(newEvaluationContext, tempTableInsertValueReference, writeTempTable);
-        } else {
-            final var newEvaluationContext = overrideTempTableBinding(context, tempTableScanValueReference, writeTempTable);
-            return overrideTempTableBinding(newEvaluationContext, tempTableInsertValueReference, readTempTable);
-        }
-    }
-
-    private <M extends Message> EvaluationContext initTempTableBindings(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                         @Nonnull final EvaluationContext context) {
-        readTempTable = getScanTempTable(store, context);
-        writeTempTable = getInsertTempTable(store, context);
-        final var newEvaluationContext = overrideTempTableBinding(context, tempTableScanValueReference, readTempTable);
-        return overrideTempTableBinding(newEvaluationContext, tempTableInsertValueReference, writeTempTable);
-    }
-
-    @Nonnull
-    private <M extends Message> TempTable getScanTempTable(@Nonnull final FDBRecordStoreBase<M> store,
-                                                           @Nonnull final EvaluationContext context) {
-        return Objects.requireNonNull((TempTable)this.tempTableScanValueReference.eval(store, context));
-    }
-
-    @Nonnull
-    private <M extends Message> TempTable getInsertTempTable(@Nonnull final FDBRecordStoreBase<M> store,
-                                                             @Nonnull final EvaluationContext context) {
-        return Objects.requireNonNull((TempTable)this.tempTableInsertValueReference.eval(store, context));
-    }
-
-    @Nonnull
-    private <M extends Message> TempTable getReadTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return initialIsRead ? getScanTempTable(store, context) : getInsertTempTable(store, context);
-    }
-
-    @Nonnull
-    private <M extends Message> TempTable getWriteTempTable(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return initialIsRead ? getInsertTempTable(store, context) : getScanTempTable(store, context);
-    }
-
-    @Nonnull
-    private static EvaluationContext overrideTempTableBinding(@Nonnull final EvaluationContext context,
-                                                              @Nonnull final Value key,
-                                                              @Nonnull final TempTable value) {
-        if (key instanceof ConstantObjectValue) {
-            final var constantKey = (ConstantObjectValue)key;
-            final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
-            constants.put(constantKey.getConstantId(), value);
-            return context.withBinding(Bindings.Internal.CONSTANT, constantKey.getAlias(), constants.build());
-        }
-        Verify.verify(key instanceof QuantifiedObjectValue);
-        final var quantifiedKey = (QuantifiedObjectValue)key;
-        return context.withBinding(quantifiedKey.getAlias().getId(), value);
     }
 
     @Nonnull
@@ -222,9 +169,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var type = getInnerTypeDescriptor(context, tempTableScanValueReference);
-        final var contextWithTempTables = initTempTable(tempTableScanValueReference,
-                initTempTable(tempTableInsertValueReference, context));
-        var contextWithTempTablesSet = initTempTableBindings(store, contextWithTempTables);
         final var recursiveStateManager = new RecursiveStateManagerImpl(
                 (initialContinuation, evaluationContext) -> getInitialStatePlan().executePlan(store, evaluationContext,
                         initialContinuation == null ? null : initialContinuation.toByteArray(), executeProperties),
@@ -248,23 +192,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             typeDescriptor = null;
         }
         return typeDescriptor;
-    }
-
-    /**
-     * Returns a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
-     * @param tempTableReferenceValue The temp table reference.
-     * @param context The context to add the new binding to.
-     * @return a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
-     */
-    @Nonnull
-    private EvaluationContext initTempTable(@Nonnull final Value tempTableReferenceValue, @Nonnull final EvaluationContext context) {
-        if (tempTableReferenceValue instanceof ConstantObjectValue) {
-            final var tempTableConstantReferenceValue = (ConstantObjectValue)tempTableReferenceValue;
-            return context.withNewTempTableBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias());
-        }
-        Verify.verify(tempTableReferenceValue instanceof QuantifiedObjectValue);
-        final var tempTableQuantifiedReferenceValue = (QuantifiedObjectValue)tempTableReferenceValue;
-        return context.withNewTempTableBinding(Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias());
     }
 
     @Nonnull
@@ -399,7 +326,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     }
 
     /**
-     * Deserializer.
+     * Deserializer of {@link RecursiveUnionQueryPlan}.
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecursiveUnionQueryPlan, RecursiveUnionQueryPlan> {
@@ -417,7 +344,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
     }
 
-    static class RecursiveStateManagerImpl implements RecursiveUnionCursor.RecursiveStateManager<QueryResult> {
+    static class RecursiveStateManagerImpl implements RecursiveStateManager<QueryResult> {
 
         private boolean isInitialState;
 
@@ -441,11 +368,22 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         // transient
         private EvaluationContext overridenEvaluationContext;
 
-        RecursiveStateManagerImpl(final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
-                                  final BiFunction<ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
-                                  final EvaluationContext baseContext,
-                                  final Value scanTempTableReference,
-                                  final Value insertTempTableReference,
+        /**
+         * Creates a new instance of the {@link RecursiveStateManagerImpl}.
+         * @param initialCursorCreator a creator of the {@code initial} state cursor.
+         * @param recursiveCursorCreator a creator of the {@code recursive} state cursor.
+         * @param baseContext the initial {@link EvaluationContext} used to execute the plan.
+         * @param scanTempTableReference a {@link Value} reference to the {@link TempTable} used in recursive scan.
+         * @param insertTempTableReference a {@link Value} reference to the {@link TempTable} used by insert operator(s).
+         * @param store The record store.
+         * @param tempTableDeserializer a deserializer of {@link TempTable} used by the recursive scan.
+         * @param continuationBytes optional continuation of the {@link RecursiveUnionCursor}.
+         */
+        RecursiveStateManagerImpl(@Nonnull final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
+                                  @Nonnull final BiFunction<ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
+                                  @Nonnull final EvaluationContext baseContext,
+                                  @Nonnull final Value scanTempTableReference,
+                                  @Nonnull final Value insertTempTableReference,
                                   @Nullable final FDBRecordStoreBase<?> store,
                                   @Nonnull Function<PTempTable, TempTable> tempTableDeserializer,
                                   @Nullable byte[] continuationBytes) {
@@ -469,7 +407,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 if (isInitialState) {
                     activeCursor = initialCursorCreator.apply(continuation.getActiveStateContinuation().toByteString(), overridenEvaluationContext);
                 } else {
-                    if (continuation.isBuffersAreFlipped()) {
+                    if (continuation.buffersAreFlipped()) {
                         overridenEvaluationContext = flipBuffers(baseContext, false);
                     }
                     activeCursor = recursiveCursorCreator.apply(continuation.getActiveStateContinuation().toByteString(), overridenEvaluationContext);
@@ -477,10 +415,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             }
         }
 
-
-
         @Override
-        public void onCursorDone() {
+        public void notifyCursorIsExhausted() {
             if (isInitialState) {
                 isInitialState = false;
             }
@@ -489,7 +425,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
 
         @Override
-        public boolean shouldContinue() {
+        public boolean canTransitionToNewStep() {
             if (isInitialState) {
                 return true;
             } else {
@@ -498,12 +434,12 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
 
         @Override
-        public RecordCursor<QueryResult> getActiveStateCursor() {
+        public @Nonnull RecordCursor<QueryResult> getActiveStateCursor() {
             return activeCursor;
         }
 
         @Override
-        public TempTable getRecursiveUnionTempTable() {
+        public @Nonnull TempTable getRecursiveUnionTempTable() {
             return recursiveUnionTempTable;
         }
 
@@ -541,10 +477,20 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             }
         }
 
+        /**
+         * Creates a nested {@link EvaluationContext} that has a reference, implied by the {@code key}, to a new
+         * {@link TempTable} referred to by {@code value}.
+         * @param context The {@link EvaluationContext} to override.
+         * @param key The new reference key, which is a simple {@code reference} {@link Value}.
+         * @param value The new reference value, which is a {@link TempTable}.
+         * @return A nested {@link EvaluationContext} that has a reference, implied by the {@code key}, to a new
+         * {@link TempTable} referred to by {@code value}.
+         */
         @Nonnull
         private static EvaluationContext overrideTempTableBinding(@Nonnull final EvaluationContext context,
                                                                   @Nonnull final Value key,
                                                                   @Nonnull final TempTable value) {
+            // TODO there should be a better, more streamlined way, of setting a constant value in an evaluation context.
             if (key instanceof ConstantObjectValue) {
                 final var constantKey = (ConstantObjectValue)key;
                 final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
@@ -563,7 +509,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
          * @return a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
          */
         @Nonnull
-        private static EvaluationContext withEmptyTempTable(@Nonnull final Value tempTableReferenceValue, @Nonnull final EvaluationContext context) {
+        private static EvaluationContext withEmptyTempTable(@Nonnull final Value tempTableReferenceValue,
+                                                            @Nonnull final EvaluationContext context) {
             if (tempTableReferenceValue instanceof ConstantObjectValue) {
                 final var tempTableConstantReferenceValue = (ConstantObjectValue)tempTableReferenceValue;
                 return context.withNewTempTableBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias());
@@ -574,7 +521,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
 
         @Nonnull
-        private TempTable getTempTable(@Nonnull EvaluationContext evaluationContext, @Nonnull final Value value) {
+        private TempTable getTempTable(@Nonnull final EvaluationContext evaluationContext, @Nonnull final Value value) {
             return Objects.requireNonNull((TempTable)value.eval(store, evaluationContext));
         }
     }
