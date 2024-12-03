@@ -51,12 +51,15 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Triple;
+import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -198,9 +202,10 @@ public class RecursiveUnionTest extends TempTableTestBase {
         assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L), ImmutableList.of(40L, 50L, 70L, 100L), ImmutableList.of(210L, 250L)), result);
     }
 
+    @Tag(Tags.Performance)
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void randomizedHierarchyTestCase1() {
-        final var randomHierarchy = Hierarchy.generateRandomHierarchy(100, 4);
+        final var randomHierarchy = Hierarchy.generateRandomHierarchy(100, 8);
         final var descendants = randomHierarchy.calculateDescendants();
         final var randomContinuationScenario = ListPartitioner.partitionUsingPowerDistribution(10, descendants);
         final var continuationSnapshots = randomContinuationScenario.getKey();

@@ -189,7 +189,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
             } else {
                 return RecordCursorProto.RecursiveCursorContinuation.newBuilder()
                         .setIsInitialState(isInitialState())
-                        .setTempTable(getTempTable().toProto().toByteString())
+                        .setTempTable(getTempTable().toProto())
                         .setActiveStateContinuation(getActiveStateContinuation().toByteString())
                         .build().toByteString();
             }
@@ -207,7 +207,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                                           : RecordCursorStartContinuation.START;
             PTempTable parsedTempTable;
             try {
-                parsedTempTable = PTempTable.parseFrom(message.getTempTable());
+                parsedTempTable = PTempTable.parseFrom(message.getTempTable().toByteString());
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid continuation", ex)
                         .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(message.toByteArray()));

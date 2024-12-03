@@ -74,6 +74,9 @@ public class QueryResult implements ProtoSerializable {
     @Nullable
     private PQueryResult cachedProto;
 
+    @Nullable
+    private PQueryResult.Builder cachedProtoBuilder;
+
     private QueryResult(@Nullable final Object datum,
                         @Nullable final FDBQueriedRecord<?> queriedRecord,
                         @Nullable final Tuple primaryKey) {
@@ -261,7 +264,7 @@ public class QueryResult implements ProtoSerializable {
             } else {
                 builder.setPrimitive(PlanSerialization.valueObjectToProto(datum));
             }
-            cachedProto = builder.build();
+            cachedProto = builder.buildPartial();
         }
         return cachedProto;
     }

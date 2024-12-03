@@ -30,19 +30,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.function.Consumer;
 
 /**
  * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
@@ -64,7 +60,7 @@ public class TempTable implements ProtoSerializable {
     private final PTempTable.Builder protoBuilder;
 
     @Nullable
-    private Message cachedProto;
+    private PTempTable cachedProto;
 
     private TempTable() {
         this(Collections.synchronizedList(new ArrayList<>()), PTempTable.newBuilder());
@@ -82,7 +78,7 @@ public class TempTable implements ProtoSerializable {
      */
     public void add(@Nonnull QueryResult element) {
         underlyingBuffer.add(element);
-        protoBuilder.addBufferItems(element.toProto().toByteString());
+        protoBuilder.addBufferItems(element.toProto());
         cachedProto = null;
     }
 
@@ -120,7 +116,7 @@ public class TempTable implements ProtoSerializable {
 
     @Nonnull
     @Override
-    public Message toProto() {
+    public PTempTable toProto() {
         if (cachedProto == null) {
             cachedProto = protoBuilder.build();
         }
