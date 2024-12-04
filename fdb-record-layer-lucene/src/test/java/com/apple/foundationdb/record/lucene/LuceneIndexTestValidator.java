@@ -59,6 +59,7 @@ import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -112,11 +113,8 @@ public class LuceneIndexTestValidator {
      */
     void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
                   final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
-        final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
-        String partitionLowWaterMarkStr = index.getOption(LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK);
-        final int partitionLowWatermark = partitionLowWaterMarkStr == null ?
-                                          Math.max(LucenePartitioner.DEFAULT_PARTITION_LOW_WATERMARK, 1) :
-                                          Integer.parseInt(partitionLowWaterMarkStr);
+        final int partitionHighWatermark = getPartitionHighWatermark(index);
+        final int partitionLowWatermark = getPartitionLowWatermark(index);
 
         Map<Tuple, Map<Tuple, Tuple>> missingDocuments = new HashMap<>();
         expectedDocumentInformation.forEach((groupingKey, groupedIds) -> {
@@ -132,56 +130,98 @@ public class LuceneIndexTestValidator {
                     .sorted(Map.Entry.comparingByValue())
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toList());
-            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
-            partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
-            final String allCounts = partitionInfos.stream()
-                    .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
-                    .collect(Collectors.joining(",", "[", "]"));
-            Set<Integer> usedPartitionIds = new HashSet<>();
-            Tuple lastToTuple = null;
-            int visitedCount = 0;
-
-            try (FDBRecordContext context = contextProvider.get()) {
-                final FDBRecordStore recordStore = schemaSetup.apply(context);
-
-                for (int i = 0; i < partitionInfos.size(); i++) {
-                    final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
-                    if (LOGGER.isTraceEnabled()) {
-                        LOGGER.trace("Group: " + groupingKey + " PartitionInfo[" + partitionInfo.getId() +
-                                "]: count:" + partitionInfo.getCount() + " " +
-                                Tuple.fromBytes(partitionInfo.getFrom().toByteArray()) + "-> " +
-                                Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
-                    }
-
-                    assertTrue(isParititionCountWithinBounds(partitionInfos, i, partitionLowWatermark, partitionHighWatermark),
-                            "Group: " + groupingKey + " - " + allCounts + "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
-                                    "\nCurrent count: " + partitionInfo.getCount());
-                    assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
-                    final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
-                    if (i > 0) {
-                        assertThat(fromTuple, greaterThan(lastToTuple));
-                    }
-                    lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
-                    assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
-
-                    LOGGER.debug(KeyValueLogMessage.of("Visited partition",
-                            "group", groupingKey,
-                            "documentsSoFar", visitedCount,
-                            "documentsInGroup", records.size(),
-                            "partitionInfo.count", partitionInfo.getCount()));
-                    final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount, visitedCount + partitionInfo.getCount()));
-                    validateDocsInPartition(recordStore, index, partitionInfo.getId(), groupingKey,
-                            expectedPrimaryKeys,
-                            universalSearch);
-                    visitedCount += partitionInfo.getCount();
-                    validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
-                            expectedPrimaryKeys, allowDuplicatePrimaryKeys);
-                    expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
-                }
+            if (partitionHighWatermark > 0) {
+                validatePartitionedGroup(index, universalSearch, allowDuplicatePrimaryKeys, groupingKey, partitionLowWatermark, partitionHighWatermark, records, missingDocuments);
+            } else {
+                validateUnpartitionedGroup(index, universalSearch, allowDuplicatePrimaryKeys, groupingKey, partitionLowWatermark, partitionHighWatermark, records, missingDocuments);
             }
         }
         missingDocuments.entrySet().removeIf(entry -> entry.getValue().isEmpty());
         assertEquals(Map.of(), missingDocuments, "We should have found all documents in the index");
+    }
+
+    private void validateUnpartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
+        try (FDBRecordContext context = contextProvider.get()) {
+            final FDBRecordStore recordStore = schemaSetup.apply(context);
+            LOGGER.debug(KeyValueLogMessage.of("Visiting group",
+                    "group", groupingKey,
+                    "documentsInGroup", records.size()));
+            validateDocsInPartition(recordStore, index, null, groupingKey, Set.copyOf(records), universalSearch);
+            validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, null,
+                    Set.copyOf(records), allowDuplicatePrimaryKeys);
+            Set.copyOf(records).forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
+        }
+    }
+
+    private void validatePartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
+        partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
+        final String allCounts = partitionInfos.stream()
+                .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
+                .collect(Collectors.joining(",", "[", "]"));
+        Set<Integer> usedPartitionIds = new HashSet<>();
+        Tuple lastToTuple = null;
+        int visitedCount = 0;
+
+        try (FDBRecordContext context = contextProvider.get()) {
+            final FDBRecordStore recordStore = schemaSetup.apply(context);
+            for (int i = 0; i < partitionInfos.size(); i++) {
+                final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Group: " + groupingKey + " PartitionInfo[" + partitionInfo.getId() +
+                            "]: count:" + partitionInfo.getCount() + " " +
+                            Tuple.fromBytes(partitionInfo.getFrom().toByteArray()) + "-> " +
+                            Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
+                }
+
+                assertTrue(isParititionCountWithinBounds(partitionInfos, i, partitionLowWatermark, partitionHighWatermark),
+                        "Group: " + groupingKey + " - " + allCounts + "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
+                                "\nCurrent count: " + partitionInfo.getCount());
+                assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
+                final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
+                if (i > 0) {
+                    assertThat(fromTuple, greaterThan(lastToTuple));
+                }
+                lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
+                assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
+
+                LOGGER.debug(KeyValueLogMessage.of("Visited partition",
+                        "group", groupingKey,
+                        "documentsSoFar", visitedCount,
+                        "documentsInGroup", records.size(),
+                        "partitionInfo.count", partitionInfo.getCount()));
+                // if partitionInfo.getCount() is wrong, this can be very confusing, so a different assertion might be
+                // worthwhile
+                final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount,
+                        Math.min(records.size() - 1, visitedCount + partitionInfo.getCount())));
+                validateDocsInPartition(recordStore, index, partitionInfo.getId(), groupingKey,
+                        expectedPrimaryKeys,
+                        universalSearch);
+                visitedCount += partitionInfo.getCount();
+                assertThat(records.size(), greaterThanOrEqualTo(visitedCount));
+                validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
+                        expectedPrimaryKeys, allowDuplicatePrimaryKeys);
+                expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
+            }
+        }
+    }
+
+    private static int getPartitionLowWatermark(final Index index) {
+        String partitionLowWaterMarkStr = index.getOption(LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK);
+        if (partitionLowWaterMarkStr == null) {
+            return Math.max(LucenePartitioner.DEFAULT_PARTITION_LOW_WATERMARK, 1);
+        } else {
+            return Integer.parseInt(partitionLowWaterMarkStr);
+        }
+    }
+
+    private static int getPartitionHighWatermark(final Index index) {
+        final String option = index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK);
+        if (option == null) {
+            return -1;
+        } else {
+            return Integer.parseInt(option);
+        }
     }
 
     List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
@@ -215,7 +255,8 @@ public class LuceneIndexTestValidator {
         return Math.max(0, highWatermark - count);
     }
 
-    public static void validateDocsInPartition(final FDBRecordStore recordStore, Index index, int partitionId, Tuple groupingKey,
+    public static void validateDocsInPartition(final FDBRecordStore recordStore, Index index,
+                                               @Nullable Integer partitionId, Tuple groupingKey,
                                                Set<Tuple> expectedPrimaryKeys, final String universalSearch) throws IOException {
         LuceneScanQuery scanQuery;
         if (groupingKey.isEmpty()) {
@@ -251,7 +292,7 @@ public class LuceneIndexTestValidator {
     }
 
     public static IndexReader getIndexReader(final FDBRecordStore recordStore, final Index index,
-                                             final Tuple groupingKey, final int partitionId) throws IOException {
+                                             final Tuple groupingKey, @Nullable final Integer partitionId) throws IOException {
         final FDBDirectoryManager manager = getDirectoryManager(recordStore, index);
         return manager.getIndexReader(groupingKey, partitionId);
     }
