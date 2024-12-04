@@ -30,7 +30,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MaxMatchMapSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
@@ -38,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -48,7 +51,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 /**
  * Represents a max match between a (rewritten) query result {@link Value} and the candidate result {@link Value}.
@@ -375,6 +380,77 @@ public class MaxMatchMap {
             }
         }
         return Pair.of(BooleanWithConstraint.falseValue(), null);
+    }
+
+    private static class IncrementalValueMatcher {
+        @Nonnull
+        private final Value currentQueryValue;
+
+        @Nonnull
+        private final Supplier<List<NonnullPair<Value, QueryPlanConstraint>>> matchingCandidateValuesSupplier;
+
+        private IncrementalValueMatcher(@Nonnull final Value currentQueryValue,
+                                        @Nonnull final Supplier<List<NonnullPair<Value, QueryPlanConstraint>>> matchingCandidateValuesSupplier) {
+            this.currentQueryValue = currentQueryValue;
+            this.matchingCandidateValuesSupplier = Suppliers.memoize(matchingCandidateValuesSupplier::get);
+        }
+
+        @Nonnull
+        public Value getCurrentQueryValue() {
+            return currentQueryValue;
+        }
+
+        @Nonnull
+        public List<NonnullPair<Value, QueryPlanConstraint>> getMatchingCandidateValues() {
+            return matchingCandidateValuesSupplier.get();
+        }
+
+        public boolean anyMatches() {
+            return !getMatchingCandidateValues().isEmpty();
+        }
+
+        @Nonnull
+        public static IncrementalValueMatcher initial(@Nonnull final Value queryRootValue,
+                                                      @Nonnull final Value candidateRootValue) {
+            return new IncrementalValueMatcher(queryRootValue,
+                    () -> Streams.stream(candidateRootValue.preOrderIterable(candidateValue -> candidateValue instanceof RecordConstructorValue))
+                            .flatMap(candidatevalue ->
+                                    queryRootValue.equalsWithoutChildren(candidatevalue)
+                                            .mapToOptional(Function.identity())
+                                            .stream()
+                                            .map(queryPlanConstraint ->
+                                                    NonnullPair.<Value, QueryPlanConstraint>of(candidatevalue, queryPlanConstraint)))
+                            .collect(ImmutableList.toImmutableList()));
+        }
+
+        @Nonnull
+        public static IncrementalValueMatcher descend(@Nonnull final IncrementalValueMatcher parentMatcher,
+                                                      final int descendOrdinal) {
+            final var currentQueryValue =
+                    Iterables.get(parentMatcher.getCurrentQueryValue().getChildren(),
+                            descendOrdinal);
+
+            return new IncrementalValueMatcher(currentQueryValue,
+                    () -> {
+                        final var matchingCandidateValuesBuilder =
+                                ImmutableList.<NonnullPair<Value, QueryPlanConstraint>>builder();
+                        for (final var matchingCandidateValuePair : parentMatcher.getMatchingCandidateValues()) {
+                            final var currentCandidateValue =
+                                    Iterables.get(matchingCandidateValuePair.getLeft().getChildren(),
+                                            descendOrdinal, null);
+                            if (currentCandidateValue != null) {
+                                final var currentEqualsWithoutChildren =
+                                        currentQueryValue.equalsWithoutChildren(currentCandidateValue);
+                                if (currentEqualsWithoutChildren.isTrue()) {
+                                    matchingCandidateValuesBuilder.add(
+                                            NonnullPair.of(currentCandidateValue, matchingCandidateValuePair.getRight()
+                                                    .compose(currentEqualsWithoutChildren.getConstraint())));
+                                }
+                            }
+                        }
+                        return matchingCandidateValuesBuilder.build();
+                    });
+        }
     }
 
     private static class RecursionResult {
