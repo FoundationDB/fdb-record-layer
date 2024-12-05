@@ -75,6 +75,6 @@ public interface LuceneAnalyzerFactory {
      */
     @Nonnull
     default AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
-        return () -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper();
+        return LuceneAnalyzerWrapper::getStandardAnalyzerWrapper;
     }
 }

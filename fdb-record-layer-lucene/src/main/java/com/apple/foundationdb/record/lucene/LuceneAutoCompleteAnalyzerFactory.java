@@ -48,6 +48,6 @@ public class LuceneAutoCompleteAnalyzerFactory implements LuceneAnalyzerFactory 
     @Nonnull
     @Override
     public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
-        return () -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper();
+        return LuceneAnalyzerWrapper::getStandardAnalyzerWrapper;
     }
 }

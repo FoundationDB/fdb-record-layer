@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.lucene.exact.ExactTokenAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,14 +96,14 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
                                                                                   @Nonnull final Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo) {
         final String defaultAnalyzerName = index.getOption(type.getAnalyzerOptionKey());
         final String analyzerPerFieldName = index.getOption(type.getAnalyzerPerFieldOptionKey());
-        Pair<AnalyzerChooser, AnalyzerChooser> defaultAnalyzerChooserPair = getAnalyzerChooser(index, defaultAnalyzerName, type);
+        NonnullPair<AnalyzerChooser, AnalyzerChooser> defaultAnalyzerChooserPair = getAnalyzerChooser(index, defaultAnalyzerName, type);
 
         Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride = new TreeMap<>();
         Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride = new TreeMap<>();
 
         if (analyzerPerFieldName != null) {
             LuceneIndexOptions.parseKeyValuePairOptionValue(analyzerPerFieldName).forEach((fieldName, analyzerName) -> {
-                Pair<AnalyzerChooser, AnalyzerChooser> perFieldAnalyzerChooserPair = getAnalyzerChooser(index, analyzerName, type);
+                NonnullPair<AnalyzerChooser, AnalyzerChooser> perFieldAnalyzerChooserPair = getAnalyzerChooser(index, analyzerName, type);
                 indexAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getLeft());
                 queryAnalyzerChooserPerFieldOverride.put(fieldName, perFieldAnalyzerChooserPair.getRight());
             });
@@ -145,11 +145,11 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
         return fieldInfo.getType() != LuceneIndexExpressions.DocumentFieldType.TEXT;
     }
 
-    private Pair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(@Nonnull Index index, @Nullable String analyzerName, @Nonnull LuceneAnalyzerType type) {
+    private NonnullPair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(@Nonnull Index index, @Nullable String analyzerName, @Nonnull LuceneAnalyzerType type) {
         final Map<String, LuceneAnalyzerFactory> registryForType = Objects.requireNonNullElse(registry.get(type), Collections.emptyMap());
         if (analyzerName == null || !registryForType.containsKey(analyzerName)) {
-            return Pair.of(() -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper(),
-                    () -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
+            return NonnullPair.of(LuceneAnalyzerWrapper::getStandardAnalyzerWrapper,
+                    LuceneAnalyzerWrapper::getStandardAnalyzerWrapper);
         } else {
             LuceneAnalyzerFactory analyzerFactory = registryForType.get(analyzerName);
             if (analyzerFactory == null) {
@@ -158,7 +158,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
                         LuceneLogMessageKeys.ANALYZER_TYPE, type.name());
             }
             final AnalyzerChooser indexAnalyzerChooser = analyzerFactory.getIndexAnalyzerChooser(index);
-            return Pair.of(indexAnalyzerChooser, analyzerFactory.getQueryAnalyzerChooser(index, indexAnalyzerChooser));
+            return NonnullPair.of(indexAnalyzerChooser, analyzerFactory.getQueryAnalyzerChooser(index, indexAnalyzerChooser));
         }
     }
 }
