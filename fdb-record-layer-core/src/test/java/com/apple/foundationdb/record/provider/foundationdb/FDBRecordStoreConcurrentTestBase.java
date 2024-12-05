@@ -119,6 +119,10 @@ public class FDBRecordStoreConcurrentTestBase {
                 .setMetaDataProvider(metaData);
     }
 
+    public FDBRecordContext openContext() {
+        return openContext(RecordLayerPropertyStorage.getEmptyInstance());
+    }
+
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage props) {
         return openContext(props.toBuilder());
     }

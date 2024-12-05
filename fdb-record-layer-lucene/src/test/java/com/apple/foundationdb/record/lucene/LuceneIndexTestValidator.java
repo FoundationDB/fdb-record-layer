@@ -274,9 +274,13 @@ public class LuceneIndexTestValidator {
     }
 
     public static LuceneScanBounds groupedSortedTextSearch(final FDBRecordStoreBase<?> recordStore, Index index, String search, Sort sort, Object group) {
+        return groupedSortedTextSearch(recordStore, index, new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false), sort, group);
+    }
+
+    public static LuceneScanBounds groupedSortedTextSearch(final FDBRecordStoreBase<?> recordStore, Index index, LuceneQueryClause search, Sort sort, Object group) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
-                new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false),
+                search,
                 sort,
                 null,
                 null,

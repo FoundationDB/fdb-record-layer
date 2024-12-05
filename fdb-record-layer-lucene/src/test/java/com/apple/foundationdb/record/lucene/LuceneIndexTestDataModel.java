@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -112,27 +113,45 @@ public class LuceneIndexTestDataModel {
         return groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey).keySet();
     }
 
+    @Nonnull
+    public FDBRecordStore createOrOpenRecordStore(final FDBRecordContext context) {
+        return Objects.requireNonNull(schemaSetup.apply(context));
+    }
+
     public void deleteRecord(final FDBRecordContext context, final Tuple primaryKey) {
-        FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+        FDBRecordStore recordStore = createOrOpenRecordStore(context);
         recordStore.deleteRecord(primaryKey);
     }
 
     void saveRecords(int count, long start, FDBRecordContext context, final int group) {
-        FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+        FDBRecordStore recordStore = createOrOpenRecordStore(context);
         for (int j = 0; j < count; j++) {
             LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey,
                     textGenerator, start, recordStore, group);
         }
     }
 
+    static void saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
+                                final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
+                                final long start, final FDBRecordStore recordStore, final int group) {
+        saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, false, null, start, recordStore, group);
+    }
+
     static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
                            final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
                            final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
                            final int group) {
+        saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, true, textGenerator, start, recordStore, group);
+    }
+
+    static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
+                           final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
+                            final boolean withContent, final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
+                           final int group) {
         final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
         final int countInGroup = groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
         long timestamp = start + countInGroup + random.nextInt(20) - 5;
-        final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random);
+        final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, withContent, textGenerator, random);
         groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>())
                 .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
     }
@@ -143,25 +162,32 @@ public class LuceneIndexTestDataModel {
                             final int group,
                             final int countInGroup,
                             final long timestamp,
-                            final RandomTextGenerator textGenerator,
-                            final Random random) {
-        var parent = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
+                            final boolean withContent,
+                            final @Nullable RandomTextGenerator textGenerator,
+                            final @Nullable Random random) {
+        var parentBuilder = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
                 .setGroup(group)
                 .setRecNo(1001L + countInGroup)
                 .setTimestamp(timestamp)
-                .setTextValue(isSynthetic ? "This is not the text that goes in lucene"
-                              : textGenerator.generateRandomText("about"))
-                .setIntValue(random.nextInt())
-                .setChildRecNo(1000L - countInGroup)
-                .build();
+                .setChildRecNo(1000L - countInGroup);
+        if (withContent) {
+            parentBuilder
+                    .setTextValue(isSynthetic ? "This is not the text that goes in lucene"
+                                              : textGenerator.generateRandomText("about"))
+                    .setIntValue(random.nextInt());
+        }
+        var parent = parentBuilder.build();
         Tuple primaryKey;
         if (isSynthetic) {
-            var child = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder()
+            var childBuilder = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder()
                     .setGroup(group)
-                    .setRecNo(1000L - countInGroup)
-                    .setStrValue(textGenerator.generateRandomText("forth"))
-                    .setOtherValue(random.nextInt())
-                    .build();
+                    .setRecNo(1000L - countInGroup);
+            if (withContent) {
+                childBuilder
+                        .setStrValue(textGenerator.generateRandomText("forth"))
+                        .setOtherValue(random.nextInt());
+            }
+            var child = childBuilder.build();
             final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
                     .getSyntheticRecordType("JoinChildren")
                     .getRecordTypeKeyTuple();
