@@ -34,7 +34,7 @@ The Apache Commons library has been removed as a dependency. There were a few lo
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** AnalyzerChooser no longer takes the text when chosing an analyzer [(Issue #2993)](https://github.com/FoundationDB/fdb-record-layer/issues/2993)
 
 // end next release
 -->
