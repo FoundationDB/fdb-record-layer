@@ -402,7 +402,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             Assert.thatUnchecked(!tables.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, auxiliaryType.getName());
             Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
             auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
-            System.out.println("auxiliaryTypes name:" + auxiliaryType.getName());
             return this;
         }
 
@@ -417,6 +416,19 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder addAuxiliaryTypes(@Nonnull Collection<DataType.Named> auxiliaryTypes) {
             auxiliaryTypes.forEach(this::addAuxiliaryType);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addUDF(@Nonnull UDF udf) {
+            Assert.thatUnchecked(!udfMap.containsKey(udf.getUdfName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, udf.getUdfName());
+            udfMap.put(udf.getUdfName(), udf);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addUDFs(@Nonnull Collection<UDF> udf) {
+            udf.forEach(this::addUDF);
             return this;
         }
 

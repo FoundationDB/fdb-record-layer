@@ -153,7 +153,6 @@ public final class PlanGenerator {
                     QueryPlan.PhysicalQueryPlan.getValidPlanHashModes(options);
             final PlanHashable.PlanHashMode currentPlanHashMode = QueryPlan.PhysicalQueryPlan.getCurrentPlanHashMode(options);
             final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode);
-            // rewrite the query with operationDefinition
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = options.withChild(astHashResult.getQueryOptions());

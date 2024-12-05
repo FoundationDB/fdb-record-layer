@@ -30,7 +30,6 @@ import org.mockito.Mockito;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;

@@ -115,6 +115,12 @@ public final class SqlFunctionCatalog implements FunctionCatalog {
         return INSTANCE;
     }
 
+    public BuiltInFunction<? extends Typed> addFunction(UserDefinedFunctionDefinition functionDefinition) {
+        final var func = functionDefinition.getBuiltInFunction();
+        udfMap.put(functionDefinition.getName(), func);
+        return func;
+    }
+
     /**
      * A utility method that transforms a single-item {@link RecordConstructorValue} value into its inner {@link Value}.
      * This is mainly used for deterministically distinguishing between:

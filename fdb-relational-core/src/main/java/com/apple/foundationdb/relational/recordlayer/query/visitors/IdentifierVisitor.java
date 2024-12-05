@@ -54,7 +54,6 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Identifier visitFullId(@Nonnull RelationalParser.FullIdContext fullIdContext) {
-        System.out.println("identifierVisitor visitFullId called");
         Assert.thatUnchecked(!fullIdContext.uid().isEmpty());
         final ImmutableList.Builder<String> qualifierBuilder = ImmutableList.builder();
         for (int i = 0; i < fullIdContext.uid().size() - 1; i++) {

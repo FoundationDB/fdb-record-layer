@@ -160,7 +160,6 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     @Override
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName)
             throws RelationalException {
-        System.out.println("RLStoreSchemaTemplateCatalog loadSchemaTemplate called with templateName:" + templateName);
         Tuple key = getSchemaTemplatePrimaryKey(templateName);
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
@@ -203,7 +202,6 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
      */
     @Nonnull
     private static SchemaTemplate toSchemaTemplate(@Nonnull Message m) throws InvalidProtocolBufferException {
-        System.out.println("RecordLayerStoreSchemaTemplateCatalog::toSchemaTemplate called");
         Descriptors.Descriptor d = m.getDescriptorForType();
         ByteString bs = (ByteString) m.getField(d.findFieldByName(SchemaTemplateSystemTable.METADATA));
         RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));
