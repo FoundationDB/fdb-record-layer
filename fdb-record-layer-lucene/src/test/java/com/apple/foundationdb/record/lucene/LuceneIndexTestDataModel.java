@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
@@ -64,6 +66,7 @@ public class LuceneIndexTestDataModel {
      * </p>
      */
     final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey;
+    Map<Tuple, Function<Message, Message>> updateableRecords;
 
     private LuceneIndexTestDataModel(final Builder builder) {
         random = builder.random;
@@ -92,6 +95,7 @@ public class LuceneIndexTestDataModel {
             return store;
         };
         groupingKeyToPrimaryKeyToPartitionKey = new HashMap<>();
+        updateableRecords = new HashMap<>();
     }
 
     @Override
@@ -121,7 +125,7 @@ public class LuceneIndexTestDataModel {
         FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
         for (int j = 0; j < count; j++) {
             LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey,
-                    textGenerator, start, recordStore, group);
+                    textGenerator, start, recordStore, group, updateableRecords);
         }
     }
 
@@ -129,10 +133,17 @@ public class LuceneIndexTestDataModel {
                            final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
                            final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
                            final int group) {
+        saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, textGenerator, start, recordStore, group, new HashMap<>());
+    }
+
+    static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
+                           final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
+                           final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
+                           final int group, final Map<Tuple, Function<Message, Message>> updateableRecords) {
         final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
         final int countInGroup = groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
         long timestamp = start + countInGroup + random.nextInt(20) - 5;
-        final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random);
+        final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random, updateableRecords);
         groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>())
                 .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
     }
@@ -144,7 +155,8 @@ public class LuceneIndexTestDataModel {
                             final int countInGroup,
                             final long timestamp,
                             final RandomTextGenerator textGenerator,
-                            final Random random) {
+                            final Random random,
+                            final Map<Tuple, Function<Message, Message>> updateableRecords) {
         var parent = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
                 .setGroup(group)
                 .setRecNo(1001L + countInGroup)
@@ -155,6 +167,8 @@ public class LuceneIndexTestDataModel {
                 .setChildRecNo(1000L - countInGroup)
                 .build();
         Tuple primaryKey;
+        final Tuple parentPrimaryKey = recordStore.saveRecord(parent).getPrimaryKey();
+        updateableRecords.put(parentPrimaryKey, existingRecord -> updateParentRecord(existingRecord, random));
         if (isSynthetic) {
             var child = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder()
                     .setGroup(group)
@@ -165,13 +179,38 @@ public class LuceneIndexTestDataModel {
             final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
                     .getSyntheticRecordType("JoinChildren")
                     .getRecordTypeKeyTuple();
+            final Tuple childPrimaryKey = recordStore.saveRecord(child).getPrimaryKey();
+            updateableRecords.put(childPrimaryKey, existingRecord -> updateChildRecord(existingRecord, random));
             primaryKey = Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                    recordStore.saveRecord(parent).getPrimaryKey().getItems(),
-                    recordStore.saveRecord(child).getPrimaryKey().getItems());
+                    parentPrimaryKey.getItems(),
+                    childPrimaryKey.getItems());
         } else {
-            primaryKey = recordStore.saveRecord(parent).getPrimaryKey();
+            primaryKey = parentPrimaryKey;
         }
         return primaryKey;
+    }
+
+
+    private static Message updateParentRecord(Message existingRecord, final Random random) {
+        final var builder = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder();
+        builder.mergeFrom(existingRecord);
+        builder.setIntValue(random.nextInt());
+        return builder.build();
+    }
+
+    private static Message updateChildRecord(final Message existingRecord, final Random random) {
+        final var builder = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder();
+        builder.mergeFrom(existingRecord);
+        builder.setOtherValue(random.nextInt());
+        return builder.build();
+    }
+
+    public CompletableFuture<Void> updateRecord(final FDBRecordStore recordStore,
+                                                Tuple primaryKey,
+                                                Function<Message, Message> updateMessage) {
+        return recordStore.loadRecordAsync(primaryKey).thenAccept(existingRecord -> {
+            recordStore.saveRecord(updateMessage.apply(existingRecord.getRecord()));
+        });
     }
 
     @Nonnull
