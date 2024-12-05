@@ -98,7 +98,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
+    public RecordMetaDataProto.Value toProto() throws SerializationException {
         return proto;
     }
 

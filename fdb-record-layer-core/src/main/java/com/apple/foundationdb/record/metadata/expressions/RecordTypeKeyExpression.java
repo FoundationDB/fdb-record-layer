@@ -107,7 +107,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
+    public RecordMetaDataProto.RecordTypeKey toProto() throws SerializationException {
         return RecordMetaDataProto.RecordTypeKey.getDefaultInstance();
     }
 

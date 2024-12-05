@@ -47,7 +47,8 @@ public class UDF {
     public RecordMetaDataProto.UDF toProto() {
         return RecordMetaDataProto.UDF.newBuilder()
                 .setFunction(RecordMetaDataProto.Function.newBuilder()
-                        .setName(udfName))
+                        .setName(udfName)
+                        .setArguments(keyExpression.toKeyExpression()))
                 .build();
     }
 }

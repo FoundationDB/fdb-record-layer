@@ -352,6 +352,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nullable
     public UDF getUDF(@Nonnull String name) {return udfMap.get(name);}
 
+    @Nonnull
+    public Collection<UDF> getAllUDFs() {return udfMap.values();}
+
     public boolean isSplitLongRecords() {
         return splitLongRecords;
     }

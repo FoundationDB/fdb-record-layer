@@ -257,6 +257,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             final Field field;
             final int ordinal;
             if (fieldName != null) {
+                System.out.println("FieldValue resolveFieldPath fieldNameFieldMap:" + fieldNameFieldMap.keySet() + " fieldName:" + fieldName);
                 SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
                 field = fieldNameFieldMap.get(fieldName);
                 final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldNameToOrdinalMap());

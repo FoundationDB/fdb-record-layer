@@ -100,7 +100,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
+    public RecordMetaDataProto.Nesting toProto() throws SerializationException {
         final RecordMetaDataProto.Nesting.Builder builder = RecordMetaDataProto.Nesting.newBuilder();
         builder.setParent(parent.toProto());
         builder.setChild(getChild().toKeyExpression());

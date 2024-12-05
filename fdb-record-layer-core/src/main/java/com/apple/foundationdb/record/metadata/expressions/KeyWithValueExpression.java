@@ -133,7 +133,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toProto() throws SerializationException {
+    public RecordMetaDataProto.KeyWithValue toProto() throws SerializationException {
         return RecordMetaDataProto.KeyWithValue.newBuilder()
                 .setInnerKey(getInnerKey().toKeyExpression())
                 .setSplitPoint(splitPoint)
