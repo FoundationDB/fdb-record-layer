@@ -69,6 +69,19 @@ public class ValueTranslationTest {
         return Type.primitiveType(Type.TypeCode.INT);
     }
 
+    @Nonnull
+    private Type getDeeplyNestedType() {
+        return r(
+                f("pk", Type.primitiveType(Type.TypeCode.LONG)),
+                f("a",
+                        r(f("b",
+                                r(f("c",
+                                        r(f("m",
+                                                r(f("n", r(
+                                                        f("o", Type.primitiveType(Type.TypeCode.LONG)),
+                                                        f("p", Type.primitiveType(Type.TypeCode.LONG)))))))))))));
+    }
+
     @SuppressWarnings("checkstyle:MethodName")
     @Nonnull
     private QuantifiedObjectValue qov(@Nonnull final CorrelationIdentifier name, @Nonnull final Type type) {
@@ -1161,7 +1174,6 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedMap, computedMap);
     }
 
-
     /**
      * Test to establish that simple QOV(T') can be matched to an almost completely deconstructed
      * RCV(RCV(T'.a.q, T'.a.r), T'.b, T'.j).
@@ -1172,6 +1184,23 @@ public class ValueTranslationTest {
                 rcv(fv(t_, "a", "q"));
         final var p_v =
                 rcv(fv(t_, "a"));
+
+        final var m3 = calculate(pv, p_v);
+
+        final var computedMap = m3.getMap();
+        final var expectedMap = ImmutableMap.of(fv(t_, "a"), fv(t_, "a"));
+        Assertions.assertEquals(expectedMap, computedMap);
+    }
+
+    @Test
+    public void maxMatchDeeplyNested1() {
+        // ($q12.A.B.C as C)
+        // ($q12.PK as PK, $q12.A as A)
+        final var __ = qov(CorrelationIdentifier.of("_"), getDeeplyNestedType());
+        final var pv =
+                rcv(fv(__, "a", "b", "c"));
+        final var p_v =
+                rcv(fv(__, "pk"), fv(__, "a"));
 
         final var m3 = calculate(pv, p_v);
 

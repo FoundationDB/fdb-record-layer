@@ -44,6 +44,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -250,18 +251,12 @@ public class MaxMatchMap {
         final var localMatchers = new ArrayDeque<IncrementalValueMatcher>();
         boolean anyParentsMatching = false;
         if (descendOrdinal >= 0) {
-            for (IncrementalValueMatcher matcher : matchers) {
+            for (final var matcher : matchers) {
                 anyParentsMatching |= matcher.anyMatches();
-                final var descendedMatcher = matcher.descend(descendOrdinal);
+                final var descendedMatcher = matcher.descend(currentQueryValue, descendOrdinal);
                 localMatchers.addLast(descendedMatcher);
             }
         }
-
-        //
-        // If there are potential matches above this currentQueryValue, we cannot impose an upper bound for the max
-        // depth as the potential match above could be the best match of all.
-        //
-        final int adjustedMaxDepthBound = anyParentsMatching ? Integer.MAX_VALUE : maxDepthBound;
 
         //
         // Create a matcher for this level
@@ -272,25 +267,17 @@ public class MaxMatchMap {
 
         //
         // Keep a results map that maps from a Value variant to a recursion result. Note that if we have don't have
-        // a potential parent match we can make local decisions in this method, specifically we can prune the variants
+        // a potential parent match we can make local decisions in this method, specifically, we can prune the variants
         // to consider early on.
         //
-        final var resultsMap = new LinkedHashMap<Value, RecursionResult>();
-
-        //
-        // This variable will be set to a proper (non-negative) integer after recursing into the subtree and
-        // matching this current value. It denotes the current maximum dept from the current value to the furthest
-        // match in a subtree OR it can be Integer.MAX_VALUE if there are no matches.
-        //
-        int currentMaxDepth = -1;
+        final var bestMatches = new BestMatches(!anyParentsMatching);
 
         final var children = currentQueryValue.getChildren();
         if (Iterables.isEmpty(children)) {
             final var resultForCurrent =
-                    computeForCurrent(adjustedMaxDepthBound, currentQueryValue, candidateResultValue, rangedOverAliases,
+                    computeForCurrent(maxDepthBound, currentQueryValue, candidateResultValue, rangedOverAliases,
                             valueEquivalence, ImmutableList.of());
-            resultsMap.put(currentQueryValue, resultForCurrent);
-            currentMaxDepth = resultForCurrent.getMaxDepth();
+            bestMatches.put(currentQueryValue, resultForCurrent);
         } else {
             final BooleanWithConstraint isFound;
             if (!anyParentsMatching && isCurrentMatching) {
@@ -300,9 +287,8 @@ public class MaxMatchMap {
                                 valueEquivalence);
                 isFound = Objects.requireNonNull(matchingPair.getLeft());
                 if  (isFound.isTrue()) {
-                    resultsMap.put(currentQueryValue, RecursionResult.of(ImmutableMap.of(currentQueryValue,
+                    bestMatches.put(currentQueryValue, RecursionResult.of(ImmutableMap.of(currentQueryValue,
                             Objects.requireNonNull(matchingPair.getRight())), 0, isFound.getConstraint()));
-                    currentMaxDepth = 0;
                 }
             } else {
                 isFound = BooleanWithConstraint.falseValue();
@@ -313,11 +299,21 @@ public class MaxMatchMap {
                 // Recurse into the children of the current query value.
                 //
                 final var childrenResultsBuilder = ImmutableList.<Collection<Map.Entry<Value, RecursionResult>>>builder();
-                for (final var child : children) {
+                int i = 0;
+                for (final var childrenIterator = children.iterator();
+                         childrenIterator.hasNext(); i++) {
+                    final var child = childrenIterator.next();
+
+                    final int childrenMaxDepthBound =
+                            (maxDepthBound == Integer.MAX_VALUE ||
+                                     localMatchers.stream().anyMatch(IncrementalValueMatcher::anyMatches))
+                            ? Integer.MAX_VALUE
+                            : maxDepthBound - 1;
+
                     final var childrenResultsMap =
                             recurseQueryResultValue(child, candidateResultValue, rangedOverAliases, valueEquivalence,
-                                    knownValueMap, 0, localMatchers,
-                                    adjustedMaxDepthBound == Integer.MAX_VALUE ? Integer.MAX_VALUE : adjustedMaxDepthBound - 1,
+                                    knownValueMap, i, localMatchers,
+                                    childrenMaxDepthBound,
                                     expandedValues);
 
                     childrenResultsBuilder.add(childrenResultsMap.entrySet());
@@ -327,7 +323,7 @@ public class MaxMatchMap {
                 for (final var childrenResultEntries : CrossProduct.crossProduct(childrenResults)) {
                     boolean areAllChildrenSame = true;
                     final var childrenValuesBuilder = ImmutableList.<Value>builder();
-                    int i = 0;
+                    i = 0;
                     for (final var currentChildrenIterator = children.iterator();
                              currentChildrenIterator.hasNext(); i++) {
                         final Value child = currentChildrenIterator.next();
@@ -348,20 +344,19 @@ public class MaxMatchMap {
                     }
 
                     final var resultForCurrent =
-                            computeForCurrent(adjustedMaxDepthBound, resultQueryValue, candidateResultValue,
+                            computeForCurrent(maxDepthBound, resultQueryValue, candidateResultValue,
                                     rangedOverAliases, valueEquivalence, childrenResultEntries);
-                    resultsMap.put(resultQueryValue, resultForCurrent);
-                    currentMaxDepth = Math.max(currentMaxDepth, resultForCurrent.getMaxDepth());
+                    bestMatches.put(resultQueryValue, resultForCurrent);
                 }
             }
         }
 
-        Verify.verify(currentMaxDepth >= 0);
+        Verify.verify(bestMatches.getCurrentMaxDepth() >= 0);
 
         //
         // Try to transform the current query value into a more matchable shape -- and recurse with that new tree
         //
-        if ((anyParentsMatching || currentMaxDepth > 0) &&
+        if ((anyParentsMatching || bestMatches.getCurrentMaxDepth() > 0) &&
                 !expandedValues.contains(currentQueryValue)) {
             try {
                 expandedValues.add(currentQueryValue);
@@ -369,17 +364,20 @@ public class MaxMatchMap {
                         Simplification.simplifyCurrent(currentQueryValue,
                                 AliasMap.emptyMap(), rangedOverAliases, MaxMatchMapSimplificationRuleSet.instance());
                 for (final var expandedCurrentQueryValue : expandedCurrentQueryValues) {
+
+                    final var currentMaxDepthBound =
+                            maxDepthBound == Integer.MAX_VALUE
+                            ? Integer.MAX_VALUE
+                            : bestMatches.getCurrentMaxDepth();
+
                     final var expandedResultsMap =
                             recurseQueryResultValue(expandedCurrentQueryValue, candidateResultValue,
                                     rangedOverAliases, valueEquivalence, knownValueMap, descendOrdinal,
-                                    matchers, currentMaxDepth, expandedValues);
-                    for (final var valueRecursionResultEntry : expandedResultsMap.entrySet()) {
-                        final var recursionResult = valueRecursionResultEntry.getValue();
-                        if (anyParentsMatching || recursionResult.getMaxDepth() < currentMaxDepth) {
-                            final var key = valueRecursionResultEntry.getKey();
-                            resultsMap.put(key, recursionResult);
-                            currentMaxDepth = recursionResult.getMaxDepth();
-                        }
+                                    matchers,
+                                    currentMaxDepthBound,
+                                    expandedValues);
+                    for (final var expandedResultsEntry : expandedResultsMap.entrySet()) {
+                        bestMatches.put(expandedResultsEntry.getKey(), expandedResultsEntry.getValue());
                     }
                 }
             } finally {
@@ -387,7 +385,9 @@ public class MaxMatchMap {
             }
         }
 
-        return resultsMap;
+        Verify.verify(bestMatches.getCurrentMaxDepth() <= maxDepthBound);
+
+        return bestMatches.toResultMap();
     }
 
     @Nonnull
@@ -456,6 +456,71 @@ public class MaxMatchMap {
         return Pair.of(BooleanWithConstraint.falseValue(), null);
     }
 
+    private static class BestMatches {
+        private final boolean isPruning;
+        private int currentMaxDepth = -1;
+        @Nullable
+        private Map<Value, RecursionResult> matchMap;
+        @Nullable
+        private Value queryValue;
+        @Nullable
+        private RecursionResult recursionResult;
+
+        public BestMatches(final boolean isPruning) {
+            this.isPruning = isPruning;
+            if (!isPruning) {
+                this.matchMap = new LinkedHashMap<>();
+            }
+        }
+
+        public boolean isPruning() {
+            return isPruning;
+        }
+
+        public int getCurrentMaxDepth() {
+            return currentMaxDepth;
+        }
+
+        @Nonnull
+        private Map<Value, RecursionResult> getMatchMap() {
+            return Objects.requireNonNull(matchMap);
+        }
+
+        @Nonnull
+        public Value getQueryValue() {
+            return Objects.requireNonNull(queryValue);
+        }
+
+        @Nonnull
+        public RecursionResult getRecursionResult() {
+            return Objects.requireNonNull(recursionResult);
+        }
+
+        @Nonnull
+        public Map<Value, RecursionResult> toResultMap() {
+            if (isPruning()) {
+                return ImmutableMap.of(getQueryValue(), getRecursionResult());
+            }
+            return getMatchMap();
+        }
+
+        public void put(@Nonnull final Value newQueryValue,
+                        @Nonnull final RecursionResult newRecursionResult) {
+            if (isPruning()) {
+                if (recursionResult == null || newRecursionResult.getMaxDepth() < currentMaxDepth) {
+                    this.queryValue = newQueryValue;
+                    this.recursionResult = newRecursionResult;
+                    this.currentMaxDepth = newRecursionResult.getMaxDepth();
+                }
+            } else {
+                if (currentMaxDepth == -1 || newRecursionResult.getMaxDepth() < currentMaxDepth) {
+                    currentMaxDepth = newRecursionResult.getMaxDepth();
+                }
+                getMatchMap().put(newQueryValue, newRecursionResult);
+            }
+        }
+    }
+
     private static class IncrementalValueMatcher {
         @Nonnull
         private final Value currentQueryValue;
@@ -484,11 +549,7 @@ public class MaxMatchMap {
         }
 
         @Nonnull
-        public IncrementalValueMatcher descend(final int descendOrdinal) {
-            final var currentQueryValue =
-                    Iterables.get(getCurrentQueryValue().getChildren(),
-                            descendOrdinal);
-
+        public IncrementalValueMatcher descend(@Nonnull final Value currentQueryValue, final int descendOrdinal) {
             return new IncrementalValueMatcher(currentQueryValue,
                     () -> {
                         final var matchingCandidateValuesBuilder =
