@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -57,13 +58,16 @@ import java.util.concurrent.atomic.AtomicReference;
 public class IndexScrubbing extends IndexingBase {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexScrubbing.class);
-    @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
-
-    @Nonnull private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
-    @Nonnull private final AtomicLong issueCounter;
+    @Nonnull
+    private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
+    @Nonnull
+    private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
+    @Nonnull
+    private final AtomicLong issueCounter;
     private long scanCounter = 0;
     private int logWarningCounter;
     private final IndexScrubbingTools.ScrubbingType scrubbingType;
+    private final String scrubberName;
 
     public IndexScrubbing(@Nonnull final IndexingCommon common,
                           @Nonnull final OnlineIndexer.IndexingPolicy policy,
@@ -75,14 +79,15 @@ public class IndexScrubbing extends IndexingBase {
         this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
         this.issueCounter = issueCounter;
         this.scrubbingType = scrubbingType;
+        scrubberName = "scrub " + scrubbingType + " entries for " + common.getIndex().getType() + " index";
     }
 
     @Override
     List<Object> indexingLogMessageKeyValues() {
         return Arrays.asList(
-                LogMessageKeys.INDEXING_METHOD, "index scrub " + scrubbingType,
+                LogMessageKeys.INDEXING_METHOD, scrubberName,
                 LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
-                LogMessageKeys.LIMIT, scrubbingPolicy.getEntriesScanLimit()
+                LogMessageKeys.SCAN_LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
 
@@ -125,7 +130,6 @@ public class IndexScrubbing extends IndexingBase {
 
     @Nonnull
     private CompletableFuture<Boolean> indexScrubRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
-        // return false when done
         Index index = common.getIndex();
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
@@ -138,20 +142,23 @@ public class IndexScrubbing extends IndexingBase {
             throw new UnsupportedOperationException("This index does not support scrubbing type " + scrubbingType);
         }
 
+
         return indexScrubRangeOnly(store, recordsScanned, index, tools, maintainer.isIdempotent());
     }
 
     private <T> CompletableFuture<Boolean> indexScrubRangeOnly(final @Nonnull FDBRecordStore store, final @Nonnull AtomicLong recordsScanned, final Index index, final IndexScrubbingTools<T> tools, boolean isIdempotent) {
         // scrubbing only readable
         validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
+        // scrubbing only idempotent indexes (at least for now)
+        validateOrThrowEx(isIdempotent, "scrubbed index is not idempotent");
 
-        final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbing(scrubbingType, store, index);
+        final IndexingRangeSet rangeSet = getRangeset(store, index);
         tools.presetCommonParams(index, scrubbingPolicy.allowRepair(), common.getIndexContext().isSynthetic, common.getAllRecordTypes());
 
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
             if (range == null) {
                 // Here: no more missing ranges - all done
-                // To avoid stale metadata, we'll keep the scrubbed-ranges indicator empty until the next scrub call.
+                // This scrubbing is done. Clear the rangeSet - the next time scrubbing is called it will start from scratch
                 rangeSet.clear();
                 return AsyncUtil.READY_FALSE;
             }
@@ -159,7 +166,7 @@ public class IndexScrubbing extends IndexingBase {
             final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
             final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
 
-            final RecordCursor<T> cursor = tools.getIterator(tupleRange, store, getLimit() + 1); // always respect limit in this path; +1 allows a continuation item in forward scan
+            final RecordCursor<T> cursor = tools.getCursor(tupleRange, store, getLimit() + 1); // always respect limit in this path; +1 allows a continuation item in forward scan
             final AtomicBoolean hasMore = new AtomicBoolean(true);
             final AtomicReference<RecordCursorResult<T>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final long scanLimit = scrubbingPolicy.getEntriesScanLimit();
@@ -167,24 +174,12 @@ public class IndexScrubbing extends IndexingBase {
 
             return iterateRangeOnly(store, cursor, (recordStore, result) -> handleOneItem(recordStore, result, tools, issueList),
                     lastResult, hasMore, recordsScanned, isIdempotent)
-                    .thenApply(vignore -> hasMore.get() ? tools.getContinuation(lastResult.get()) :
-                                          rangeEnd)
-                    .thenCompose(cont -> rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
-                            .thenApply(ignore -> notAllRangesExhausted(cont, rangeEnd)))
-                    .thenApply(ret -> {
-                        // Here: after a successful transaction, report the issues and check/update the scan counter.
-                        reportIssues(issueList);
-                        if (scanLimit > 0) {
-                            scanCounter += recordsScanned.get();
-                            if (scanLimit <= scanCounter) {
-                                return false;
-                            }
-                        }
-                        return ret;
-                    });
+                    .thenApply(vignore -> hasMore.get() ? tools.getKeyFromCursorResult(lastResult.get()) : rangeEnd)
+                    .thenCompose(continuation -> updateRangeAndCheckIfExhausted(rangeSet, rangeStart, rangeEnd, continuation))
+                    .thenApply(ret -> checkScanLimit(ret, recordsScanned, scanLimit))
+                    .whenComplete((ignore, err) -> reportIssues(issueList, err));
         });
     }
-
 
     private <T> CompletableFuture<FDBStoredRecord<Message>> handleOneItem(FDBRecordStore store, final RecordCursorResult<T> result, final IndexScrubbingTools<T> tools, List<IndexScrubbingTools.Issue> issueList) {
         return tools.handleOneItem(store,
@@ -199,7 +194,26 @@ public class IndexScrubbing extends IndexingBase {
                 });
     }
 
-    private void reportIssues(List<IndexScrubbingTools.Issue> issueList) {
+    private static CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, final Tuple rangeStart, final Tuple rangeEnd, final Tuple continuation) {
+        return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(continuation), true)
+                .thenApply(ignore -> notAllRangesExhausted(continuation, rangeEnd));
+    }
+
+    private Boolean checkScanLimit(final Boolean ret, final @Nonnull AtomicLong recordsScanned, final long scanLimit) {
+        if (scanLimit > 0) {
+            scanCounter += recordsScanned.get();
+            if (scanLimit <= scanCounter) {
+                return false;
+            }
+        }
+        return ret;
+    }
+
+    private void reportIssues(List<IndexScrubbingTools.Issue> issueList, Throwable err) {
+        if (err != null || issueList == null || issueList.isEmpty()) {
+            // either no issue to report (the common case), or avoid reporting after an exception
+            return;
+        }
         // report these issues only after their transaction was completed successfully
         for (IndexScrubbingTools.Issue issue: issueList) {
             issueCounter.incrementAndGet();
@@ -212,6 +226,17 @@ public class IndexScrubbing extends IndexingBase {
             if (issue.timerCounter != null) {
                 timerIncrement(issue.timerCounter);
             }
+        }
+    }
+
+    IndexingRangeSet getRangeset(FDBRecordStore store, Index index) {
+        switch (scrubbingType) {
+            case MISSING:
+                return IndexingRangeSet.forScrubbingRecords(store, index);
+            case DANGLING:
+                return IndexingRangeSet.forScrubbingIndex(store, index);
+            default:
+                throw new RecordCoreArgumentException("Unpredicted scrubbing type ");
         }
     }
 

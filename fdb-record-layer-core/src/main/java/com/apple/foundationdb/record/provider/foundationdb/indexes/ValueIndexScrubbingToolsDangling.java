@@ -48,7 +48,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Index Scrubbing Toolbox for a Value index maintainer. Scrub dangling value index entries.
+ * Index Scrubbing Toolbox for a Value index maintainer. Scrub dangling value index entries - i.e. index entries
+ * pointing to non-existing record(s)
  */
 public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<IndexEntry> {
     private Index index = null;
@@ -63,12 +64,9 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     }
 
     @Override
-    public String getName() {
-        return "Scrub dangling value index entries";
-    }
-
-    @Override
-    public RecordCursor<IndexEntry> getIterator(final TupleRange range, final FDBRecordStore store, final int limit) {
+    public RecordCursor<IndexEntry> getCursor(final TupleRange range, final FDBRecordStore store, final int limit) {
+        // IsolationLevel.SNAPSHOT will not cause range conflicts, which is ok because this scrubbing is - by definition - idempotent.
+        //IIf a repair is made, any related component (in this case - index entries) should be explicitly added to the conflict list.
         final IsolationLevel isolationLevel = IsolationLevel.SNAPSHOT;
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
@@ -79,7 +77,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     }
 
     @Override
-    public Tuple getContinuation(final RecordCursorResult<IndexEntry> result) {
+    public Tuple getKeyFromCursorResult(final RecordCursorResult<IndexEntry> result) {
         final IndexEntry indexEntry = result.get();
         return indexEntry == null ? null : indexEntry.getKey();
     }
@@ -124,7 +122,6 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     private Issue scrubDanglingEntry(@Nonnull FDBRecordStore store, @Nonnull IndexEntry indexEntry, @Nonnull List<Tuple> conflictPrimaryKeys) {
         // Here: the index entry is dangling. Fix it (if allowed) and report the issue.
         final Tuple valueKey = indexEntry.getKey();
-        final byte[] keyBytes = store.indexSubspace(index).pack(valueKey);
 
         if (allowRepair) {
             // remove this index entry
@@ -132,6 +129,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
             for (Tuple primaryKey : conflictPrimaryKeys) {
                 store.addRecordReadConflict(primaryKey);
             }
+            final byte[] keyBytes = store.indexSubspace(index).pack(valueKey);
             store.getContext().ensureActive().clear(keyBytes);
         }
 

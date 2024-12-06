@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.sun.jdi.InternalException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,14 +46,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
     @Nonnull private final IndexingCommon common;
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final ScrubbingPolicy scrubbingPolicy;
-
-    /**
-     * The type of problem to scan for.
-     */
-    private enum ScrubbingType {
-        DANGLING,
-        MISSING
-    }
 
     @SuppressWarnings("squid:S00107")
     OnlineIndexScrubber(@Nonnull FDBDatabaseRunner runner,
@@ -75,29 +69,24 @@ public class OnlineIndexScrubber implements AutoCloseable {
         common.close();
     }
 
-    private IndexingBase getScrubber(ScrubbingType type, AtomicLong count) {
-        switch (type) {
-            case DANGLING:
-                if (scrubbingPolicy.ignoreIndexTypeCheck) {
-                    // TODO: eliminate old scrubbing class and always trust the maintainers (i.e remove the ignoreIndexTypeCheck option)
+    private IndexingBase getScrubber(IndexScrubbingTools.ScrubbingType type, AtomicLong count) {
+        if (scrubbingPolicy.ignoreIndexTypeCheck) {
+            // TODO: eliminate old scrubbing class and always trust the maintainers (i.e remove the ignoreIndexTypeCheck option)
+            switch (type) {
+                case DANGLING:
                     return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
-                }
-                return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, IndexScrubbingTools.ScrubbingType.DANGLING);
-
-            case MISSING:
-                if (scrubbingPolicy.ignoreIndexTypeCheck) {
-                    // TODO: eliminate old scrubbing class and always trust the maintainers (i.e remove the ignoreIndexTypeCheck option)
+                case MISSING:
                     return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
-                }
-                return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, IndexScrubbingTools.ScrubbingType.MISSING);
-
-            default:
-                throw new MetaDataException("unknown index scrubbing type");
+                default:
+                    throw new RecordCoreArgumentException("unknown index scrubbing type");
+            }
         }
+        return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, type);
     }
 
+
     @Nonnull
-    private CompletableFuture<Void> scrubIndexAsync(ScrubbingType type, AtomicLong count) {
+    private CompletableFuture<Void> scrubIndexAsync(IndexScrubbingTools.ScrubbingType type, AtomicLong count) {
         return AsyncUtil.composeHandle(
                 getScrubber(type, count).buildIndexAsync(false, common.config.shouldUseSynchronizedSession()),
                 (ignore, ex) -> {
@@ -115,7 +104,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
      */
     public long scrubDanglingIndexEntries() {
         final AtomicLong danglingCount = new AtomicLong(0);
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.DANGLING, danglingCount));
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(IndexScrubbingTools.ScrubbingType.DANGLING, danglingCount));
         return danglingCount.get();
     }
 
@@ -126,7 +115,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
      */
     public long scrubMissingIndexEntries() {
         final AtomicLong missingCount = new AtomicLong(0);
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.MISSING, missingCount));
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(IndexScrubbingTools.ScrubbingType.MISSING, missingCount));
         return missingCount.get();
     }
 
@@ -244,11 +233,20 @@ public class OnlineIndexScrubber implements AutoCloseable {
              * 1. For the dangling scrubber job, every index entry needs to contain the primary key of the record that
              *    generated it so that we can detect if that record is present.
              * 2. For the missing entry scrubber, the index key for the record needs to be present in the index.
+             * @param ignore True to ignore type check
+             * @return this builder
+             */
+            public Builder ignoreIndexTypeCheck(boolean ignore) {
+                ignoreIndexTypeCheck = ignore;
+                return this;
+            }
+
+            /**
+             * Calls {@link #ignoreIndexTypeCheck(boolean)} with true.
              * @return this builder
              */
             public Builder ignoreIndexTypeCheck() {
-                ignoreIndexTypeCheck = true;
-                return this;
+                return ignoreIndexTypeCheck(true);
             }
 
             public ScrubbingPolicy build() {
@@ -376,7 +374,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private void validateIndex() {
             if (index == null) {
-                throw new MetaDataException("index must be set");
+                throw new InternalException("index must be set");
             }
             final RecordMetaData metaData = getRecordMetaData();
             if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {

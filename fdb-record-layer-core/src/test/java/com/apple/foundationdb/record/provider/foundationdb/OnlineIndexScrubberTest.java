@@ -34,8 +34,10 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -54,8 +56,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         return allIndexesHook(List.of(index));
     }
 
-    @Test
-    void testScrubberSimpleMissing() throws ExecutionException, InterruptedException {
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleMissing(boolean legacy) throws ExecutionException, InterruptedException {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 50;
         long res;
@@ -72,6 +75,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubMissingIndexEntries();
@@ -102,6 +106,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubMissingIndexEntries();
@@ -115,6 +120,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubMissingIndexEntries();
@@ -125,8 +131,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, res);
     }
 
-    @Test
-    void testScrubberSimpleDangling() throws ExecutionException, InterruptedException {
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleDangling(boolean legacy) throws ExecutionException, InterruptedException {
         final FDBStoreTimer timer = new FDBStoreTimer();
         long numRecords = 51;
         long res;
@@ -142,6 +149,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -173,6 +181,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck(legacy)
                         .setAllowRepair(false))
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -187,6 +196,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -203,6 +213,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -213,8 +224,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, res);
     }
 
-    @Test
-    void testScrubberLimits() {
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberLimits(boolean legacy) {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 52;
         final int chunkSize = 7;
@@ -236,6 +248,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setAllowRepair(false)
                         .setEntriesScanLimit(1000000)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .setLimit(chunkSize)
                 .build()) {
@@ -254,6 +267,8 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .ignoreIndexTypeCheck(legacy)
+                        .ignoreIndexTypeCheck(legacy)
                         .setEntriesScanLimit(1))
                 .setLimit(chunkSize)
                 .build()) {
@@ -269,6 +284,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .ignoreIndexTypeCheck(legacy)
                         .setEntriesScanLimit(chunkSize * 3))
                 .setLimit(chunkSize)
                 .build()) {
@@ -283,8 +299,88 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, resMissing);
     }
 
-    @Test
-    void testScrubberInvalidIndexState() {
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberLimitsAlternatingLegacy(boolean legacyInit) {
+        boolean legacy = legacyInit;
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 52;
+        final int chunkSize = 7;
+        final int numChunks = 1 + (numRecords / chunkSize);
+        long resDangling;
+        long resMissing;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        // Scrub both dangling & missing. Scan counts in this test should be doubles.
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                // user default ScrubbingPolicy
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setAllowRepair(false)
+                        .setEntriesScanLimit(1000000)
+                        .ignoreIndexTypeCheck(legacy)
+                        .build())
+                .setLimit(chunkSize)
+                .build()) {
+            resDangling = indexScrubber.scrubDanglingIndexEntries();
+            resMissing = indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numChunks * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, resDangling);
+        assertEquals(0, resMissing);
+
+
+        // Scrub dangling with a quota
+        timer.reset();
+        legacy = !legacy;
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .ignoreIndexTypeCheck(legacy)
+                        .ignoreIndexTypeCheck(legacy)
+                        .setEntriesScanLimit(1))
+                .setLimit(chunkSize)
+                .build()) {
+            resDangling = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(chunkSize, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, resDangling);
+
+        // Scrub both with a quota
+        timer.reset();
+        legacy = !legacy;
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .ignoreIndexTypeCheck(legacy)
+                        .setEntriesScanLimit(chunkSize * 3))
+                .setLimit(chunkSize)
+                .build()) {
+            resDangling = indexScrubber.scrubDanglingIndexEntries();
+            resMissing = indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(chunkSize * 3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, resDangling);
+        assertEquals(0, resMissing);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberInvalidIndexState(boolean legacy) {
         final int numRecords = 20;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -298,7 +394,10 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         // refuse to scrub a non-readable index
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex).build()) {
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .ignoreIndexTypeCheck(legacy))
+                    .build()) {
                 recordStore.markIndexWriteOnly(tgtIndex).join();
                 context.commit();
                 assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
@@ -312,9 +411,17 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook2);
         buildIndexClean(nonValueIndex);
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(nonValueIndex).build()) {
-            assertThrows(UnsupportedOperationException.class, indexScrubber::scrubDanglingIndexEntries);
-            assertThrows(UnsupportedOperationException.class, indexScrubber::scrubMissingIndexEntries);
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(nonValueIndex)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .ignoreIndexTypeCheck(legacy))
+                .build()) {
+            if (legacy) {
+                assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
+                assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubMissingIndexEntries);
+            } else {
+                assertThrows(UnsupportedOperationException.class, indexScrubber::scrubDanglingIndexEntries);
+                assertThrows(UnsupportedOperationException.class, indexScrubber::scrubMissingIndexEntries);
+            }
         }
     }
 
@@ -346,8 +453,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 
-    @Test
-    void testScrubUnnestedIndex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubUnnestedIndex(boolean legacy) {
         final Index targetIndex = new Index("unnestedIndex", concat(field("entry").nest("key"), field("parent").nest("other_id"), field("entry").nest("int_value")));
         final OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler.instance();
         FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
@@ -361,6 +469,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -378,8 +487,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 
-    @Test
-    void testDetectDanglingUnnestedIndex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testDetectDanglingUnnestedIndex(boolean legacy) {
         final Index targetIndex = new Index("unnestedIndex", concat(field("entry").nest("key"), field("parent").nest("other_id"), field("entry").nest("int_value")));
         final OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler.instance();
         FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
@@ -409,6 +519,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
@@ -416,8 +527,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         }
     }
 
-    @Test
-    void testDetectMissingUnnestedIndex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testDetectMissingUnnestedIndex(boolean legacy) {
         final Index targetIndex = new Index("unnestedIndex", concat(field("entry").nest("key"), field("parent").nest("other_id"), field("entry").nest("int_value")));
         final OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler.instance();
         FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
@@ -455,6 +567,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -472,6 +585,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -487,6 +601,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -498,8 +613,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
     }
 
-    @Test
-    void testScrubJoinedIndex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubJoinedIndex(boolean legacy) {
         final Index targetIndex = new Index("joinedIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
         final OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler.instance();
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
@@ -513,6 +629,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -530,8 +647,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 
-    @Test
-    void testDetectDanglingFromJoinedIndex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testDetectDanglingFromJoinedIndex(boolean legacy) {
         final Index targetIndex = new Index("joinedIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
         final OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler.instance();
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
@@ -566,6 +684,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
@@ -573,8 +692,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         }
     }
 
-    @Test
-    void testDetectMissingFromJoinedIndex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testDetectMissingFromJoinedIndex(boolean legacy) {
         final Index targetIndex = new Index("joinedIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
         final OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler.instance();
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
@@ -609,6 +729,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -624,6 +745,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -639,6 +761,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
+                        .ignoreIndexTypeCheck(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();

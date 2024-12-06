@@ -89,7 +89,7 @@ public class IndexingScrubDangling extends IndexingBase {
         return Arrays.asList(
                 LogMessageKeys.INDEXING_METHOD, "scrub dangling index entries",
                 LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
-                LogMessageKeys.LIMIT, scrubbingPolicy.getEntriesScanLimit()
+                LogMessageKeys.SCAN_LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
 

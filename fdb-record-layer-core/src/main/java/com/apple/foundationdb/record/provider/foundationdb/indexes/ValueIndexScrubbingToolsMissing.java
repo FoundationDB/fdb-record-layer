@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -53,11 +54,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 
 /**
- * Index Scrubbing Toolbox for a Value index maintainer. Scrub missing value index entries.
+ * Index Scrubbing Toolbox for a Value index maintainer. Scrub missing value index entries - i.e. detect record(s) that should
+ * have had generated index entries, but these index entries cannot be found.
  */
 public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBStoredRecord<Message>> {
     private Collection<RecordType> recordTypes = null;
@@ -74,12 +75,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
-    public String getName() {
-        return "Scrub missing value index entries";
-    }
-
-    @Override
-    public RecordCursor<FDBStoredRecord<Message>> getIterator(final TupleRange tupleRange, final FDBRecordStore store, int limit) {
+    public RecordCursor<FDBStoredRecord<Message>> getCursor(final TupleRange tupleRange, final FDBRecordStore store, int limit) {
         final IsolationLevel isolationLevel = IsolationLevel.SNAPSHOT;
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
@@ -90,7 +86,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
-    public Tuple getContinuation(final RecordCursorResult<FDBStoredRecord<Message>> result) {
+    public Tuple getKeyFromCursorResult(final RecordCursorResult<FDBStoredRecord<Message>> result) {
         final FDBStoredRecord<Message> storedRecord = result.get();
         return storedRecord == null ? null : storedRecord.getPrimaryKey();
     }
@@ -99,7 +95,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     @Nullable
     public CompletableFuture<Issue> handleOneItem(FDBRecordStore store, Transaction transaction,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
-            throw new InternalError("presetParams was not called appropriately for this scrubbing tool");
+            throw new RecordCoreArgumentException("presetParams was not called appropriately for this scrubbing tool");
         }
 
         final FDBStoredRecord<Message> rec = result.get();
@@ -108,8 +104,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
         }
 
         return getMissingIndexKeys(store, transaction, rec)
-                .thenApply(list -> {
-                    List<Tuple> missingIndexesKeys = list.stream().filter(Objects::nonNull).collect(Collectors.toList());
+                .thenApply(missingIndexesKeys -> {
                     if (missingIndexesKeys.isEmpty()) {
                         return null;
                     }
