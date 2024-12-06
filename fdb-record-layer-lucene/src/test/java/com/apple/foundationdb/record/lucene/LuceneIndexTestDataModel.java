@@ -48,6 +48,8 @@ import java.util.function.Function;
  * Model for creating a lucene appropriate dataset with various configurations.
  */
 public class LuceneIndexTestDataModel {
+    public static final String PARENT_SEARCH_TERM = "text_value:about";
+    public static final String CHILD_SEARCH_TERM = "child_str_value:forth";
 
     final boolean isGrouped;
     final boolean isSynthetic;
@@ -131,29 +133,30 @@ public class LuceneIndexTestDataModel {
         }
     }
 
-    static void saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                                final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
-                                final long start, final FDBRecordStore recordStore, final int group) {
-        saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, false, null, start, recordStore, group);
+    static Tuple saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
+                                 final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
+                                 final long start, final FDBRecordStore recordStore, final int group) {
+        return saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, false, null, start, recordStore, group);
     }
 
-    static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                           final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
-                           final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
-                           final int group) {
-        saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, true, textGenerator, start, recordStore, group);
+    static Tuple saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
+                            final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
+                            final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
+                            final int group) {
+        return saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, true, textGenerator, start, recordStore, group);
     }
 
-    static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                           final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
+    static Tuple saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
+                            final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
                             final boolean withContent, final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
-                           final int group) {
-        final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
+                            final int group) {
+        final Tuple groupTuple = calculateGroupTuple(isGrouped, group);
         final int countInGroup = groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
         long timestamp = start + countInGroup + random.nextInt(20) - 5;
         final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, withContent, textGenerator, random);
         groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>())
                 .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
+        return primaryKey;
     }
 
     @Nonnull
@@ -256,6 +259,11 @@ public class LuceneIndexTestDataModel {
             rootExpression = baseExpression;
         }
         return rootExpression;
+    }
+
+    @Nonnull
+    static Tuple calculateGroupTuple(final boolean isGrouped, final int group) {
+        return isGrouped ? Tuple.from(group) : Tuple.from();
     }
 
     @Nonnull

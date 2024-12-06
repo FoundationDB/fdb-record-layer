@@ -42,10 +42,11 @@ import javax.annotation.Nonnull;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.CHILD_SEARCH_TERM;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestDataModel.PARENT_SEARCH_TERM;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -53,35 +54,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @Tag(Tags.RequiresFDB)
 public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
-
-    public static final String PARENT_SEARCH_TERM = "text_value:about";
-    public static final String CHILD_SEARCH_TERM = "child_str_value:forth";
-
     public static Stream<Arguments> scanArguments() {
-        return Stream.of(
-                Arguments.of(false, false, true, true, Set.of(keyFor(2, 1001L))), // non-synthetic, ONE_TERM, grouped, with EmptyDoc
-                Arguments.of(false, false, true, false, Set.of(keyFor(2, 1001L))), // non-synthetic, ONE_TERM, grouped, no EmptyDoc
-                Arguments.of(false, false, false, true, Set.of(keyFor(1, 1001L), keyFor(2, 1002L))), // non-synthetic, ONE_TERM, non-grouped, with EmptyDoc
-                Arguments.of(false, false, false, false, Set.of(keyFor(1, 1001L), keyFor(2, 1002L))), // non-synthetic, ONE_TERM, non-grouped, no EmptyDoc
-                Arguments.of(false, true, true, true, Set.of(keyFor(2, 1001L), keyFor(2, 1002L))), // non-synthetic, ALL_ENTRIES, grouped, with EmptyDoc
-                Arguments.of(false, true, true, false, Set.of(keyFor(2, 1001L))), // non-synthetic, ALL_ENTRIES, grouped, no EmptyDoc
-                Arguments.of(false, true, false, true, Set.of(keyFor(1, 1001L), keyFor(2, 1002L), keyFor(2, 1003L))), // non-synthetic, ALL_ENTRIES, non-grouped, with EmptyDoc
-                Arguments.of(false, true, false, false, Set.of(keyFor(1, 1001L), keyFor(2, 1002L))), // non-synthetic, ALL_ENTRIES, non-grouped, no EmptyDoc
-
-                Arguments.of(true, false, true, true, Set.of(syntheticKeyFor(2, 1001L, 1000L))), // synthetic, ONE_TERM, grouped, with EmptyDoc
-                Arguments.of(true, false, true, false, Set.of(syntheticKeyFor(2, 1001L, 1000L))), // synthetic, ONE_TERM, grouped, no EmptyDoc
-                Arguments.of(true, false, false, true, Set.of(syntheticKeyFor(1, 1001L, 1000L), syntheticKeyFor(2, 1002L, 999L))), // synthetic, ONE_TERM, non-grouped, with EmptyDoc
-                Arguments.of(true, false, false, false, Set.of(syntheticKeyFor(1, 1001L, 1000L), syntheticKeyFor(2, 1002L, 999L))), // synthetic, ONE_TERM, non-grouped, no EmptyDoc
-                Arguments.of(true, true, true, true, Set.of(syntheticKeyFor(2, 1001L, 1000L), syntheticKeyFor(2, 1002L, 999L))), // synthetic, ALL_ENTRIES, grouped, with EmptyDoc
-                Arguments.of(true, true, true, false, Set.of(syntheticKeyFor(2, 1001L, 1000L))), // synthetic, ALL_ENTRIES, grouped, no EmptyDoc
-                Arguments.of(true, true, false, true, Set.of(syntheticKeyFor(1, 1001L, 1000L), syntheticKeyFor(2, 1002L, 999L), syntheticKeyFor(2, 1003L, 998L))), // synthetic, ALL_ENTRIES, non-grouped, with EmptyDoc
-                Arguments.of(true, true, false, false, Set.of(syntheticKeyFor(1, 1001L, 1000L), syntheticKeyFor(2, 1002L, 999L))) // synthetic, ALL_ENTRIES, non-grouped, no EmptyDoc
-        );
+        return Stream.of(false, true)
+                .flatMap(isSynthetic -> Stream.of(false, true)
+                        .flatMap(matchAllDocs -> Stream.of(false, true)
+                                .flatMap(isGrouped -> Stream.of(false, true)
+                                        .map(includeEmptyDoc -> Arguments.of(isSynthetic, matchAllDocs, isGrouped, includeEmptyDoc)))));
     }
 
     @ParameterizedTest(name = "indexScanTest({argumentsWithNames})")
     @MethodSource("scanArguments")
-    public void indexScanTest(boolean isSynthetic, boolean matchAllDocs, boolean isGrouped, boolean includeEmptyDoc, Set<Tuple> expectedResult) throws Exception {
+    public void indexScanTest(boolean isSynthetic, boolean matchAllDocs, boolean isGrouped, boolean includeEmptyDoc) throws Exception {
         final long seed = 5363275763521L;
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
@@ -90,13 +73,17 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                 .setPartitionHighWatermark(10)
                 .build();
 
-        final long start = Instant.now().toEpochMilli();
+        final Tuple grp1ContentDoc;
+        final Tuple grp2ContentDoc;
+        Tuple grp2EmptyDoc = null;
         // Populate data: 1 doc for groups 1 and 2 and one empty doc (if needed)
         try (FDBRecordContext context = openContext()) {
-            dataModel.saveRecords(1, start, context, 1);
-            dataModel.saveRecords(1, start, context, 2);
+            final long start = Instant.now().toEpochMilli();
+            final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
+            grp1ContentDoc = saveRecord(isGrouped, isSynthetic, dataModel, start, store, 1);
+            grp2ContentDoc = saveRecord(isGrouped, isSynthetic, dataModel, start, store, 2);
             if (includeEmptyDoc) {
-                LuceneIndexTestDataModel.saveEmptyRecord(isGrouped, isSynthetic, dataModel.random, dataModel.groupingKeyToPrimaryKeyToPartitionKey, start, dataModel.createOrOpenRecordStore(context), 2);
+                grp2EmptyDoc = saveEmptyRecord(isGrouped, isSynthetic, dataModel, start, store, 2);
             }
             commit(context);
         }
@@ -106,6 +93,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                                    : isSynthetic
                                      ? new LuceneQuerySearchClause(LuceneQueryType.QUERY, CHILD_SEARCH_TERM, false)
                                      : new LuceneQuerySearchClause(LuceneQueryType.QUERY, PARENT_SEARCH_TERM, false);
+        Set<Tuple> expectedResult = calcExpectedResults(matchAllDocs, isGrouped, includeEmptyDoc,
+                grp1ContentDoc, grp2ContentDoc, grp2EmptyDoc);
+
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
             LuceneScanBounds scanBounds = isGrouped
@@ -116,6 +106,27 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             assertIndexEntryPrimaryKeyTuples(expectedResult,
                     store.scanIndex(dataModel.index, scanBounds, null, ScanProperties.FORWARD_SCAN));
         }
+    }
+
+    private Set<Tuple> calcExpectedResults(final boolean matchAllDocs, final boolean isGrouped, final boolean includeEmptyDoc,
+                                           final Tuple grp1ContentDoc, final Tuple grp2ContentDoc, final Tuple grp2EmptyDoc) {
+        // Synthetic record does not change the expected results - it just creates a record with a compound
+        // key, so not needed for this method.
+        if (!matchAllDocs && isGrouped) {
+            return Set.of(grp2ContentDoc);
+        } else if (!matchAllDocs && !isGrouped) {
+            return Set.of(grp1ContentDoc, grp2ContentDoc);
+        } else if (matchAllDocs && isGrouped && includeEmptyDoc) {
+            return Set.of(grp2ContentDoc, grp2EmptyDoc);
+        } else if (matchAllDocs && isGrouped && !includeEmptyDoc) {
+            return Set.of(grp2ContentDoc);
+        } else if (matchAllDocs && !isGrouped && includeEmptyDoc) {
+            return Set.of(grp1ContentDoc, grp2ContentDoc, grp2EmptyDoc);
+        } else if (matchAllDocs && !isGrouped && !includeEmptyDoc) {
+            return Set.of(grp1ContentDoc, grp2ContentDoc);
+        }
+
+        throw new IllegalArgumentException("Cannot calculate expected result");
     }
 
     @ParameterizedTest
@@ -146,7 +157,10 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                                           : LuceneIndexTestUtils.fullTextSearch(store, dataModel.index, search, false);
 
             // Run the scan with the given query and assert the results
-            assertIndexEntryPrimaryKeys(l -> keyFor(2, 1001L + l), 500,
+            final Tuple groupTuple = LuceneIndexTestDataModel.calculateGroupTuple(isGrouped, 2);
+            final Set<Tuple> expectedKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple).keySet();
+            assertEquals(500, expectedKeys.size());
+            assertIndexEntryPrimaryKeyTuples(expectedKeys,
                     store.scanIndex(dataModel.index, scanBounds, null, ScanProperties.FORWARD_SCAN));
         }
     }
@@ -160,7 +174,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
                 .setPrimaryKeySegmentIndexEnabled(true)
-                .setPartitionHighWatermark(10)
+                .setPartitionHighWatermark(210)
                 .build();
 
         final long start = Instant.now().toEpochMilli();
@@ -168,9 +182,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
             dataModel.saveRecords(500, start, context, 2);
             commit(context);
         }
-        // Scan properties with a limit of 100
+        // Scan properties with a limit of 36
         final ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
-                .setReturnedRowLimit(100)
+                .setReturnedRowLimit(36)
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                 .build());
 
@@ -189,32 +203,27 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                         return store.scanIndex(dataModel.index, scanBounds, continuation, scanProperties);
                     });
             // Run the scan with the given query and assert the results
-            assertIndexEntryPrimaryKeys(l -> keyFor(2, 1001L + l), 500, cursor);
+            final Tuple groupTuple = LuceneIndexTestDataModel.calculateGroupTuple(isGrouped, 2);
+            final Set<Tuple> expectedKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple).keySet();
+            assertEquals(500, expectedKeys.size());
+            assertIndexEntryPrimaryKeyTuples(expectedKeys, cursor);
         }
     }
 
 
     @Nonnull
-    private static Tuple syntheticKeyFor(final int group, final long parentDocId, final long childDocId) {
-        return Tuple.from(-1, Tuple.from(group, parentDocId), Tuple.from(group, childDocId));
+    private static Tuple saveRecord(final boolean isGrouped, final boolean isSynthetic, final LuceneIndexTestDataModel dataModel, final long start, final FDBRecordStore store, final int group) {
+        return LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, dataModel.random, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, start, store, group);
     }
 
     @Nonnull
-    private static Tuple keyFor(final int group, final long docId) {
-        return Tuple.from(group, docId);
+    private static Tuple saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic, final LuceneIndexTestDataModel dataModel, final long start, final FDBRecordStore store, final int group) {
+        return LuceneIndexTestDataModel.saveEmptyRecord(isGrouped, isSynthetic, dataModel.random, dataModel.groupingKeyToPrimaryKeyToPartitionKey, start, store, group);
     }
 
     private void assertIndexEntryPrimaryKeyTuples(Set<Tuple> primaryKeys, RecordCursor<IndexEntry> cursor) {
         List<IndexEntry> indexEntries = cursor.asList().join();
         assertEquals(primaryKeys,
                 indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
-    }
-
-    private void assertIndexEntryPrimaryKeys(Function<Long, Tuple> expectedKey, long expectedSize, RecordCursor<IndexEntry> cursor) {
-        List<IndexEntry> indexEntries = cursor.asList().join();
-        for (long l = 0; l < indexEntries.size(); l++) {
-            assertEquals(expectedKey.apply(l), indexEntries.get((int)l).getPrimaryKey());
-        }
-        assertEquals(expectedSize, indexEntries.size());
     }
 }
