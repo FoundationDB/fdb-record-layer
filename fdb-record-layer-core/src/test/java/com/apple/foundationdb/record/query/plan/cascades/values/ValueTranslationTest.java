@@ -1105,7 +1105,10 @@ public class ValueTranslationTest {
      */
     @Test
     public void maxMatchQovUsingExpandedQovReorderedFields() {
-        final var p_v = rcv(fv(t_, "b"), fv(t_, "a"), fv(t_, "j"));
+        final var p_v = rcv(true,
+                fv(t_, "b"), "b",
+                fv(t_, "a"), "a",
+                fv(t_, "j"), "j");
 
         final var m3 = calculate(t_, p_v);
 

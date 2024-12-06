@@ -273,7 +273,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Nonnull
     @Override
     public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
-        if (hashCode() != other.hashCode()) { // as the hashcode is memoized
+        if (hashCodeWithoutChildren() != other.hashCodeWithoutChildren()) { // as the hashcode is memoized
             return BooleanWithConstraint.falseValue();
         }
 
