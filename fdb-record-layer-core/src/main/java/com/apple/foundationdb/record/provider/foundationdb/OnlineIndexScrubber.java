@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.sun.jdi.InternalException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -374,7 +373,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private void validateIndex() {
             if (index == null) {
-                throw new InternalException("index must be set");
+                throw new IllegalArgumentException("index must be set");
             }
             final RecordMetaData metaData = getRecordMetaData();
             if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {

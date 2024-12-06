@@ -85,7 +85,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     @Override
     public CompletableFuture<Issue> handleOneItem(final FDBRecordStore store, final Transaction transaction, final RecordCursorResult<IndexEntry> result) {
         if (index == null) {
-            throw new InternalError("presetParams was not called appropriately for this scrubbing tool");
+            throw new IllegalArgumentException("presetParams was not called appropriately for this scrubbing tool");
         }
 
         final IndexEntry indexEntry = result.get();
