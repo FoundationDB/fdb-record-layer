@@ -241,7 +241,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
 
             /**
-             * Calls {@link #ignoreIndexTypeCheck(boolean)} with true.
+             * Calls {@link #ignoreIndexTypeCheck(boolean)} with parameter {@code true}.
              * @return this builder
              */
             public Builder ignoreIndexTypeCheck() {

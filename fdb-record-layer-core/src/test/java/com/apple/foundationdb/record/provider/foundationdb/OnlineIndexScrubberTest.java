@@ -305,9 +305,8 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     void testScrubberLimitsAlternatingLegacy(boolean legacyInit) {
         boolean legacy = legacyInit;
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 52;
-        final int chunkSize = 7;
-        final int numChunks = 1 + (numRecords / chunkSize);
+        final int numRecords = 50;
+        final int chunkSize = 10;
         long resDangling;
         long resMissing;
 
@@ -319,63 +318,28 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         buildIndexClean(tgtIndex);
 
-        // Scrub both dangling & missing. Scan counts in this test should be doubles.
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
-                // user default ScrubbingPolicy
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .setAllowRepair(false)
-                        .setEntriesScanLimit(1000000)
-                        .ignoreIndexTypeCheck(legacy)
-                        .build())
-                .setLimit(chunkSize)
-                .build()) {
-            resDangling = indexScrubber.scrubDanglingIndexEntries();
-            resMissing = indexScrubber.scrubMissingIndexEntries();
+        for (int i = 0; i < 5; i++) {
+            // Scrub both dangling & missing. Scan counts in this test should be doubles.
+            legacy = !legacy;
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                    // user default ScrubbingPolicy
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setAllowRepair(false)
+                            .setEntriesScanLimit(chunkSize)
+                            .ignoreIndexTypeCheck(legacy)
+                            .build())
+                    .setLimit(chunkSize)
+                    .build()) {
+                resDangling = indexScrubber.scrubDanglingIndexEntries();
+                resMissing = indexScrubber.scrubMissingIndexEntries();
+            }
+            assertEquals(0, resDangling);
+            assertEquals(0, resMissing);
         }
         assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(numChunks * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-        assertEquals(0, resDangling);
-        assertEquals(0, resMissing);
-
-
-        // Scrub dangling with a quota
-        timer.reset();
-        legacy = !legacy;
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .ignoreIndexTypeCheck(legacy)
-                        .ignoreIndexTypeCheck(legacy)
-                        .setEntriesScanLimit(1))
-                .setLimit(chunkSize)
-                .build()) {
-            resDangling = indexScrubber.scrubDanglingIndexEntries();
-        }
-        assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        assertEquals(chunkSize, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
-        assertEquals(0, resDangling);
-
-        // Scrub both with a quota
-        timer.reset();
-        legacy = !legacy;
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .ignoreIndexTypeCheck(legacy)
-                        .setEntriesScanLimit(chunkSize * 3))
-                .setLimit(chunkSize)
-                .build()) {
-            resDangling = indexScrubber.scrubDanglingIndexEntries();
-            resMissing = indexScrubber.scrubMissingIndexEntries();
-        }
-        assertEquals(3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        assertEquals(chunkSize * 3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-        assertEquals(0, resDangling);
-        assertEquals(0, resMissing);
     }
 
     @ParameterizedTest

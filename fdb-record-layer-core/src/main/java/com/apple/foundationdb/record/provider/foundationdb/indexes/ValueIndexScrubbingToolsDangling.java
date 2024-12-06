@@ -65,8 +65,8 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
 
     @Override
     public RecordCursor<IndexEntry> getCursor(final TupleRange range, final FDBRecordStore store, final int limit) {
-        // IsolationLevel.SNAPSHOT will not cause range conflicts, which is ok because this scrubbing is - by definition - idempotent.
-        //IIf a repair is made, any related component (in this case - index entries) should be explicitly added to the conflict list.
+        // IsolationLevel.SNAPSHOT will not cause range conflicts, which is ok because this index is idempotent.
+        // If a repair is made, any related component (in this case - index entries) should be explicitly added to the conflict list.
         final IsolationLevel isolationLevel = IsolationLevel.SNAPSHOT;
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
