@@ -303,12 +303,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     @ParameterizedTest
     @BooleanSource
     void testScrubberLimitsAlternatingLegacy(boolean legacyInit) {
-        boolean legacy = legacyInit;
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 50;
         final int chunkSize = 10;
-        long resDangling;
-        long resMissing;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
@@ -318,9 +315,12 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         buildIndexClean(tgtIndex);
 
+        boolean legacy = !legacyInit;
         for (int i = 0; i < 5; i++) {
             // Scrub both dangling & missing. Scan counts in this test should be doubles.
             legacy = !legacy;
+            long resDangling;
+            long resMissing;
             try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                     // user default ScrubbingPolicy
                     .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
