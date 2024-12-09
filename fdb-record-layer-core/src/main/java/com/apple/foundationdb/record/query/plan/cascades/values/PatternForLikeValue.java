@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value.ExplainInfo.Precedence;
 import com.apple.foundationdb.util.StringUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;

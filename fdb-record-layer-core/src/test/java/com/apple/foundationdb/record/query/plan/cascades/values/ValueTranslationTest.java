@@ -281,8 +281,8 @@ public class ValueTranslationTest {
                 fv(t_, "b", "t"), fv(t_, "b", "t"),
                 fv(t_, "j", "s"), fv(t_, "j", "s"));
         Assertions.assertEquals(l1ExpectedMapping, l1m3.getMap());
-        Assertions.assertEquals(expectedL1TranslatedQueryValue, l1m3.getQueryResultValue());
-        Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
+        Assertions.assertEquals(expectedL1TranslatedQueryValue, l1m3.getQueryValue());
+        Assertions.assertEquals(p_v, l1m3.getCandidateValue());
 
         /*
              2nd level:
@@ -330,8 +330,8 @@ public class ValueTranslationTest {
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
         final var l2m3 = calculate(l2TranslatedQueryValue, r_v);
         Assertions.assertEquals(l2ExpectedMapping, l2m3.getMap());
-        Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
-        Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
+        Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryValue());
+        Assertions.assertEquals(r_v, l2m3.getCandidateValue());
     }
 
     @Test
@@ -373,8 +373,8 @@ public class ValueTranslationTest {
                 fv(t_, "j", "s")
         );
         Assertions.assertEquals(expectedMapping, l1M3.getMap());
-        Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryResultValue());
-        Assertions.assertEquals(p_v, l1M3.getCandidateResultValue());
+        Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryValue());
+        Assertions.assertEquals(p_v, l1M3.getCandidateValue());
     }
 
     @Test
@@ -418,8 +418,8 @@ public class ValueTranslationTest {
                 fv(t_, "j", "s")
         );
         Assertions.assertEquals(expectedMapping, l1M3.getMap());
-        Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryResultValue());
-        Assertions.assertEquals(p_v, l1M3.getCandidateResultValue());
+        Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryValue());
+        Assertions.assertEquals(p_v, l1M3.getCandidateValue());
     }
 
     @Test
@@ -462,8 +462,8 @@ public class ValueTranslationTest {
                 fv(t_, "j", "s")
         );
         Assertions.assertEquals(expectedMapping, l1M3.getMap());
-        Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryResultValue());
-        Assertions.assertEquals(p_v, l1M3.getCandidateResultValue());
+        Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryValue());
+        Assertions.assertEquals(p_v, l1M3.getCandidateValue());
     }
 
     @Test
@@ -523,8 +523,8 @@ public class ValueTranslationTest {
                 fv(t_, "b", "t"), fv(t_, "b", "t"),
                 fv(t_, "j", "s"), fv(t_, "j", "s"));
         Assertions.assertEquals(l1ExpectedMapping, l1m3.getMap());
-        Assertions.assertEquals(expectedL1TranslatedQueryValue, l1m3.getQueryResultValue());
-        Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
+        Assertions.assertEquals(expectedL1TranslatedQueryValue, l1m3.getQueryValue());
+        Assertions.assertEquals(p_v, l1m3.getCandidateValue());
 
         /*
              2nd level:
@@ -572,8 +572,8 @@ public class ValueTranslationTest {
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
         final var l2m3 = calculate(l2TranslatedQueryValue, r_v);
         Assertions.assertEquals(l2ExpectedMapping, l2m3.getMap());
-        Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
-        Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
+        Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryValue());
+        Assertions.assertEquals(r_v, l2m3.getCandidateValue());
     }
 
     @SuppressWarnings("checkstyle:MethodName")
@@ -700,8 +700,8 @@ public class ValueTranslationTest {
                 fv(t_, "b", "t"), fv(t_, "b", "t"),
                 fv(t_, "j", "s"), fv(t_, "j", "s"));
         Assertions.assertEquals(l1ExpectedMappingForTValue, l1m3ForTValue.getMap());
-        Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1m3ForTValue.getQueryResultValue());
-        Assertions.assertEquals(t_v, l1m3ForTValue.getCandidateResultValue());
+        Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1m3ForTValue.getQueryValue());
+        Assertions.assertEquals(t_v, l1m3ForTValue.getCandidateValue());
 
         final var l1m3ForMValue = calculate(l1TranslatedQueryMValue, m_v);
 
@@ -709,8 +709,8 @@ public class ValueTranslationTest {
                 fv(m_, "m1", "m11"), fv(m_, "m1", "m11"),
                 fv(m_, "m2", "m21"), fv(m_, "m2", "m21"));
         Assertions.assertEquals(l1ExpectedMappingForMValue, l1m3ForMValue.getMap());
-        Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1m3ForMValue.getQueryResultValue());
-        Assertions.assertEquals(m_v, l1m3ForMValue.getCandidateResultValue());
+        Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1m3ForMValue.getQueryValue());
+        Assertions.assertEquals(m_v, l1m3ForMValue.getCandidateValue());
 
         final var l1m3ForNValue = calculate(l1TranslatedQueryNValue, n_v);
 
@@ -719,8 +719,8 @@ public class ValueTranslationTest {
                 fv(n_, "n1", "n12"), fv(n_, "n1", "n12"),
                 fv(n_, "n3", "n32"), fv(n_, "n3", "n32"));
         Assertions.assertEquals(l1ExpectedMappingForNValue, l1m3ForNValue.getMap());
-        Assertions.assertEquals(expectedL1TranslatedQueryNValue, l1m3ForNValue.getQueryResultValue());
-        Assertions.assertEquals(n_v, l1m3ForNValue.getCandidateResultValue());
+        Assertions.assertEquals(expectedL1TranslatedQueryNValue, l1m3ForNValue.getQueryValue());
+        Assertions.assertEquals(n_v, l1m3ForNValue.getCandidateValue());
 
         // translate a complex join condition, each quantifier in the join condition is assumed to match a corresponding
         // quantifier in a non-joined index candidate.
@@ -1076,8 +1076,8 @@ public class ValueTranslationTest {
 
         Map<Value, Value> l1ExpectedMapping = Map.of(pv,  p_v);
         Assertions.assertEquals(l1ExpectedMapping, l1m3.getMap());
-        Assertions.assertEquals(pv, l1m3.getQueryResultValue());
-        Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
+        Assertions.assertEquals(pv, l1m3.getQueryValue());
+        Assertions.assertEquals(p_v, l1m3.getCandidateValue());
 
         final var pAlias = CorrelationIdentifier.of("P");
         final var p_Alias = CorrelationIdentifier.of("P'");

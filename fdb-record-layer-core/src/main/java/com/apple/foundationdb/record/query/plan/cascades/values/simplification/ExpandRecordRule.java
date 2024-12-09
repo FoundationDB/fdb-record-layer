@@ -66,6 +66,9 @@ public class ExpandRecordRule extends ValueSimplificationRule<Value> {
 
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
+        if (value instanceof FieldValue && ((FieldValue)value).getFieldPath().size() > 1) {
+            return;
+        }
         final var originalResultType = value.getResultType();
         if (!originalResultType.isRecord()) {
             return;

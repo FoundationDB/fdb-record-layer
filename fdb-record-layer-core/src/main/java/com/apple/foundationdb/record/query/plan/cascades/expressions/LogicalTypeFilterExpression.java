@@ -182,7 +182,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpResultValueOptional =
-                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryResultValue());
+                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
             if (pulledUpResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }

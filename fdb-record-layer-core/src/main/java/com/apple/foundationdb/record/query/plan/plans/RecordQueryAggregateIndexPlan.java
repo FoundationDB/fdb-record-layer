@@ -372,20 +372,13 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     public static RecordQueryAggregateIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                           @Nonnull final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
-        final Value groupByResultValue;
-        if (recordQueryAggregateIndexPlanProto.hasGroupByResultValue()) {
-            groupByResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getGroupByResultValue()));
-        } else {
-            // down level continuation coming in -- that continuation does not have an explicit group by result
-            // but flows the group by result as the result value
-            groupByResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue()));
-        }
-
         return new RecordQueryAggregateIndexPlan(RecordQueryIndexPlan.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getIndexPlan())),
                 Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getRecordTypeName()),
                 IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
-                groupByResultValue,
+                recordQueryAggregateIndexPlanProto.hasGroupByResultValue()
+                ? Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getGroupByResultValue()))
+                : Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
                 QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint())));
     }
 
