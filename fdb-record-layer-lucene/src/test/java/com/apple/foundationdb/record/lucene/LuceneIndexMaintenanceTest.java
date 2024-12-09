@@ -1076,7 +1076,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final boolean primaryKeySegmentIndexEnabled = true;
         // LucenePartitioner is not thread safe, and the counts get broken
         // See: https://github.com/FoundationDB/fdb-record-layer/issues/2990
-        final int partitionHighWatermark = -1;
+        // TODO parameterize this, and add a test for concurrent inserts
+        final int partitionHighWatermark = 100_0000;
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
@@ -1109,6 +1110,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         dataModel.validate(() -> openContext(contextProps));
+
+        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
+        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
 
         try (FDBRecordContext context = openContext(contextProps)) {
             FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
