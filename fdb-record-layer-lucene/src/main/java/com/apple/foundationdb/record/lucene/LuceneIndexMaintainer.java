@@ -247,6 +247,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
+    <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
+        try {
+            writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
+        } catch (IOException e) {
+            throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
+        }
+    }
+
     @SuppressWarnings("PMD.CloseResource")
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
                                Tuple groupingKey,
@@ -485,14 +493,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 AsyncUtil.whenAll(newRecordFields.entrySet().stream().map(entry -> {
                     try {
                         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
-                                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint).thenApply(partitionId -> {
-                                    try {
-                                        writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
-                                    } catch (IOException e) {
-                                        throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
-                                    }
-                                    return null;
-                                }));
+                                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
+                                        .thenApply(partitionId -> {
+                                            writeDocument(newRecord, entry, partitionId);
+                                            return null;
+                                        }));
                     } catch (IOException e) {
                         throw LuceneExceptions.toRecordCoreException("Issue updating", e, "record", Objects.requireNonNull(newRecord).getPrimaryKey());
                     }
@@ -539,19 +544,22 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
 
         // partitioned
-        return partitioner.tryGetPartitionInfo(record, groupingKey).thenApply(partitionInfo -> {
+        return partitioner.tryGetPartitionInfo(record, groupingKey).thenCompose(partitionInfo -> {
+            // this might be 0 when in writeOnly mode, but otherwise should not happen.
             if (partitionInfo != null) {
                 try {
                     int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
                     if (countDeleted > 0) {
-                        partitioner.decrementCountAndSave(groupingKey, partitionInfo, countDeleted);
+                        return partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionInfo.getId())
+                                .thenApply(vignore -> countDeleted);
+                    } else {
+                        return CompletableFuture.completedFuture(countDeleted);
                     }
-                    return countDeleted;
                 } catch (IOException e) {
                     throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
                 }
             }
-            return 0;
+            return CompletableFuture.completedFuture(0);
         });
     }
 
