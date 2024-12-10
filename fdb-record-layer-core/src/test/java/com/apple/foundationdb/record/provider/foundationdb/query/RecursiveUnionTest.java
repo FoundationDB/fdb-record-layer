@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestHierarchiesProto;
@@ -57,6 +59,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
@@ -211,6 +214,17 @@ public class RecursiveUnionTest extends TempTableTestBase {
         assertEquals(expectedResults, result);
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void hierarchyThatCausesTempTableRowLimitExceedThrows() throws Exception {
+        final var randomHierarchy = Hierarchy.generateRandomHierarchy(1000, 4);
+        final var descendants = randomHierarchy.calculateDescendants();
+        final var randomContinuationScenario = ListPartitioner.partitionUsingPowerDistribution(10, descendants);
+        final var continuationSnapshots = randomContinuationScenario.getKey();
+        Assertions.assertThrows(RecordCoreException.class, () ->
+                        descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots, 500),
+                "temp table row limit exceeded");
+    }
+
     /**
      * Creates a recursive union plan that calculates multiple series recursively {@code F(X) = F(X-1) * 2} up until
      * a given limit.
@@ -333,18 +347,28 @@ public class RecursiveUnionTest extends TempTableTestBase {
      *
      * @param hierarchy The hierarchy, represented a list of {@code child -> parent} edges.
      * @param initial List of edges whose {@code child}'s ancestors are to be calculated.
-     * @return A list of nodes representing the path from the given path from child(ren) to the parent.
+     * @param successiveRowLimits number of rows to return in each execution.
+     * @return A list of nodes representing the path from the given path from child(ren) to the parent across multiple
+     * executions.
      */
     @Nonnull
     private List<List<Long>> descendantsOfAcrossContinuations(@Nonnull final Map<Long, Long> hierarchy,
-                                                            @Nonnull final Map<Long, Long> initial,
-                                                            @Nonnull final List<Integer> successiveRowLimits) {
+                                                              @Nonnull final Map<Long, Long> initial,
+                                                              @Nonnull final List<Integer> successiveRowLimits) {
+        return descendantsOfAcrossContinuations(hierarchy, initial, successiveRowLimits, ReadTransaction.ROW_LIMIT_UNLIMITED);
+    }
+
+    @Nonnull
+    private List<List<Long>> descendantsOfAcrossContinuations(@Nonnull final Map<Long, Long> hierarchy,
+                                                              @Nonnull final Map<Long, Long> initial,
+                                                              @Nonnull final List<Integer> successiveRowLimits,
+                                                              final int returnedRowLimit) {
         final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
             final var idField = getIdField(ttSelectQun);
             final var parentField = getParentField(hierarchyScanQun);
             return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
         };
-        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits);
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, returnedRowLimit);
     }
 
     @Nonnull
@@ -352,6 +376,15 @@ public class RecursiveUnionTest extends TempTableTestBase {
                                                                @Nonnull final Map<Long, Long> initial,
                                                                @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate,
                                                                @Nonnull final List<Integer> successiveRowLimits) {
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, ReadTransaction.ROW_LIMIT_UNLIMITED);
+    }
+
+    @Nonnull
+    private List<List<Long>> hierarchyQueryAcrossContinuations(@Nonnull final Map<Long, Long> hierarchy,
+                                                               @Nonnull final Map<Long, Long> initial,
+                                                               @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate,
+                                                               @Nonnull final List<Integer> successiveRowLimits,
+                                                               final int returnRowLimit) {
         final ImmutableList.Builder<List<Long>> resultBuilder = ImmutableList.builder();
         try (FDBRecordContext context = openContext()) {
             var planAndResultAndContinuation = hierarchicalQuery(hierarchy, initial, predicate, context, null, successiveRowLimits.get(0));
@@ -359,11 +392,11 @@ public class RecursiveUnionTest extends TempTableTestBase {
             var continuation = planAndResultAndContinuation.getContinuation();
             resultBuilder.add(planAndResultAndContinuation.getExecutionResult());
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
-            for (final var rowLimit : successiveRowLimits.stream().skip(1).collect(ImmutableList.toImmutableList())) {
+            for (final var rowBatchCount : successiveRowLimits.stream().skip(1).collect(ImmutableList.toImmutableList())) {
                 final var seedingTempTable = tempTableInstance();
                 initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
                 var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
-                final var pair = executeHierarchyPlan(plan, continuation, evaluationContext, rowLimit);
+                final var pair = executeHierarchyPlan(plan, continuation, evaluationContext, rowBatchCount, returnRowLimit);
                 continuation = pair.getRight();
                 resultBuilder.add(Objects.requireNonNull(pair.getLeft()));
             }
@@ -387,6 +420,17 @@ public class RecursiveUnionTest extends TempTableTestBase {
                                                                          @Nonnull final FDBRecordContext context,
                                                                          @Nullable final byte[] continuation,
                                                                          int numberOfItemsToReturn) {
+        return hierarchicalQuery(hierarchy, initial, queryPredicate, context, continuation, numberOfItemsToReturn, ReadTransaction.ROW_LIMIT_UNLIMITED);
+    }
+
+    @Nonnull
+    private HierarchyExecutionResult hierarchicalQuery(@Nonnull final Map<Long, Long> hierarchy,
+                                                       @Nonnull final Map<Long, Long> initial,
+                                                       @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
+                                                       @Nonnull final FDBRecordContext context,
+                                                       @Nullable final byte[] continuation,
+                                                       int numberOfItemsToReturn,
+                                                       int returnedRowLimit) {
         createOrOpenRecordStore(context, RecordMetaData.build(TestHierarchiesProto.getDescriptor()));
         for (final var entry : hierarchy.entrySet()) {
             final var message = item(entry.getKey(), entry.getValue());
@@ -402,7 +446,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
         initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
         var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
-        final var resultAndContinuation = executeHierarchyPlan(plan, continuation, evaluationContext, numberOfItemsToReturn);
+        final var resultAndContinuation = executeHierarchyPlan(plan, continuation, evaluationContext, numberOfItemsToReturn, returnedRowLimit);
         return new HierarchyExecutionResult(plan, resultAndContinuation.getKey(), resultAndContinuation.getRight());
     }
 
@@ -421,11 +465,38 @@ public class RecursiveUnionTest extends TempTableTestBase {
                                                           @Nullable final byte[] continuation,
                                                           @Nonnull EvaluationContext evaluationContext,
                                                           int numberOfItemsToReturn) {
+        return executeHierarchyPlan(hierarchyPlan, continuation, evaluationContext, numberOfItemsToReturn, ReadTransaction.ROW_LIMIT_UNLIMITED);
+    }
+
+    /**
+     * Executes a hierarchical plan, created by invoking {@link RecursiveUnionTest#hierarchicalQuery(Map, Map, BiFunction)},
+     * or resumes a previous execution given its continuation. The execution can be bounded to return a specific number
+     * of elements only.
+     *
+     * @param hierarchyPlan The hierarchy plan, created by invoking {@link RecursiveUnionTest#hierarchicalQuery(Map, Map, BiFunction)}.
+     * @param continuation An optional continuation belonging to previous interrupted execution.
+     * @param numberOfItemsToReturn An optional number of items to return, {@code -1} to get all items.
+     * @param returnedRowLimit Limit the number of returned rows, this is also used to control how many items we can store
+     *                         in a {@link com.apple.foundationdb.record.query.plan.cascades.TempTable}.
+     * @return the {@code id} portion of plan execution results
+     */
+    @Nonnull
+    private Pair<List<Long>, byte[]> executeHierarchyPlan(@Nonnull final RecordQueryPlan hierarchyPlan,
+                                                          @Nullable final byte[] continuation,
+                                                          @Nonnull EvaluationContext evaluationContext,
+                                                          int numberOfItemsToReturn,
+                                                          int returnedRowLimit) {
         int counter = 0;
         final var resultBuilder = ImmutableList.<Pair<Long, Long>>builder();
+        final ExecuteProperties executeProperties;
+        if (returnedRowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
+            executeProperties = ExecuteProperties.newBuilder().build();
+        } else {
+            executeProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(returnedRowLimit).build();
+        }
         try (RecordCursorIterator<QueryResult> cursor = hierarchyPlan.executePlan(
                 recordStore, evaluationContext, continuation,
-                ExecuteProperties.newBuilder().build()).asIterator()) {
+                executeProperties).asIterator()) {
             while (cursor.hasNext()) {
                 Message message = Verify.verifyNotNull(cursor.next()).getMessage();
                 resultBuilder.add(asIdParent(message));
