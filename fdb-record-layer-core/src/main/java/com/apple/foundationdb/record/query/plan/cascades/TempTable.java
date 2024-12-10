@@ -54,6 +54,8 @@ import java.util.List;
  */
 public class TempTable implements ProtoSerializable {
 
+    public static final int DEFAULT_ROW_LIMIT = 10_000;
+
     @Nonnull
     private final List<QueryResult> underlyingBuffer;
 
@@ -119,6 +121,10 @@ public class TempTable implements ProtoSerializable {
     @Nonnull
     public List<QueryResult> getList() {
         return underlyingBuffer;
+    }
+
+    public int size() {
+        return underlyingBuffer.size();
     }
 
     @Nonnull

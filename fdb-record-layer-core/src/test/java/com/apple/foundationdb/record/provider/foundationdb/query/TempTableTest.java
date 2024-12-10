@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -109,8 +111,8 @@ public class TempTableTest extends TempTableTestBase {
             final var tempTable = tempTableInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
             final var firstRecord = rcv(1L, "first");
-            final var secondArray = rcv(2L, "second");
-            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
+            final var secondRecord = rcv(2L, "second");
+            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondRecord));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
             qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
@@ -141,8 +143,8 @@ public class TempTableTest extends TempTableTestBase {
         {
             final var tempTable = tempTableInstance();
             final var firstRecord = rcv(1L, "first");
-            final var secondArray = rcv(2L, "second");
-            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
+            final var secondRecord = rcv(2L, "second");
+            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondRecord));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
             qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun, tempTableId, tempTableId.getId(),
@@ -224,6 +226,39 @@ public class TempTableTest extends TempTableTestBase {
                 assertFalse(cursor.hasNext());
             }
             context.commit();
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void insertIntoTempTableThrowsWhenRowLimitIsExceeded() throws Exception {
+        // insert into <tempTable> values ((1, 'first'), (2, 'second'), (3, 'third')) with a row limit = 2
+        try (FDBRecordContext context = openContext()) {
+            final var tempTable = tempTableInstance();
+            final var tempTableId = CorrelationIdentifier.uniqueID();
+            final var firstRecord = rcv(1L, "first");
+            final var secondRecord = rcv(2L, "second");
+            final var thirdRecord = rcv(3L, "third");
+            final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondRecord, thirdRecord));
+            var qun = Quantifier.forEach(Reference.of(explodeExpression));
+
+            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
+                    tempTableId, tempTableId.getId(), getType(qun), false)));
+            final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
+
+            final var cascadesPlanner = (CascadesPlanner)planner;
+            final var plan = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),
+                    IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+            assertMatchesExactly(plan,  tempTableInsertPlan(explodePlan()));
+            final var evaluationContext = putTempTableInContext(tempTableId, tempTable, null);
+            Assertions.assertThrows(RecordCoreException.class, () ->
+                    fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { },
+                            ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(2)),
+                    "temp table row limit exceeded");
+
+            // select id, value from tq1 | tq1 is a temporary table.
+            final var scanPlan = createAndOptimizeTempTableScanPlan(tempTableId);
+            assertEquals(ImmutableList.of(Pair.of(1L, "first"),
+                    Pair.of(2L, "second")), collectResults(context, scanPlan, tempTable, tempTableId));
         }
     }
 }

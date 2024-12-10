@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -27,6 +28,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.TempTableInsertCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
@@ -102,6 +104,9 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        final var rowLimit = executeProperties.getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED
+                             ? Integer.MAX_VALUE : executeProperties.getReturnedRowLimit();
+        final var effectiveRowLimit = Math.min(rowLimit, TempTable.DEFAULT_ROW_LIMIT);
         if (isOwningTempTable) {
             final var typeDescriptor = getInnerTypeDescriptor(context);
             return TempTableInsertCursor.from(continuation,
@@ -109,16 +114,23 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                         final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
                         if (proto != null) {
                             final var deserialized = TempTable.from(proto, typeDescriptor);
+                            if (deserialized.getList().size() + tempTable.size() > effectiveRowLimit) {
+                                throw new RecordCoreException("temp table row limit exceeded");
+                            }
                             deserialized.getIterator().forEachRemaining(tempTable::add);
                         }
                         return tempTable;
                     },
-                    childContinuation -> getChild().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()));
+                    childContinuation -> getChild().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()),
+                    effectiveRowLimit);
         } else {
             return getChild().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
                     .map(queryResult ->
                     {
                         final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
+                        if (tempTable.size() == effectiveRowLimit) {
+                            throw new RecordCoreException("temp table row limit exceeded");
+                        }
                         tempTable.add(queryResult);
                         return queryResult;
                     });
