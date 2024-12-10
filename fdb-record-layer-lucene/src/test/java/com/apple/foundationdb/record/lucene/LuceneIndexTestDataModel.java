@@ -133,6 +133,11 @@ public class LuceneIndexTestDataModel {
         }
     }
 
+    public Tuple saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic,
+                                 final long start, final FDBRecordStore recordStore, final int group) {
+        return saveEmptyRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, start, recordStore, group);
+    }
+
     static Tuple saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
                                  final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
                                  final long start, final FDBRecordStore recordStore, final int group) {
@@ -143,6 +148,11 @@ public class LuceneIndexTestDataModel {
                             final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
                             final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
                             final int group) {
+        return saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, true, textGenerator, start, recordStore, group);
+    }
+
+    public Tuple saveRecord(final boolean isGrouped, final boolean isSynthetic, final long start,
+                            final FDBRecordStore recordStore, final int group) {
         return saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, true, textGenerator, start, recordStore, group);
     }
 

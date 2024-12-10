@@ -38,8 +38,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -73,17 +73,17 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                 .setPartitionHighWatermark(10)
                 .build();
 
-        final Tuple grp1ContentDoc;
-        final Tuple grp2ContentDoc;
-        Tuple grp2EmptyDoc = null;
+        final Tuple group1ContentDoc;
+        final Tuple group2ContentDoc;
+        Tuple group2EmptyDoc = null;
         // Populate data: 1 doc for groups 1 and 2 and one empty doc (if needed)
         try (FDBRecordContext context = openContext()) {
             final long start = Instant.now().toEpochMilli();
             final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
-            grp1ContentDoc = saveRecord(isGrouped, isSynthetic, dataModel, start, store, 1);
-            grp2ContentDoc = saveRecord(isGrouped, isSynthetic, dataModel, start, store, 2);
+            group1ContentDoc = dataModel.saveRecord(isGrouped, isSynthetic, start, store, 1);
+            group2ContentDoc = dataModel.saveRecord(isGrouped, isSynthetic, start, store, 2);
             if (includeEmptyDoc) {
-                grp2EmptyDoc = saveEmptyRecord(isGrouped, isSynthetic, dataModel, start, store, 2);
+                group2EmptyDoc = dataModel.saveEmptyRecord(isGrouped, isSynthetic, start, store, 2);
             }
             commit(context);
         }
@@ -93,8 +93,8 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                                    : isSynthetic
                                      ? new LuceneQuerySearchClause(LuceneQueryType.QUERY, CHILD_SEARCH_TERM, false)
                                      : new LuceneQuerySearchClause(LuceneQueryType.QUERY, PARENT_SEARCH_TERM, false);
-        Set<Tuple> expectedResult = calcExpectedResults(matchAllDocs, isGrouped, includeEmptyDoc,
-                grp1ContentDoc, grp2ContentDoc, grp2EmptyDoc);
+        Set<Tuple> expectedResult = expectedResults(matchAllDocs, isGrouped, includeEmptyDoc,
+                group1ContentDoc, group2ContentDoc, group2EmptyDoc);
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
@@ -108,25 +108,24 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    private Set<Tuple> calcExpectedResults(final boolean matchAllDocs, final boolean isGrouped, final boolean includeEmptyDoc,
-                                           final Tuple grp1ContentDoc, final Tuple grp2ContentDoc, final Tuple grp2EmptyDoc) {
+    private Set<Tuple> expectedResults(final boolean matchAllDocs, final boolean isGrouped, final boolean includeEmptyDoc,
+                                       final Tuple group1ContentDoc, final Tuple group2ContentDoc, final Tuple group2EmptyDoc) {
         // Synthetic record does not change the expected results - it just creates a record with a compound
         // key, so not needed for this method.
-        if (!matchAllDocs && isGrouped) {
-            return Set.of(grp2ContentDoc);
-        } else if (!matchAllDocs && !isGrouped) {
-            return Set.of(grp1ContentDoc, grp2ContentDoc);
-        } else if (matchAllDocs && isGrouped && includeEmptyDoc) {
-            return Set.of(grp2ContentDoc, grp2EmptyDoc);
-        } else if (matchAllDocs && isGrouped && !includeEmptyDoc) {
-            return Set.of(grp2ContentDoc);
-        } else if (matchAllDocs && !isGrouped && includeEmptyDoc) {
-            return Set.of(grp1ContentDoc, grp2ContentDoc, grp2EmptyDoc);
-        } else if (matchAllDocs && !isGrouped && !includeEmptyDoc) {
-            return Set.of(grp1ContentDoc, grp2ContentDoc);
+        Set<Tuple> result = new HashSet<>();
+
+        if (!isGrouped) {
+            // Grouped search searches for group2, so group1 docs are excluded
+            result.add(group1ContentDoc);
+        }
+        // Every search includes this doc
+        result.add(group2ContentDoc);
+        if (matchAllDocs && includeEmptyDoc) {
+            // Empty doc included only in cases it was added and the all-match query was used
+            result.add(group2EmptyDoc);
         }
 
-        throw new IllegalArgumentException("Cannot calculate expected result");
+        return result;
     }
 
     @ParameterizedTest
@@ -210,16 +209,6 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-
-    @Nonnull
-    private static Tuple saveRecord(final boolean isGrouped, final boolean isSynthetic, final LuceneIndexTestDataModel dataModel, final long start, final FDBRecordStore store, final int group) {
-        return LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, dataModel.random, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, start, store, group);
-    }
-
-    @Nonnull
-    private static Tuple saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic, final LuceneIndexTestDataModel dataModel, final long start, final FDBRecordStore store, final int group) {
-        return LuceneIndexTestDataModel.saveEmptyRecord(isGrouped, isSynthetic, dataModel.random, dataModel.groupingKeyToPrimaryKeyToPartitionKey, start, store, group);
-    }
 
     private void assertIndexEntryPrimaryKeyTuples(Set<Tuple> primaryKeys, RecordCursor<IndexEntry> cursor) {
         List<IndexEntry> indexEntries = cursor.asList().join();
