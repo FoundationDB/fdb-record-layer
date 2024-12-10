@@ -132,4 +132,5 @@ message RecursiveCursorContinuation {
     optional bool buffersAreFlipped = 2;
     optional planprotos.PTempTable tempTable = 3;
     optional bytes activeStateContinuation = 4;
+    optional int32 recursionDepth = 5;
 }

@@ -250,10 +250,10 @@ public class TempTableTest extends TempTableTestBase {
                     IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
             assertMatchesExactly(plan,  tempTableInsertPlan(explodePlan()));
             final var evaluationContext = putTempTableInContext(tempTableId, tempTable, null);
-            Assertions.assertThrows(RecordCoreException.class, () ->
+            final var exception = Assertions.assertThrows(RecordCoreException.class, () ->
                     fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { },
-                            ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(2)),
-                    "temp table row limit exceeded");
+                            ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(2)));
+            Assertions.assertTrue(exception.getMessage().contains("temp table row limit exceeded"));
 
             // select id, value from tq1 | tq1 is a temporary table.
             final var scanPlan = createAndOptimizeTempTableScanPlan(tempTableId);

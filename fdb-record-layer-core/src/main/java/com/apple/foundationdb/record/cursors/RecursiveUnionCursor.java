@@ -114,14 +114,16 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     private CompletableFuture<RecordCursorResult<T>> wrapLastResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
         return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(
                 new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(),
-                        recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped()),
+                        recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped(),
+                        recursiveStateManager.currentRecursionDepth()),
                 innerCursorResult.getNoNextReason()));
     }
 
     @Nonnull
     private CompletableFuture<RecordCursorResult<T>> wrapNextResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
         final var continuation = new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(),
-                recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped());
+                recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped(),
+                recursiveStateManager.currentRecursionDepth());
         return CompletableFuture.completedFuture(RecordCursorResult.withNextValue(innerCursorResult.get(), continuation));
     }
 
@@ -169,14 +171,18 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         // whether the temp table is used for reading or writing.
         private final boolean buffersAreFlipped;
 
-        Continuation(boolean isInitialState,
+        private final int currentRecursionDepth;
+
+        Continuation(final boolean isInitialState,
                      @Nonnull final RecordCursorContinuation activeStateContinuation,
                      @Nonnull final TempTable tempTable,
-                     boolean buffersAreFlipped) {
+                     final boolean buffersAreFlipped,
+                     final int currentRecursionDepth) {
             this.isInitialState = isInitialState;
             this.activeStateContinuation = activeStateContinuation;
             this.tempTable = tempTable;
             this.buffersAreFlipped = buffersAreFlipped;
+            this.currentRecursionDepth = currentRecursionDepth;
         }
 
         @Nullable
@@ -192,6 +198,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                     .setIsInitialState(isInitialState())
                     .setTempTable(getTempTable().toProto())
                     .setActiveStateContinuation(getActiveStateContinuation().toByteString())
+                    .setRecursionDepth(currentRecursionDepth())
                     .build().toByteString();
         }
 
@@ -214,7 +221,9 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                         .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(message.toByteArray()));
             }
             final var buffersAreFlipped = message.getBuffersAreFlipped();
-            return new Continuation(message.getIsInitialState(), childContinuation, tempTableDeserializer.apply(parsedTempTable), buffersAreFlipped);
+            final var currentRecursionDepth = message.getRecursionDepth();
+            return new Continuation(message.getIsInitialState(), childContinuation, tempTableDeserializer.apply(parsedTempTable),
+                    buffersAreFlipped, currentRecursionDepth);
         }
 
         /**
@@ -238,6 +247,10 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
         public boolean isInitialState() {
             return isInitialState;
+        }
+
+        public int currentRecursionDepth() {
+            return currentRecursionDepth;
         }
 
         @Nonnull
@@ -301,5 +314,11 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
          * @return {@code True} if the read and write buffers are swapped, otherwise {@code false}.
          */
         boolean buffersAreFlipped();
+
+        /**
+         * Get the current depth of the recursive execution.
+         * @return The current depth of the recursive execution.
+         */
+        int currentRecursionDepth();
     }
 }

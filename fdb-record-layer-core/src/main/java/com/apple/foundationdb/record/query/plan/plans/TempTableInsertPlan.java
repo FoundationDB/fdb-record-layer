@@ -104,8 +104,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final var rowLimit = executeProperties.getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED
-                             ? Integer.MAX_VALUE : executeProperties.getReturnedRowLimit();
+        final var rowLimit = executeProperties.getReturnedRowLimitOrMax();
         final var effectiveRowLimit = Math.min(rowLimit, TempTable.DEFAULT_ROW_LIMIT);
         if (isOwningTempTable) {
             final var typeDescriptor = getInnerTypeDescriptor(context);

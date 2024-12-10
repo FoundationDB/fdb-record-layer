@@ -79,25 +79,25 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void recursiveUnionWorksCorrectlyCase1() throws Exception {
-        var result = multiplesOf(ImmutableList.of(2L, 5L), 50L);
+        var result = multiplesOf(ImmutableList.of(2L, 5L), 50L, 2L);
         assertEquals(ImmutableList.of(2L, 5L, 4L, 10L, 8L, 20L, 16L, 40L, 32L), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void recursiveUnionWorksCorrectlyCase2() throws Exception {
-        var result = multiplesOf(ImmutableList.of(2L, 5L), 6L);
+        var result = multiplesOf(ImmutableList.of(2L, 5L), 6L, 2L);
         assertEquals(ImmutableList.of(2L, 5L, 4L), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void recursiveUnionWorksCorrectlyCase3() throws Exception {
-        var result = multiplesOf(ImmutableList.of(2L, 5L), 0L);
+        var result = multiplesOf(ImmutableList.of(2L, 5L), 0L, 2L);
         assertEquals(ImmutableList.of(2L, 5L), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void recursiveUnionWorksCorrectlyCase4() throws Exception {
-        var result = multiplesOf(ImmutableList.of(), 1000L);
+        var result = multiplesOf(ImmutableList.of(), 1000L, 2L);
         assertEquals(ImmutableList.of(), result);
     }
 
@@ -220,9 +220,16 @@ public class RecursiveUnionTest extends TempTableTestBase {
         final var descendants = randomHierarchy.calculateDescendants();
         final var randomContinuationScenario = ListPartitioner.partitionUsingPowerDistribution(10, descendants);
         final var continuationSnapshots = randomContinuationScenario.getKey();
-        Assertions.assertThrows(RecordCoreException.class, () ->
-                        descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots, 500),
-                "temp table row limit exceeded");
+        final var exception = Assertions.assertThrows(RecordCoreException.class, () ->
+                        descendantsOfAcrossContinuations(randomHierarchy.getEdges(), ImmutableMap.of(1L, -1L), continuationSnapshots, 500));
+        Assertions.assertTrue(exception.getMessage().contains("temp table row limit exceeded"));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void infiniteRecursiveThrows() {
+        final var exception = Assertions.assertThrows(RecordCoreException.class, () ->
+                multiplesOf(List.of(1L), 10000000, 1L /*return same number, in other words, infinite recursion*/));
+        Assertions.assertTrue(exception.getMessage().contains("maximum recursion depth reached"));
     }
 
     /**
@@ -236,7 +243,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
      * @throws Exception If the execution of the recursive union plan fails.
      */
     @Nonnull
-    private List<Long> multiplesOf(@Nonnull final List<Long> initial, long limit) throws Exception {
+    private List<Long> multiplesOf(@Nonnull final List<Long> initial, long limit, long multiple) throws Exception {
         try (FDBRecordContext context = openContext()) {
             final var seedingTempTable = tempTableInstance();
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
@@ -259,16 +266,16 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(scanTempTableAlias, scanTempTableAlias.getId(), getType())));
             var idField = getIdCol(ttScanRecuQun);
-            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(2L))));
+            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(multiple))));
             selectExpression = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(multByTwo, getValueCol(ttScanRecuQun)))
                     .addQuantifier(ttScanRecuQun)
                     .build().buildSelect();
             final var selectQun = Quantifier.forEach(Reference.of(selectExpression));
             idField = getIdCol(selectQun);
-            final var lessThanForty = new ValuePredicate(idField.getValue(), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, limit));
+            final var lessThan = new ValuePredicate(idField.getValue(), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, limit));
             selectExpression = GraphExpansion.builder()
-                    .addPredicate(lessThanForty)
+                    .addPredicate(lessThan)
                     .addQuantifier(selectQun)
                     .build().buildSimpleSelectOverQuantifier(selectQun);
             final var recuSelectQun = Quantifier.forEach(Reference.of(selectExpression));

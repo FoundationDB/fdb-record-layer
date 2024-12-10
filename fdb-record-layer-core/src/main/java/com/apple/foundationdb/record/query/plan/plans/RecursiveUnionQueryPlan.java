@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.RecursiveUnionCursor;
 import com.apple.foundationdb.record.cursors.RecursiveUnionCursor.RecursiveStateManager;
@@ -169,6 +170,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var type = getInnerTypeDescriptor(context, tempTableScanValueReference);
+        final var recursionDepth = executeProperties.getRecursionLimit();
         final var recursiveStateManager = new RecursiveStateManagerImpl(
                 (initialContinuation, evaluationContext) -> getInitialStatePlan().executePlan(store, evaluationContext,
                         initialContinuation == null ? null : initialContinuation.toByteArray(), executeProperties),
@@ -178,7 +180,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 tempTableScanValueReference,
                 tempTableInsertValueReference,
                 store,
-                proto -> TempTable.from(proto, type), continuation);
+                proto -> TempTable.from(proto, type), continuation, recursionDepth);
         return new RecursiveUnionCursor<>(recursiveStateManager, store.getExecutor());
     }
 
@@ -362,6 +364,10 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
         private RecordCursor<QueryResult> activeCursor;
 
+        private int currentRecursionDepth;
+
+        private final int recursionLimit;
+
         @Nullable
         private final FDBRecordStoreBase<?> store;
 
@@ -386,11 +392,13 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                                   @Nonnull final Value insertTempTableReference,
                                   @Nullable final FDBRecordStoreBase<?> store,
                                   @Nonnull Function<PTempTable, TempTable> tempTableDeserializer,
-                                  @Nullable byte[] continuationBytes) {
+                                  @Nullable byte[] continuationBytes,
+                                  final int recursionLimit) {
             this.recursiveCursorCreator = recursiveCursorCreator;
             this.baseContext = baseContext;
             this.insertTempTableReference = insertTempTableReference;
             this.scanTempTableReference = scanTempTableReference;
+            this.recursionLimit = recursionLimit;
             overridenEvaluationContext = withEmptyTempTable(insertTempTableReference, baseContext);
             buffersAreFlipped = false;
             this.store = store;
@@ -399,6 +407,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 recursiveUnionTempTable = baseContext.getTempTableFactory().createTempTable();
                 overridenEvaluationContext = overrideTempTableBinding(overridenEvaluationContext, scanTempTableReference, recursiveUnionTempTable);
                 activeCursor = initialCursorCreator.apply(null, overridenEvaluationContext);
+                currentRecursionDepth = 0;
             } else {
                 final var continuation = RecursiveUnionCursor.Continuation.from(continuationBytes, tempTableDeserializer);
                 isInitialState = continuation.isInitialState();
@@ -412,6 +421,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                     }
                     activeCursor = recursiveCursorCreator.apply(continuation.getActiveStateContinuation().toByteString(), overridenEvaluationContext);
                 }
+                currentRecursionDepth = continuation.currentRecursionDepth();
             }
         }
 
@@ -453,12 +463,21 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             return buffersAreFlipped;
         }
 
+        @Override
+        public int currentRecursionDepth() {
+            return currentRecursionDepth;
+        }
+
         @Nonnull
         @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
         private EvaluationContext flipBuffers(@Nonnull final EvaluationContext evaluationContext, boolean cleanBuffers) {
             final var insertTempTable = getTempTable(evaluationContext, insertTempTableReference);
             final var scanTempTable = getTempTable(evaluationContext, scanTempTableReference);
             buffersAreFlipped = !buffersAreFlipped;
+            currentRecursionDepth++;
+            if (currentRecursionDepth > recursionLimit) {
+                throw new RecordCoreException("maximum recursion depth reached");
+            }
             if (recursiveUnionTempTable == insertTempTable) {
                 recursiveUnionTempTable = scanTempTable;
                 if (cleanBuffers) {
