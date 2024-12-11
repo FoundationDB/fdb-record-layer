@@ -180,6 +180,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     LogicalPlanFragment pushPlanFragment() {
+        System.out.println("pushPlanFragment is called");
         currentPlanFragment = Optional.of(currentPlanFragment.map(LogicalPlanFragment::addChild).orElse(LogicalPlanFragment.ofRoot()));
         return currentPlanFragment.get();
     }

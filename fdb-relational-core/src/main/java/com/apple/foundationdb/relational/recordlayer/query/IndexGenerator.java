@@ -517,7 +517,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Value value) {
+    public static KeyExpression toKeyExpression(@Nonnull Value value) {
         if (value instanceof VersionValue) {
             return VersionKeyExpression.VERSION;
         } else if (value instanceof FieldValue) {
@@ -732,12 +732,12 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields) {
+    private static KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields) {
         return toKeyExpression(fields, 0);
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields, int index) {
+    private static KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields, int index) {
         Assert.thatUnchecked(!fields.isEmpty());
         final var field = fields.get(index);
         final var keyExpression = toKeyExpression(field.getLeft(), field.getRight());

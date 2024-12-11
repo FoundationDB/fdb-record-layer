@@ -880,7 +880,7 @@ public class StandardQueryTests {
     void testUserDefinedFunction() throws Exception {
         final String schemaTemplate = "CREATE TYPE AS STRUCT Location (name string, latitude string, longitude string)" +
                 "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
-                "CREATE FUNCTION lat(x Location) RETURNS (string) AS (x.latitude)\n";
+                "CREATE FUNCTION lat(x Location) RETURNS string AS x.latitude\n";
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var s = ddl.setSchemaAndGetConnection().createStatement()) {

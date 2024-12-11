@@ -155,7 +155,7 @@ indexDefinition
     ;
 
 functionDefinition
-    : FUNCTION functionName=uid LEFT_ROUND_BRACKET paramName=uid inputTypeName=uid RIGHT_ROUND_BRACKET RETURNS LEFT_ROUND_BRACKET columnType ( ',' columnType)* RIGHT_ROUND_BRACKET AS LEFT_ROUND_BRACKET expression ( ',' expression)* RIGHT_ROUND_BRACKET
+    : FUNCTION functionName=uid LEFT_ROUND_BRACKET paramName=uid inputTypeName=columnType RIGHT_ROUND_BRACKET RETURNS columnType AS fullId
     ;
 
 indexAttributes

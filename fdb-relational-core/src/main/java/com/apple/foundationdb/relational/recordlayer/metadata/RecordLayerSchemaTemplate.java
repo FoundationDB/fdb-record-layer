@@ -215,6 +215,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public Optional<Table> findTableByName(@Nonnull final String tableName) {
         for (final var table : getTables()) {
+            System.out.println("findTableByName:" + table.getName());
             if (table.getName().equals(tableName)) {
                 return Optional.of(table);
             }

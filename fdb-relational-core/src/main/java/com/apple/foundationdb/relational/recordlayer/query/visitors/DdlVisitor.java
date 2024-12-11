@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -32,7 +32,8 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUserDefinedFunction;
+import com.apple.foundationdb.relational.recordlayer.metadata.UserDefinedFunctionDefinition;
+import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
@@ -46,6 +47,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -175,11 +177,30 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public RecordLayerUserDefinedFunction visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
-        return new RecordLayerUserDefinedFunction(ctx.functionName.getText(), ctx.inputTypeName.getText(), ctx.columnType(), ctx.paramName.getText(), ctx.expression());
+    public UserDefinedFunctionDefinition visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
+        final var id = visitFullId(ctx.fullId());
+        // (TODO) remove the input param prefix from id
+        Assert.thatUnchecked(id.prefixedWith(Identifier.of(ctx.paramName.getText())), "Invalid function definition");
+        Identifier newId = Identifier.of("LATITUDE");
+
+        final var ddlCatalog = metadataBuilder.build();
+        // parse the function definition using the newly constructed metadata.
+        getDelegate().replaceCatalog(ddlCatalog);
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        // input column type
+        final var inputcolumnTypeId = ctx.columnType(0).customType != null ? visitUid(ctx.columnType(0).customType) : Identifier.of(ctx.columnType(0).getText());
+        final var columnType = semanticAnalyzer.lookupType(inputcolumnTypeId, true, false, metadataBuilder::findType);
+        // (TODO) throw ex if not found
+
+        // look up the identifier in a type
+        // for example, inputParamType = Person(string name, Location address) Location(string street, string zipcode)
+        // resolveIdentifierInType("street", Person) -> Expression("name"="street", dataType=Person, underlying=FieldValue(PARAM.address.street) -> keyExpression = field("address").nest("street"))
+        Expression expression = semanticAnalyzer.resolveIdentifierInType(newId, ctx.paramName.getText(), columnType).get();
+        // (TODO) throw ex if empty
+        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), IndexGenerator.toKeyExpression(expression.getUnderlying()));
     }
 
-        @Nonnull
+    @Nonnull
     @Override
     public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
         final var enumId = visitUid(ctx.uid());
@@ -299,5 +320,30 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
+    }
+
+    private static RecordMetaDataProto.KeyExpression functionDefinitionToKeyExpression(String paramName, RelationalParser.ExpressionContext expressionContext) {
+        String[] fieldPath = expressionContext.getText().split("\\.");
+        Assert.thatUnchecked(fieldPath[0].equals(paramName), "Invalid function definition");
+        fieldPath[0] = "PARAM";
+        return arrayToKeyExpression(fieldPath);
+    }
+
+    @Nonnull
+    private static RecordMetaDataProto.KeyExpression arrayToKeyExpression(@Nonnull String[] nameArray) {
+        RecordMetaDataProto.KeyExpression.Builder builder = RecordMetaDataProto.KeyExpression.newBuilder();
+        if (nameArray.length == 1) {
+            return builder.setField(RecordMetaDataProto.Field.newBuilder()
+                    .setFieldName(nameArray[0])
+                    .setFanType(RecordMetaDataProto.Field.FanType.SCALAR))
+                    .build();
+        } else {
+            return builder.setNesting(RecordMetaDataProto.Nesting.newBuilder()
+                    .setParent(RecordMetaDataProto.Field.newBuilder()
+                            .setFieldName(nameArray[0])
+                            .setFanType(RecordMetaDataProto.Field.FanType.SCALAR))
+                    .setChild(arrayToKeyExpression(Arrays.copyOfRange(nameArray, 1, nameArray.length))))
+                    .build();
+        }
     }
 }

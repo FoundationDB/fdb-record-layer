@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggrega
 import com.apple.foundationdb.record.query.plan.cascades.values.JavaCallFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
@@ -373,7 +374,7 @@ public class SemanticAnalyzer {
                         continue;
                     }
                 }
-                final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
+                final var nestedFieldMaybe = resolveIdentifierInType(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
                     checkForPseudoColumns = false;
@@ -413,10 +414,10 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
-                                                  @Nonnull Expression existingExpression,
-                                                  @Nonnull LogicalOperator logicalOperator,
-                                                  boolean matchQualifiedOnly) {
+    public Optional<Expression> resolveIdentifierInType(@Nonnull Identifier requestedIdentifier,
+                                                        @Nonnull Expression existingExpression,
+                                                        @Nonnull LogicalOperator logicalOperator,
+                                                        boolean matchQualifiedOnly) {
         if (existingExpression.getName().isEmpty() || requestedIdentifier.fullyQualifiedName().size() <= 1) {
             return Optional.empty();
         }
@@ -464,6 +465,64 @@ public class SemanticAnalyzer {
         final var fieldPath = FieldValue.resolveFieldPath(existingExpression.getUnderlying().getResultType(), accessors.build());
         final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlying(), fieldPath);
         final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), type, attributeExpression);
+        return Optional.of(nestedAttribute);
+    }
+
+    @Nonnull
+    public Optional<Expression> resolveIdentifierInType(@Nonnull Identifier requestedIdentifier,
+                                                        @Nonnull String param,
+                                                        @Nonnull DataType existingDataType) {
+        /*
+        if (existingExpression.getName().isEmpty() || requestedIdentifier.fullyQualifiedName().size() <= 1) {
+            return Optional.empty();
+        }
+        final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
+                existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
+                existingExpression.clearQualifier();
+        var effectiveExprName = effectiveExistingExpr.getName().orElseThrow();
+
+        if (!requestedIdentifier.prefixedWith(effectiveExprName)) {
+            if (existingExpression.getName().isPresent() &&
+                    requestedIdentifier.prefixedWith(existingExpression.getName().get())) {
+                effectiveExprName = existingExpression.getName().get();
+            } else {
+                return Optional.empty();
+            }
+        }
+        */
+        // requestedIdentifier = x.latitude
+        ObjectValue objectValue = ObjectValue.of(CorrelationIdentifier.of("PARAM"), DataTypeUtils.toRecordLayerType(existingDataType));
+        final var remainingPath = requestedIdentifier.fullyQualifiedName();
+        /*
+        if (remainingPath.isEmpty()) {
+            return Optional.of(existingExpression.withName(requestedIdentifier));
+        }
+
+         */
+        final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
+        DataType currentDataType = existingDataType;
+        for (String s : remainingPath) {
+            if (currentDataType.getCode() != DataType.Code.STRUCT) {
+                return Optional.empty();
+            }
+            final var fields = ((DataType.StructType) currentDataType).getFields();
+            var found = false;
+            for (int j = 0; j < fields.size(); j++) {
+                if (fields.get(j).getName().equals(s)) {
+                    accessors.add(new FieldValue.Accessor(fields.get(j).getName(), j));
+                    currentDataType = fields.get(j).getType();
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return Optional.empty();
+            }
+        }
+        // probably need to check if currentDataType = targetDataType
+        final var fieldPath = FieldValue.resolveFieldPath(DataTypeUtils.toRecordLayerType(existingDataType), accessors.build());
+        final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(objectValue, fieldPath);
+        final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), existingDataType, attributeExpression);
         return Optional.of(nestedAttribute);
     }
 
