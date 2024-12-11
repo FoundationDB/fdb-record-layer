@@ -784,6 +784,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
+    /**
+     * Test that updating records in the same transaction does not cause issues with the executor, and doesn't result in
+     * a corrupted index.
+     * <p>
+     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
+     * </p>
+     * @throws IOException if there's an issue with Lucene
+     */
     @Test
     void concurrentUpdate() throws IOException {
         // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
