@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -83,9 +82,9 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     }
 
     @Override
-    public CompletableFuture<Issue> handleOneItem(final FDBRecordStore store, final Transaction transaction, final RecordCursorResult<IndexEntry> result) {
+    public CompletableFuture<Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<IndexEntry> result) {
         if (index == null) {
-            throw new IllegalArgumentException("presetParams was not called appropriately for this scrubbing tool");
+            throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
         }
 
         final IndexEntry indexEntry = result.get();

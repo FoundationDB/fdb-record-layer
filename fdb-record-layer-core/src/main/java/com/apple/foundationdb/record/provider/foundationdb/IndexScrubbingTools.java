@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -64,7 +63,7 @@ public interface IndexScrubbingTools<T> {
         final StoreTimer.Count timerCounter;
         /**
          * If non-null, let the indexer index this record. This makes sense if repair is allowed, the issue can be fixed
-         * by indexing one record, and the scrubber did not fix it on its own.
+         * by indexing a single record, and the scrubbing tool implementation had not fixed it on its own.
          */
         final FDBStoredRecord<Message> recordToIndex;
 
@@ -77,8 +76,10 @@ public interface IndexScrubbingTools<T> {
 
     /**
      * Return a cursor that can be iterated by the indexing process.
-     * Note 1: for scrubbing, the cursor will always move forward.
-     * Note 2: instead of using a filtered cursor, skip irrelevant items in {@link #handleOneItem}, which is handled by the indexer throttle.
+     * Note 1: the cursor should always move forward.
+     * Note 2: instead of using a filtered cursor, skip irrelevant items in {@link #handleOneItem}. The scrubber
+     *  uses number of items processed by {@link #handleOneItem} to adjust the limit, so filtering inside this
+     *  cursor would negatively affect the limit control.
      * @param range range to iterate on.
      * @param store record store
      * @param limit max items to iterate (used for throttling)
@@ -98,18 +99,17 @@ public interface IndexScrubbingTools<T> {
      * Check the validity of a given a specific cursor item. If applicable, return an {@link Issue} to report
      * a problem.
      * @param store record store
-     * @param transaction an open transaction
      * @param result an item that was returned by a cursor provided by {@link #getCursor}
      * @return null if the result valid, an {@link Issue} if not.
      */
-    CompletableFuture<Issue> handleOneItem(FDBRecordStore store, Transaction transaction, RecordCursorResult<T> result);
+    CompletableFuture<Issue> handleOneItem(FDBRecordStore store, RecordCursorResult<T> result);
 
     /**
      * This function should be called prior to any other operation to set common parameters. For a given scrubbing tool
      * implementation, any un-needed parameter may be ignored.
      * @param index the index to operate
      * @param allowRepair true if repair is allowed
-     * @param isSynthetic true if this is a synthetic index
+     * @param isSynthetic true if this is on a synthetic record type
      * @param types list of record types that are associated with this index
      */
     default void presetCommonParams(Index index, boolean allowRepair, boolean isSynthetic, Collection<RecordType> types) {

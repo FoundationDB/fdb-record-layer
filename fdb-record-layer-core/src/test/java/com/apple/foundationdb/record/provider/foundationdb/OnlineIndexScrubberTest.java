@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.Range;
+import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ScanProperties;
@@ -32,6 +34,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -41,11 +44,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for scrubbing readable indexes with {@link OnlineIndexer}.
@@ -268,7 +274,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .ignoreIndexTypeCheck(legacy)
-                        .ignoreIndexTypeCheck(legacy)
                         .setEntriesScanLimit(1))
                 .setLimit(chunkSize)
                 .build()) {
@@ -299,7 +304,6 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, resMissing);
     }
 
-
     @ParameterizedTest
     @BooleanSource
     void testScrubberLimitsAlternatingLegacy(boolean legacyInit) {
@@ -314,6 +318,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         buildIndexClean(tgtIndex);
+        ScrubbersMissingRanges lastRanges = getScrubbersMissingRange(tgtIndex);
 
         boolean legacy = !legacyInit;
         for (int i = 0; i < 5; i++) {
@@ -335,11 +340,37 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             }
             assertEquals(0, resDangling);
             assertEquals(0, resMissing);
+
+            final ScrubbersMissingRanges ranges = getScrubbersMissingRange(tgtIndex);
+            assertNotEquals(lastRanges.indexes, ranges.indexes);
+            assertNotEquals(lastRanges.records, ranges.records);
+            lastRanges = ranges;
         }
         assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertTrue(lastRanges.indexes == null || RangeSet.isFirstKey(lastRanges.indexes.begin));
+        assertTrue(lastRanges.records == null || RangeSet.isFirstKey(lastRanges.records.begin));
+    }
+
+    private static class ScrubbersMissingRanges {
+        final Range indexes;
+        final Range records;
+
+        public ScrubbersMissingRanges(final Range indexes, final Range records) {
+            this.indexes = indexes;
+            this.records = records;
+        }
+    }
+
+    private ScrubbersMissingRanges getScrubbersMissingRange(Index index) {
+        try (FDBRecordContext context = openContext()) {
+            Range indexes = IndexingRangeSet.forScrubbingIndex(recordStore, index).firstMissingRangeAsync().thenApply(Function.identity()).join();
+            Range records = IndexingRangeSet.forScrubbingRecords(recordStore, index).firstMissingRangeAsync().thenApply(Function.identity()).join();
+            context.commit();
+            return new ScrubbersMissingRanges(indexes, records);
+        }
     }
 
     @ParameterizedTest

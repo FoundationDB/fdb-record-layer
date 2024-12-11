@@ -182,9 +182,7 @@ public class IndexScrubbing extends IndexingBase {
     }
 
     private <T> CompletableFuture<FDBStoredRecord<Message>> handleOneItem(FDBRecordStore store, final RecordCursorResult<T> result, final IndexScrubbingTools<T> tools, List<IndexScrubbingTools.Issue> issueList) {
-        return tools.handleOneItem(store,
-                        store.getIndexMaintainer(common.getIndex()).state.transaction,
-                        result)
+        return tools.handleOneItem(store, result)
                 .thenApply(issue -> {
                     if (issue == null) {
                         return null;

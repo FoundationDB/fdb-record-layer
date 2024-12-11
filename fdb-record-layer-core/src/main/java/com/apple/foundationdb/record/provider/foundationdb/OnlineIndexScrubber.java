@@ -83,7 +83,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
         return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, type);
     }
 
-
     @Nonnull
     private CompletableFuture<Void> scrubIndexAsync(IndexScrubbingTools.ScrubbingType type, AtomicLong count) {
         return AsyncUtil.composeHandle(

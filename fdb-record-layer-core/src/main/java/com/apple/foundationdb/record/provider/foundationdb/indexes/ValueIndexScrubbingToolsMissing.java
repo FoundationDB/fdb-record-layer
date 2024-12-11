@@ -20,12 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -93,9 +91,9 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
 
     @Override
     @Nullable
-    public CompletableFuture<Issue> handleOneItem(FDBRecordStore store, Transaction transaction,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
+    public CompletableFuture<Issue> handleOneItem(FDBRecordStore store,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
-            throw new RecordCoreArgumentException("presetParams was not called appropriately for this scrubbing tool");
+            throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
         }
 
         final FDBStoredRecord<Message> rec = result.get();
@@ -103,7 +101,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
             return CompletableFuture.completedFuture(null);
         }
 
-        return getMissingIndexKeys(store, transaction, rec)
+        return getMissingIndexKeys(store, rec)
                 .thenApply(missingIndexesKeys -> {
                     if (missingIndexesKeys.isEmpty()) {
                         return null;
@@ -119,13 +117,13 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
                 });
     }
 
-    private CompletableFuture<List<Tuple>> getMissingIndexKeys(FDBRecordStore store, Transaction transaction, FDBStoredRecord<Message> rec) {
+    private CompletableFuture<List<Tuple>> getMissingIndexKeys(FDBRecordStore store, FDBStoredRecord<Message> rec) {
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         return indexEntriesForRecord(store, rec)
                 .mapPipelined(indexEntry -> {
                     final Tuple valueKey = indexEntry.getKey();
                     final byte[] keyBytes = maintainer.getIndexSubspace().pack(valueKey);
-                    return transaction.get(keyBytes).thenApply(indexVal -> indexVal == null ? valueKey : null);
+                    return store.getContext().ensureActive().get(keyBytes).thenApply(indexVal -> indexVal == null ? valueKey : null);
                 }, store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
                 .filter(Objects::nonNull)
                 .asList();
