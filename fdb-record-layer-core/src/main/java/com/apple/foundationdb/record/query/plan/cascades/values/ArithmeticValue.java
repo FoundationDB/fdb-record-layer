@@ -200,7 +200,7 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     @Nonnull
-    public static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
+    private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
                                              @Nonnull final List<? extends Typed> arguments) {
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
