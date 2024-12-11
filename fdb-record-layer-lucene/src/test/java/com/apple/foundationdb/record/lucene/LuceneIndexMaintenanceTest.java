@@ -71,7 +71,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -81,6 +80,7 @@ import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
@@ -88,6 +88,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -181,8 +182,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
 
-        new LuceneIndexTestValidator(() -> openContext(contextProps), dataModel.schemaSetup)
-                .validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+        dataModel.validate(() -> openContext(contextProps));
 
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
@@ -284,8 +284,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
 
-        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
-        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+        dataModel.validate(() -> openContext(contextProps));
 
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
@@ -780,6 +779,37 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @Test
     void concurrentUpdate() throws IOException {
+        concurrentTestWithinTransaction((dataModel, recordStore) ->
+                RecordCursor.fromList(dataModel.recordsUnderTest())
+                        .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
+                        .asList().join(),
+                (inserted, actual) -> assertEquals(inserted, actual));
+    }
+
+    @Test
+    void concurrentDelete() throws IOException {
+        concurrentTestWithinTransaction((dataModel, recordStore) ->
+                RecordCursor.fromList(dataModel.recordsUnderTest())
+                        .mapPipelined(record -> record.deleteRecord(recordStore), 10)
+                        .asList().join(),
+                (inserted, actual) -> assertEquals(0, actual));
+    }
+
+    @Test
+    void concurrentMix() throws IOException {
+        // TODO alternate what option we're doing:
+        // 1. updating the record
+        // 2. deleting the record
+        // 3. inserting a new record
+        // We never touch the same record twice.
+        concurrentTestWithinTransaction((dataModel, recordStore) ->
+                        RecordCursor.fromList(dataModel.recordsUnderTest())
+                                .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
+                                .asList().join(),
+                (inserted, actual) -> assertEquals(inserted, actual));
+    }
+
+    private void concurrentTestWithinTransaction(final BiConsumer<LuceneIndexTestDataModel, FDBRecordStore> applyChangeConcurrently, final BiConsumer<Integer, Integer> assertDataModelCount) throws IOException {
         // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
         // configurations.
         AtomicInteger threadCounter = new AtomicInteger();
@@ -834,23 +864,21 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
 
+        dataModel.validate(() -> openContext(contextProps));
 
         try (FDBRecordContext context = openContext(contextProps)) {
             FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
             recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-            assertThat(dataModel.updateableRecords, Matchers.aMapWithSize(Matchers.greaterThan(30)));
+            assertThat(dataModel.recordsUnderTest(), Matchers.hasSize(Matchers.greaterThan(30)));
             LOGGER.info("concurrentUpdate: Starting updates");
-            RecordCursor.fromList(new ArrayList<>(dataModel.updateableRecords.entrySet()))
-                    .mapPipelined(entry -> {
-                        return dataModel.updateRecord(recordStore, entry.getKey(), entry.getValue());
-                    }, 10)
-                    .asList().join();
+            applyChangeConcurrently.accept(dataModel, recordStore);
             commit(context);
         }
 
+        assertDataModelCount.accept(300,
+                dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
 
-        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
-        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+        dataModel.validate(() -> openContext(contextProps));
 
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
@@ -903,7 +931,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .mapToObj(i -> new ConcurrentStoreTestRunner(contextProps, end, dataModelBuilder))
                 .collect(Collectors.toList());
 
-        final List<Map<Tuple, Map<Tuple, Tuple>>> allIds = AsyncUtil.getAll(runners.stream()
+        final List<ConcurrentMap<Tuple, ConcurrentMap<Tuple, Tuple>>> allIds = AsyncUtil.getAll(runners.stream()
                         .map(CompletableFuture::supplyAsync)
                         .collect(Collectors.toList()))
                 .join();
@@ -911,13 +939,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 "ids", allIds.stream()
                         .map(storeIds -> storeIds.values().stream().mapToInt(Map::size).sum())
                         .collect(Collectors.toList())));
-        for (final Map<Tuple, Map<Tuple, Tuple>> storeIds : allIds) {
+        for (final ConcurrentMap<Tuple, ConcurrentMap<Tuple, Tuple>> storeIds : allIds) {
             assertThat("All of the stores should have generated a fair amount of documents",
                     storeIds.values().stream().mapToInt(Map::size).sum(), Matchers.greaterThan(200));
         }
     }
 
-    private class ConcurrentStoreTestRunner implements Supplier<Map<Tuple, Map<Tuple, Tuple>>> {
+    private class ConcurrentStoreTestRunner implements Supplier<ConcurrentMap<Tuple, ConcurrentMap<Tuple, Tuple>>> {
         private final RecordLayerPropertyStorage contextProps;
         private final LuceneIndexTestDataModel dataModel;
         private final long endTime;
@@ -930,7 +958,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         @Override
-        public Map<Tuple, Map<Tuple, Tuple>> get() {
+        public ConcurrentMap<Tuple, ConcurrentMap<Tuple, Tuple>> get() {
             int maxTransactionsPerLoop = 5;
             final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps),
                     dataModel::createOrOpenRecordStore);
@@ -1038,7 +1066,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     }
 
     private void validateDeleteWhere(final boolean isSynthetic,
-                                     final Map<Tuple, Map<Tuple, Tuple>> ids,
+                                     final Map<Tuple, ? extends Map<Tuple, Tuple>> ids,
                                      final RecordLayerPropertyStorage contextProps,
                                      final Function<FDBRecordContext, FDBRecordStore> schemaSetup,
                                      final Index index) throws IOException {

@@ -92,7 +92,7 @@ public class LuceneIndexTestValidator {
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
+    void validate(Index index, final Map<Tuple, ? extends Map<Tuple, Tuple>> expectedDocumentInformation,
                   final String universalSearch) throws IOException {
         validate(index, expectedDocumentInformation, universalSearch, false);
     }
@@ -111,7 +111,7 @@ public class LuceneIndexTestValidator {
      * index for the same primaary key. This should only be {@code true} if you expect merges to fail.
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
+    void validate(Index index, final Map<Tuple, ? extends Map<Tuple, Tuple>> expectedDocumentInformation,
                   final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
         final int partitionHighWatermark = getPartitionHighWatermark(index);
         final int partitionLowWatermark = getPartitionLowWatermark(index);
@@ -120,7 +120,7 @@ public class LuceneIndexTestValidator {
         expectedDocumentInformation.forEach((groupingKey, groupedIds) -> {
             missingDocuments.put(groupingKey, new HashMap<>(groupedIds));
         });
-        for (final Map.Entry<Tuple, Map<Tuple, Tuple>> entry : expectedDocumentInformation.entrySet()) {
+        for (final Map.Entry<Tuple, ? extends Map<Tuple, Tuple>> entry : expectedDocumentInformation.entrySet()) {
             final Tuple groupingKey = entry.getKey();
             LOGGER.debug(KeyValueLogMessage.of("Validating group",
                     "group", groupingKey,
