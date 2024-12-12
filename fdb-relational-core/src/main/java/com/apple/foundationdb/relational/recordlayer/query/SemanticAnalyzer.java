@@ -469,36 +469,18 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Optional<Expression> resolveIdentifierInType(@Nonnull Identifier requestedIdentifier,
-                                                        @Nonnull String param,
+    public Optional<FieldValue>resolveIdentifierInType(@Nonnull Identifier requestedIdentifier,
+                                                        @Nonnull Identifier paramId,
                                                         @Nonnull DataType existingDataType) {
-        /*
-        if (existingExpression.getName().isEmpty() || requestedIdentifier.fullyQualifiedName().size() <= 1) {
-            return Optional.empty();
-        }
-        final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
-                existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
-                existingExpression.clearQualifier();
-        var effectiveExprName = effectiveExistingExpr.getName().orElseThrow();
-
-        if (!requestedIdentifier.prefixedWith(effectiveExprName)) {
-            if (existingExpression.getName().isPresent() &&
-                    requestedIdentifier.prefixedWith(existingExpression.getName().get())) {
-                effectiveExprName = existingExpression.getName().get();
-            } else {
-                return Optional.empty();
-            }
-        }
-        */
-        // requestedIdentifier = x.latitude
+        // requestedIdentifier = latitude
+        // need a value that represents a type? or make PFieldPath one of PValue?
+        Assert.thatUnchecked(requestedIdentifier.prefixedWith(paramId), "Invalid function definition");
         ObjectValue objectValue = ObjectValue.of(CorrelationIdentifier.of("PARAM"), DataTypeUtils.toRecordLayerType(existingDataType));
-        final var remainingPath = requestedIdentifier.fullyQualifiedName();
-        /*
-        if (remainingPath.isEmpty()) {
-            return Optional.of(existingExpression.withName(requestedIdentifier));
-        }
 
-         */
+        if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {
+            return Optional.of(FieldValue.ofFieldsAndFuseIfPossible(objectValue, FieldValue.FieldPath.empty()));
+        }
+        final var remainingPath = requestedIdentifier.removePrefix(paramId).fullyQualifiedName();
         final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
         DataType currentDataType = existingDataType;
         for (String s : remainingPath) {
@@ -522,8 +504,7 @@ public class SemanticAnalyzer {
         // probably need to check if currentDataType = targetDataType
         final var fieldPath = FieldValue.resolveFieldPath(DataTypeUtils.toRecordLayerType(existingDataType), accessors.build());
         final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(objectValue, fieldPath);
-        final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), existingDataType, attributeExpression);
-        return Optional.of(nestedAttribute);
+        return Optional.of(attributeExpression);
     }
 
     @Nonnull

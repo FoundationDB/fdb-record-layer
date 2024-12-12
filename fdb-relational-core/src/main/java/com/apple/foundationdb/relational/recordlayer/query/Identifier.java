@@ -128,6 +128,13 @@ public class Identifier {
         return true;
     }
 
+    @Nonnull
+    public Identifier removePrefix(@Nonnull Identifier identifier) {
+        final var fullName = fullyQualifiedName();
+        final var newIdFullName = fullName.subList(identifier.fullyQualifiedName().size(), fullName.size());
+        return Identifier.of(newIdFullName.get(newIdFullName.size() - 1), newIdFullName.subList(0, newIdFullName.size() - 1));
+    }
+
     public boolean qualifiedWith(@Nonnull Identifier identifier) {
         final var identifierFullName = identifier.fullyQualifiedName();
         final var fullName = fullyQualifiedName();

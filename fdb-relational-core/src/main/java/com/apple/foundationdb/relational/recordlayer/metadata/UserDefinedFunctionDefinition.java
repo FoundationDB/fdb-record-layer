@@ -20,29 +20,23 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.UDF;
-import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Locale;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class UserDefinedFunctionDefinition {
     @Nonnull private final String functionName;
-    @Nonnull private final KeyExpression keyExpression;
+    @Nonnull private final Value value;
 
-    public UserDefinedFunctionDefinition(@Nonnull String functionName, @Nonnull KeyExpression keyExpression) {
+    public UserDefinedFunctionDefinition(@Nonnull String functionName, @Nonnull Value value) {
         this.functionName = functionName;
-        this.keyExpression = keyExpression;
+        this.value = value;
     }
 
     @Nonnull
@@ -50,32 +44,16 @@ public class UserDefinedFunctionDefinition {
         return functionName;
     }
 
-    @Nonnull
-    public KeyExpression getKeyExpression() {return keyExpression;}
-
     public BuiltInFunction<? extends Typed> getBuiltInFunction() {
-        return new BuiltInFunction<Value>(functionName, List.of(), (builtInFunction, arguments) -> FieldValue.ofFieldNames((Value) arguments.get(0), getFieldNamesFromKeyExpression(keyExpression))) {
-            @Nonnull
-            @Override
-            public String getFunctionName() {
-                return functionName;
-            }
-        };
-    }
-
-    private List<String> getFieldNamesFromKeyExpression(KeyExpression keyExpression) {
-        if (keyExpression instanceof NestingKeyExpression) {
-            return Stream.concat(List.of(((NestingKeyExpression) keyExpression).getParent().getFieldName().toUpperCase(Locale.ROOT)).stream(), getFieldNamesFromKeyExpression(((NestingKeyExpression) keyExpression).getChild()).stream()).collect(Collectors.toList());
-        } else {
-            return List.of(((FieldKeyExpression) keyExpression).getFieldName().toUpperCase(Locale.ROOT));
-        }
+        Assert.thatUnchecked(value instanceof FieldValue, "Invalid UDF definition.");
+        return new BuiltInFunction<Value>(functionName, List.of(), (builtInFunction, arguments) -> FieldValue.ofFieldNames((Value) arguments.get(0), ((FieldValue) value).getFieldPathNames())) {};
     }
 
     public UDF toUDF() {
-        return new UDF(functionName, keyExpression);
+        return new UDF(functionName, value);
     }
 
     public static UserDefinedFunctionDefinition fromUDF(UDF udf) {
-        return new UserDefinedFunctionDefinition(udf.getUdfName(), udf.getKeyExpression());
+        return new UserDefinedFunctionDefinition(udf.getUdfName(), udf.getValue());
     }
 }
