@@ -232,7 +232,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         for (RecordMetaDataProto.UDF udf: metaDataProto.getUdfsList()) {
-            udfMap.put(udf.getName(), new UDF(udf.getName(), Value.fromValueProto(serializationContext, udf.getValue())));
+            udfMap.put(udf.getName(), new UDF(udf.getName(), Value.fromValueProto(serializationContext, udf.getValue()), Value.fromValueProto(serializationContext, udf.getArgumentValue())));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();

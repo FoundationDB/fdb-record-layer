@@ -32,10 +32,13 @@ public class UDF {
     @Nonnull private final String udfName;
     @Nonnull
     private final Value value;
+    @Nonnull
+    private final Value argumentValue;
 
-    public UDF(@Nonnull String udfName, @Nonnull Value value) {
+    public UDF(@Nonnull String udfName, @Nonnull Value value, @Nonnull Value argumentValue) {
         this.udfName = udfName;
         this.value = value;
+        this.argumentValue = argumentValue;
     }
 
     @Nonnull
@@ -46,12 +49,16 @@ public class UDF {
     @Nonnull
     public Value getValue() {return value;}
 
+    @Nonnull
+    public Value getArgumentValue() {return argumentValue;}
+
     public RecordMetaDataProto.UDF toProto() {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         return RecordMetaDataProto.UDF.newBuilder()
                 .setName(udfName)
                 .setValue(value.toValueProto(serializationContext))
+                .setArgumentValue(argumentValue.toValueProto(serializationContext))
                 .build();
     }
 }
