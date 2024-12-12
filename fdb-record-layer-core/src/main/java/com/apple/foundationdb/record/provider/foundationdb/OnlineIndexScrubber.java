@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.google.protobuf.ExperimentalApi;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -233,16 +232,16 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
             /**
              * Declare that the index to be scrubbed is valid for scrubbing, regardless of its type's name.
-             * Note: this option is associated with legacy code only (see {@link #useLegacyScrubber(boolean)}). Else the
-             * index maintainer must provide a valid {@link IndexScrubbingTools}.
              * Typically, this function is called to allow scrubbing of an index with a user-defined index type. If called,
              * it is the caller's responsibility to verify that the scrubbed index matches the required criteria, which are:
              * 1. For the dangling scrubber job, every index entry needs to contain the primary key of the record that
              *    generated it so that we can detect if that record is present.
              * 2. For the missing entry scrubber, the index key for the record needs to be present in the index.
              * @return this builder
+             * @deprecated because this option is associated with legacy code only (see {@link #useLegacyScrubber(boolean)}).
              */
-            @ExperimentalApi
+            @API(API.Status.DEPRECATED)
+            @Deprecated(since = "3.5.556.0", forRemoval = true)
             public Builder ignoreIndexTypeCheck() {
                 this.ignoreIndexTypeCheck = true;
                 return this;
@@ -254,8 +253,11 @@ public class OnlineIndexScrubber implements AutoCloseable {
              * Note: This temporary option will soon be deprecated.
              * @param legacy true if legacy scrubbers should be used
              * @return this builder
+             * @deprecated because allowing legacy code is temporary. After gaining confidence in the new code,
+             * the old code (and this function) will be deleted.
              */
-            @ExperimentalApi
+            @API(API.Status.DEPRECATED)
+            @Deprecated(since = "3.5.556.0", forRemoval = true)
             public Builder useLegacyScrubber(boolean legacy) {
                 this.useLegacy = legacy;
                 return this;

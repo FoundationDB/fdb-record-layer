@@ -56,6 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for scrubbing readable indexes with {@link OnlineIndexer}.
  */
+@SuppressWarnings("removal")
 class OnlineIndexScrubberTest extends OnlineIndexerTest {
 
     private FDBRecordStoreTestBase.RecordMetaDataHook myHook(Index index) {
