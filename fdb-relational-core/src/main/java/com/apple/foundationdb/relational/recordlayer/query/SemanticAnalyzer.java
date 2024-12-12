@@ -469,20 +469,17 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Optional<FieldValue>resolveIdentifierInType(@Nonnull Identifier requestedIdentifier,
-                                                        @Nonnull Identifier paramId,
-                                                        @Nonnull DataType existingDataType) {
-        // requestedIdentifier = latitude
-        // need a value that represents a type? or make PFieldPath one of PValue?
+    public Optional<Value> resolveIdentifierInType(@Nonnull Identifier requestedIdentifier,
+                                                       @Nonnull Identifier paramId,
+                                                       @Nonnull ObjectValue objectValue) {
         Assert.thatUnchecked(requestedIdentifier.prefixedWith(paramId), "Invalid function definition");
-        ObjectValue objectValue = ObjectValue.of(CorrelationIdentifier.of("PARAM"), DataTypeUtils.toRecordLayerType(existingDataType));
 
         if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {
-            return Optional.of(FieldValue.ofFieldsAndFuseIfPossible(objectValue, FieldValue.FieldPath.empty()));
+            return Optional.of(objectValue);
         }
         final var remainingPath = requestedIdentifier.removePrefix(paramId).fullyQualifiedName();
         final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
-        DataType currentDataType = existingDataType;
+        DataType currentDataType = DataTypeUtils.toRelationalType(objectValue.getResultType());
         for (String s : remainingPath) {
             if (currentDataType.getCode() != DataType.Code.STRUCT) {
                 return Optional.empty();
@@ -502,7 +499,7 @@ public class SemanticAnalyzer {
             }
         }
         // probably need to check if currentDataType = targetDataType
-        final var fieldPath = FieldValue.resolveFieldPath(DataTypeUtils.toRecordLayerType(existingDataType), accessors.build());
+        final var fieldPath = FieldValue.resolveFieldPath(objectValue.getResultType(), accessors.build());
         final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(objectValue, fieldPath);
         return Optional.of(attributeExpression);
     }

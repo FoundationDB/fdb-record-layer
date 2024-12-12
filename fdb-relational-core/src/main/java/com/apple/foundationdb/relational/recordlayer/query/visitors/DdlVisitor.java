@@ -22,13 +22,17 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -179,27 +183,21 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public UserDefinedFunctionDefinition visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
-        // id = x.latitude
         final var id = visitFullId(ctx.fullId());
         final var paramNameId = Identifier.of(ctx.paramName.getText().toUpperCase(Locale.ROOT));
-        // (TODO) if function = return x
-        // newId = latitude, x is removed
-        // final var newId = id.removePrefix(paramNameId);
 
         final var ddlCatalog = metadataBuilder.build();
         // parse the function definition using the newly constructed metadata.
         getDelegate().replaceCatalog(ddlCatalog);
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-        // columnType = DataType Location
+
         final var inputcolumnTypeId = ctx.columnType(0).customType != null ? visitUid(ctx.columnType(0).customType) : Identifier.of(ctx.columnType(0).getText());
         final var columnType = semanticAnalyzer.lookupType(inputcolumnTypeId, true, false, metadataBuilder::findType);
 
-        // look up the identifier in a type
-        // for example, inputParamType = Person(string name, Location address) Location(string street, string zipcode)
-        // resolveIdentifierInType("street", Person) -> Expression("name"="street", dataType=Person, underlying=FieldValue(PARAM.address.street) -> keyExpression = field("address").nest("street"))
-        Optional<FieldValue> expression = semanticAnalyzer.resolveIdentifierInType(id, paramNameId, columnType);
+        ObjectValue argumentValue = ObjectValue.of(CorrelationIdentifier.of("PARAM"), DataTypeUtils.toRecordLayerType(columnType));
+        Optional<Value> expression = semanticAnalyzer.resolveIdentifierInType(id, paramNameId, argumentValue);
         Assert.thatUnchecked(expression.isPresent(), "couldn't resolve function definition");
-        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), expression.get());
+        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), expression.get(), argumentValue);
     }
 
     @Nonnull

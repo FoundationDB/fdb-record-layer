@@ -876,7 +876,7 @@ public class StandardQueryTests {
         }
     }
 
-    // (TODO): more tests: 1) invalid param type lat(x loc) 2) return x
+    // (TODO): more tests: 1) invalid param type lat(x loc) 2) return (x+1)
     @Test
     void testUserDefinedFunction() throws Exception {
         final String schemaTemplate = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
@@ -923,7 +923,6 @@ public class StandardQueryTests {
         }
     }
 
-    // (TODO) not working yet, can fieldPath be empty?
     @Test
     void testUserDefinedFunction3() throws Exception {
         final String schemaTemplate = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
