@@ -1020,7 +1020,7 @@ public class MetaDataEvolutionValidatorTest {
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData1.toProto().toBuilder()
                 .setVersion(metaData1.getVersion() + 1);
         protoBuilder.getRecordTypesBuilder(0)
-                .setExplicitKey(RecordMetaDataProto.Value.newBuilder()
+                .setExplicitKey(com.apple.foundationdb.record.planprotos.Value.newBuilder()
                     .setStringValue("new_key"));
         RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
         assertInvalid("record type key changed", metaData1, metaData2);

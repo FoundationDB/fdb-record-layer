@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PComparison;
-import com.apple.foundationdb.record.planprotos.PComparison.PComparisonType;
+import com.apple.foundationdb.record.planprotos.PComparisonType;
 import com.apple.foundationdb.record.planprotos.PInvertedFunctionComparison;
 import com.apple.foundationdb.record.planprotos.PListComparison;
 import com.apple.foundationdb.record.planprotos.PMultiColumnComparison;

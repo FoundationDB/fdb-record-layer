@@ -40,7 +40,7 @@ import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PC
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PFieldCopier;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PFieldWithValueCopier;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PMessageCopier;
-import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PTupleSource;
+import com.apple.foundationdb.record.planprotos.PTupleSource;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;

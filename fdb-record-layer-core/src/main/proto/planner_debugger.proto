@@ -21,9 +21,6 @@ syntax = "proto2";
 
 package com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos;
 import "google/protobuf/descriptor.proto";
-import "google/protobuf/any.proto";
-import "record_metadata.proto";
-import "record_query_plan.proto";
 
 option java_outer_classname = "PlannerDebuggerProto";
 option java_multiple_files = true;

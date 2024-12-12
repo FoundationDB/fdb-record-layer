@@ -69,7 +69,7 @@ public class LiteralKeyExpressionTest {
         final LiteralKeyExpression<?> keyExpression = Key.Expressions.value(value);
         final LiteralKeyExpression<?> parsedViaProto = LiteralKeyExpression.fromProto(keyExpression.toProto());
         final LiteralKeyExpression<?> parsedViaBytes = LiteralKeyExpression.fromProto(
-                RecordMetaDataProto.Value.parseFrom(keyExpression.toProto().toByteArray()));
+                com.apple.foundationdb.record.planprotos.Value.parseFrom(keyExpression.toProto().toByteArray()));
         assertEquals(keyExpression, parsedViaProto);
         assertEquals(keyExpression, parsedViaBytes);
         if (value instanceof byte[]) {
@@ -90,7 +90,7 @@ public class LiteralKeyExpressionTest {
 
         final LiteralKeyExpression<?> parsedViaProto = LiteralKeyExpression.fromProto(keyExpression.toProto());
         final LiteralKeyExpression<?> parsedViaBytes = LiteralKeyExpression.fromProto(
-                RecordMetaDataProto.Value.parseFrom(keyExpression.toProto().toByteArray()));
+                com.apple.foundationdb.record.planprotos.Value.parseFrom(keyExpression.toProto().toByteArray()));
 
         assertEquals(keyExpression, parsedViaProto); // Comparison uses proto objects, so both sides have Longs.
         // Comparison with proto objects works since we never leave Java.

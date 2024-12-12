@@ -20,18 +20,22 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 
 import javax.annotation.Nonnull;
 
 public class UDF {
     @Nonnull private final String udfName;
-    @Nonnull private final KeyExpression keyExpression;
+    @Nonnull
+    private final Value value;
 
-    public UDF(@Nonnull String udfName, @Nonnull KeyExpression keyExpression) {
+    public UDF(@Nonnull String udfName, @Nonnull Value value) {
         this.udfName = udfName;
-        this.keyExpression = keyExpression;
+        this.value = value;
     }
 
     @Nonnull
@@ -40,15 +44,14 @@ public class UDF {
     }
 
     @Nonnull
-    public KeyExpression getKeyExpression() {
-        return keyExpression;
-    }
+    public Value getValue() {return value;}
 
     public RecordMetaDataProto.UDF toProto() {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
         return RecordMetaDataProto.UDF.newBuilder()
-                .setFunction(RecordMetaDataProto.Function.newBuilder()
-                        .setName(udfName)
-                        .setArguments(keyExpression.toKeyExpression()))
+                .setName(udfName)
+                .setValue(value.toValueProto(serializationContext))
                 .build();
     }
 }

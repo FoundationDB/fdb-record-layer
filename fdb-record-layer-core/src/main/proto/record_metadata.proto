@@ -21,6 +21,7 @@ syntax = "proto2";
 
 package com.apple.foundationdb.record;
 import "google/protobuf/descriptor.proto";
+import "record_value.proto";
 
 option java_outer_classname = "RecordMetaDataProto";
 
@@ -71,7 +72,7 @@ message RecordType {
   required string name = 1;
   optional KeyExpression primary_key = 2;
   optional int32 since_version = 3;
-  optional Value explicit_key = 4;
+  optional com.apple.foundationdb.record.planprotos.Value explicit_key = 4;
   extensions 1000 to 2000;
 }
 
@@ -102,7 +103,8 @@ message MetaData {
 }
 
 message UDF {
-  optional Function function = 1;
+  optional string name = 1;
+  optional com.apple.foundationdb.record.planprotos.PValue value = 2;
 }
 
 message Then {
@@ -164,17 +166,6 @@ message Version {
 message RecordTypeKey {
 }
 
-message Value {
-  // TODO: This should be a oneof {}
-  optional double double_value = 1;
-  optional float float_value = 2;
-  optional int64 long_value = 3;
-  optional bool bool_value = 4;
-  optional string string_value = 5;
-  optional bytes bytes_value = 6;
-  optional int32 int_value = 7;
-}
-
 message Function {
   required string name = 1;
   required KeyExpression arguments = 2;
@@ -189,7 +180,7 @@ message KeyExpression {
   optional Empty empty = 5;
   optional Split split = 6;
   optional Version version = 7;
-  optional Value value = 8;
+  optional com.apple.foundationdb.record.planprotos.Value value = 8;
   optional Function function = 9;
   optional KeyWithValue key_with_value = 10;
   optional RecordTypeKey record_type_key = 11;
@@ -199,7 +190,7 @@ message KeyExpression {
 
 message JoinedRecordType {
   optional string name = 1;
-  optional Value record_type_key = 4;
+  optional com.apple.foundationdb.record.planprotos.Value record_type_key = 4;
 
   message JoinConstituent {
     optional string name = 1;
@@ -220,7 +211,7 @@ message JoinedRecordType {
 
 message UnnestedRecordType {
   optional string name = 1;
-  optional Value record_type_key = 2;
+  optional com.apple.foundationdb.record.planprotos.Value record_type_key = 2;
 
   message NestedConstituent {
     optional string name = 1;
@@ -248,7 +239,7 @@ enum ComparisonType {
 
 message SimpleComparison {
   optional ComparisonType type = 1;
-  optional Value operand = 2;
+  optional com.apple.foundationdb.record.planprotos.Value operand = 2;
 }
 
 // in Comparisons.Comparison we have a special NullComparison that takes care of comparing
