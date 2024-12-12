@@ -141,63 +141,29 @@ public class LuceneIndexTestDataModel {
         FDBRecordStore recordStore = createOrOpenRecordStore(context);
         for (int j = 0; j < count; j++) {
             final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0;
-            LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey,
-                    textGenerator, start, recordStore, group);
+            saveRecord(start, recordStore, group);
         }
     }
 
     void saveRecords(int count, long start, FDBRecordContext context, final int group) {
         FDBRecordStore recordStore = createOrOpenRecordStore(context);
         for (int j = 0; j < count; j++) {
-            LuceneIndexTestDataModel.saveRecord(
-                    isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, updateableRecords, true,
-                    textGenerator, start, recordStore, group);
+            saveRecord(true, start, recordStore, group);
         }
     }
 
-    public Tuple saveEmptyRecord(final boolean isGrouped, final boolean isSynthetic,
-                                 final long start, final FDBRecordStore recordStore, final int group) {
-        return saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, updateableRecords, false,
-                null, start, recordStore, group);
+    public Tuple saveEmptyRecord(final long start, final FDBRecordStore recordStore, final int group) {
+        return saveRecord(false, start, recordStore, group);
     }
 
-    static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                           final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
-                           final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
-                           final int group) {
-        saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, new HashMap<>(), true, textGenerator, start, recordStore, group);
+    public Tuple saveRecord(final long start, final FDBRecordStore recordStore, final int group) {
+        return saveRecord(true, start, recordStore, group);
     }
 
-    public Tuple saveRecord(final boolean isGrouped, final boolean isSynthetic, final long start,
-                            final FDBRecordStore recordStore, final int group) {
-        return saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey, updateableRecords,
-                true, textGenerator, start, recordStore, group);
-    }
-
-    private static Tuple saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                                    final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
-                                    final Map<Tuple, Function<Message, Message>> updateableRecords,
-                                    final boolean withContent, final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
-                                    final int group) {
+    private Tuple saveRecord(final boolean withContent, final long start, final FDBRecordStore recordStore, final int group) {
         final Tuple groupTuple = calculateGroupTuple(isGrouped, group);
         final int countInGroup = groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
         long timestamp = start + countInGroup + random.nextInt(20) - 5;
-        final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, withContent, textGenerator, random, updateableRecords);
-        groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>())
-                .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
-        return primaryKey;
-    }
-
-    @Nonnull
-    static Tuple saveRecord(final FDBRecordStore recordStore,
-                            final boolean isSynthetic,
-                            final int group,
-                            final int countInGroup,
-                            final long timestamp,
-                            final boolean withContent,
-                            final @Nullable RandomTextGenerator textGenerator,
-                            final @Nullable Random random,
-                            final Map<Tuple, Function<Message, Message>> updateableRecords) {
         var parentBuilder = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
                 .setGroup(group)
                 .setRecNo(1001L + countInGroup)
@@ -206,7 +172,7 @@ public class LuceneIndexTestDataModel {
         if (withContent) {
             parentBuilder
                     .setTextValue(isSynthetic ? "This is not the text that goes in lucene"
-                                              : textGenerator.generateRandomText("about"))
+                                                   : textGenerator.generateRandomText("about"))
                     .setIntValue(random.nextInt());
         }
         var parent = parentBuilder.build();
@@ -234,6 +200,8 @@ public class LuceneIndexTestDataModel {
         } else {
             primaryKey = parentPrimaryKey;
         }
+        groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>())
+                .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
         return primaryKey;
     }
 
