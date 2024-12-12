@@ -38,6 +38,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +47,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Model for creating a lucene appropriate dataset with various configurations.
@@ -127,6 +130,36 @@ public class LuceneIndexTestDataModel {
     public void deleteRecord(final FDBRecordContext context, final Tuple primaryKey) {
         FDBRecordStore recordStore = createOrOpenRecordStore(context);
         recordStore.deleteRecord(primaryKey);
+    }
+
+    void saveManyRecords(final int minDocumentCount,
+                         @Nonnull final Supplier<FDBRecordContext> openContext,
+                         final int transactionCount) {
+        final long start = Instant.now().toEpochMilli();
+        int i = 0;
+        while (i < transactionCount ||
+                // keep inserting data until at least two groups have at least minDocumentCount
+                groupingKeyToPrimaryKeyToPartitionKey.values().stream()
+                        .map(Map::size)
+                        .sorted(Comparator.reverseOrder())
+                        .limit(2).skip(isGrouped ? 1 : 0).findFirst()
+                        .orElse(0) < minDocumentCount) {
+            final int docCount = random.nextInt(10) + 1;
+            try (FDBRecordContext context = openContext.get()) {
+                saveRecords(docCount, start, context);
+                context.commit();
+            }
+            i++;
+        }
+    }
+
+    void saveRecords(int count, long start, FDBRecordContext context) {
+        FDBRecordStore recordStore = createOrOpenRecordStore(context);
+        for (int j = 0; j < count; j++) {
+            final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0;
+            LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey,
+                    textGenerator, start, recordStore, group);
+        }
     }
 
     void saveRecords(int count, long start, FDBRecordContext context, final int group) {

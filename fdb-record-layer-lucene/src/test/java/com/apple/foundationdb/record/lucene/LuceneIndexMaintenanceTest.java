@@ -182,10 +182,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
                 .build();
 
-        // Generate random documents
-        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup,
-                dataModel.nextInt(15) + 1, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator,
-                new AtomicInteger(), new AtomicInteger());
+        dataModel.saveManyRecords(minDocumentCount, () -> openContext(contextProps), dataModel.nextInt(15) + 1);
 
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
 
@@ -293,8 +290,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     "docCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum(),
                     "docMinPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).min(),
                     "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
-            generateDocuments(isGrouped, isSynthetic, 1, dataModel.random,
-                    contextProps, dataModel.schemaSetup, dataModel.nextInt(maxTransactionsPerLoop - 1) + 1, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
+            dataModel.saveManyRecords(1, () -> openContext(contextProps), dataModel.nextInt(maxTransactionsPerLoop - 1) + 1);
 
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
@@ -376,7 +372,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         // Generate random documents
         final int transactionCount = dataModel.nextInt(15) + 10;
-        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup, transactionCount, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
+        dataModel.saveManyRecords(minDocumentCount, () -> openContext(contextProps), transactionCount);
 
         final Function<StoreTimer.Wait, Duration> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
         AtomicInteger waitCounts = new AtomicInteger();
