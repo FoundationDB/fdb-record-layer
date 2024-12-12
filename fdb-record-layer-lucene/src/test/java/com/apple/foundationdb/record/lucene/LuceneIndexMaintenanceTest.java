@@ -75,6 +75,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -86,6 +87,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -778,6 +781,94 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     }
                 }
             };
+        }
+    }
+
+    /**
+     * Test that updating records in the same transaction does not cause issues with the executor, and doesn't result in
+     * a corrupted index.
+     * <p>
+     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
+     * </p>
+     * @throws IOException if there's an issue with Lucene
+     */
+    @Test
+    void concurrentUpdate() throws IOException {
+        // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
+        // configurations.
+        AtomicInteger threadCounter = new AtomicInteger();
+        // Synchronization blocks in FDBDirectoryWrapper can cause a deadlock
+        // see https://github.com/FoundationDB/fdb-record-layer/issues/2989
+        // So set the pool large enough to overcome that
+        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(30,
+                pool -> {
+                    final ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+                    thread.setName("ConcurrentUpdatePool-" + threadCounter.getAndIncrement());
+                    return thread;
+                },
+                null, false));
+        final long seed = 320947L;
+        final boolean isGrouped = true;
+        // updating the parent & child concurrently is not thread safe, we may want to fix the behavior, or say that is
+        // not supported, as it is the same as updating the same record concurrently, which I don't think is generally
+        // supported.
+        final boolean isSynthetic = false;
+        final boolean primaryKeySegmentIndexEnabled = true;
+        // LucenePartitioner is not thread safe, and the counts get broken
+        // See: https://github.com/FoundationDB/fdb-record-layer/issues/2990
+        final int partitionHighWatermark = -1;
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
+                .setPartitionHighWatermark(partitionHighWatermark)
+                .build();
+
+        final int repartitionCount = 10;
+        final int loopCount = 30;
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, dataModel.nextInt(1000) + repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+        for (int i = 0; i < loopCount; i++) {
+            LOGGER.info(KeyValueLogMessage.of("concurrentUpdate loop",
+                    "iteration", i,
+                    "groupCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.size(),
+                    "docCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum(),
+                    "docMinPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).min(),
+                    "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
+
+            long start = 234098;
+            try (FDBRecordContext context = openContext(contextProps)) {
+                dataModel.saveRecords(10, start, context, 1);
+                commit(context);
+            }
+            explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+        }
+
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            assertThat(dataModel.updateableRecords, Matchers.aMapWithSize(Matchers.greaterThan(30)));
+            LOGGER.info("concurrentUpdate: Starting updates");
+            RecordCursor.fromList(new ArrayList<>(dataModel.updateableRecords.entrySet()))
+                    .mapPipelined(entry -> {
+                        return dataModel.updateRecord(recordStore, entry.getKey(), entry.getValue());
+                    }, 10)
+                    .asList().join();
+            commit(context);
+        }
+
+
+        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
+        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+
+        if (isGrouped) {
+            validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
         }
     }
 
