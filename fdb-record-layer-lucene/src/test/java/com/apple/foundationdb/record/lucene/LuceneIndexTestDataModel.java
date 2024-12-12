@@ -74,32 +74,16 @@ public class LuceneIndexTestDataModel {
     final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey;
     Map<Tuple, Function<Message, Message>> updateableRecords;
 
-    private LuceneIndexTestDataModel(final Builder builder) {
+    private LuceneIndexTestDataModel(@Nonnull final Builder builder,
+                                     @Nonnull final Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
         random = builder.random;
         textGenerator = builder.textGenerator;
         isGrouped = builder.isGrouped;
         isSynthetic = builder.isSynthetic;
         primaryKeySegmentIndexEnabled = builder.primaryKeySegmentIndexEnabled;
         partitionHighWatermark = builder.partitionHighWatermark;
-
-        final Map<String, String> options = new HashMap<>();
-        options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
-        if (partitionHighWatermark > 0) {
-            options.put(LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp");
-            options.put(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark));
-        }
-
-        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexTestDataModel.createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, isSynthetic);
-        index = LuceneIndexTestDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
-        final RecordMetaData metadata = metaDataBuilder.build();
-        final StoreBuilderSupplier storeBuilderSupplier = builder.storeBuilderSupplier;
-        final KeySpacePath path = builder.path;
-        schemaSetup = context -> {
-            final FDBRecordStore store = storeBuilderSupplier.get(context, metadata, path).createOrOpen();
-            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-            return store;
-        };
+        index = builder.index;
+        this.schemaSetup = schemaSetup;
         groupingKeyToPrimaryKeyToPartitionKey = new HashMap<>();
         updateableRecords = new HashMap<>();
     }
@@ -357,44 +341,91 @@ public class LuceneIndexTestDataModel {
     static class Builder {
         private final Random random;
         private final StoreBuilderSupplier storeBuilderSupplier;
-        private final RandomTextGenerator textGenerator;
-        private final KeySpacePath path;
+        private final TestKeySpacePathManagerExtension pathManager;
+        private RandomTextGenerator textGenerator;
         boolean isGrouped;
         boolean isSynthetic;
         boolean primaryKeySegmentIndexEnabled = true;
         int partitionHighWatermark;
-        int repartitionCount;
+        @Nullable
+        private Index index;
+        @Nullable
+        private RecordMetaData metadata;
 
         public Builder(final long seed, StoreBuilderSupplier storeBuilderSupplier,
                        TestKeySpacePathManagerExtension pathManager) {
             this.random = new Random(seed);
             this.storeBuilderSupplier = storeBuilderSupplier;
-            textGenerator = new RandomTextGenerator(random);
-            this.path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+            this.pathManager = pathManager;
         }
 
         public Builder setIsGrouped(final boolean isGrouped) {
             this.isGrouped = isGrouped;
+            metadata = null;
             return this;
         }
 
         public Builder setIsSynthetic(final boolean isSynthetic) {
             this.isSynthetic = isSynthetic;
+            metadata = null;
             return this;
         }
 
         public Builder setPrimaryKeySegmentIndexEnabled(final boolean primaryKeySegmentIndexEnabled) {
             this.primaryKeySegmentIndexEnabled = primaryKeySegmentIndexEnabled;
+            metadata = null;
             return this;
         }
 
         public Builder setPartitionHighWatermark(final int partitionHighWatermark) {
             this.partitionHighWatermark = partitionHighWatermark;
+            metadata = null;
             return this;
         }
 
+        public Builder setTextGeneratorWithNewRandom(final RandomTextGenerator textGenerator) {
+            this.textGenerator = textGenerator.withNewRandom(random);
+            return this;
+        }
+
+        /**
+         * Create a new {@link LuceneIndexTestDataModel} as per the settings here.
+         * <p>
+         *     If this is called multiple times, without calling any setters in-between, it will use the same
+         *     {@link RecordMetaData}, but use a new path.
+         *     The new data model will have it's own records that it is tracking.
+         * </p>
+         * @return a new {@link LuceneIndexTestDataModel}
+         */
         public LuceneIndexTestDataModel build() {
-            return new LuceneIndexTestDataModel(this);
+            if (textGenerator == null) {
+                textGenerator = new RandomTextGenerator(random);
+            }
+            final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+            if (this.metadata == null) {
+                final Map<String, String> options = getOptions();
+                final RecordMetaDataBuilder metaDataBuilder = LuceneIndexTestDataModel.createBaseMetaDataBuilder();
+                final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, isSynthetic);
+                this.index = LuceneIndexTestDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+                this.metadata = metaDataBuilder.build();
+            }
+            final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context -> {
+                final FDBRecordStore store = storeBuilderSupplier.get(context, metadata, path).createOrOpen();
+                store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+                return store;
+            };
+            return new LuceneIndexTestDataModel(this, schemaSetup);
+        }
+
+        @Nonnull
+        private Map<String, String> getOptions() {
+            final Map<String, String> options = new HashMap<>();
+            options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
+            if (partitionHighWatermark > 0) {
+                options.put(LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp");
+                options.put(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark));
+            }
+            return options;
         }
     }
 
