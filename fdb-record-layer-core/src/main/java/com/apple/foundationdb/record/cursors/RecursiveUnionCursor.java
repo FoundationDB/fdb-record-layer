@@ -85,6 +85,16 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         activeStateCursor = recursiveStateManager.getActiveStateCursor();
     }
 
+    /**
+     * Returns the next cursor item of the current recursive state {@code n} from the active state cursor, if the cursor
+     * is exhausted, it will notify the recursive state manager which will either.
+     * <ul>
+     *     <li>decide that it is feasible to move to the next recursive step ({@code n+1}), and resets the active state
+     *     cursor to iterate over the items of the new recursive step.</li>
+     *     <li>decide to stop the recursive execution, signalling to the underlying cursor that it should now be exhausted.</li>
+     * </ul>
+     * @return the next cursor item of the underlying active state cursor.
+     */
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
@@ -132,7 +142,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
     @Override
     public boolean isClosed() {
-        return activeStateCursor.isClosed(); // todo: improve.
+        return activeStateCursor.isClosed();
     }
 
     @Nonnull
@@ -200,6 +210,13 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
             return false;
         }
 
+        /**
+         * Creates a new {@link Continuation} instance from a serialized continuation protobuf message and a temporary
+         * table deserializer.
+         * @param message The serialized continuation protobuf message.
+         * @param tempTableDeserializer a {@link TempTable} deserializer.
+         * @return a new {@link Continuation} instance.
+         */
         @Nonnull
         public static Continuation from(@Nonnull final RecordCursorProto.RecursiveCursorContinuation message,
                                         @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
@@ -218,9 +235,9 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         }
 
         /**
-         * Parses a {@code byte[]} using a given {@link TempTable} deserializer into a {@link Continuation}.
+         * Parses a continuation {@code byte[]}, using a given {@link TempTable} deserializer, into a {@link Continuation}.
          *
-         * @param unparsedContinuationBytes The bytes to parse.
+         * @param unparsedContinuationBytes The continuation bytes to parse.
          * @param tempTableDeserializer The {@link TempTable} deserializer.
          * @return a parsed {@link Continuation}.
          */
@@ -258,13 +275,14 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     /**
      * Interface for recursive state management, the caller is expected to invoke respective callbacks when certain
      * events occur so the internal state mutates accordingly, it also offers a set of methods that enable examining
-     * current state.
+     * current state and whether the execution can proceed to a subsequent recursive state or not.
      * @param <T> The type of the cursor elements.
      */
     public interface RecursiveStateManager<T> {
 
         /**
-         * Callback notifying the manager that the current cursor is exhausted.
+         * Callback notifying the manager that the current cursor being iterated over by the {@link RecursiveUnionQueryPlan}
+         * is exhausted.
          */
         void notifyCursorIsExhausted();
 

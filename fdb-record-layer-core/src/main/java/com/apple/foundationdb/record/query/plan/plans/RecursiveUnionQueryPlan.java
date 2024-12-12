@@ -344,6 +344,10 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
     }
 
+    /**
+     * A reference implementation of {@link RecursiveStateManager} that orchestrates the recursive execution of
+     * {@link RecursiveUnionQueryPlan}.
+     */
     static class RecursiveStateManagerImpl implements RecursiveStateManager<QueryResult> {
 
         private boolean isInitialState;
@@ -362,6 +366,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
         private RecordCursor<QueryResult> activeCursor;
 
+        // transient
         @Nullable
         private final FDBRecordStoreBase<?> store;
 
@@ -434,12 +439,14 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
 
         @Override
-        public @Nonnull RecordCursor<QueryResult> getActiveStateCursor() {
+        @Nonnull
+        public RecordCursor<QueryResult> getActiveStateCursor() {
             return activeCursor;
         }
 
         @Override
-        public @Nonnull TempTable getRecursiveUnionTempTable() {
+        @Nonnull
+        public TempTable getRecursiveUnionTempTable() {
             return recursiveUnionTempTable;
         }
 
@@ -453,6 +460,19 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             return buffersAreFlipped;
         }
 
+        /**
+         * Flips the runtime buffers by creating a nested {@link EvaluationContext} with reversed references to both
+         * the insert {@link TempTable} that is initially used by the insert operators on top of the recursive union
+         * legs, and the scan {@link TempTable} that is used by the underlying {@link TempTableScanPlan} and is maintained
+         * by the recursive union plan itself. Flipping the buffers is done everytime an underlying union cursor stops
+         * producing new results.
+         *
+         * @param evaluationContext The evaluation context used to as basis for a nested {@link EvaluationContext} with reversed
+         * referenced to {@link TempTable}s participating in the recursive execution.
+         * @param cleanBuffers if {@code True} cleans the {@link TempTable} used for insertion (in the next recursive step).
+         * @return A nested {@link EvaluationContext} with reversed referenced to {@link TempTable}s participating in
+         * the recursive execution.
+         */
         @Nonnull
         @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
         private EvaluationContext flipBuffers(@Nonnull final EvaluationContext evaluationContext, boolean cleanBuffers) {
