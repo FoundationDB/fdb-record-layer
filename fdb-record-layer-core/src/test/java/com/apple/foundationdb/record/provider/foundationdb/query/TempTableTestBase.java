@@ -52,6 +52,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
@@ -139,6 +140,35 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         return resultBuilder.build();
     }
 
+    /**
+     * Utility method that executes a {@code plan} returning its results.
+     *
+     * @param context The transaction used to execute the plan.
+     * @param plan The plan to be executed.
+     * @param evaluationContext The evaluation context.
+     *
+     * @return The execution results of the {@code plan} mapped to a pair of the {@code id} and {@code value}.
+     *
+     * @throws Exception If the execution fails.
+     */
+    @Nonnull
+    List<Long> extractResultsAsIds(@Nonnull final FDBRecordContext context,
+                                   @Nonnull final RecordQueryPlan plan,
+                                   @Nonnull final EvaluationContext evaluationContext) throws Exception {
+        ImmutableList.Builder<Long> resultBuilder = ImmutableList.builder();
+        fetchResultValues(context, plan, record -> {
+            resultBuilder.add(asId(record));
+            return record;
+        }, evaluationContext, c -> {
+        }, ExecuteProperties.newBuilder().build());
+        return resultBuilder.build();
+    }
+
+    static long asId(@Nonnull final Message message) {
+        final var descriptor = message.getDescriptorForType();
+        return (long)message.getField(descriptor.findFieldByName("id"));
+    }
+
     @Nonnull
     static Pair<Long, String> asIdValue(@Nonnull final Message message) {
         final var descriptor = message.getDescriptorForType();
@@ -160,11 +190,6 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static QueryResult queryResult(long id, @Nonnull final String value, long parent) {
-        return QueryResult.ofComputed(item(id, value, parent));
-    }
-
-    @Nonnull
     static QueryResult queryResult(long id, @Nonnull final String value) {
         return QueryResult.ofComputed(item(id, value));
     }
@@ -176,23 +201,21 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static QueryResult queryResult(long id, long parent) {
-        return queryResult(id, arrow(id, parent), parent);
+        return QueryResult.ofComputed(item(id, parent));
     }
 
     @Nonnull
     static Message item(long id, @Nonnull final String value) {
-        return TestHierarchiesProto.SimpleHierarchicalRecord.newBuilder()
+        return TestHierarchiesProto.TempTableRecord.newBuilder()
                 .setId(id)
                 .setValue(value)
                 .build();
     }
 
     @Nonnull
-    static Message item(long id, @Nonnull final String value, long parent) {
+    static Message item(long id) {
         return TestHierarchiesProto.SimpleHierarchicalRecord.newBuilder()
                 .setId(id)
-                .setParent(parent)
-                .setValue(value)
                 .build();
     }
 
@@ -201,7 +224,6 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         return TestHierarchiesProto.SimpleHierarchicalRecord.newBuilder()
                 .setId(id)
                 .setParent(parent)
-                .setValue(arrow(id, parent))
                 .build();
     }
 
@@ -234,7 +256,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     RecordQueryPlan createAndOptimizeTempTableScanPlan(@Nonnull final CorrelationIdentifier tempTableId) {
-        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), getType())));
+        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), getTempTableType())));
         final var selectExpressionBuilder = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
                 .addQuantifier(tempTableScanQun);
@@ -314,18 +336,28 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static Type getType() {
-        return Type.Record.fromDescriptor(getDescriptor()).notNullable();
+    static Type getHierarchyType() {
+        return Type.Record.fromDescriptor(getHierarchyDescriptor()).notNullable();
     }
 
     @Nonnull
-    static Type getType(@Nonnull final Quantifier.ForEach forEach) {
+    static Type getInnerType(@Nonnull final Quantifier.ForEach forEach) {
         return Objects.requireNonNull(((Type.Relation)forEach.getRangesOver().getResultType()).getInnerType());
     }
 
     @Nonnull
-    static Descriptors.Descriptor getDescriptor() {
+    static Type getTempTableType() {
+        return Type.Record.fromDescriptor(getTempTableDescriptor()).notNullable();
+    }
+
+    @Nonnull
+    static Descriptors.Descriptor getHierarchyDescriptor() {
         return TestHierarchiesProto.SimpleHierarchicalRecord.getDescriptor();
+    }
+
+    @Nonnull
+    static Descriptors.Descriptor getTempTableDescriptor() {
+        return TestHierarchiesProto.TempTableRecord.getDescriptor();
     }
 
     @Nonnull
@@ -334,8 +366,6 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     static final class ListPartitioner {
-
-
 
         /**
          * Partitions a list of numbers into a number of sub-lists defined, each sub-list start and end is defined
@@ -445,6 +475,12 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
             } while (current != SENTINEL);
 
             return result.build();
+        }
+
+        public long getRandomLeaf() {
+            final var leafNodes = new ArrayList<>(Sets.difference(edges.keySet(), reverseLookup.get().keySet()));
+            final var index = random.nextInt(leafNodes.size());
+            return leafNodes.get(index);
         }
 
         @Nonnull

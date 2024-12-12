@@ -28,8 +28,12 @@ import "record_metadata_options.proto";
 
 message SimpleHierarchicalRecord {
   required int64 id = 1 [(field).primary_key = true];
+  optional int64 parent = 2; // where -1 indicates "root" record
+}
+
+message TempTableRecord {
+  required int64 id = 1 [(field).primary_key = true];
   optional string value = 2;
-  optional int64 parent = 3; // where -1 indicates "root" record
 }
 
 message RecordTypeUnion {
