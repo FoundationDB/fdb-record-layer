@@ -81,7 +81,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubMissingIndexEntries();
@@ -112,7 +112,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubMissingIndexEntries();
@@ -126,7 +126,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubMissingIndexEntries();
@@ -155,7 +155,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -187,7 +187,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .setAllowRepair(false))
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -202,7 +202,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -219,7 +219,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             res = indexScrubber.scrubDanglingIndexEntries();
@@ -254,7 +254,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setAllowRepair(false)
                         .setEntriesScanLimit(1000000)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .setLimit(chunkSize)
                 .build()) {
@@ -273,7 +273,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .setEntriesScanLimit(1))
                 .setLimit(chunkSize)
                 .build()) {
@@ -289,7 +289,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .setEntriesScanLimit(chunkSize * 3))
                 .setLimit(chunkSize)
                 .build()) {
@@ -331,7 +331,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                     .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                             .setAllowRepair(false)
                             .setEntriesScanLimit(chunkSize)
-                            .ignoreIndexTypeCheck(legacy)
+                            .useLegacyScrubber(legacy)
                             .build())
                     .setLimit(chunkSize)
                     .build()) {
@@ -391,7 +391,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
                     .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                            .ignoreIndexTypeCheck(legacy))
+                            .useLegacyScrubber(legacy))
                     .build()) {
                 recordStore.markIndexWriteOnly(tgtIndex).join();
                 context.commit();
@@ -408,7 +408,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         buildIndexClean(nonValueIndex);
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(nonValueIndex)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .ignoreIndexTypeCheck(legacy))
+                        .useLegacyScrubber(legacy))
                 .build()) {
             if (legacy) {
                 assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
@@ -436,6 +436,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .useLegacyScrubber(true) // only supported within legacy scrubbing code
                         .ignoreIndexTypeCheck() // required to allow non-value index scrubbing
                         .build())
                 .build()) {
@@ -464,7 +465,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -514,7 +515,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
@@ -562,7 +563,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -580,7 +581,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -596,7 +597,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -624,7 +625,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -679,7 +680,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
@@ -724,7 +725,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -740,7 +741,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -756,7 +757,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(true)
-                        .ignoreIndexTypeCheck(legacy)
+                        .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
