@@ -933,7 +933,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         public Map<Tuple, Map<Tuple, Tuple>> get() {
             int maxTransactionsPerLoop = 5;
             final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps),
-                    context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
+                    dataModel::createOrOpenRecordStore);
             int currentLoop = 0;
             while (System.nanoTime() < endTime) {
                 currentLoop++;
