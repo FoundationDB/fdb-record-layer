@@ -23,14 +23,12 @@ package com.apple.foundationdb.relational.yamltests.command;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.cli.formatters.ResultSetFormat;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
@@ -40,6 +38,7 @@ import org.opentest4j.AssertionFailedError;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
@@ -156,7 +155,15 @@ public abstract class QueryConfig {
             currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
         }
         if (continuation instanceof ContinuationImpl) {
-            currentQuery += String.format(" with continuation b64'%s'", ResultSetFormat.formatContinuation(continuation));
+            String result;
+            if (continuation.atBeginning()) {
+                result = "START";
+            } else if (continuation.atEnd()) {
+                result = "END";
+            } else {
+                result = Base64.getEncoder().encodeToString(continuation.serialize());
+            }
+            currentQuery += String.format(" with continuation b64'%s'", result);
         }
         return currentQuery;
     }
