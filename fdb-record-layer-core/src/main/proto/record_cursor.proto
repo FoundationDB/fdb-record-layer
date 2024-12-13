@@ -129,7 +129,6 @@ message TempTableInsertContinuation {
 
 message RecursiveCursorContinuation {
     optional bool isInitialState = 1;
-    optional bool buffersAreFlipped = 2;
-    optional planprotos.PTempTable tempTable = 3;
-    optional bytes activeStateContinuation = 4;
+    optional planprotos.PTempTable tempTable = 2;
+    optional bytes activeStateContinuation = 3;
 }

@@ -136,6 +136,45 @@ public class RecursiveUnionTest extends TempTableTestBase {
          );
     }
 
+    /**
+     * Sample forest, visually looking like the following.
+     * <pre>
+     * {@code
+     *                              1                         500
+     *                            /   \                      /   \
+     *                         /        \                  /      \
+     *                       /            \               /        \
+     *                     10             20            510        520
+     *                    / | \          /  \             |
+     *                  /   |  \        /    \            |
+     *                 /    |   \      /      \           |
+     *                40   50   70   100      210       550
+     *                      |
+     *                      |
+     *                     250
+     * }
+     * </pre>
+     * @return a sample forest represented by a list of {@code child -> parent} edges.
+     */
+    @Nonnull
+    private static Map<Long, Long> sampleForest() {
+        return ImmutableMap.<Long, Long>builder()
+                .put(1L, -1L)
+                .put(10L, 1L)
+                .put(20L, 1L)
+                .put(40L, 10L)
+                .put(50L, 10L)
+                .put(70L, 10L)
+                .put(100L, 20L)
+                .put(210L, 20L)
+                .put(250L, 50L)
+                .put(500L, -1L)
+                .put(510L, 500L)
+                .put(520L, 500L)
+                .put(550L, 510L)
+                .build();
+    }
+
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void recursiveUnionWorksCorrectlyCase5() {
         var result = ancestorsOf(sampleHierarchy(), ImmutableMap.of(250L, 50L));
@@ -200,6 +239,12 @@ public class RecursiveUnionTest extends TempTableTestBase {
     void recursiveUnionWorksCorrectlyCase15() {
         var result = descendantsOfAcrossContinuations(sampleHierarchy(), ImmutableMap.of(1L, -1L), ImmutableList.of(1, 2, 4, -1), false);
         assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(10L, 20L), ImmutableList.of(40L, 50L, 70L, 100L), ImmutableList.of(210L, 250L)), result);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void recursiveUnionWorksCorrectlyCase16() {
+        var result = descendantsOfAcrossContinuations(sampleForest(), ImmutableMap.of(1L, -1L, 500L, -1L), ImmutableList.of(1, 2, 4, -1), false);
+        assertEquals(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(500L, 10L), ImmutableList.of(20L, 510L, 520L, 40L), ImmutableList.of(50L, 70L, 100L, 210L, 550L, 250L)), result);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

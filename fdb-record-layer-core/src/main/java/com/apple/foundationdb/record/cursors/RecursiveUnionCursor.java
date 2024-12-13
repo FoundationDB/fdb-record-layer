@@ -124,14 +124,14 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
     private CompletableFuture<RecordCursorResult<T>> wrapLastResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
         return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(
                 new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(),
-                        recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped()),
+                        recursiveStateManager.getRecursiveUnionTempTable()),
                 innerCursorResult.getNoNextReason()));
     }
 
     @Nonnull
     private CompletableFuture<RecordCursorResult<T>> wrapNextResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
         final var continuation = new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(),
-                recursiveStateManager.getRecursiveUnionTempTable(), recursiveStateManager.buffersAreFlipped());
+                recursiveStateManager.getRecursiveUnionTempTable());
         return CompletableFuture.completedFuture(RecordCursorResult.withNextValue(innerCursorResult.get(), continuation));
     }
 
@@ -176,17 +176,12 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         @Nonnull
         private final TempTable tempTable;
 
-        // whether the temp table is used for reading or writing.
-        private final boolean buffersAreFlipped;
-
         Continuation(boolean isInitialState,
                      @Nonnull final RecordCursorContinuation activeStateContinuation,
-                     @Nonnull final TempTable tempTable,
-                     boolean buffersAreFlipped) {
+                     @Nonnull final TempTable tempTable) {
             this.isInitialState = isInitialState;
             this.activeStateContinuation = activeStateContinuation;
             this.tempTable = tempTable;
-            this.buffersAreFlipped = buffersAreFlipped;
         }
 
         @Nullable
@@ -230,8 +225,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                 throw new RecordCoreException("invalid continuation", ex)
                         .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(message.toByteArray()));
             }
-            final var buffersAreFlipped = message.getBuffersAreFlipped();
-            return new Continuation(message.getIsInitialState(), childContinuation, tempTableDeserializer.apply(parsedTempTable), buffersAreFlipped);
+            return new Continuation(message.getIsInitialState(), childContinuation, tempTableDeserializer.apply(parsedTempTable));
         }
 
         /**
@@ -265,10 +259,6 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         @Nonnull
         public TempTable getTempTable() {
             return tempTable;
-        }
-
-        public boolean buffersAreFlipped() {
-            return buffersAreFlipped;
         }
     }
 
@@ -313,11 +303,5 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
          * is in the recursive phase.
          */
         boolean isInitialState();
-
-        /**
-         * Checks whether read and write buffers ({@link TempTable}s) are swapped or not.
-         * @return {@code True} if the read and write buffers are swapped, otherwise {@code false}.
-         */
-        boolean buffersAreFlipped();
     }
 }

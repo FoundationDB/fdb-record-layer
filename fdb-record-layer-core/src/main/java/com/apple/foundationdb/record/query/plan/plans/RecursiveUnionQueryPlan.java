@@ -185,7 +185,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nullable
     private Descriptors.Descriptor getInnerTypeDescriptor(@Nonnull final EvaluationContext context, @Nonnull Value tempTableReferenceValue) {
         final Descriptors.Descriptor typeDescriptor;
-        if (tempTableReferenceValue.getResultType().isRelation() && ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType().isRecord()) {
+        if (tempTableReferenceValue.getResultType().isRelation()
+                && Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()).isRecord()) {
             final var type = (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
             typeDescriptor = context.getTypeRepository().getMessageDescriptor(type);
         } else {
@@ -352,18 +353,22 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
         private boolean isInitialState;
 
+        @Nonnull
         private TempTable recursiveUnionTempTable;
 
-        private boolean buffersAreFlipped;
-
+        @Nonnull
         private final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> recursiveCursorCreator;
 
+        @Nonnull
         private final EvaluationContext baseContext;
 
+        @Nonnull
         private final Value insertTempTableReference;
 
+        @Nonnull
         private final Value scanTempTableReference;
 
+        @Nonnull
         private RecordCursor<QueryResult> activeCursor;
 
         // transient
@@ -371,6 +376,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         private final FDBRecordStoreBase<?> store;
 
         // transient
+        @Nonnull
         private EvaluationContext overridenEvaluationContext;
 
         /**
@@ -397,7 +403,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             this.insertTempTableReference = insertTempTableReference;
             this.scanTempTableReference = scanTempTableReference;
             overridenEvaluationContext = withEmptyTempTable(insertTempTableReference, baseContext);
-            buffersAreFlipped = false;
             this.store = store;
             if (continuationBytes == null) {
                 isInitialState = true;
@@ -412,9 +417,6 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 if (isInitialState) {
                     activeCursor = initialCursorCreator.apply(continuation.getActiveStateContinuation().toByteString(), overridenEvaluationContext);
                 } else {
-                    if (continuation.buffersAreFlipped()) {
-                        overridenEvaluationContext = flipBuffers(baseContext, false);
-                    }
                     activeCursor = recursiveCursorCreator.apply(continuation.getActiveStateContinuation().toByteString(), overridenEvaluationContext);
                 }
             }
@@ -425,17 +427,13 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             if (isInitialState) {
                 isInitialState = false;
             }
-            overridenEvaluationContext = flipBuffers(overridenEvaluationContext, true);
+            overridenEvaluationContext = flipBuffers(overridenEvaluationContext);
             activeCursor = recursiveCursorCreator.apply(null, overridenEvaluationContext); // restart
         }
 
         @Override
         public boolean canTransitionToNewStep() {
-            if (isInitialState) {
-                return true;
-            } else {
-                return !recursiveUnionTempTable.isEmpty();
-            }
+            return !recursiveUnionTempTable.isEmpty();
         }
 
         @Override
@@ -455,43 +453,32 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             return isInitialState;
         }
 
-        @Override
-        public boolean buffersAreFlipped() {
-            return buffersAreFlipped;
-        }
-
         /**
          * Flips the runtime buffers by creating a nested {@link EvaluationContext} with reversed references to both
          * the insert {@link TempTable} that is initially used by the insert operators on top of the recursive union
-         * legs, and the scan {@link TempTable} that is used by the underlying {@link TempTableScanPlan} and is maintained
+         * legs, and the scan {@link TempTable} that is used by the underlying {@link TempTableScanPlan} and is
+         * maintained
          * by the recursive union plan itself. Flipping the buffers is done everytime an underlying union cursor stops
          * producing new results.
-         *
-         * @param evaluationContext The evaluation context used to as basis for a nested {@link EvaluationContext} with reversed
-         * referenced to {@link TempTable}s participating in the recursive execution.
-         * @param cleanBuffers if {@code True} cleans the {@link TempTable} used for insertion (in the next recursive step).
+         * @param evaluationContext The evaluation context used to as basis for a nested {@link EvaluationContext} with
+         * reversed references to {@link TempTable}s participating in the recursive execution.
          * @return A nested {@link EvaluationContext} with reversed referenced to {@link TempTable}s participating in
          * the recursive execution.
          */
         @Nonnull
         @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
-        private EvaluationContext flipBuffers(@Nonnull final EvaluationContext evaluationContext, boolean cleanBuffers) {
+        private EvaluationContext flipBuffers(@Nonnull final EvaluationContext evaluationContext) {
             final var insertTempTable = getTempTable(evaluationContext, insertTempTableReference);
             final var scanTempTable = getTempTable(evaluationContext, scanTempTableReference);
-            buffersAreFlipped = !buffersAreFlipped;
             if (recursiveUnionTempTable == insertTempTable) {
                 recursiveUnionTempTable = scanTempTable;
-                if (cleanBuffers) {
-                    insertTempTable.clear();
-                }
+                insertTempTable.clear();
                 return overrideTempTableBinding(
                         overrideTempTableBinding(baseContext, insertTempTableReference, insertTempTable),
                         scanTempTableReference, scanTempTable);
             } else {
                 recursiveUnionTempTable = insertTempTable;
-                if (cleanBuffers) {
-                    scanTempTable.clear();
-                }
+                scanTempTable.clear();
                 return overrideTempTableBinding(
                         overrideTempTableBinding(baseContext, insertTempTableReference, scanTempTable),
                         scanTempTableReference, insertTempTable);

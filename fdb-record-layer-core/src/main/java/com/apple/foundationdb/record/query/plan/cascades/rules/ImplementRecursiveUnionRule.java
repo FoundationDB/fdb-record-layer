@@ -44,7 +44,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.recursiveUnionExpression;
 
 /**
- * TODO.
+ * A rule that implements a {@link RecursiveUnionExpression}. Currently, the implementation translates the recursive
+ * union expression verbatim to a corresponding {@link RecursiveUnionQueryPlan} that has the same topological structure,
+ * i.e. an {@code Initial} union leg used to seed the recursion, and a {@code Recursive} leg used to compute all recursive
+ * results repeatedly until reaching a fix-point.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -76,11 +79,10 @@ public class ImplementRecursiveUnionRule extends CascadesRule<RecursiveUnionExpr
         final var planPartitions = bindings.getAll(unionLegPlanPartitionsMatcher);
         final var allQuantifiers = bindings.get(allForEachQuantifiersMatcher);
 
-
-
         final ImmutableList<Quantifier.Physical> quantifiers =
                 Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) ->
+                                        call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
