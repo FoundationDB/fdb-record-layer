@@ -70,6 +70,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -786,6 +787,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 (inserted, actual) -> assertEquals(inserted, actual));
     }
 
+    /**
+     * Test that deleting records in the same transaction does not cause issues with the executor, and doesn't result in
+     * a corrupted index.
+     * <p>
+     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
+     * </p>
+     * @throws IOException if there's an issue with Lucene
+     */
     @Test
     void concurrentDelete() throws IOException {
         concurrentTestWithinTransaction((dataModel, recordStore) ->
@@ -795,17 +805,56 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 (inserted, actual) -> assertEquals(0, actual));
     }
 
+    /**
+     * Test that inserting records in the same transaction does not cause issues with the executor, and doesn't result in
+     * a corrupted index.
+     * <p>
+     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
+     * </p>
+     * @throws IOException if there's an issue with Lucene
+     */
     @Test
-    void concurrentMix() throws IOException {
-        // TODO alternate what option we're doing:
-        // 1. updating the record
-        // 2. deleting the record
-        // 3. inserting a new record
-        // We never touch the same record twice.
+    void concurrentInsert() throws IOException {
+        long start = Instant.now().toEpochMilli();
         concurrentTestWithinTransaction((dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
-                                .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
+                                .mapPipelined(record -> { // ignore the record, we're just using that as a count
+                                    return dataModel.saveRecordAsync(true, start, recordStore, 1);
+                                }, 10)
                                 .asList().join(),
+                (inserted, actual) -> assertEquals(inserted * 2, actual));
+    }
+
+    /**
+     * Test that mutating records in the same transaction does not cause issues with the executor, and doesn't result in
+     * a corrupted index.
+     * <p>
+     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
+     * </p>
+     * @throws IOException if there's an issue with Lucene
+     */
+    @Test
+    void concurrentMix() throws IOException {
+        // We never touch the same record twice.
+        long start = Instant.now().toEpochMilli();
+        AtomicInteger step = new AtomicInteger(0);
+        concurrentTestWithinTransaction((dataModel, recordStore) ->
+                        RecordCursor.fromList(dataModel.recordsUnderTest())
+                                .mapPipelined(record -> {
+                                    switch (step.incrementAndGet() % 3) {
+                                        case 0:
+                                            return record.updateOtherValue(recordStore);
+                                        case 1:
+                                            return record.deleteRecord(recordStore);
+                                        default:
+                                            return dataModel.saveRecordAsync(true, start, recordStore, 1)
+                                                    .thenAccept(vignore -> { });
+                                    }
+                                }, 10)
+                                .asList().join(),
+                // Note: this assertion only works because we are inserting an even multiple of 3 to begin with
                 (inserted, actual) -> assertEquals(inserted, actual));
     }
 

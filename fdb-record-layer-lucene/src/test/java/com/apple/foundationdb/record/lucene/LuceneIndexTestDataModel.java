@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
@@ -81,7 +83,7 @@ public class LuceneIndexTestDataModel {
      */
     final ConcurrentMap<Tuple, ConcurrentMap<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey;
     private final ConcurrentMap<Tuple, RecordUnderTest> recordsUnderTest;
-    final ConcurrentMap<Tuple, AtomicInteger> groupRecNo;
+    final ConcurrentMap<Tuple, AtomicInteger> nextRecNoInGroup;
     private LuceneIndexTestValidator validator;
 
     private LuceneIndexTestDataModel(@Nonnull final Builder builder,
@@ -96,7 +98,7 @@ public class LuceneIndexTestDataModel {
         this.schemaSetup = schemaSetup;
         groupingKeyToPrimaryKeyToPartitionKey = new ConcurrentHashMap<>();
         recordsUnderTest = new ConcurrentHashMap<>();
-        groupRecNo = new ConcurrentHashMap<>();
+        nextRecNoInGroup = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -164,27 +166,64 @@ public class LuceneIndexTestDataModel {
     void saveRecords(int count, long start, FDBRecordContext context, final int group) {
         FDBRecordStore recordStore = createOrOpenRecordStore(context);
         for (int j = 0; j < count; j++) {
-            saveRecord(true, start, recordStore, group);
+            saveRecordToSync(true, start, recordStore, group);
         }
     }
 
     public Tuple saveEmptyRecord(final long start, final FDBRecordStore recordStore, final int group) {
-        return saveRecord(false, start, recordStore, group);
+        return saveRecordToSync(false, start, recordStore, group);
     }
 
     public Tuple saveRecord(final long start, final FDBRecordStore recordStore, final int group) {
-        return saveRecord(true, start, recordStore, group);
+        return saveRecordToSync(true, start, recordStore, group);
     }
 
-    private Tuple saveRecord(final boolean withContent, final long start, final FDBRecordStore recordStore, final int group) {
+    private Tuple saveRecordToSync(final boolean withContent, final long start, final FDBRecordStore recordStore,
+                                   final int group) {
+        return recordStore.getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD,
+                saveRecordAsync(withContent, start, recordStore, group));
+    }
+
+    public CompletableFuture<Tuple> saveRecordAsync(final boolean withContent, final long start, final FDBRecordStore recordStore, final int group) {
         final Tuple groupTuple = calculateGroupTuple(isGrouped, group);
-        final int countInGroup = groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new ConcurrentHashMap<>()).size();
-        long timestamp = start + countInGroup + random.nextInt(20) - 5;
+        final int uniqueCounter = nextRecNoInGroup.computeIfAbsent(groupTuple, key -> new AtomicInteger(0))
+                .incrementAndGet();
+        long timestamp = start + uniqueCounter + random.nextInt(20) - 5;
+        return saveParentRecord(withContent, recordStore, group, uniqueCounter, timestamp)
+                .thenCompose(parentPrimaryKey -> {
+                    recordsUnderTest.put(parentPrimaryKey, new ParentRecord(groupTuple, parentPrimaryKey));
+                    if (isSynthetic) {
+                        return saveChildRecord(withContent, recordStore, group, uniqueCounter)
+                                .thenApply(childPrimaryKey -> createSyntheticPrimaryKey(recordStore, parentPrimaryKey, childPrimaryKey));
+                    } else {
+                        return CompletableFuture.completedFuture(parentPrimaryKey);
+                    }
+                })
+                .thenApply(primaryKey -> {
+                    groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new ConcurrentHashMap<>())
+                            .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
+                    return primaryKey;
+                });
+    }
+
+    @Nonnull
+    private static Tuple createSyntheticPrimaryKey(final FDBRecordStore recordStore, final Tuple parentPrimaryKey, final Tuple childPrimaryKey) {
+        final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
+                .getSyntheticRecordType("JoinChildren")
+                .getRecordTypeKeyTuple();
+        return Tuple.from(syntheticRecordTypeKey.getItems().get(0),
+                parentPrimaryKey.getItems(),
+                childPrimaryKey.getItems());
+    }
+
+    @Nonnull
+    private CompletableFuture<Tuple> saveParentRecord(final boolean withContent, final FDBRecordStore recordStore,
+                                                      final int group, final int uniqueCounter, final long timestamp) {
         var parentBuilder = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
                 .setGroup(group)
-                .setRecNo(1001L + countInGroup)
+                .setRecNo(1001L + uniqueCounter)
                 .setTimestamp(timestamp)
-                .setChildRecNo(1000L - countInGroup);
+                .setChildRecNo(1000L - uniqueCounter);
         if (withContent) {
             parentBuilder
                     .setTextValue(isSynthetic ? "This is not the text that goes in lucene"
@@ -192,32 +231,22 @@ public class LuceneIndexTestDataModel {
                     .setIntValue(random.nextInt());
         }
         var parent = parentBuilder.build();
-        Tuple primaryKey;
-        final Tuple parentPrimaryKey = recordStore.saveRecord(parent).getPrimaryKey();
-        recordsUnderTest.put(parentPrimaryKey, new ParentRecord(groupTuple, parentPrimaryKey));
-        if (isSynthetic) {
-            var childBuilder = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder()
-                    .setGroup(group)
-                    .setRecNo(1000L - countInGroup);
-            if (withContent) {
-                childBuilder
-                        .setStrValue(textGenerator.generateRandomText("forth"))
-                        .setOtherValue(random.nextInt());
-            }
-            var child = childBuilder.build();
-            final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
-                    .getSyntheticRecordType("JoinChildren")
-                    .getRecordTypeKeyTuple();
-            final Tuple childPrimaryKey = recordStore.saveRecord(child).getPrimaryKey();
-            primaryKey = Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                    parentPrimaryKey.getItems(),
-                    childPrimaryKey.getItems());
-        } else {
-            primaryKey = parentPrimaryKey;
+        return recordStore.saveRecordAsync(parent).thenApply(FDBStoredRecord::getPrimaryKey);
+    }
+
+
+    @Nonnull
+    private CompletableFuture<Tuple> saveChildRecord(final boolean withContent, final FDBRecordStore recordStore, final int group, final int countInGroup) {
+        var childBuilder = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder()
+                .setGroup(group)
+                .setRecNo(1000L - countInGroup);
+        if (withContent) {
+            childBuilder
+                    .setStrValue(textGenerator.generateRandomText("forth"))
+                    .setOtherValue(random.nextInt());
         }
-        groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new ConcurrentHashMap<>())
-                .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
-        return primaryKey;
+        var child = childBuilder.build();
+        return recordStore.saveRecordAsync(child).thenApply(FDBStoredRecord::getPrimaryKey);
     }
 
     public void validate(final Supplier<FDBRecordContext> openContext) throws IOException {
