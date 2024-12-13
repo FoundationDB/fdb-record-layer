@@ -284,6 +284,7 @@ public enum LogMessageKeys {
 
     // record count limits for reading/indexing
     LIMIT,
+    SCAN_LIMIT,
     OLD_LIMIT,
     RECORD_COUNT,
     RECORDS_SIZE_ESTIMATE,

@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
@@ -138,5 +139,18 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
                                                              @Nonnull final ScanProperties scanProperties,
                                                              int commonPrimaryKeyLength) {
         return scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
+    }
+
+    @Nullable
+    @Override
+    public IndexScrubbingTools<?> getIndexScrubbingTools(final IndexScrubbingTools.ScrubbingType type) {
+        switch (type) {
+            case MISSING:
+                return new ValueIndexScrubbingToolsMissing();
+            case DANGLING:
+                return new ValueIndexScrubbingToolsDangling();
+            default:
+                return null;
+        }
     }
 }
