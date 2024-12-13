@@ -876,19 +876,18 @@ public class StandardQueryTests {
         }
     }
 
-    // (TODO): more tests: 1) invalid param type lat(x loc) 2) return (x+1)
+    // (TODO): more tests: 1) invalid param type lat(x loc) 2) return (x+1) 3) nested functions
     @Test
     void testUserDefinedFunction() throws Exception {
         final String schemaTemplate = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
                 "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
                 "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
                 "CREATE FUNCTION lat(x Location) RETURNS string AS x.coord.latitude\n" +
-                "CREATE FUNCTION name(x Location) RETURNS string AS x.name\n" +
-                "CREATE FUNCTION latlon(x LATLON) RETURNS LATLON AS x";
+                "CREATE FUNCTION name(x Location) RETURNS string AS x.name\n";
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertLocationComplexRecord2(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
             }
             // (TODO): double quote around loc, to differentiate udf from scalar function call, better way of doing it?
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name((loc)) = ?name")) {
@@ -912,7 +911,7 @@ public class StandardQueryTests {
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertLocationComplexRecord2(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE lat(loc) = ?loc")) {
                 ps.setString("loc", "37.3");
@@ -934,7 +933,7 @@ public class StandardQueryTests {
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertLocationComplexRecord2(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
             }
             // (TODO): double quote around loc, to differentiate udf from scalar function call, better way of doing it?
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE id((uid)) = ?id")) {
@@ -949,7 +948,7 @@ public class StandardQueryTests {
         }
     }
 
-    private RelationalStruct insertLocationComplexRecord2(RelationalStatement s, long uid, @Nonnull final String name, String latitude, String longitude) throws SQLException {
+    private RelationalStruct insertLocationComplexRecord(RelationalStatement s, long uid, @Nonnull final String name, String latitude, String longitude) throws SQLException {
         var coord = EmbeddedRelationalStruct.newBuilder()
                 .addString("LATITUDE", latitude)
                 .addString("LONGITUDE", longitude)

@@ -258,8 +258,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         // special case for user-defined functions where we want to exclude the first argument from
         // being literal-stripped.
         @Nonnull Expressions arguments;
-        // check if this function exists in schema template
-        UDF udf = getDelegate().getCatalog().getUDF(functionName);
         // look up in FunctionCatalog
         boolean isUdf = getDelegate().getSemanticAnalyzer().isUdfFunction(functionName);
         if (isUdf) {

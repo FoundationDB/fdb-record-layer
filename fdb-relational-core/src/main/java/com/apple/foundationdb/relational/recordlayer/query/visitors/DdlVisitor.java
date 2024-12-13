@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
@@ -51,7 +50,6 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -183,21 +181,22 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public UserDefinedFunctionDefinition visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
-        final var id = visitFullId(ctx.fullId());
-        final var paramNameId = Identifier.of(ctx.paramName.getText().toUpperCase(Locale.ROOT));
-
         final var ddlCatalog = metadataBuilder.build();
         // parse the function definition using the newly constructed metadata.
         getDelegate().replaceCatalog(ddlCatalog);
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
 
-        final var inputcolumnTypeId = ctx.columnType(0).customType != null ? visitUid(ctx.columnType(0).customType) : Identifier.of(ctx.columnType(0).getText());
-        final var columnType = semanticAnalyzer.lookupType(inputcolumnTypeId, true, false, metadataBuilder::findType);
-
+        final var inputColumnId = ctx.columnType(0).customType != null ? visitUid(ctx.columnType(0).customType) : Identifier.of(ctx.columnType(0).getText());
+        final var columnType = semanticAnalyzer.lookupType(inputColumnId, true, false, metadataBuilder::findType);
         ObjectValue argumentValue = ObjectValue.of(CorrelationIdentifier.of("PARAM"), DataTypeUtils.toRecordLayerType(columnType));
-        Optional<Value> expression = semanticAnalyzer.resolveIdentifierInType(id, paramNameId, argumentValue);
-        Assert.thatUnchecked(expression.isPresent(), "couldn't resolve function definition");
-        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), expression.get(), argumentValue);
+
+        final var id = visitFullId(ctx.fullId());
+        final var paramNameId = Identifier.of(ctx.paramName.getText().toUpperCase(Locale.ROOT));
+
+        Optional<Value> functionValue = semanticAnalyzer.lookUpNestedField(id, paramNameId, argumentValue);
+        Assert.thatUnchecked(functionValue.isPresent(), "couldn't resolve function definition");
+
+        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), functionValue.get(), argumentValue);
     }
 
     @Nonnull
@@ -320,30 +319,5 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
-    }
-
-    private static RecordMetaDataProto.KeyExpression functionDefinitionToKeyExpression(String paramName, RelationalParser.ExpressionContext expressionContext) {
-        String[] fieldPath = expressionContext.getText().split("\\.");
-        Assert.thatUnchecked(fieldPath[0].equals(paramName), "Invalid function definition");
-        fieldPath[0] = "PARAM";
-        return arrayToKeyExpression(fieldPath);
-    }
-
-    @Nonnull
-    private static RecordMetaDataProto.KeyExpression arrayToKeyExpression(@Nonnull String[] nameArray) {
-        RecordMetaDataProto.KeyExpression.Builder builder = RecordMetaDataProto.KeyExpression.newBuilder();
-        if (nameArray.length == 1) {
-            return builder.setField(RecordMetaDataProto.Field.newBuilder()
-                    .setFieldName(nameArray[0])
-                    .setFanType(RecordMetaDataProto.Field.FanType.SCALAR))
-                    .build();
-        } else {
-            return builder.setNesting(RecordMetaDataProto.Nesting.newBuilder()
-                    .setParent(RecordMetaDataProto.Field.newBuilder()
-                            .setFieldName(nameArray[0])
-                            .setFanType(RecordMetaDataProto.Field.FanType.SCALAR))
-                    .setChild(arrayToKeyExpression(Arrays.copyOfRange(nameArray, 1, nameArray.length))))
-                    .build();
-        }
     }
 }
