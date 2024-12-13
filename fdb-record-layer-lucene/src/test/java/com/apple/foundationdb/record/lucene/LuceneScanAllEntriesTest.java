@@ -80,10 +80,10 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         try (FDBRecordContext context = openContext()) {
             final long start = Instant.now().toEpochMilli();
             final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
-            group1ContentDoc = dataModel.saveRecord(isGrouped, isSynthetic, start, store, 1);
-            group2ContentDoc = dataModel.saveRecord(isGrouped, isSynthetic, start, store, 2);
+            group1ContentDoc = dataModel.saveRecord(start, store, 1);
+            group2ContentDoc = dataModel.saveRecord(start, store, 2);
             if (includeEmptyDoc) {
-                group2EmptyDoc = dataModel.saveEmptyRecord(isGrouped, isSynthetic, start, store, 2);
+                group2EmptyDoc = dataModel.saveEmptyRecord(start, store, 2);
             }
             commit(context);
         }
