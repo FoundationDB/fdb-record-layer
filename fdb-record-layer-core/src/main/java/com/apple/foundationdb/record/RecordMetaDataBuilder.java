@@ -56,7 +56,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -1192,12 +1191,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void addUDF(@Nonnull UDF udf) {
-        // (TODO): check
         udfMap.put(udf.getUdfName(), udf);
-    }
-
-    public void addUDFs(@Nonnull Collection<UDF> udfList) {
-        udfList.forEach(this::addUDF);
     }
 
     public boolean isSplitLongRecords() {

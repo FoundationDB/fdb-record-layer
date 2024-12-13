@@ -52,6 +52,7 @@ public class UDF {
     @Nonnull
     public Value getArgumentValue() {return argumentValue;}
 
+    @Nonnull
     public RecordMetaDataProto.UDF toProto() {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
