@@ -243,6 +243,7 @@ message PValue {
     PFromOrderedBytesValue from_ordered_bytes_value = 43;
     PCollateValue collate_value = 44;
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
+    PQuantifiedRecordValue quantified_record_value = 46;
   }
 }
 
@@ -587,6 +588,11 @@ message PQuantifiedObjectValue {
   optional PType result_type = 2;
 }
 
+message PQuantifiedRecordValue {
+  optional string alias = 1;
+  optional PType result_type = 2;
+}
+
 message PQueriedValue {
   optional PType result_type = 1;
   optional bool has_record_type_names = 3;
@@ -903,7 +909,8 @@ message PVariadicFunctionValue {
 }
 
 message PVersionValue {
-  optional string base_alias = 1;
+  optional string base_alias = 1;  // to-be-deprecated
+  optional PQuantifiedRecordValue child = 2;
 }
 
 message PWindowedValue {

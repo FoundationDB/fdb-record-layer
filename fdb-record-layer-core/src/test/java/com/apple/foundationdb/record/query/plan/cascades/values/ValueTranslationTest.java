@@ -1205,7 +1205,27 @@ public class ValueTranslationTest {
         final var m3 = calculate(pv, p_v);
 
         final var computedMap = m3.getMap();
-        final var expectedMap = ImmutableMap.of(fv(t_, "a"), fv(t_, "a"));
+        final var expectedMap = ImmutableMap.of(
+                fv(__, "pk"), fv(__, "pk"), fv(__, "a"), fv(__, "a"));
+        Assertions.assertEquals(expectedMap, computedMap);
+    }
+
+    /**
+     * Test to establish that version(QRV(T') can be matched to any root on the candidate side.
+     */
+    @Test
+    public void maxMatchVersionToQovRoot() {
+        final var qrv = QuantifiedRecordValue.of(t_Alias, getTType());
+        final var versionValue = (VersionValue)new VersionValue.VersionFn().encapsulate(ImmutableList.of(qrv));
+        final var pv =
+                rcv(versionValue, rcv(t_));
+        final var p_v =
+                rcv(t_);
+
+        final var m3 = calculate(pv, p_v);
+        final var computedMap = m3.getMap();
+
+        final var expectedMap = ImmutableMap.of(qrv, rcv(t_), rcv(t_), rcv(t_));
         Assertions.assertEquals(expectedMap, computedMap);
     }
 

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -30,51 +29,47 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.planprotos.PVersionValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Supplier;
 
 /**
  * A value representing a version stamp derived from a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionValue extends AbstractValue implements QuantifiedValue {
+public class VersionValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
     @Nonnull
-    private final CorrelationIdentifier baseAlias;
+    private final QuantifiedRecordValue childValue;
 
-    public VersionValue(@Nonnull CorrelationIdentifier baseAlias) {
-        this.baseAlias = baseAlias;
-    }
-
-    @Nonnull
-    @Override
-    public CorrelationIdentifier getAlias() {
-        return baseAlias;
+    public VersionValue(@Nonnull final QuantifiedRecordValue childValue) {
+        this.childValue = childValue;
     }
 
     @Nullable
     @Override
+    @SuppressWarnings("unchecked")
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        QueryResult binding = (QueryResult) context.getBinding(Bindings.Internal.CORRELATION, baseAlias);
-        return binding.getQueriedRecordMaybe()
-                .map(FDBRecord::getVersion)
-                .orElse(null);
+        final var child = (FDBQueriedRecord<M>)Objects.requireNonNull(childValue.eval(store, context));
+        return child.getVersion();
     }
 
     @Nonnull
@@ -85,34 +80,44 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
-    }
-
-    @Nonnull
-    @Override
     protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
+        return ImmutableList.of(childValue);
     }
 
     @Nonnull
     @Override
-    public VersionValue rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
-        return new VersionValue(targetAlias);
-    }
-
-    @Nonnull
-    @Override
-    public VersionValue replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
-        return this;
-    }
-
-    @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedValue) {
-            return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public VersionValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+        final var newChild = Iterables.getOnlyElement(newChildren);
+        if (newChild == getChildQuantifiedRecordValue()) {
+            return this;
         }
-        return false;
+        if (newChild instanceof QuantifiedRecordValue) {
+            return new VersionValue((QuantifiedRecordValue)newChild);
+        }
+
+        //
+        // This is not a bona fide hack, but it is certainly in a gray area. It is okay to insist on the children to
+        // be of a certain form, like for instance in this case the child must be either a qrv or a qov, HOWEVER,
+        // we imply here that the qov also flows the hidden version information which needs to be ensured by the
+        // caller.
+        //
+        final var newChildQuantifiedObjectValue = (QuantifiedObjectValue)newChild;
+        return new VersionValue(QuantifiedRecordValue.of(newChildQuantifiedObjectValue.getAlias(),
+                newChildQuantifiedObjectValue.getResultType()));
+    }
+
+    @Nonnull
+    public QuantifiedRecordValue getChildQuantifiedRecordValue() {
+        return childValue;
+    }
+
+    @Nonnull
+    @Override
+    public ExplainInfo explain(@Nonnull final Formatter formatter,
+                               @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions) {
+        return ExplainInfo.of("version(" +
+                Iterables.getOnlyElement(explainFunctions).apply(formatter).getExplainString() + ")");
     }
 
     @Nonnull
@@ -153,7 +158,10 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @Nonnull
     @Override
     public PVersionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PVersionValue.newBuilder().setBaseAlias(baseAlias.getId()).build();
+        return PVersionValue.newBuilder()
+                .setBaseAlias(childValue.getAlias().getId())  // deprecated
+                .setChild(childValue.toProto(serializationContext))
+                .build();
     }
 
     @Nonnull
@@ -166,7 +174,16 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @SuppressWarnings("unused")
     public static VersionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PVersionValue versionValueProto) {
-        return new VersionValue(CorrelationIdentifier.of(Objects.requireNonNull(versionValueProto.getBaseAlias())));
+        if (versionValueProto.hasChild()) {
+            return new VersionValue(QuantifiedRecordValue.fromProto(serializationContext,
+                    Objects.requireNonNull(versionValueProto).getChild()));
+        } else {
+            // deprecated version -- we will have to fake the input type to be any record which should be ok
+            Verify.verify(versionValueProto.hasBaseAlias());
+            return new VersionValue(QuantifiedRecordValue.of(
+                    CorrelationIdentifier.of(Objects.requireNonNull(versionValueProto.getBaseAlias())),
+                    new Type.AnyRecord(false)));
+        }
     }
 
     /**
@@ -186,5 +203,23 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
                                       @Nonnull final PVersionValue versionValueProto) {
             return VersionValue.fromProto(serializationContext, versionValueProto);
         }
+    }
+
+    /**
+     * The {@code and} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class VersionFn extends BuiltInFunction<Value> {
+        public VersionFn() {
+            super("version",
+                    List.of(Type.any()),
+                    VersionValue::encapsulate);
+        }
+    }
+
+    private static Value encapsulate(@Nonnull final BuiltInFunction<Value> builtInFunction,
+                                     @Nonnull final List<? extends Typed> arguments) {
+        final var childQuantifiedRecordValue = (QuantifiedRecordValue)Iterables.getOnlyElement(arguments);
+        return new VersionValue(childQuantifiedRecordValue);
     }
 }

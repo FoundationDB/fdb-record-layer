@@ -89,7 +89,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A scalar value type.
@@ -268,7 +267,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             return false;
         }
 
-        return preOrderStream().flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
+        return preOrderStream().filter(value -> value instanceof QuantifiedValue)
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
     }
 

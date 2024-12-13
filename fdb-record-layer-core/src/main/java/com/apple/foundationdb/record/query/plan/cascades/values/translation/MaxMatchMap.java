@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.DefaultFormatter;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value.ExplainInfo;
@@ -37,8 +38,6 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -64,6 +63,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * Represents a max match between a (rewritten) query result {@link Value} and the candidate result {@link Value}.
@@ -72,7 +72,7 @@ public class MaxMatchMap {
     private static final Logger logger = LoggerFactory.getLogger(MaxMatchMap.class);
 
     @Nonnull
-    private final BiMap<Value, Value> mapping;
+    private final Map<Value, Value> mapping;
     @Nonnull
     private final Value queryValue; // in terms of the candidate quantifiers.
     @Nonnull
@@ -97,7 +97,7 @@ public class MaxMatchMap {
                 @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
                 @Nonnull final QueryPlanConstraint queryPlanConstraint,
                 @Nonnull final ValueEquivalence valueEquivalence) {
-        this.mapping = ImmutableBiMap.copyOf(mapping);
+        this.mapping = ImmutableMap.copyOf(mapping);
         this.queryValue = queryValue;
         this.candidateValue = candidateValue;
         this.rangedOverAliases = ImmutableSet.copyOf(rangedOverAliases);
@@ -139,7 +139,7 @@ public class MaxMatchMap {
     public Optional<Value> translateQueryValueMaybe(@Nonnull final CorrelationIdentifier candidateAlias) {
         final var candidateValue = getCandidateValue();
         final var pulledUpCandidateValueMap =
-                candidateValue.pullUp(mapping.values(),
+                candidateValue.pullUp(ImmutableSet.copyOf(mapping.values()), // values may contain duplicates
                         AliasMap.emptyMap(),
                         ImmutableSet.of(), candidateAlias);
         //
@@ -322,7 +322,8 @@ public class MaxMatchMap {
         //
         // Create a matcher for this level.
         //
-        final var currentMatcher = IncrementalValueMatcher.initial(currentQueryValue, candidateValue);
+        final var currentMatcher =
+                IncrementalValueMatcher.initial(currentQueryValue, candidateValue);
         localMatchers.push(currentMatcher);
         final var isCurrentMatching = currentMatcher.anyMatches();
 
@@ -524,6 +525,7 @@ public class MaxMatchMap {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Pair<BooleanWithConstraint, Value> findMatchingCandidateValue(@Nonnull final Value currentQueryValue,
                                                                                  @Nonnull final Value candidateValue,
                                                                                  @Nonnull final ValueEquivalence valueEquivalence) {
@@ -533,6 +535,12 @@ public class MaxMatchMap {
                 // operator's children can not be referenced.
                 // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
                 .preOrderIterable(v -> v instanceof RecordConstructorValue)) {
+            if (currentCandidateValue == candidateValue) {
+                if (currentQueryValue instanceof QuantifiedRecordValue) {
+                    return Pair.of(BooleanWithConstraint.alwaysTrue(), currentCandidateValue);
+                }
+            }
+
             final var semanticEquals =
                     currentQueryValue.semanticEquals(currentCandidateValue, valueEquivalence);
             if (semanticEquals.isTrue()) {
@@ -712,12 +720,20 @@ public class MaxMatchMap {
                 @Override
                 public List<NonnullPair<Value, QueryPlanConstraint>> computeMatchingCandidateValues() {
                     return Streams.stream(candidateRootValue.preOrderIterable(candidateValue -> candidateValue instanceof RecordConstructorValue))
-                            .flatMap(candidateValue ->
-                                    getCurrentQueryValue().equalsWithoutChildren(candidateValue)
-                                            .mapToOptional(Function.identity())
-                                            .stream()
-                                            .map(queryPlanConstraint ->
-                                                    NonnullPair.<Value, QueryPlanConstraint>of(candidateValue, queryPlanConstraint)))
+                            .flatMap(candidateValue -> {
+                                if (candidateValue == candidateRootValue) {
+                                    if (getCurrentQueryValue() instanceof QuantifiedRecordValue) {
+                                        return Stream.of(NonnullPair.<Value, QueryPlanConstraint>of(candidateValue,
+                                                QueryPlanConstraint.tautology()));
+                                    }
+                                }
+                                return getCurrentQueryValue().equalsWithoutChildren(candidateValue)
+                                        .mapToOptional(Function.identity())
+                                        .stream()
+                                        .map(queryPlanConstraint ->
+                                                NonnullPair.<Value, QueryPlanConstraint>of(candidateValue,
+                                                        queryPlanConstraint));
+                            })
                             .collect(ImmutableList.toImmutableList());
                 }
 
