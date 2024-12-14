@@ -195,6 +195,19 @@ public interface Compensation {
         }
     };
 
+    @Nonnull
+    default RelationalExpression applyAllNeededCompensations(@Nonnull final Memoizer memoizer,
+                                                             @Nonnull RelationalExpression relationalExpression) {
+        if (isNeededForFiltering()) {
+            relationalExpression = apply(memoizer, relationalExpression);
+        }
+        if (isFinalNeeded()) {
+            relationalExpression = applyFinal(memoizer, relationalExpression);
+        }
+
+        return relationalExpression;
+    }
+
     /**
      * When applied to a reference this method returns a {@link RelationalExpression} consuming the
      * reference passed in that applies additional predicates as expressed by the predicate compensation map.

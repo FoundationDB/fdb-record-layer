@@ -146,7 +146,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     public Value getTempTableReferenceValue() {
-        return tempTableReferenceValue;
+        return new QueriedValue(Objects.requireNonNull(
+                ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
     @Nonnull
@@ -182,7 +183,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValue());
+        return Objects.hash(tempTableReferenceValue);
     }
 
     @Override
@@ -200,7 +201,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getResultValue());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, tempTableReferenceValue);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }

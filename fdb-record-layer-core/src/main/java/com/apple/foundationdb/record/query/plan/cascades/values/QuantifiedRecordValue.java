@@ -86,7 +86,7 @@ public class QuantifiedRecordValue extends AbstractValue implements QuantifiedVa
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var binding = (QueryResult)context.getBinding(Bindings.Internal.CORRELATION, alias);
-        return binding.getDatum();
+        return binding.getQueriedRecord();
     }
 
     @Nonnull

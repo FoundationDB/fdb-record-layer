@@ -779,20 +779,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         if (compensation.isImpossible()) {
             return Optional.empty();
         }
-
-        if (!compensation.isNeeded()) {
-            return Optional.of(plan);
-        }
-
-        RelationalExpression compensatedPlan = plan;
-        if (compensation.isNeededForFiltering()) {
-            compensatedPlan = compensation.apply(memoizer, plan);
-        }
-        if (compensation.isFinalNeeded()) {
-            compensatedPlan = compensation.applyFinal(memoizer, compensatedPlan);
-        }
-
-        return Optional.of(compensatedPlan);
+        return Optional.of(compensation.applyAllNeededCompensations(memoizer, plan));
     }
     
     /**
@@ -881,9 +868,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
                                     comparisonOrderingParts, comparisonIsReverse);
                     final var compensatedIntersection =
-                            compensation.isNeeded()
-                            ? compensation.apply(memoizer, intersectionPlan)
-                            : intersectionPlan;
+                            compensation.applyAllNeededCompensations(memoizer, intersectionPlan);
                     expressionsBuilder.add(compensatedIntersection);
                 }
             }
