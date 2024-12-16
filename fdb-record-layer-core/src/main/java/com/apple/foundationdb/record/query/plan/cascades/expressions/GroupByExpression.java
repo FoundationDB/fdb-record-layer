@@ -382,7 +382,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
-        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp, nestingAlias);
+        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, nestingAlias);
         // if the match requires, for the moment, any, compensation, we reject it.
         final Optional<Compensation> childCompensationOptional =
                 regularMatchInfo.getChildPartialMatchMaybe(quantifier)

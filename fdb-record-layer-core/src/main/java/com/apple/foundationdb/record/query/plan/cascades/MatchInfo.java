@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -59,6 +63,10 @@ public interface MatchInfo {
 
     @Nonnull
     RegularMatchInfo getRegularMatchInfo();
+
+    @Nonnull
+    Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull RelationalExpression candidateExpression,
+                                                                           @Nonnull Set<QueryPredicate> interestingPredicates);
 
     @Nonnull
     default AdjustedBuilder adjustedBuilder() {
@@ -96,9 +104,6 @@ public interface MatchInfo {
         private final PredicateMultiMap predicateMap;
 
         @Nonnull
-        private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
-
-        @Nonnull
         private final List<MatchedOrderingPart> matchedOrderingParts;
 
         /**
@@ -131,12 +136,6 @@ public interface MatchInfo {
             });
             this.constraintsSupplier = Suppliers.memoize(this::computeConstraints);
             this.predicateMap = predicateMap;
-            this.accumulatedPredicateMapSupplier = Suppliers.memoize(() -> {
-                final PredicateMap.Builder targetBuilder = PredicateMap.builder();
-                collectPredicateMappings(targetBuilder);
-                return targetBuilder.build();
-            });
-
             this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
             this.maxMatchMap = maxMatchMap;
             this.additionalPlanConstraint = additionalPlanConstraint;
@@ -178,26 +177,46 @@ public interface MatchInfo {
         }
 
         @Nonnull
-        public PredicateMap getAccumulatedPredicateMap() {
-            return accumulatedPredicateMapSupplier.get();
-        }
+        @Override
+        public Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull final RelationalExpression candidateExpression,
+                                                                                      @Nonnull final Set<QueryPredicate> interestingPredicates) {
+            final var resultsMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
+            predicateMap.entries()
+                    .stream()
+                    .filter(entry -> interestingPredicates.contains(entry.getKey()))
+                    .forEach(entry -> resultsMap.put(entry.getKey(), entry.getValue()));
 
-        @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-        private void collectPredicateMappings(@Nonnull PredicateMultiMap.Builder targetBuilder) {
-            targetBuilder.putAll(predicateMap);
+            for (final var childPartialMatchEntry : partialMatchMap.entrySet()) {
+                final var queryQuantifier = childPartialMatchEntry.getKey().get();
+                final PartialMatch childPartialMatch = Objects.requireNonNull(childPartialMatchEntry.getValue().get());
+                final var nestingAlias =
+                        Objects.requireNonNull(bindingAliasMap.getTarget(queryQuantifier.getAlias()));
 
-            for (final Equivalence.Wrapper<PartialMatch> partialMatchWrapper : partialMatchMap.values()) {
-                final PartialMatch partialMatch = Objects.requireNonNull(partialMatchWrapper.get());
-                partialMatch.getRegularMatchInfo().collectPredicateMappings(targetBuilder);
+                final var childPredicateMappings =
+                        childPartialMatch.getPulledUpPredicateMappings(interestingPredicates);
+
+                final var pullUp = childPartialMatch.nestPullUp(null, nestingAlias);
+                for (final var childPredicateMappingEntry : childPredicateMappings.entrySet()) {
+                    final var originalQueryPredicate = childPredicateMappingEntry.getKey();
+                    final var childPredicateMapping = childPredicateMappingEntry.getValue();
+                    final var pulledUpPredicateOptional =
+                            childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpMaybe);
+                    pulledUpPredicateOptional.ifPresent(queryPredicate ->
+                            resultsMap.put(originalQueryPredicate,
+                                    childPredicateMapping.withTranslatedQueryPredicate(queryPredicate)));
+                }
             }
+            return resultsMap;
         }
 
         @Nonnull
+        @Override
         public List<MatchedOrderingPart> getMatchedOrderingParts() {
             return matchedOrderingParts;
         }
 
         @Nonnull
+        @Override
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
         }
@@ -225,7 +244,7 @@ public interface MatchInfo {
             final var constraints = predicateMap.getMap()
                     .values()
                     .stream()
-                    .map(PredicateMultiMap.PredicateMapping::getConstraint)
+                    .map(PredicateMapping::getConstraint)
                     .collect(Collectors.toUnmodifiableList());
             final var allConstraints =
                     ImmutableList.<QueryPlanConstraint>builder()
@@ -359,6 +378,36 @@ public interface MatchInfo {
         @Override
         public RegularMatchInfo getRegularMatchInfo() {
             return underlying.getRegularMatchInfo();
+        }
+
+        @Nonnull
+        @Override
+        public Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull final RelationalExpression candidateExpression,
+                                                                                      @Nonnull final Set<QueryPredicate> interestingPredicates) {
+            final var resultsMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
+
+            final var matchInfo = getUnderlying();
+            final var nestingQuantifier = Iterables.getOnlyElement(candidateExpression.getQuantifiers());
+            final var childCandidateExpression = nestingQuantifier.getRangesOver().get();
+
+            final var childPredicateMappings =
+                    matchInfo.collectPulledUpPredicateMappings(childCandidateExpression, interestingPredicates);
+
+            final var nestingVisitor =
+                    PullUp.visitor(null, nestingQuantifier.getAlias());
+            final var pullUp = nestingVisitor.visit(childCandidateExpression);
+
+            for (final var childPredicateMappingEntry : childPredicateMappings.entrySet()) {
+                final var originalQueryPredicate = childPredicateMappingEntry.getKey();
+                final var childPredicateMapping = childPredicateMappingEntry.getValue();
+                final var pulledUpPredicateOptional =
+                        childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpMaybe);
+                pulledUpPredicateOptional.ifPresent(queryPredicate ->
+                        resultsMap.put(originalQueryPredicate,
+                                childPredicateMapping.withTranslatedQueryPredicate(queryPredicate)));
+            }
+
+            return resultsMap;
         }
     }
 

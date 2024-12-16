@@ -158,7 +158,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                                    @Nonnull final CorrelationIdentifier nestingAlias) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
-        final var adjustedPullUp = partialMatch.nestPullUpForAdjustments(pullUp, nestingAlias);
+        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, nestingAlias);
         final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
 
         final PartialMatch childPartialMatch =

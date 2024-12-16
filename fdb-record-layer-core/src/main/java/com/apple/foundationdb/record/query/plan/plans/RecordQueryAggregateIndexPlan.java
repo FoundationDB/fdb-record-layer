@@ -253,8 +253,8 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap,
                 shouldSimplifyValues, translatedQuantifiers);
-        final var newResultValue = resultValue.translateCorrelations(translationMap);
-        final var newGroupByResultValue = groupByResultValue.translateCorrelations(translationMap);
+        final var newResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final var newGroupByResultValue = groupByResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
         if (translatedIndexPlan != indexPlan || newResultValue != resultValue || newGroupByResultValue != groupByResultValue) {
             return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, newResultValue,

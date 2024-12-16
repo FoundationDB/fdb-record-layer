@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +39,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -105,7 +110,13 @@ public class PartialMatch {
 
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier;
-    
+
+    @Nonnull
+    private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
+
+    @Nonnull
+    private final Map<QueryPredicate, Optional<PredicateMapping>> memoizedPulledUpPredicateMap;
+
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final Reference queryRef,
@@ -123,6 +134,8 @@ public class PartialMatch {
         this.matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
         this.unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
         this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
+        this.accumulatedPredicateMapSupplier = Suppliers.memoize(this::computeAccumulatedPredicateMap);
+        this.memoizedPulledUpPredicateMap = new LinkedIdentityMap<>();
     }
 
     @Nonnull
@@ -219,10 +232,10 @@ public class PartialMatch {
         // should be of class Placeholder). Note that there could be more than one query predicate mapping to a candidate
         // predicate.
         //
-        for (final var entry : matchInfo.getRegularMatchInfo().getAccumulatedPredicateMap().entries()) {
+        for (final var entry : getAccumulatedPredicateMap().entries()) {
             final var predicateMapping = entry.getValue();
 
-            if (predicateMapping.getMappingKind() != PredicateMultiMap.PredicateMapping.MappingKind.REGULAR_IMPLIES_CANDIDATE) {
+            if (predicateMapping.getMappingKind() != PredicateMapping.MappingKind.REGULAR_IMPLIES_CANDIDATE) {
                 continue;
             }
 
@@ -273,6 +286,67 @@ public class PartialMatch {
     }
 
     @Nonnull
+    public PredicateMap getAccumulatedPredicateMap() {
+        return accumulatedPredicateMapSupplier.get();
+    }
+
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    private PredicateMap computeAccumulatedPredicateMap() {
+        final var targetBuilder = PredicateMap.builder();
+        final var regularMatchInfo = getRegularMatchInfo();
+        targetBuilder.putAll(regularMatchInfo.getPredicateMap());
+
+        for (final Equivalence.Wrapper<PartialMatch> partialMatchWrapper : regularMatchInfo.getPartialMatchMap().values()) {
+            final PartialMatch childPartialMatch = Objects.requireNonNull(partialMatchWrapper.get());
+            targetBuilder.putAll(childPartialMatch.getAccumulatedPredicateMap());
+        }
+        return targetBuilder.build();
+    }
+
+    @Nonnull
+    public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(@Nonnull final Predicate<QueryPredicate> predicateFilter) {
+        final var interestingPredicates =
+                getAccumulatedPredicateMap().getMap()
+                        .keySet()
+                        .stream()
+                        .filter(predicateFilter)
+                        .collect(LinkedIdentitySet.toLinkedIdentitySet());
+
+        return getPulledUpPredicateMappings(interestingPredicates);
+    }
+
+    @Nonnull
+    public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(@Nonnull final Set<QueryPredicate> interestingPredicates) {
+        final var resultMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
+        final var unmemoizedInterestingPredicates = new LinkedIdentitySet<QueryPredicate>();
+        for (final var interestingPredicate : interestingPredicates) {
+            final var memoizedTranslatedPredicateMappingOptional =
+                    memoizedPulledUpPredicateMap.get(interestingPredicate);
+            if (memoizedTranslatedPredicateMappingOptional != null) {
+                memoizedTranslatedPredicateMappingOptional.ifPresent(predicateMapping ->
+                        resultMap.put(interestingPredicate, predicateMapping));
+            } else {
+                unmemoizedInterestingPredicates.add(interestingPredicate);
+            }
+        }
+
+        final var candidateExpression = candidateRef.get();
+        final var resultMapFromMatchInfo =
+                getMatchInfo().collectPulledUpPredicateMappings(candidateExpression, unmemoizedInterestingPredicates);
+        for (final var interestingPredicate : unmemoizedInterestingPredicates) {
+            final var memoizedPulledUpPredicateMapping =
+                    resultMapFromMatchInfo.get(interestingPredicate);
+            if (memoizedPulledUpPredicateMapping == null) {
+                memoizedPulledUpPredicateMap.put(interestingPredicate, Optional.empty());
+            } else {
+                memoizedPulledUpPredicateMap.put(interestingPredicate, Optional.of(memoizedPulledUpPredicateMapping));
+                resultMap.put(interestingPredicate, memoizedPulledUpPredicateMapping);
+            }
+        }
+        return resultMap;
+    }
+
+    @Nonnull
     public Compensation compensateCompleteMatch() {
         return queryExpression.compensate(this, getBoundParameterPrefixMap(), null, Quantifier.uniqueID());
     }
@@ -290,14 +364,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public PullUp nestPullUp(@Nonnull final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
-        final var candidateExpression = candidateRef.get();
-        final var pullUpVisitor = PullUp.visitor(pullUp, nestingAlias);
-        return pullUpVisitor.visit(candidateExpression);
-    }
-
-    @Nonnull
-    public PullUp nestPullUpForAdjustments(@Nullable final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
+    public PullUp nestPullUp(@Nullable final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
         var currentMatchInfo = getMatchInfo();
         var currentCandidateRef = candidateRef;
         var currentPullUp = pullUp;

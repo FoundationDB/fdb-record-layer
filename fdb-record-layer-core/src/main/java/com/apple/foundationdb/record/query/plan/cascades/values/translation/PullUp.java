@@ -163,7 +163,7 @@ public class PullUp {
         @Nonnull
         @Override
         public PullUp visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
-            return PullUp.of(parentPullUp, nestingAlias, logicalTypeFilterExpression.getInner().getAlias(),
+            return of(parentPullUp, nestingAlias, logicalTypeFilterExpression.getInner().getAlias(),
                     logicalTypeFilterExpression.getInner().getFlowedObjectType(),
                     Quantifiers.aliases(logicalTypeFilterExpression.getQuantifiers()));
         }
@@ -171,7 +171,7 @@ public class PullUp {
         @Nonnull
         @Override
         public PullUp visitDefault(@Nonnull final RelationalExpression relationalExpression) {
-            return PullUp.of(parentPullUp, nestingAlias, relationalExpression.getResultValue(),
+            return of(parentPullUp, nestingAlias, relationalExpression.getResultValue(),
                     Quantifiers.aliases(relationalExpression.getQuantifiers()));
         }
     }

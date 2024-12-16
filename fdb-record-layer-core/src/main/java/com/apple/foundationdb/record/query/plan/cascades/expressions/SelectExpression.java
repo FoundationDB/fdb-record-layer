@@ -754,7 +754,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var quantifiers = getQuantifiers();
 
         final var adjustedPullUp =
-                partialMatch.nestPullUpForAdjustments(pullUp, nestingAlias);
+                partialMatch.nestPullUp(pullUp, nestingAlias);
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
