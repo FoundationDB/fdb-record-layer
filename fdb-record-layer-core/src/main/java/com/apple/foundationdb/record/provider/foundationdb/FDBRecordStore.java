@@ -1347,6 +1347,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return context.instrument(FDBStoreTimer.Events.SCAN_REMOTE_FETCH_ENTRY, indexedRecordCursor);
     }
 
+
     @VisibleForTesting
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
