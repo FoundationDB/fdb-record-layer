@@ -56,6 +56,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -231,7 +232,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         for (RecordMetaDataProto.UDF udf: metaDataProto.getUdfsList()) {
-            udfMap.put(udf.getName(), new UDF(udf.getName(), Value.fromValueProto(serializationContext, udf.getValue()), Value.fromValueProto(serializationContext, udf.getArgumentValue())));
+            udfMap.put(udf.getName(), new UDF(udf.getName(), Value.fromValueProto(serializationContext, udf.getFunctionValue())));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1192,6 +1193,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     public void addUDF(@Nonnull UDF udf) {
         udfMap.put(udf.getUdfName(), udf);
+    }
+
+    public void addUDFs(@Nonnull Collection<UDF> udfs) {
+        udfs.forEach(udf -> udfMap.put(udf.getUdfName(), udf));
     }
 
     public boolean isSplitLongRecords() {

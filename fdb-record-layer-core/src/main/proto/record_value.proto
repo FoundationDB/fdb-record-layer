@@ -223,6 +223,7 @@ message PValue {
     PFromOrderedBytesValue from_ordered_bytes_value = 43;
     PCollateValue collate_value = 44;
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
+    PFunctionValue function_value = 46;
   }
 }
 
@@ -244,6 +245,13 @@ message PAndOrValue {
   optional PValue left_child = 2;
   optional PValue right_child = 3;
   optional POperator operator = 4;
+}
+
+message PFunctionValue {
+  optional string function_name = 1;
+  repeated PValue children = 2;
+  optional PValue underlying = 3;
+  optional PType result_type = 4;
 }
 
 message PArithmeticValue {

@@ -104,8 +104,7 @@ message MetaData {
 
 message UDF {
   optional string name = 1;
-  optional com.apple.foundationdb.record.planprotos.PValue value = 2;
-  optional com.apple.foundationdb.record.planprotos.PValue argument_value = 3;
+  optional com.apple.foundationdb.record.planprotos.PValue function_value = 3;
 }
 
 message Then {
