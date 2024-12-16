@@ -83,6 +83,18 @@ public class StringUtils {
         return true;
     }
 
+    /**
+     * Construct a {@link String} with {@code n} occurrences of a character {@code c}. If {@code n} is less
+     * than or equal to zero, the empty string will be returned. Note that if the character is
+     * in the high surrogate or low surrogate range (characters necessary to represent
+     * Unicode codepoints above U+FFFF in UTF-16), then the returned string will not be valid
+     * UTF-16.
+     *
+     * @param c a character
+     * @param n the number of times to repeat {@code c}
+     * @return a string with {@code n} occurrences of the string {@code c}
+     * @see Character for more on high and low surrogates
+     */
     public static String repeat(char c, int n) {
         if (n <= 0) {
             return "";
