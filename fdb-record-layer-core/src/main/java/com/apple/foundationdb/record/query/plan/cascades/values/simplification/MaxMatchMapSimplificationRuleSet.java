@@ -50,7 +50,7 @@ public class MaxMatchMapSimplificationRuleSet extends AbstractValueRuleSet<Value
     @Nonnull
     private static final MaxMatchMapSimplificationRuleSet INSTANCE = new MaxMatchMapSimplificationRuleSet();
 
-    protected MaxMatchMapSimplificationRuleSet() {
+    private MaxMatchMapSimplificationRuleSet() {
         super(SIMPLIFICATION_RULES, SIMPLIFICATION_DEPENDS_ON);
     }
 

@@ -51,7 +51,7 @@ public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Valu
     @Nonnull
     private static final DefaultValueSimplificationRuleSet INSTANCE = new DefaultValueSimplificationRuleSet();
 
-    protected DefaultValueSimplificationRuleSet() {
+    private DefaultValueSimplificationRuleSet() {
         super(SIMPLIFICATION_RULES, SIMPLIFICATION_DEPENDS_ON);
     }
 

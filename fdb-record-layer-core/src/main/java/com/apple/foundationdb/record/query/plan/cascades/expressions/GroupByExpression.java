@@ -66,6 +66,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,6 +74,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.alwaysTrue;
+import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.falseValue;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -282,7 +286,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         // check that the aggregate value is the same, and that the grouping value is the same.
         final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
-        final var otherGroupingValue = candidateGroupByExpression.getGroupingValue();
+        final var candidateGroupingValue = candidateGroupByExpression.getGroupingValue();
 
         final var valueEquivalence =
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
@@ -320,7 +324,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var subsumedGroupings =
                 subsumedAggregations
                         .compose(ignored -> groupingSubsumedBy(candidateGroupByExpression.getInner(),
-                                Objects.requireNonNull(partialMatchMap.getUnwrapped(inner)), otherGroupingValue,
+                                Objects.requireNonNull(partialMatchMap.getUnwrapped(inner)), candidateGroupingValue,
                                 translationMap, valueEquivalence));
 
         if (subsumedGroupings.isFalse()) {
@@ -343,31 +347,92 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     private BooleanWithConstraint groupingSubsumedBy(@Nonnull final Quantifier candidateInnerQuantifier,
                                                      @Nonnull final PartialMatch childMatch,
-                                                     @Nullable final Value otherGroupingValue,
+                                                     @Nullable final Value candidateGroupingValue,
                                                      @Nonnull final TranslationMap translationMap,
                                                      @Nonnull final ValueEquivalence valueEquivalence) {
-        if (groupingValue == null && otherGroupingValue == null) {
-            return BooleanWithConstraint.alwaysTrue();
+        if (groupingValue == null && candidateGroupingValue == null) {
+            return alwaysTrue();
         }
-        if (groupingValue == null || otherGroupingValue == null) {
-            return BooleanWithConstraint.falseValue();
+        if (candidateGroupingValue == null) {
+            return falseValue();
         }
 
-        final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap, true);
-        final var groupingValues =
-                Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
-                                () -> translatedGroupingValue).stream()
+        final Set<Value> groupingValues;
+        if (groupingValue != null) {
+            final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap, true);
+            groupingValues =
+                    Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
+                                    () -> translatedGroupingValue).stream()
+                            .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                    ImmutableSet.of()))
+                            .collect(ImmutableSet.toImmutableSet());
+        } else {
+            groupingValues = ImmutableSet.of();
+        }
+
+        final var candidateGroupingValues =
+                Values.primitiveAccessorsForType(candidateGroupingValue.getResultType(),
+                                () -> candidateGroupingValue).stream()
                         .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
                                 ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
 
-        final var otherGroupingValues =
-                Values.primitiveAccessorsForType(otherGroupingValue.getResultType(),
-                                () -> otherGroupingValue).stream()
-                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                ImmutableSet.of()))
-                        .collect(ImmutableSet.toImmutableSet());
+        //
+        // If there are more groupingValues than candidateGroupingValues, we cannot match the index.
+        //
+        if (groupingValues.size() > candidateGroupingValues.size()) {
+            return falseValue();
+        }
 
+        //
+        // Implicit group by value can be inferred if there is an equality-bound predicate:
+        //
+        //   query:                     candidate:
+        //       GROUP BY a, b              GROUP BY a, b, c
+        //       WHERE c = 5
+        //
+        // 1. Ensure that at least the values on the query side have a corresponding counterpart on the candidate side.
+        //    Form a set of candidate grouping values that cannot be matched in this way.
+        // 2. Pull up all already matched equality predicates from the child match.
+        // 3. For each candidate grouping value in the set of (yet) unmatched candidate group values, try to find a
+        //    predicate that binds that groupingValue.
+        //
+        final var unmatchedCandidateValues = new LinkedHashSet<>(candidateGroupingValues);
+        var booleanWithConstraint = alwaysTrue();
+        for (final var groupingPartValue : groupingValues) {
+            var found = false;
+
+            for (final var iterator = unmatchedCandidateValues.iterator(); iterator.hasNext(); ) {
+                final var candidateGroupingPartValue = iterator.next();
+                final var semanticEquals =
+                        groupingPartValue.semanticEquals(candidateGroupingPartValue, valueEquivalence);
+                if (semanticEquals.isTrue()) {
+                    found = true;
+                    booleanWithConstraint = booleanWithConstraint.composeWithOther(semanticEquals);
+                    iterator.remove();
+
+                    if (unmatchedCandidateValues.isEmpty()) {
+                        break;
+                    }
+                    // no unconditional break intentionally since there could be more than one match
+                }
+            }
+            if (!found) {
+                return falseValue();
+            }
+            if (unmatchedCandidateValues.isEmpty()) {
+                break;
+            }
+        }
+
+        if (unmatchedCandidateValues.isEmpty()) {
+            // return with a positive result if sets where in fact semantically equal
+            return booleanWithConstraint;
+        }
+
+        //
+        // Consult already bound predicates from the child match.
+        //
         final var equalityPredicates =
                 childMatch.pullUpToParent(candidateInnerQuantifier.getAlias(), predicate -> {
                     if (!(predicate instanceof PredicateWithValue)) {
@@ -391,7 +456,32 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                     return false;
                 });
 
-        return valueEquivalence.semanticEquals(groupingValues, otherGroupingValues);
+        for (final var predicateMapping : equalityPredicates.values()) {
+            final var translatedPredicate = predicateMapping.getTranslatedQueryPredicate();
+            if (translatedPredicate instanceof PredicateWithValue) {
+                final var comparedValue = Objects.requireNonNull(((PredicateWithValue)translatedPredicate).getValue());
+
+                for (final var iterator = unmatchedCandidateValues.iterator(); iterator.hasNext(); ) {
+                    final var candidateGroupingPartValue = iterator.next();
+                    final var semanticEquals =
+                            comparedValue.semanticEquals(candidateGroupingPartValue, valueEquivalence);
+                    if (semanticEquals.isTrue()) {
+                        booleanWithConstraint = booleanWithConstraint.composeWithOther(semanticEquals);
+                        iterator.remove();
+
+                        if (unmatchedCandidateValues.isEmpty()) {
+                            break;
+                        }
+                        // no unconditional break intentionally since there could be more than one match
+                    }
+                }
+                if (unmatchedCandidateValues.isEmpty()) {
+                    break;
+                }
+            }
+        }
+
+        return unmatchedCandidateValues.isEmpty() ? booleanWithConstraint : falseValue();
     }
 
     @Nonnull

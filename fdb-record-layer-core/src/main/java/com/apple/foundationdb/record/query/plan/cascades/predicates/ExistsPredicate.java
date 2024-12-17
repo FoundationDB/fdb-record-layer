@@ -212,7 +212,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                                                                      @Nonnull final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
         return computeCompensationFunction(partialMatch, (ExistsPredicate)originalQueryPredicate,
-                boundParameterPrefixMap, pullUp);
+                boundParameterPrefixMap);
     }
 
     /**
@@ -221,14 +221,12 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
      * {@link com.apple.foundationdb.record.query.plan.cascades.Compensation.ForMatch#apply(Memoizer, RelationalExpression)}.
      * @param partialMatch partial match to compute the compensation for
      * @param boundParameterPrefixMap the bound parameter prefix map
-     * @param pullUp the pull-up to be applied to the predicate.
      * @return a new {@link PredicateCompensationFunction}
      */
     @Nonnull
     private PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                       @Nonnull final ExistsPredicate originalExistsPredicate,
-                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                      @Nonnull final PullUp pullUp) {
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var childPartialMatchOptional =
                 regularMatchInfo.getChildPartialMatchMaybe(originalExistsPredicate.getExistentialAlias());

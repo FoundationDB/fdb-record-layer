@@ -123,7 +123,7 @@ public class PullUp {
         // this unrolled version probably performs better as this may prove to be a tight loop.
         //
         var currentValue = value;
-        for (var currentPullUp = this; ; ) {
+        for (var currentPullUp = this; ; currentPullUp = currentPullUp.getParentPullUp()) {
             final var maxMatchMap =
                     MaxMatchMap.calculate(currentValue, currentPullUp.getPullThroughValue(),
                             currentPullUp.getRangedOverAliases());
@@ -138,7 +138,6 @@ public class PullUp {
             if (currentPullUp.getParentPullUp() == null) {
                 return Optional.of(currentValue);
             }
-            currentPullUp = currentPullUp.getParentPullUp();
         }
     }
 

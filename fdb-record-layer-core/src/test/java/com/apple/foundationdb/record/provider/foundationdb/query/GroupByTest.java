@@ -239,7 +239,19 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
-        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[44]]")))));
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[42]]")))));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testAggregateIndexPlanningReversedGroupingOnlyImplicitGrouping() {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(false, false, GroupingKind.ONLY_IMPLICIT_GROUPING),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42, Hello World],[42, Hello World]]")))));
     }
 
     private enum GroupingKind {
@@ -351,13 +363,20 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
         // 3. construct the select expression on top containing the final result set
         {
-            final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 1), 0));
+            final var aggregateReference =
+                    Column.unnamedOf(FieldValue.ofOrdinalNumber(
+                            FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()),
+                                    groupingKind == GroupingKind.ONLY_IMPLICIT_GROUPING ? 0 : 1), 0));
 
             final var graphBuilder = GraphExpansion.builder()
                     .addQuantifier(qun);
 
             final var groupingReference =
-                    FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0);
+                    groupingKind == GroupingKind.ONLY_IMPLICIT_GROUPING
+                    ? null : FieldValue.ofOrdinalNumber(
+                            QuantifiedObjectValue.of(qun.getAlias(),
+                                    qun.getFlowedObjectType()), 0);
+
             final Value numValue2FieldValue;
             switch (groupingKind) {
                 case REGULAR_GROUPING: {

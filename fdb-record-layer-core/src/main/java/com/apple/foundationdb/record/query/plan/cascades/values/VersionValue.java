@@ -213,12 +213,12 @@ public class VersionValue extends AbstractValue {
         public VersionFn() {
             super("version",
                     List.of(Type.any()),
-                    VersionValue::encapsulate);
+                    (ignored, arguments) -> VersionValue.encapsulate(arguments));
         }
     }
 
-    private static Value encapsulate(@Nonnull final BuiltInFunction<Value> builtInFunction,
-                                     @Nonnull final List<? extends Typed> arguments) {
+    @Nonnull
+    private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         final var childQuantifiedRecordValue = (QuantifiedRecordValue)Iterables.getOnlyElement(arguments);
         return new VersionValue(childQuantifiedRecordValue);
     }

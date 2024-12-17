@@ -69,6 +69,7 @@ public interface LeafQueryPredicate extends QueryPredicate {
     }
 
     @Nonnull
+    @Override
     default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                                         @Nonnull final QueryPredicate originalQueryPredicate,
                                                                                         @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,

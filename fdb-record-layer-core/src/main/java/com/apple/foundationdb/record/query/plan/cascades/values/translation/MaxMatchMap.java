@@ -652,8 +652,8 @@ public class MaxMatchMap {
         public abstract List<NonnullPair<Value, QueryPlanConstraint>> computeMatchingCandidateValues();
 
         @Nonnull
-        public abstract ExplainInfo explain(@Nonnull final Formatter formatter,
-                                            @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions);
+        public abstract ExplainInfo explain(@Nonnull Formatter formatter,
+                                            @Nonnull Iterable<Function<Formatter, ExplainInfo>> explainFunctions);
 
         public boolean anyMatches() {
             return !getMatchingCandidateValues().isEmpty();
@@ -694,6 +694,7 @@ public class MaxMatchMap {
                 }
 
                 @Nonnull
+                @Override
                 public ExplainInfo explain(@Nonnull final Formatter formatter,
                                            @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions) {
                     Verify.verify(Iterables.size(explainFunctions) == Iterables.size(currentQueryValue.getChildren()));
@@ -738,6 +739,7 @@ public class MaxMatchMap {
                 }
 
                 @Nonnull
+                @Override
                 public ExplainInfo explain(@Nonnull final Formatter formatter,
                                            @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions) {
                     return getCurrentQueryValue().explain(formatter, explainFunctions);

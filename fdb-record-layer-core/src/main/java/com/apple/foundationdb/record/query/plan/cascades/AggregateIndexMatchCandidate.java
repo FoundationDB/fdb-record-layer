@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
-import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -522,27 +521,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, extractValue);
-        }
-    }
-
-    private static void addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                         @Nonnull FieldValue fieldValue,
-                                         @Nonnull AvailableFields.FieldData fieldData) {
-        // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
-        final var simplifiedFieldValue = (FieldValue)fieldValue.simplify(AliasMap.emptyMap(), ImmutableSet.of());
-        for (final var maybeFieldName : simplifiedFieldValue.getFieldPrefix().getOptionalFieldNames()) {
-            Verify.verify(maybeFieldName.isPresent());
-            builder = builder.getFieldBuilder(maybeFieldName.get());
-        }
-
-        // TODO not sure what to do with the null standing requirement
-
-        final var maybeFieldName = simplifiedFieldValue.getLastFieldName();
-        Verify.verify(maybeFieldName.isPresent());
-        final String fieldName = maybeFieldName.get();
-        if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(),
-                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
         }
     }
 

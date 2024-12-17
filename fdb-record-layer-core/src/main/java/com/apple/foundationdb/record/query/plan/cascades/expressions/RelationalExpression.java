@@ -806,7 +806,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     @Nonnull
     RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap,
-                                               final boolean shouldSimplifyValues,
+                                               boolean shouldSimplifyValues,
                                                @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     @Nonnull

@@ -803,7 +803,7 @@ public class Comparisons {
         }
 
         @Nonnull
-        Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction);
+        Optional<Comparison> replaceValuesMaybe(@Nonnull Function<Value, Optional<Value>> replacementFunction);
 
         /**
          * Get the comparison value without any bindings.
