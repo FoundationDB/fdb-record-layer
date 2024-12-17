@@ -191,20 +191,7 @@ public interface MatchInfo {
                 final PartialMatch childPartialMatch = Objects.requireNonNull(childPartialMatchEntry.getValue().get());
                 final var nestingAlias =
                         Objects.requireNonNull(bindingAliasMap.getTarget(queryQuantifier.getAlias()));
-
-                final var childPredicateMappings =
-                        childPartialMatch.getPulledUpPredicateMappings(interestingPredicates);
-
-                final var pullUp = childPartialMatch.nestPullUp(null, nestingAlias);
-                for (final var childPredicateMappingEntry : childPredicateMappings.entrySet()) {
-                    final var originalQueryPredicate = childPredicateMappingEntry.getKey();
-                    final var childPredicateMapping = childPredicateMappingEntry.getValue();
-                    final var pulledUpPredicateOptional =
-                            childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpMaybe);
-                    pulledUpPredicateOptional.ifPresent(queryPredicate ->
-                            resultsMap.put(originalQueryPredicate,
-                                    childPredicateMapping.withTranslatedQueryPredicate(queryPredicate)));
-                }
+                resultsMap.putAll(childPartialMatch.pullUpToParent(nestingAlias, interestingPredicates));
             }
             return resultsMap;
         }

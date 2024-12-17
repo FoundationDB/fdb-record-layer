@@ -304,6 +304,39 @@ public class PartialMatch {
     }
 
     @Nonnull
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier nestingAlias,
+                                                                @Nonnull final Predicate<QueryPredicate> predicateFilter) {
+        final var interestingPredicates =
+                getAccumulatedPredicateMap().getMap()
+                        .keySet()
+                        .stream()
+                        .filter(predicateFilter)
+                        .collect(LinkedIdentitySet.toLinkedIdentitySet());
+
+        return pullUpToParent(nestingAlias, interestingPredicates);
+    }
+
+    @Nonnull
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier nestingAlias,
+                                                                @Nonnull final Set<QueryPredicate> interestingPredicates) {
+        final var childPredicateMappings =
+                getPulledUpPredicateMappings(interestingPredicates);
+
+        final var resultsMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
+        final var pullUp = pullUp(nestingAlias);
+        for (final var childPredicateMappingEntry : childPredicateMappings.entrySet()) {
+            final var originalQueryPredicate = childPredicateMappingEntry.getKey();
+            final var childPredicateMapping = childPredicateMappingEntry.getValue();
+            final var pulledUpPredicateOptional =
+                    childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpMaybe);
+            pulledUpPredicateOptional.ifPresent(queryPredicate ->
+                    resultsMap.put(originalQueryPredicate,
+                            childPredicateMapping.withTranslatedQueryPredicate(queryPredicate)));
+        }
+        return resultsMap;
+    }
+
+    @Nonnull
     public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(@Nonnull final Predicate<QueryPredicate> predicateFilter) {
         final var interestingPredicates =
                 getAccumulatedPredicateMap().getMap()
@@ -361,6 +394,11 @@ public class PartialMatch {
     @Nonnull
     public Compensation compensateExistential(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueID());
+    }
+
+    @Nonnull
+    public PullUp pullUp(@Nonnull final CorrelationIdentifier nestingAlias) {
+        return nestPullUp(null, nestingAlias);
     }
 
     @Nonnull

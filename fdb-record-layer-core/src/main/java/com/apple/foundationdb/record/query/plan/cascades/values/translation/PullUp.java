@@ -143,9 +143,9 @@ public class PullUp {
     }
 
     @Nonnull
-    public static RelationalExpressionVisitor<PullUp> visitor(@Nullable final PullUp pullUp,
+    public static RelationalExpressionVisitor<PullUp> visitor(@Nullable final PullUp parentPullUp,
                                                               @Nonnull final CorrelationIdentifier nestingAlias) {
-        return new PullUpVisitor(pullUp, nestingAlias);
+        return new PullUpVisitor(parentPullUp, nestingAlias);
     }
 
     private static class PullUpVisitor implements RelationalExpressionVisitorWithDefaults<PullUp> {

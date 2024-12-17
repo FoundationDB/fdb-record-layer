@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -44,6 +45,9 @@ import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -140,6 +144,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
+    }
+
+    @Nonnull
+    public Quantifier getInner() {
+        return inner;
     }
 
     @Override
@@ -310,31 +319,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         final var subsumedGroupings =
                 subsumedAggregations
-                        .compose(ignored -> {
-                            if (groupingValue == null && otherGroupingValue == null) {
-                                return BooleanWithConstraint.alwaysTrue();
-                            }
-                            if (groupingValue == null || otherGroupingValue == null) {
-                                return BooleanWithConstraint.falseValue();
-                            }
-
-                            final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap);
-                            final var groupingValues =
-                                    Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
-                                                    () -> translatedGroupingValue).stream()
-                                            .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                                    ImmutableSet.of()))
-                                            .collect(ImmutableSet.toImmutableSet());
-
-                            final var otherGroupingValues =
-                                    Values.primitiveAccessorsForType(otherGroupingValue.getResultType(),
-                                                    () -> otherGroupingValue).stream()
-                                            .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                                    ImmutableSet.of()))
-                                            .collect(ImmutableSet.toImmutableSet());
-
-                            return valueEquivalence.semanticEquals(groupingValues, otherGroupingValues);
-                        });
+                        .compose(ignored -> groupingSubsumedBy(candidateGroupByExpression.getInner(),
+                                Objects.requireNonNull(partialMatchMap.getUnwrapped(inner)), otherGroupingValue,
+                                translationMap, valueEquivalence));
 
         if (subsumedGroupings.isFalse()) {
             return ImmutableList.of();
@@ -351,6 +338,60 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                         maxMatchMap, queryPlanConstraint)
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
+    }
+
+    @Nonnull
+    private BooleanWithConstraint groupingSubsumedBy(@Nonnull final Quantifier candidateInnerQuantifier,
+                                                     @Nonnull final PartialMatch childMatch,
+                                                     @Nullable final Value otherGroupingValue,
+                                                     @Nonnull final TranslationMap translationMap,
+                                                     @Nonnull final ValueEquivalence valueEquivalence) {
+        if (groupingValue == null && otherGroupingValue == null) {
+            return BooleanWithConstraint.alwaysTrue();
+        }
+        if (groupingValue == null || otherGroupingValue == null) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap, true);
+        final var groupingValues =
+                Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
+                                () -> translatedGroupingValue).stream()
+                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                ImmutableSet.of()))
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final var otherGroupingValues =
+                Values.primitiveAccessorsForType(otherGroupingValue.getResultType(),
+                                () -> otherGroupingValue).stream()
+                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
+                                ImmutableSet.of()))
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final var equalityPredicates =
+                childMatch.pullUpToParent(candidateInnerQuantifier.getAlias(), predicate -> {
+                    if (!(predicate instanceof PredicateWithValue)) {
+                        return false;
+                    }
+                    if (predicate instanceof PredicateWithComparisons) {
+                        final List<Comparisons.Comparison> comparisons;
+                        if (predicate instanceof PredicateWithValueAndRanges) {
+                            final var ranges = ((PredicateWithValueAndRanges)predicate).getRanges();
+                            if (ranges.size() == 1) {
+                                final var range = Iterables.getOnlyElement(ranges);
+                                comparisons = range.getComparisons();
+                            } else {
+                                return false;
+                            }
+                        } else {
+                            comparisons = ((PredicateWithComparisons)predicate).getComparisons();
+                        }
+                        return comparisons.stream().anyMatch(comparison -> comparison.getType() == Comparisons.Type.EQUALS);
+                    }
+                    return false;
+                });
+
+        return valueEquivalence.semanticEquals(groupingValues, otherGroupingValues);
     }
 
     @Nonnull
