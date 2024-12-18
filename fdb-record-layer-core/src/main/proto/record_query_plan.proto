@@ -910,7 +910,7 @@ message PVariadicFunctionValue {
 
 message PVersionValue {
   optional string base_alias = 1;  // to-be-deprecated
-  optional PQuantifiedRecordValue child = 2;
+  optional PValue child = 2;
 }
 
 message PWindowedValue {

@@ -169,9 +169,9 @@ public class QuantifiedRecordValue extends AbstractValue implements QuantifiedVa
 
     @Nonnull
     public static QuantifiedRecordValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PQuantifiedRecordValue quantifiedObjectValue) {
-        return new QuantifiedRecordValue(CorrelationIdentifier.of(Objects.requireNonNull(quantifiedObjectValue.getAlias())),
-                Type.fromTypeProto(serializationContext, Objects.requireNonNull(quantifiedObjectValue.getResultType())));
+                                                  @Nonnull final PQuantifiedRecordValue quantifiedRecordValueProto) {
+        return new QuantifiedRecordValue(CorrelationIdentifier.of(Objects.requireNonNull(quantifiedRecordValueProto.getAlias())),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(quantifiedRecordValueProto.getResultType())));
     }
 
     @Nonnull

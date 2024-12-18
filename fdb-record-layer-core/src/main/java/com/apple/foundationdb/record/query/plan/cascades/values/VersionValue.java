@@ -58,9 +58,9 @@ public class VersionValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
     @Nonnull
-    private final QuantifiedRecordValue childValue;
+    private final Value childValue;
 
-    public VersionValue(@Nonnull final QuantifiedRecordValue childValue) {
+    public VersionValue(@Nonnull final Value childValue) {
         this.childValue = childValue;
     }
 
@@ -92,24 +92,23 @@ public class VersionValue extends AbstractValue {
         if (newChild == getChildQuantifiedRecordValue()) {
             return this;
         }
-        if (newChild instanceof QuantifiedRecordValue) {
-            return new VersionValue((QuantifiedRecordValue)newChild);
+        if (newChild instanceof QuantifiedObjectValue) {
+            //
+            // This is not a bona fide hack, but it is certainly in a gray area. It is okay to insist on the children to
+            // be of a certain form, like for instance in this case the child must be either a qrv or a qov, HOWEVER,
+            // we imply here that the qov also flows the hidden version information which needs to be ensured by the
+            // caller.
+            //
+            final var newChildQuantifiedObjectValue = (QuantifiedObjectValue)newChild;
+            return new VersionValue(QuantifiedRecordValue.of(newChildQuantifiedObjectValue.getAlias(),
+                    newChildQuantifiedObjectValue.getResultType()));
         }
-
-        //
-        // This is not a bona fide hack, but it is certainly in a gray area. It is okay to insist on the children to
-        // be of a certain form, like for instance in this case the child must be either a qrv or a qov, HOWEVER,
-        // we imply here that the qov also flows the hidden version information which needs to be ensured by the
-        // caller.
-        //
-        final var newChildQuantifiedObjectValue = (QuantifiedObjectValue)newChild;
-        return new VersionValue(QuantifiedRecordValue.of(newChildQuantifiedObjectValue.getAlias(),
-                newChildQuantifiedObjectValue.getResultType()));
+        return new VersionValue(newChild);
     }
 
     @Nonnull
     public QuantifiedRecordValue getChildQuantifiedRecordValue() {
-        return childValue;
+        return (QuantifiedRecordValue)childValue;
     }
 
     @Nonnull
@@ -159,8 +158,8 @@ public class VersionValue extends AbstractValue {
     @Override
     public PVersionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PVersionValue.newBuilder()
-                .setBaseAlias(childValue.getAlias().getId())  // deprecated
-                .setChild(childValue.toProto(serializationContext))
+                .setBaseAlias(getChildQuantifiedRecordValue().getAlias().getId())  // deprecated
+                .setChild(childValue.toValueProto(serializationContext))
                 .build();
     }
 
@@ -175,7 +174,7 @@ public class VersionValue extends AbstractValue {
     public static VersionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PVersionValue versionValueProto) {
         if (versionValueProto.hasChild()) {
-            return new VersionValue(QuantifiedRecordValue.fromProto(serializationContext,
+            return new VersionValue(Value.fromValueProto(serializationContext,
                     Objects.requireNonNull(versionValueProto).getChild()));
         } else {
             // deprecated version -- we will have to fake the input type to be any record which should be ok

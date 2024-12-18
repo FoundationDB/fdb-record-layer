@@ -369,13 +369,14 @@ public interface Compensation {
                              @Nonnull final ResultCompensationFunction resultCompensationFunction) {
         //
         // At least one of these conditions must be true:
-        // - there are predicates that need to be compensated
+        // - it is an impossible compensation (in which case the predicate compensation map may be empty)
         // - we need to change the shape of the record
-        // - there may be unmatched quantifiers that we need to deal with
-        // - any of this compensation's children need to compensate for something
+        // - there are predicates that need to be compensated
+        // - there may be unmatched quantifiers that we need to deal with -- tested in isNeededForFiltering()
+        // - any of this compensation's children need to compensate for something -- tested in isNeededForFiltering()
         //
-        Verify.verify(!predicateCompensationMap.isEmpty() || resultCompensationFunction.isNeeded() ||
-                !unmatchedQuantifiers.isEmpty() || isNeededForFiltering());
+        Verify.verify(isImpossible || resultCompensationFunction.isNeeded() || isNeededForFiltering());
+
         return new ForMatch(isImpossible, this, predicateCompensationMap, matchedQuantifiers,
                 unmatchedQuantifiers, compensatedAliases, resultCompensationFunction);
     }

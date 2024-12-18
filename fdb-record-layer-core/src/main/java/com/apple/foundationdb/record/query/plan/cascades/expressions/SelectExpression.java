@@ -784,7 +784,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
         final var unmatchedQuantifierAliases =
                 unmatchedQuantifiers.stream().map(Quantifier::getAlias).collect(ImmutableList.toImmutableList());
-        boolean isImpossible = false;
+        boolean isAnyCompensationFunctionImpossible = false;
+        boolean isAnyCompensationFunctionNeeded = false;
 
         //
         // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
@@ -796,7 +797,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             final var predicateMappings = predicateMap.get(predicate);
             if (!predicateMappings.isEmpty()) {
                 if (predicate.getCorrelatedTo().stream().anyMatch(unmatchedQuantifierAliases::contains)) {
-                    isImpossible = true;
+                    isAnyCompensationFunctionImpossible = true;
                 }
 
                 //
@@ -828,8 +829,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 }
 
                 if (isCompensationFunctionNeeded) {
+                    isAnyCompensationFunctionNeeded = true;
                     if (isCompensationFunctionImpossible) {
-                        isImpossible = true;
+                        isAnyCompensationFunctionImpossible = true;
                     } else {
                         predicateCompensationMap.put(predicate, Objects.requireNonNull(compensationFunction));
                     }
@@ -858,7 +860,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         final var isCompensationNeeded =
                 !unmatchedQuantifiers.isEmpty() ||
-                        !predicateCompensationMap.isEmpty() ||
+                        isAnyCompensationFunctionNeeded ||
                         resultCompensationFunction.isNeeded();
 
         if (!isCompensationNeeded) {
@@ -878,7 +880,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return Compensation.impossibleCompensation();
         }
 
-        return childCompensation.derived(isImpossible,
+        return childCompensation.derived(isAnyCompensationFunctionImpossible,
                 predicateCompensationMap,
                 getMatchedQuantifiers(partialMatch),
                 partialMatch.getUnmatchedQuantifiers(),
