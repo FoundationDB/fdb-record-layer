@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -53,7 +53,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         this.groupedCount = groupedCount;
     }
 
-    public GroupingKeyExpression(@Nonnull RecordMetaDataProto.Grouping grouping) throws DeserializationException {
+    public GroupingKeyExpression(@Nonnull RecordKeyExpressionProto.Grouping grouping) throws DeserializationException {
         this(KeyExpression.fromProto(grouping.getWholeKey()), grouping.getGroupedCount());
     }
 
@@ -100,8 +100,8 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Grouping toProto() throws SerializationException {
-        final RecordMetaDataProto.Grouping.Builder builder = RecordMetaDataProto.Grouping.newBuilder();
+    public RecordKeyExpressionProto.Grouping toProto() throws SerializationException {
+        final RecordKeyExpressionProto.Grouping.Builder builder = RecordKeyExpressionProto.Grouping.newBuilder();
         builder.setWholeKey(getWholeKey().toKeyExpression());
         builder.setGroupedCount(groupedCount);
         return builder.build();
@@ -109,8 +109,8 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setGrouping(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setGrouping(toProto()).build();
     }
 
     @Nonnull

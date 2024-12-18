@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PC
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PFieldCopier;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PFieldWithValueCopier;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PMessageCopier;
-import com.apple.foundationdb.record.planprotos.PTupleSource;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -195,14 +194,14 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PTupleSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PIndexKeyValueToPartialRecord.PTupleSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case KEY:
-                    return PTupleSource.KEY;
+                    return PIndexKeyValueToPartialRecord.PTupleSource.KEY;
                 case VALUE:
-                    return PTupleSource.VALUE;
+                    return PIndexKeyValueToPartialRecord.PTupleSource.VALUE;
                 case OTHER:
-                    return PTupleSource.OTHER;
+                    return PIndexKeyValueToPartialRecord.PTupleSource.OTHER;
                 default:
                     throw new RecordCoreException("unknown tuple source mapping. did you forget to add it?");
             }
@@ -211,7 +210,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         @Nonnull
         @SuppressWarnings("unused")
         public static TupleSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PTupleSource tupleSourceProto) {
+                                            @Nonnull final PIndexKeyValueToPartialRecord.PTupleSource tupleSourceProto) {
             switch (tupleSourceProto) {
                 case KEY:
                     return KEY;

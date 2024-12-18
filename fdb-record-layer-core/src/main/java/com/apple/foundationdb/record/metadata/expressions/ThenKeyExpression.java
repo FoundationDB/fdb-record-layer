@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -75,9 +75,9 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         }
     }
 
-    public ThenKeyExpression(@Nonnull RecordMetaDataProto.Then then) throws DeserializationException {
+    public ThenKeyExpression(@Nonnull RecordKeyExpressionProto.Then then) throws DeserializationException {
         children = new ArrayList<>(then.getChildCount());
-        for (RecordMetaDataProto.KeyExpression child : then.getChildList()) {
+        for (RecordKeyExpressionProto.KeyExpression child : then.getChildList()) {
             final KeyExpression expression = KeyExpression.fromProto(child);
             add(children, expression);
         }
@@ -171,8 +171,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Then toProto() throws SerializationException {
-        final RecordMetaDataProto.Then.Builder builder = RecordMetaDataProto.Then.newBuilder();
+    public RecordKeyExpressionProto.Then toProto() throws SerializationException {
+        final RecordKeyExpressionProto.Then.Builder builder = RecordKeyExpressionProto.Then.newBuilder();
         for (KeyExpression child : children) {
             builder.addChild(child.toKeyExpression());
         }
@@ -181,8 +181,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     @Nonnull
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setThen(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setThen(toProto()).build();
     }
 
     @Nonnull

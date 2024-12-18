@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
@@ -165,28 +165,28 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
          * Convert a repeated field into a single list.
          * This does not cause the number of index values to increase.
          */
-        Concatenate(RecordMetaDataProto.Field.FanType.CONCATENATE),
+        Concatenate(RecordKeyExpressionProto.Field.FanType.CONCATENATE),
         /**
          * Create an index value for each value of the field.
          */
-        FanOut(RecordMetaDataProto.Field.FanType.FAN_OUT),
+        FanOut(RecordKeyExpressionProto.Field.FanType.FAN_OUT),
         /**
          * Nothing, only allowed with scalar fields.
          */
-        None(RecordMetaDataProto.Field.FanType.SCALAR);
+        None(RecordKeyExpressionProto.Field.FanType.SCALAR);
 
-        private RecordMetaDataProto.Field.FanType proto;
+        private RecordKeyExpressionProto.Field.FanType proto;
 
-        FanType(RecordMetaDataProto.Field.FanType fanType) {
+        FanType(RecordKeyExpressionProto.Field.FanType fanType) {
 
             proto = fanType;
         }
 
-        RecordMetaDataProto.Field.FanType toProto() {
+        RecordKeyExpressionProto.Field.FanType toProto() {
             return proto;
         }
 
-        public static FanType valueOf(RecordMetaDataProto.Field.FanType fanType) throws DeserializationException {
+        public static FanType valueOf(RecordKeyExpressionProto.Field.FanType fanType) throws DeserializationException {
             switch (fanType) {
                 case SCALAR:
                     return None;
@@ -204,7 +204,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     Message toProto() throws SerializationException;
 
     @Nonnull
-    RecordMetaDataProto.KeyExpression toKeyExpression();
+    RecordKeyExpressionProto.KeyExpression toKeyExpression();
 
     /**
      * Get key in normalized form for comparing field-by-field.
@@ -339,7 +339,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     @Nonnull
-    static KeyExpression fromProto(RecordMetaDataProto.KeyExpression expression)
+    static KeyExpression fromProto(RecordKeyExpressionProto.KeyExpression expression)
             throws DeserializationException {
         KeyExpression root = null;
         int found = 0;

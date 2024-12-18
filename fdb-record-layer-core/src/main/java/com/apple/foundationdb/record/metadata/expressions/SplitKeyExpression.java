@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -56,7 +56,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         this.splitSize = splitSize;
     }
 
-    public SplitKeyExpression(@Nonnull RecordMetaDataProto.Split split) throws DeserializationException {
+    public SplitKeyExpression(@Nonnull RecordKeyExpressionProto.Split split) throws DeserializationException {
         this(KeyExpression.fromProto(split.getJoined()), split.getSplitSize());
     }
 
@@ -110,8 +110,8 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Split toProto() throws SerializationException {
-        final RecordMetaDataProto.Split.Builder builder = RecordMetaDataProto.Split.newBuilder();
+    public RecordKeyExpressionProto.Split toProto() throws SerializationException {
+        final RecordKeyExpressionProto.Split.Builder builder = RecordKeyExpressionProto.Split.newBuilder();
         builder.setJoined(getJoined().toKeyExpression());
         builder.setSplitSize(splitSize);
         return builder.build();
@@ -119,8 +119,8 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setSplit(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setSplit(toProto()).build();
     }
 
     @Nonnull

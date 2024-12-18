@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -392,21 +393,21 @@ public class Key {
          * Values used in index keys in place of missing fields.
          */
         public enum NullStandin {
-            NULL(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE), // Missing field here skips uniqueness checks.
-            NULL_UNIQUE(RecordMetaDataProto.Field.NullInterpretation.UNIQUE), // Missing field here like ordinary value, but null, for uniqueness.
-            NOT_NULL(RecordMetaDataProto.Field.NullInterpretation.NOT_NULL); // Missing field has type's ordinary default value.
+            NULL(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE), // Missing field here skips uniqueness checks.
+            NULL_UNIQUE(RecordKeyExpressionProto.Field.NullInterpretation.UNIQUE), // Missing field here like ordinary value, but null, for uniqueness.
+            NOT_NULL(RecordKeyExpressionProto.Field.NullInterpretation.NOT_NULL); // Missing field has type's ordinary default value.
 
-            private RecordMetaDataProto.Field.NullInterpretation proto;
+            private RecordKeyExpressionProto.Field.NullInterpretation proto;
 
-            NullStandin(RecordMetaDataProto.Field.NullInterpretation nullInterpretation) {
+            NullStandin(RecordKeyExpressionProto.Field.NullInterpretation nullInterpretation) {
                 proto = nullInterpretation;
             }
 
-            public RecordMetaDataProto.Field.NullInterpretation toProto() {
+            public RecordKeyExpressionProto.Field.NullInterpretation toProto() {
                 return proto;
             }
 
-            public static NullStandin valueOf(RecordMetaDataProto.Field.NullInterpretation nullInterpretation) throws KeyExpression.DeserializationException {
+            public static NullStandin valueOf(RecordKeyExpressionProto.Field.NullInterpretation nullInterpretation) throws KeyExpression.DeserializationException {
                 switch (nullInterpretation) {
                     case NOT_UNIQUE:
                         return NULL;

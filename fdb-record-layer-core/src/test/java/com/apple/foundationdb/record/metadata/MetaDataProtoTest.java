@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
@@ -270,10 +271,10 @@ public class MetaDataProtoTest {
         }
     }
 
-    public static RecordMetaDataProto.Field.Builder scalarField(String name) {
-        return RecordMetaDataProto.Field.newBuilder()
+    public static RecordKeyExpressionProto.Field.Builder scalarField(String name) {
+        return RecordKeyExpressionProto.Field.newBuilder()
                 .setFieldName(name)
-                .setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+                .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR);
     }
 
     @Test
@@ -287,23 +288,23 @@ public class MetaDataProtoTest {
                 .setType(IndexTypes.VERSION)
                 .addRecordType("MyRecord")
                 .setRootExpression(
-                        RecordMetaDataProto.KeyExpression.newBuilder()
-                                .setNesting(RecordMetaDataProto.Nesting.newBuilder()
+                        RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
                                         .setParent(scalarField("header"))
-                                        .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                                .setThen(RecordMetaDataProto.Then.newBuilder()
-                                                        .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
+                                        .setChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                                .setThen(RecordKeyExpressionProto.Then.newBuilder()
+                                                        .addChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
                                                                 .setField(scalarField("num")))
-                                                        .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                                                .setVersion(RecordMetaDataProto.Version.getDefaultInstance()))))));
+                                                        .addChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                                                .setVersion(RecordKeyExpressionProto.Version.getDefaultInstance()))))));
 
         protoBuilder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder()
                 .setName("MyRecord")
                 .setPrimaryKey(
-                        RecordMetaDataProto.KeyExpression.newBuilder()
-                                .setNesting(RecordMetaDataProto.Nesting.newBuilder()
+                        RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
                                         .setParent(scalarField("header"))
-                                        .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
+                                        .setChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
                                                 .setField(scalarField("rec_no"))))));
 
         RecordMetaData metaData = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES)
@@ -326,25 +327,25 @@ public class MetaDataProtoTest {
                 .setName("RecordCount")
                 .setType(IndexTypes.COUNT)
                 .addRecordType("MyModernRecord")
-                .setRootExpression(RecordMetaDataProto.KeyExpression.newBuilder()
-                        .setEmpty(RecordMetaDataProto.Empty.getDefaultInstance()));
+                .setRootExpression(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                        .setEmpty(RecordKeyExpressionProto.Empty.getDefaultInstance()));
 
         protoBuilder.addIndexesBuilder()
                 .setName("MaxRecNo")
                 .setType(IndexTypes.MAX_EVER)
                 .addRecordType("MyModernRecord")
-                .setRootExpression(RecordMetaDataProto.KeyExpression.newBuilder()
+                .setRootExpression(RecordKeyExpressionProto.KeyExpression.newBuilder()
                         .setField(scalarField("rec_no")));
 
         protoBuilder.addIndexesBuilder()
                 .setName("MaxRecNoGrouped")
                 .setType(IndexTypes.MAX_EVER)
                 .addRecordType("MyModernRecord")
-                .setRootExpression(RecordMetaDataProto.KeyExpression.newBuilder()
-                        .setThen(RecordMetaDataProto.Then.newBuilder()
-                                .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
+                .setRootExpression(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                        .setThen(RecordKeyExpressionProto.Then.newBuilder()
+                                .addChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
                                         .setField(scalarField("index")))
-                                .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
+                                .addChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
                                         .setField(scalarField("rec_no")))));
 
         RecordMetaData metaData = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES).setRecords(protoBuilder.build(), true).getRecordMetaData();

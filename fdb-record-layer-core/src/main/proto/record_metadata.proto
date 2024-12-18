@@ -21,7 +21,8 @@ syntax = "proto2";
 
 package com.apple.foundationdb.record;
 import "google/protobuf/descriptor.proto";
-import "record_value.proto";
+import "record_key_expression.proto";
+import "record_query_plan.proto";
 
 option java_outer_classname = "RecordMetaDataProto";
 
@@ -72,7 +73,7 @@ message RecordType {
   required string name = 1;
   optional KeyExpression primary_key = 2;
   optional int32 since_version = 3;
-  optional com.apple.foundationdb.record.planprotos.Value explicit_key = 4;
+  optional Value explicit_key = 4;
   extensions 1000 to 2000;
 }
 
@@ -103,94 +104,15 @@ message MetaData {
 }
 
 message UDF {
-  optional string name = 1;
-  optional com.apple.foundationdb.record.planprotos.PValue function_value = 3;
+  optional string function_name = 1;
+  optional com.apple.foundationdb.record.planprotos.PValue function_value = 2;
 }
 
-message Then {
-  repeated KeyExpression child = 1;
-}
 
-message List {
-  repeated KeyExpression child = 1;
-}
-
-message Field {
-  required string field_name = 1;
-  required FanType fan_type = 2;
-  enum FanType {
-    SCALAR = 1;
-    FAN_OUT = 2;
-    CONCATENATE = 3;
-  }
-  optional NullInterpretation nullInterpretation = 3 [default = NOT_UNIQUE];
-  enum NullInterpretation {
-    NOT_UNIQUE = 1; // Missing values allowed multiple times in unique index
-    UNIQUE = 2;     // Missing values treated like null value in unique index
-    NOT_NULL = 3;   // Missing values are the default for the type, not null
-  }
-}
-
-message Nesting {
-  optional Field parent = 1;
-  optional KeyExpression child = 2;
-}
-
-message Grouping {
-  required KeyExpression whole_key = 1;
-  optional int32 grouped_count = 3 [default = 1];
-}
-
-message Dimensions {
-  required KeyExpression whole_key = 1;
-  optional int32 prefix_size = 2;
-  optional int32 dimensions_size = 3;
-}
-
-message KeyWithValue {
-  required KeyExpression inner_key = 1;
-  optional int32 split_point = 2 [default = 1];
-}
-
-message Split {
-  required KeyExpression joined = 1;
-  optional int32 split_size = 2;
-}
-
-message Empty {
-}
-
-message Version {
-}
-
-message RecordTypeKey {
-}
-
-message Function {
-  required string name = 1;
-  required KeyExpression arguments = 2;
-}
-
-message KeyExpression {
-  // Exactly one of the following:
-  optional Then then = 1;
-  optional Nesting nesting = 2;
-  optional Field field = 3;
-  optional Grouping grouping = 4;
-  optional Empty empty = 5;
-  optional Split split = 6;
-  optional Version version = 7;
-  optional com.apple.foundationdb.record.planprotos.Value value = 8;
-  optional Function function = 9;
-  optional KeyWithValue key_with_value = 10;
-  optional RecordTypeKey record_type_key = 11;
-  optional List list = 12;
-  optional Dimensions dimensions = 13;
-}
 
 message JoinedRecordType {
   optional string name = 1;
-  optional com.apple.foundationdb.record.planprotos.Value record_type_key = 4;
+  optional Value record_type_key = 4;
 
   message JoinConstituent {
     optional string name = 1;
@@ -211,7 +133,7 @@ message JoinedRecordType {
 
 message UnnestedRecordType {
   optional string name = 1;
-  optional com.apple.foundationdb.record.planprotos.Value record_type_key = 2;
+  optional Value record_type_key = 2;
 
   message NestedConstituent {
     optional string name = 1;
@@ -239,7 +161,7 @@ enum ComparisonType {
 
 message SimpleComparison {
   optional ComparisonType type = 1;
-  optional com.apple.foundationdb.record.planprotos.Value operand = 2;
+  optional Value operand = 2;
 }
 
 // in Comparisons.Comparison we have a special NullComparison that takes care of comparing

@@ -232,7 +232,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         for (RecordMetaDataProto.UDF udf: metaDataProto.getUdfsList()) {
-            udfMap.put(udf.getName(), new UDF(udf.getName(), Value.fromValueProto(serializationContext, udf.getFunctionValue())));
+            udfMap.put(udf.getFunctionName(), new UDF(udf.getFunctionName(), Value.fromValueProto(serializationContext, udf.getFunctionValue())));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1192,11 +1192,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void addUDF(@Nonnull UDF udf) {
-        udfMap.put(udf.getUdfName(), udf);
+        udfMap.put(udf.getFunctionName(), udf);
     }
 
     public void addUDFs(@Nonnull Collection<UDF> udfs) {
-        udfs.forEach(udf -> udfMap.put(udf.getUdfName(), udf));
+        udfs.forEach(udf -> udfMap.put(udf.getFunctionName(), udf));
     }
 
     public boolean isSplitLongRecords() {

@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -79,7 +79,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
         children = orig.children.subList(start, end);
     }
 
-    public ListKeyExpression(@Nonnull RecordMetaDataProto.List list) throws DeserializationException {
+    public ListKeyExpression(@Nonnull RecordKeyExpressionProto.List list) throws DeserializationException {
         children = list.getChildList().stream().map(KeyExpression::fromProto).collect(Collectors.toList());
     }
 
@@ -140,8 +140,8 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.List toProto() throws SerializationException {
-        final RecordMetaDataProto.List.Builder builder = RecordMetaDataProto.List.newBuilder();
+    public RecordKeyExpressionProto.List toProto() throws SerializationException {
+        final RecordKeyExpressionProto.List.Builder builder = RecordKeyExpressionProto.List.newBuilder();
         for (KeyExpression child : children) {
             builder.addChild(child.toKeyExpression());
         }
@@ -150,8 +150,8 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     @Nonnull
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setList(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setList(toProto()).build();
     }
 
     @Nonnull

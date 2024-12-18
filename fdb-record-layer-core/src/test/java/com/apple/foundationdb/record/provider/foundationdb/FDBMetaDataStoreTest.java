@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ProtoVersionSupplier;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestNoUnionEvolvedIllegalProto;
 import com.apple.foundationdb.record.TestNoUnionEvolvedProto;
@@ -191,7 +192,7 @@ public class FDBMetaDataStoreTest {
                 metaData.addRecordTypesBuilder()
                         .setName("type_" + ri)
                         .getPrimaryKeyBuilder().getFieldBuilder()
-                            .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
+                            .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR)
                             .setFieldName("field_1");
             }
 
@@ -218,10 +219,10 @@ public class FDBMetaDataStoreTest {
             metaData.setRecords(TestRecords1Proto.getDescriptor().toProto());
             metaData.addRecordTypesBuilder()
                     .setName("MySimpleRecord")
-                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR);
             metaData.addRecordTypesBuilder()
                     .setName("MyOtherRecord")
-                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR);
             metaData.setVersion(101);
             metaDataStore.saveRecordMetaData(metaData.build());
 
@@ -259,7 +260,7 @@ public class FDBMetaDataStoreTest {
             metaData.setRecords(TestRecords1Proto.getDescriptor().toProto());
             metaData.addRecordTypesBuilder()
                     .setName("MySimpleRecord")
-                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR);
             metaData.addIndexesBuilder()
                     .setName("MyIndex")
                     .addRecordType("MySimpleRecord")
@@ -267,10 +268,10 @@ public class FDBMetaDataStoreTest {
                     .setLastModifiedVersion(102)
                     .getRootExpressionBuilder().getFieldBuilder()
                     .setFieldName("num_value_2")
-                    .setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+                    .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR);
             metaData.addRecordTypesBuilder()
                     .setName("MyOtherRecord")
-                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR);
             metaData.setVersion(102);
             metaDataStore.saveRecordMetaData(metaData.build());
             context.commit();

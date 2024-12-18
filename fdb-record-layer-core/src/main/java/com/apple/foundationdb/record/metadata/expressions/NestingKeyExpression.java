@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -60,7 +60,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         this.child = child;
     }
 
-    public NestingKeyExpression(@Nonnull RecordMetaDataProto.Nesting nesting) throws DeserializationException {
+    public NestingKeyExpression(@Nonnull RecordKeyExpressionProto.Nesting nesting) throws DeserializationException {
         if (!nesting.hasParent()) {
             throw new DeserializationException("Serialized Nesting is missing parent");
         }
@@ -100,8 +100,8 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Nesting toProto() throws SerializationException {
-        final RecordMetaDataProto.Nesting.Builder builder = RecordMetaDataProto.Nesting.newBuilder();
+    public RecordKeyExpressionProto.Nesting toProto() throws SerializationException {
+        final RecordKeyExpressionProto.Nesting.Builder builder = RecordKeyExpressionProto.Nesting.newBuilder();
         builder.setParent(parent.toProto());
         builder.setChild(getChild().toKeyExpression());
         return builder.build();
@@ -109,8 +109,8 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setNesting(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setNesting(toProto()).build();
     }
 
     @Nonnull

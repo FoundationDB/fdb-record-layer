@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
@@ -49,8 +49,8 @@ import java.util.List;
 @API(API.Status.MAINTAINED)
 public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
     public static final VersionKeyExpression VERSION = new VersionKeyExpression();
-    public static final RecordMetaDataProto.KeyExpression VERSION_PROTO =
-            RecordMetaDataProto.KeyExpression.newBuilder().setVersion(VERSION.toProto()).build();
+    public static final RecordKeyExpressionProto.KeyExpression VERSION_PROTO =
+            RecordKeyExpressionProto.KeyExpression.newBuilder().setVersion(VERSION.toProto()).build();
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Key-Expression");
 
     private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new VersionKeyExpression(), 1);
@@ -97,13 +97,13 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Version toProto() throws SerializationException {
-        return RecordMetaDataProto.Version.getDefaultInstance();
+    public RecordKeyExpressionProto.Version toProto() throws SerializationException {
+        return RecordKeyExpressionProto.Version.getDefaultInstance();
     }
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return VERSION_PROTO;
     }
 

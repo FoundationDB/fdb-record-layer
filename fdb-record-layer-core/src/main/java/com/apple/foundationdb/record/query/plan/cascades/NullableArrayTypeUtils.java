@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -79,10 +80,10 @@ public class NullableArrayTypeUtils {
      * @return <code>true</code> if it describes a wrapped array, otherwise <code>false</code>.
      */
     public static boolean isArrayWrapper(@Nonnull NestingKeyExpression nestingKeyExpression) {
-        RecordMetaDataProto.KeyExpression child = nestingKeyExpression.getChild().toKeyExpression();
+        RecordKeyExpressionProto.KeyExpression child = nestingKeyExpression.getChild().toKeyExpression();
         if (child.hasNesting()) {
             // if child is Nesting, check child.parent
-            RecordMetaDataProto.Field firstChild = child.getNesting().getParent();
+            RecordKeyExpressionProto.Field firstChild = child.getNesting().getParent();
             return isWrappedField(firstChild);
         } else if (child.hasField()) {
             // if child is Field, check itself
@@ -118,7 +119,7 @@ public class NullableArrayTypeUtils {
      *
      * @return <code>true</code> if it is a wrapped array, otherwise <code>false</code>.
      */
-    private static boolean isWrappedField(@Nonnull RecordMetaDataProto.Field field) {
-        return REPEATED_FIELD_NAME.equals(field.getFieldName()) && RecordMetaDataProto.Field.FanType.FAN_OUT.equals(field.getFanType());
+    private static boolean isWrappedField(@Nonnull RecordKeyExpressionProto.Field field) {
+        return REPEATED_FIELD_NAME.equals(field.getFieldName()) && RecordKeyExpressionProto.Field.FanType.FAN_OUT.equals(field.getFanType());
     }
 }

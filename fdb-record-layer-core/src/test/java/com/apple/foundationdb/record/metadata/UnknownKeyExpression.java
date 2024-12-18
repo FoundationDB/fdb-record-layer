@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -87,7 +88,7 @@ public class UnknownKeyExpression extends BaseKeyExpression {
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         throw new UnsupportedOperationException("UnknownKeyExpressions cannot be converted to Protobuf");
     }
 

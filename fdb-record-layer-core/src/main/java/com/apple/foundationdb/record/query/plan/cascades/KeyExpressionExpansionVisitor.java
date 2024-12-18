@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -238,14 +238,14 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .add(parent.getFieldName())
                         .build();
                 if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
-                    final RecordMetaDataProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
+                    final RecordKeyExpressionProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
                     if (childProto.hasNesting()) {
-                        RecordMetaDataProto.Nesting.Builder newNestingBuilder = RecordMetaDataProto.Nesting.newBuilder()
-                                .setParent(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT))
+                        RecordKeyExpressionProto.Nesting.Builder newNestingBuilder = RecordKeyExpressionProto.Nesting.newBuilder()
+                                .setParent(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT))
                                 .setChild(childProto.getNesting().getChild());
                         return visitExpression(new NestingKeyExpression(newNestingBuilder.build()));
                     } else {
-                        return visitExpression(new FieldKeyExpression(parent.toProto().toBuilder().setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT).build()));
+                        return visitExpression(new FieldKeyExpression(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT).build()));
                     }
                 }
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));

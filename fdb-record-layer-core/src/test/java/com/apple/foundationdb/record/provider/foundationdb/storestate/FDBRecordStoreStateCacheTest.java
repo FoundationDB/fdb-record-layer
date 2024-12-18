@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -790,7 +790,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
             assertNotNull(recordStore.getHeaderUserField("expr"));
-            KeyExpression expr = KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(recordStore.getHeaderUserField("expr")));
+            KeyExpression expr = KeyExpression.fromProto(RecordKeyExpressionProto.KeyExpression.parseFrom(recordStore.getHeaderUserField("expr")));
             assertEquals(Key.Expressions.field("parent").nest("child"), expr);
             recordStore.clearHeaderUserField("expr");
             commit(context);

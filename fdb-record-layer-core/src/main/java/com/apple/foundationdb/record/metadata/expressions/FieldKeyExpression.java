@@ -24,7 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -71,7 +72,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         this.nullStandin = nullStandin;
     }
 
-    public FieldKeyExpression(@Nonnull RecordMetaDataProto.Field field) throws DeserializationException {
+    public FieldKeyExpression(@Nonnull RecordKeyExpressionProto.Field field) throws DeserializationException {
         if (!field.hasFieldName()) {
             throw new DeserializationException("Serialized Field is missing field name");
         }
@@ -193,8 +194,8 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Field toProto() throws SerializationException {
-        return RecordMetaDataProto.Field.newBuilder()
+    public RecordKeyExpressionProto.Field toProto() throws SerializationException {
+        return RecordKeyExpressionProto.Field.newBuilder()
                 .setFieldName(fieldName)
                 .setFanType(fanType.toProto())
                 .setNullInterpretation(nullStandin.toProto())
@@ -203,8 +204,8 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setField(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setField(toProto()).build();
     }
 
     @Nonnull

@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PComparison;
-import com.apple.foundationdb.record.planprotos.PComparisonType;
 import com.apple.foundationdb.record.planprotos.PInvertedFunctionComparison;
 import com.apple.foundationdb.record.planprotos.PListComparison;
 import com.apple.foundationdb.record.planprotos.PMultiColumnComparison;
@@ -632,8 +631,8 @@ public class Comparisons {
         LIKE;
 
         @Nonnull
-        private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
-                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(Type.class, PComparisonType.class));
+        private static final Supplier<BiMap<Type, PComparison.PComparisonType>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(Type.class, PComparison.PComparisonType.class));
 
         private final boolean isEquality;
         private final boolean isUnary;
@@ -661,19 +660,19 @@ public class Comparisons {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison.PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
         @Nonnull
         @SuppressWarnings("unused")
         public static Type fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PComparisonType physicalOperatorProto) {
+                                     @Nonnull final PComparison.PComparisonType physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
         }
 
         @Nonnull
-        private static BiMap<Type, PComparisonType> getProtoEnumBiMap() {
+        private static BiMap<Type, PComparison.PComparisonType> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
     }
