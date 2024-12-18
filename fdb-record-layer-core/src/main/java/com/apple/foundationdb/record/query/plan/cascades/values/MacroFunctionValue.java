@@ -1,5 +1,5 @@
 /*
- * FunctionValue.java
+ * MacroFunctionValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -39,8 +40,14 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * The class defines a function
+ * The function takes in a list of arguments as QuantifiedObjectValue, of which alias = uniqueId, resultType = argument type
+ * and a body value, executing the function is by replacing the QuantifiedObjectValue in the body with the actual argument
+ */
 public class MacroFunctionValue extends AbstractValue{
 
+    @Nonnull
     private final List<Value> argList;
 
     @Nonnull
@@ -74,21 +81,19 @@ public class MacroFunctionValue extends AbstractValue{
     }
 
     @Nonnull
-    public static MacroFunctionValue of(@Nonnull final List<Value> argList, @Nonnull final Value underlying, @Nonnull final Type resultType) {
-        return new MacroFunctionValue(argList, underlying);
+    public static MacroFunctionValue of(@Nonnull final List<Value> argList, @Nonnull final Value body) {
+        return new MacroFunctionValue(argList, body);
     }
 
     @Nullable
-    public Value call(@Nonnull List<Object> arguments) {
+    public Value call(@Nonnull List<? extends Typed> arguments) {
         // replace the QuantifiedObjectValue in body with arguments
         SemanticException.check(arguments.size() == argList.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
         TranslationMap.Builder translationMapBuilder = new TranslationMap.Builder();
         for (int i = 0; i < arguments.size(); i++) {
-            // check if arguments[i] type matches with argList[i] type
+            // check that arguments[i] type matches with argList[i] type
             final int finalI = i;
-            SemanticException.check(arguments.get(finalI) instanceof Value, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "function input arguments must be of type Value");
-            final var currentArg = (Value) arguments.get(finalI);
-            SemanticException.check(currentArg.getResultType().equals(argList.get(i).getResultType()), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
+            SemanticException.check(arguments.get(finalI).getResultType().equals(argList.get(i).getResultType()), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
             translationMapBuilder.when(((QuantifiedObjectValue) argList.get(i)).getAlias()).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
         }
         return body.translateCorrelations(translationMapBuilder.build());
@@ -103,7 +108,7 @@ public class MacroFunctionValue extends AbstractValue{
     @Override
     public PMacroFunctionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PMacroFunctionValue.Builder builder = PMacroFunctionValue.newBuilder();
-        argList.forEach(arg -> builder.addArgumentList(arg.toValueProto(serializationContext)));
+        argList.forEach(arg -> builder.addArguments(arg.toValueProto(serializationContext)));
         return builder.setBody(body.toValueProto(serializationContext)).build();
     }
 
@@ -117,7 +122,7 @@ public class MacroFunctionValue extends AbstractValue{
 
     @Nonnull
     public static MacroFunctionValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMacroFunctionValue functionValue) {
-        return new MacroFunctionValue(functionValue.getArgumentListList().stream().map(pvalue -> Value.fromValueProto(serializationContext, pvalue)).collect(Collectors.toList()), Value.fromValueProto(serializationContext, functionValue.getBody()));
+        return new MacroFunctionValue(functionValue.getArgumentsList().stream().map(pvalue -> Value.fromValueProto(serializationContext, pvalue)).collect(Collectors.toList()), Value.fromValueProto(serializationContext, functionValue.getBody()));
     }
 
     @Nonnull
@@ -151,4 +156,3 @@ public class MacroFunctionValue extends AbstractValue{
         }
     }
 }
-

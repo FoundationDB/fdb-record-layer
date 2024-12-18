@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
-import com.apple.foundationdb.record.metadata.UDF;
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -47,7 +47,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -85,7 +84,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Map<String, UDF> udfMap;
+    private final Map<String, Udf> udfMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -136,7 +135,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Map<String, UDF> udfMap,
+                             @Nonnull Map<String, Udf> udfMap,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -350,10 +349,14 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nullable
-    public UDF getUDF(@Nonnull String name) {return udfMap.get(name);}
+    public Udf getUdf(@Nonnull String name) {
+        return udfMap.get(name);
+    }
 
     @Nonnull
-    public Collection<UDF> getAllUDFs() {return udfMap.values();}
+    public Collection<Udf> getAllUdfs() {
+        return udfMap.values();
+    }
 
     public boolean isSplitLongRecords() {
         return splitLongRecords;
@@ -706,7 +709,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
 
         // Add in the final options.
-        builder.addAllUdfs(udfMap.values().stream().map(UDF::toProto).collect(Collectors.toList()));
+        builder.addAllUdfs(udfMap.values().stream().map(Udf::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);

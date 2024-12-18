@@ -28,12 +28,15 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 
 import javax.annotation.Nonnull;
 
-public class UDF {
+/**
+ * Defines a User-defined-function
+ */
+public class Udf {
     @Nonnull private final String functionName;
     @Nonnull
     private final Value functionValue;
 
-    public UDF(@Nonnull String functionName, @Nonnull Value functionValue) {
+    public Udf(@Nonnull String functionName, @Nonnull Value functionValue) {
         this.functionName = functionName;
         this.functionValue = functionValue;
     }
@@ -44,13 +47,15 @@ public class UDF {
     }
 
     @Nonnull
-    public Value getValue() {return functionValue;}
+    public Value getValue() {
+        return functionValue;
+    }
 
     @Nonnull
-    public RecordMetaDataProto.UDF toProto() {
+    public RecordMetaDataProto.Udf toProto() {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        return RecordMetaDataProto.UDF.newBuilder()
+        return RecordMetaDataProto.Udf.newBuilder()
                 .setFunctionName(functionName)
                 .setFunctionValue(functionValue.toValueProto(serializationContext))
                 .build();

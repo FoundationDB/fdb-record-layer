@@ -247,7 +247,7 @@ message PValue {
 }
 
 message PMacroFunctionValue {
-  repeated PValue argument_list = 1;
+  repeated PValue arguments = 1;
   optional PValue body = 2;
 }
 

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.record.RecordKeyExpressionProto;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.google.protobuf.InvalidProtocolBufferException;

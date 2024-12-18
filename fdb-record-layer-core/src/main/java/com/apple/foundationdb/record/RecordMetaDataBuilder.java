@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
-import com.apple.foundationdb.record.metadata.UDF;
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -114,7 +114,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
-    private final Map<String, UDF> udfMap;
+    private final Map<String, Udf> udfMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -231,8 +231,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        for (RecordMetaDataProto.UDF udf: metaDataProto.getUdfsList()) {
-            udfMap.put(udf.getFunctionName(), new UDF(udf.getFunctionName(), Value.fromValueProto(serializationContext, udf.getFunctionValue())));
+        for (RecordMetaDataProto.Udf udf: metaDataProto.getUdfsList()) {
+            udfMap.put(udf.getFunctionName(), new Udf(udf.getFunctionName(), Value.fromValueProto(serializationContext, udf.getFunctionValue())));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1191,11 +1191,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(formerIndex);
     }
 
-    public void addUDF(@Nonnull UDF udf) {
+    public void addUdf(@Nonnull Udf udf) {
         udfMap.put(udf.getFunctionName(), udf);
     }
 
-    public void addUDFs(@Nonnull Collection<UDF> udfs) {
+    public void addUdfs(@Nonnull Collection<Udf> udfs) {
         udfs.forEach(udf -> udfMap.put(udf.getFunctionName(), udf));
     }
 
