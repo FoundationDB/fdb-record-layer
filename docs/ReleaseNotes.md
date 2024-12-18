@@ -33,7 +33,7 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 * **Feature** Add enum column support to relational server [(Issue #3073)](https://github.com/FoundationDB/fdb-record-layer/issues/3073)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -58,7 +58,7 @@ Several "FDB relational" sub-projects have been added which present a new relati
 
 ### Breaking Changes
 
-Our API stability annotations have been updated to reflect greater API instability. We have degraded existing `STABLE` and `MAINTAINED` APIs to `UNSTABLE`, and the `MAINTAINED` classification has been removed from the project. The new relational sub-projects' APIs are all `EXPERIMENTAL` (or `INTERNAL`). These APIs are expected to evolve in the future as more functionality is moved to the relational APIs. The API annotation class was moved to its own module, to avoid having the new sub-projects depend on the FDB java bindings.
+The Apache Commons library has been removed as a dependency. There were a few locations where the `Pair` class from that library was exposed via the API. This has necessitated making API incompatible changes. These have mostly been replaced by classes defined in the repository, or with other JDK classes. 
 
 ### 4.0.575.0
 
