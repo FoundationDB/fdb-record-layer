@@ -126,7 +126,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         return conn.runIsolatedInTransactionIfPossible(() -> {
             final RecordMetaDataProto.MetaData schemaInfo = loadSchemaMetadata(database, schema);
             List<Row> tableList = schemaInfo.getRecordTypesList().stream()
-                    .map(type -> {
+                    .map(type -> new Object[]{
                             database,  //TABLE_CAT
                             schema,  //TABLE_SCHEM
                             type.getName(), //TABLE_NAME

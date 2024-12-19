@@ -71,6 +71,7 @@ public abstract class AbstractDatabase implements RelationalDatabase {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public @Nonnull RecordLayerSchema loadSchema(@Nonnull String schemaId) throws RelationalException {
         RecordLayerSchema schema = schemas.get(schemaId);
         boolean putBack = false;

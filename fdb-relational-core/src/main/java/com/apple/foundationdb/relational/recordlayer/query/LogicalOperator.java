@@ -144,6 +144,7 @@ public class LogicalOperator {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public LogicalOperator withQuantifier(@Nonnull Quantifier quantifier) {
         if (quantifier == getQuantifier()) {
             return this;

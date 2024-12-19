@@ -98,7 +98,7 @@ public abstract class Plan<T> {
         return c.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_EXECUTE_QUERY, () -> executeInternal(c));
     }
 
-    protected abstract T executeInternal(@Nonnull final ExecutionContext c) throws RelationalException;
+    protected abstract T executeInternal(@Nonnull ExecutionContext c) throws RelationalException;
 
     @Nonnull
     public abstract QueryPlanConstraint getConstraint();
