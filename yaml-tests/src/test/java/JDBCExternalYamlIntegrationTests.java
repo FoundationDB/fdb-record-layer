@@ -1,5 +1,5 @@
 /*
- * EmbeddedYamlIntegrationTests.java
+ * JDBCExternalYamlIntegrationTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,11 +21,27 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Disabled;
+
 import java.sql.DriverManager;
 
-public class EmbeddedYamlIntegrationTests extends YamlIntegrationTests {
+/**
+ * A version of {@link YamlIntegrationTests} that points to an external running server.
+ */
+@Disabled("Depends on an external running service, don't run anywhere automatically")
+public class JDBCExternalYamlIntegrationTests extends JDBCYamlIntegrationTests {
+    private static final Logger LOG = LogManager.getLogger(JDBCExternalYamlIntegrationTests.class);
+
+    @Override
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return connectPath -> DriverManager.getConnection(connectPath.toString()).unwrap(RelationalConnection.class);
+        return connectPath -> {
+            final String remoteUrl = connectPath.toString()
+                    .replaceFirst("embed:", "relational://localhost:1111");
+            LOG.info("Connecting to " + connectPath);
+            return DriverManager.getConnection(remoteUrl).unwrap(RelationalConnection.class);
+        };
     }
 
 }
