@@ -167,8 +167,10 @@ public class RelationalServer implements Closeable {
                 .collect(Collectors.joining(", "));
         // Start http server in daemon mode.
         new HTTPServer.Builder().withPort(this.httpPort).withRegistry(this.collectorRegistry).build();
-        logger.info("Started on grpcPort={}/httpPort={} with services: {}",
-                getGrpcPort(), getHttpPort(), services);
+        if (logger.isInfoEnabled()) {
+            logger.info("Started on grpcPort={}/httpPort={} with services: {}",
+                    getGrpcPort(), getHttpPort(), services);
+        }
         // From https://github.com/grpc/grpc-java/blob/master/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideServer.java
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -263,6 +265,11 @@ public class RelationalServer implements Closeable {
             HelpFormatter formatter = new HelpFormatter();
             formatter.printHelp("relational", options, true);
             return;
+        }
+
+        if (logger.isInfoEnabled()) {
+            logger.info("FDB_CLUSTER_FILE: " + System.getenv("FDB_CLUSTER_FILE"));
+            logger.info("DYLD_LIBRARY_PATH: " + System.getenv("DYLD_LIBRARY_PATH"));
         }
         int grpcPort = getPort(cli, grpcPortOption, GrpcConstants.DEFAULT_SERVER_PORT);
         int httpPort = getPort(cli, httpPortOption, DEFAULT_HTTP_PORT);
