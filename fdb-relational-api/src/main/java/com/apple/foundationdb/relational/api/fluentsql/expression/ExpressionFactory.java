@@ -167,7 +167,7 @@ public interface ExpressionFactory {
     }
 
     @Nonnull
-    Field<?> field(@Nonnull final String tableName, @Nonnull final Iterable<String> parts);
+    Field<?> field(@Nonnull String tableName, @Nonnull Iterable<String> parts);
 
     @Nonnull
     default ExpressionFragment<?> parseFragment(@Nonnull final String fragment) {

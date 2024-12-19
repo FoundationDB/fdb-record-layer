@@ -26,6 +26,10 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
+/**
+ * Helper to check that parameters passed as options are within a given range.
+ * @param <T> the type of the parameter being checked
+ */
 public final class RangeContract<T extends Comparable<T>> implements OptionContract {
     private final T min;
     private final T max;
@@ -54,7 +58,7 @@ public final class RangeContract<T extends Comparable<T>> implements OptionContr
     }
 
     @Nonnull
-    public static <T extends Comparable<T>> RangeContract of(@Nonnull final T min, @Nonnull final T max) {
-        return new RangeContract(min, max);
+    public static <T extends Comparable<T>> RangeContract<T> of(@Nonnull final T min, @Nonnull final T max) {
+        return new RangeContract<>(min, max);
     }
 }

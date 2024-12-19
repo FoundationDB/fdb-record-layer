@@ -145,7 +145,7 @@ public abstract class DataType {
      * @return a new {@link DataType} which is resolved.
      */
     @Nonnull
-    public abstract DataType resolve(@Nonnull final Map<String, Named> resolutionMap);
+    public abstract DataType resolve(@Nonnull Map<String, Named> resolutionMap);
 
     /**
      * Trait representing a type that has a name.
@@ -1262,6 +1262,7 @@ public abstract class DataType {
         UNKNOWN
     }
 
+    @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     @Nonnull
     public enum Primitives {
         BOOLEAN(BooleanType.notNullable()),

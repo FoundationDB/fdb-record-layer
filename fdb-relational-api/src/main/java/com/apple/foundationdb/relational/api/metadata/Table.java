@@ -33,8 +33,8 @@ public interface Table extends Metadata {
     Set<? extends Index> getIndexes();
 
     // TODO (yhatem) implement this.
-//    @Nonnull
-//    List<Column> getPrimaryKey();
+    // @Nonnull
+    // List<Column> getPrimaryKey();
 
     /**
      * Retrieves a list of the table {@link Column}s.
