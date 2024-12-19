@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import javax.annotation.Nonnull;
 
 /**
- * Defines a User-defined-function
+ * Defines a User-defined-function.
  */
 public class Udf {
     @Nonnull private final String functionName;

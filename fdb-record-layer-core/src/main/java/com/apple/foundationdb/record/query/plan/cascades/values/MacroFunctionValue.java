@@ -41,9 +41,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * The class defines a function
- * The function takes in a list of arguments as QuantifiedObjectValue, of which alias = uniqueId, resultType = argument type
- * and a body value, executing the function is by replacing the QuantifiedObjectValue in the body with the actual argument
+ * The class defines a function.
+ * The function takes in a list of arguments as QuantifiedObjectValue, of which alias = uniqueId, resultType = argument type.
+ * and a body value, executing the function is by replacing the QuantifiedObjectValue in the body with the actual argument.
  */
 public class MacroFunctionValue extends AbstractValue{
 
