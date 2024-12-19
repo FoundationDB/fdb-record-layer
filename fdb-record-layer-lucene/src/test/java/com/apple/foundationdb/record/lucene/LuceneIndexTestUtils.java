@@ -667,11 +667,18 @@ public class LuceneIndexTestUtils {
     }
 
     public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight) {
-        LuceneScanParameters scan = new LuceneScanQueryParameters(
-                ScanComparisons.EMPTY,
+        return fullTextSearch(recordStore,
+                index,
                 new LuceneQueryMultiFieldSearchClause(highlight
                                                       ? LuceneQueryType.QUERY_HIGHLIGHT
                                                       : LuceneQueryType.QUERY, search, false),
+                highlight);
+    }
+
+    public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, LuceneQueryClause search, boolean highlight) {
+        LuceneScanParameters scan = new LuceneScanQueryParameters(
+                ScanComparisons.EMPTY,
+                search,
                 null, null, null,
                 highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10) : null);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);

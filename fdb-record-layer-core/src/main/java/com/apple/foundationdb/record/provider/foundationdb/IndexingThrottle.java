@@ -31,9 +31,9 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
+import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -334,7 +334,7 @@ public class IndexingThrottle {
                 });
             }), (result, exception) -> {
                 booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
-                return Pair.of(result, exception);
+                return Result.of(result, exception);
             }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                 if (e == null) {
                     // Here: success path - also the common path (or so we hope)

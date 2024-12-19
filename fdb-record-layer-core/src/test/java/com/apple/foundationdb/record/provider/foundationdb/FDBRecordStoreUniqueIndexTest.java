@@ -921,5 +921,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         public CompletableFuture<Void> mergeIndex() {
             return underlying.mergeIndex();
         }
+
+        @Nullable
+        @Override
+        public IndexScrubbingTools<?> getIndexScrubbingTools(IndexScrubbingTools.ScrubbingType type) {
+            return underlying.getIndexScrubbingTools(type);
+        }
     }
 }

@@ -23,7 +23,6 @@ dependencies {
     api project(coreProject)
     implementation "com.ibm.icu:icu4j:${icuVersion}"
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:undefined"

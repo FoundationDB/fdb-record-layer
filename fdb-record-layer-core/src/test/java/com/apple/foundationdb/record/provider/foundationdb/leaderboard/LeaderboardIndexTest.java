@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
 import com.google.protobuf.Message;
@@ -70,6 +71,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nullable;
 import java.math.BigInteger;
@@ -86,6 +88,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -527,6 +530,52 @@ public class LeaderboardIndexTest {
         }
     }
 
+    @ParameterizedTest(name = "emptyUngroupedNested[highScoreFirst={0}]")
+    @BooleanSource
+    public void emptyUngroupedNested(boolean highScoreFirst) {
+        Leaderboards leaderboards = new UngroupedNestedLeaderboards();
+        basicSetup(leaderboards, highScoreFirst);
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            // Save a record for evaluating record functions later
+            final FDBStoredRecord<Message> rec = leaderboards.findByName("helen");
+            leaderboards.recordStore.deleteAllRecords();
+
+            assertEquals(Collections.emptyList(),
+                    leaderboards.scanIndexByRank(TupleRange.ALL).asList().join());
+
+            TupleRange top3 = new TupleRange(Tuple.from(0), Tuple.from(2), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+            assertEquals(Collections.emptyList(),
+                    leaderboards.scanIndexByRank(top3).asList().join());
+
+            IndexAggregateFunction allTimeFunction = leaderboards.scoreForTimeWindowRank(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1);
+            assertNull(leaderboards.evaluateAggregateFunction(allTimeFunction, Tuple.from(42)));
+
+            assertNull(leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
+            assertNull(leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1), rec));
+            assertNull(leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec));
+        }
+    }
+
+    @ParameterizedTest(name = "missingFromUngrouped[highScoreFirst={0}]")
+    @BooleanSource
+    public void missingFromUngrouped(boolean highScoreFirst) {
+        Leaderboards leaderboards = new UngroupedNestedLeaderboards();
+        basicSetup(leaderboards, highScoreFirst);
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            // Delete one record
+            final FDBStoredRecord<Message> rec = leaderboards.findByName("achilles");
+            leaderboards.recordStore.deleteRecord(rec.getPrimaryKey());
+
+            assertNull(leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
+            assertNull(leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1), rec));
+            assertNull(leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec));
+        }
+    }
+
     @Test
     public void basicGroupedNested() {
         basicGrouped(new GroupedNestedLeaderboards());
@@ -605,6 +654,38 @@ public class LeaderboardIndexTest {
 
             final IndexAggregateFunction count2 = leaderboards.timeWindowCount(TEN_UNITS, 10100);
             assertEquals((Long)2L, leaderboards.evaluateAggregateFunction(count2, Tuple.from("game-1")).get(0));
+        }
+    }
+
+    @Test
+    public void missingFromGroupNested() {
+        missingFromGroup(new GroupedNestedLeaderboards());
+    }
+
+    @Test
+    public void missingFromGroupFlat() {
+        missingFromGroup(new FlatLeaderboards());
+    }
+
+    private void missingFromGroup(Leaderboards leaderboards) {
+        basicSetup(leaderboards, true);
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            FDBStoredRecord<Message> rec = leaderboards.findByName("achilles");
+            leaderboards.recordStore.deleteRecord(rec.getPrimaryKey());
+
+            // Set up functions and assert that they are all associated with a null rank.
+            // Note that for the two entry functions, we get back the leaderboard that _would_ have
+            // contained the entry if it had existed
+            final QueryRecordFunction<Long> rank1 = leaderboards.queryRank();
+            assertNull(leaderboards.evaluateQueryFunction(rank1, rec));
+            final QueryRecordFunction<Long> rank2 = leaderboards.queryTimeWindowRank(TEN_UNITS, 10100);
+            assertNull(leaderboards.evaluateQueryFunction(rank2, rec));
+            final QueryRecordFunction<Tuple> entry1 = leaderboards.queryTimeWindowRankAndEntry(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1);
+            assertEquals(Tuple.from(null, 300, 10201, 668), leaderboards.evaluateQueryFunction(entry1, rec));
+            final QueryRecordFunction<Tuple> entry2 = leaderboards.queryTimeWindowRankAndEntry(TEN_UNITS, 10100);
+            assertEquals(Tuple.from(null, 200, 10105, 667), leaderboards.evaluateQueryFunction(entry2, rec));
         }
     }
 

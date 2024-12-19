@@ -42,6 +42,8 @@ import java.util.Map;
  */
 @API(API.Status.UNSTABLE)
 public class LuceneQuerySearchClause extends LuceneQueryClause {
+    public static final LuceneQueryClause MATCH_ALL_DOCS_QUERY = new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false);
+
     @Nonnull
     private final String defaultField;
     @Nonnull
