@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * The function takes in a list of arguments as QuantifiedObjectValue, of which alias = uniqueId, resultType = argument type.
  * and a body value, executing the function is by replacing the QuantifiedObjectValue in the body with the actual argument.
  */
-public class MacroFunctionValue extends AbstractValue{
+public class MacroFunctionValue extends AbstractValue {
 
     @Nonnull
     private final List<Value> argList;
