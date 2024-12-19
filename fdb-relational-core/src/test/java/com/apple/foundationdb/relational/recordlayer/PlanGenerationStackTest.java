@@ -29,8 +29,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -171,7 +169,7 @@ public class PlanGenerationStackTest {
         embeddedConnection.setAutoCommit(false);
         embeddedConnection.createNewTransaction();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
-        final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
+        final FDBRecordStoreBase<?> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)

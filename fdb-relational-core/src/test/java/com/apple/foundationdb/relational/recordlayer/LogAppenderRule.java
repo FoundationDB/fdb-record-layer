@@ -98,7 +98,7 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() throws SQLException {
         afterEach(null);
     }
 

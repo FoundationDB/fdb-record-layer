@@ -84,10 +84,13 @@ import java.util.function.Supplier;
  * physical plan.
  * <br>
  *
- * @implNote this class is currently not thread-safe, I do not see currently any reason for making it so as it is mainly a
+ * <p>
+ * Note: this class is currently not thread-safe, I do not see currently any reason for making it so as it is mainly a
  * short-lived CPU-bound closure that visits a query's AST.
- * <br>
+ * </p>
+ * <p>
  * this does not support array literals yet, we have some ad-hoc support for flat literal arrays for handling in-predicate.
+ * </p>
  */
 @SuppressWarnings({"UnstableApiUsage", "PMD.AvoidStringBufferField"})
 // AstHasher is short-lived, therefore, using StringBuilder is ok.
@@ -342,6 +345,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return null;
     }
 
+    @SuppressWarnings("PMD.CompareObjectWithEquals") // deliberate use of pointer equality
     @Override
     public Void visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         final var functionName = ctx.scalarFunctionName().getText();

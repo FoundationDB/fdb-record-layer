@@ -222,7 +222,7 @@ public final class IndexGenerator {
             final String indexType = Objects.requireNonNull(indexExpressionAndType.getRight());
             indexBuilder.setIndexType(indexType);
             indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNullableArray)));
-            if (indexType.equals(IndexTypes.PERMUTED_MIN) || indexType.equals(IndexTypes.PERMUTED_MAX)) {
+            if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
             } else if (aggregateOrderIndex >= 0) {
@@ -384,13 +384,13 @@ public final class IndexGenerator {
         final KeyExpression groupedValue;
         final GroupingKeyExpression keyExpression;
         // COUNT(*) is a special case.
-        if (aggregateValue instanceof CountValue && indexTypeName.equals(IndexTypes.COUNT)) {
+        if (aggregateValue instanceof CountValue && IndexTypes.COUNT.equals(indexTypeName)) {
             if (maybeGroupingExpression.isPresent()) {
                 keyExpression = new GroupingKeyExpression(maybeGroupingExpression.get(), 0);
             } else {
                 keyExpression = new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0);
             }
-        } else if (aggregateValue instanceof NumericAggregationValue.BitmapConstructAgg && indexTypeName.equals(IndexTypes.BITMAP_VALUE)) {
+        } else if (aggregateValue instanceof NumericAggregationValue.BitmapConstructAgg && IndexTypes.BITMAP_VALUE.equals(indexTypeName)) {
             Assert.thatUnchecked(child instanceof FieldValue || child instanceof ArithmeticValue, "Unsupported index definition, expecting a column argument in aggregation function");
             groupedValue = generate(List.of(child), Collections.emptyMap());
             // only support bitmap_construct_agg(bitmap_bit_position(column))
@@ -426,7 +426,7 @@ public final class IndexGenerator {
         }
         // special handling of min_ever and max_ever, depending on index attributes we either create the
         // long-based version or the tuple-based version.
-        if (indexTypeName.equals(IndexTypes.MAX_EVER)) {
+        if (IndexTypes.MAX_EVER.equals(indexTypeName)) {
             if (useLegacyBasedExtremumEver) {
                 final var indexValue = Iterables.getOnlyElement(indexableAggregateValue.getChildren());
                 Verify.verify(indexValue.getResultType().isNumeric(), "only numeric types allowed in " + IndexTypes.MAX_EVER_LONG + " aggregation operation");
@@ -434,7 +434,7 @@ public final class IndexGenerator {
             } else {
                 indexTypeName = IndexTypes.MAX_EVER_TUPLE;
             }
-        } else if (indexTypeName.equals(IndexTypes.MIN_EVER)) {
+        } else if (IndexTypes.MIN_EVER.equals(indexTypeName)) {
             if (useLegacyBasedExtremumEver) {
                 final var indexValue = Iterables.getOnlyElement(indexableAggregateValue.getChildren());
                 Verify.verify(indexValue.getResultType().isNumeric(), "only numeric types allowed in " + IndexTypes.MIN_EVER_LONG + " aggregation operation");

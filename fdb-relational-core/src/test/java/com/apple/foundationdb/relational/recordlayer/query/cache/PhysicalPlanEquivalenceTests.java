@@ -96,7 +96,7 @@ public class PhysicalPlanEquivalenceTests {
             .setConstant(Quantifier.constant(), Map.of(constantId(0), 120)).build(EMPTY_TYPE_REPO);
 
     @Test
-    void equalityOfPPEWithMatchingConstraintsWorks() {
+    void equalityOfPhysicalPlanEquivalenceWithMatchingConstraintsWorks() {
         // basic check for reference equality.
         final var ppe1 = PhysicalPlanEquivalence.of(trueConstraint);
         Assertions.assertThat(ppe1.equals(ppe1)).isTrue();
@@ -112,7 +112,7 @@ public class PhysicalPlanEquivalenceTests {
     }
 
     @Test
-    void equalityOfPPEWithMatchingEvaluationContextsWorks() {
+    void equalityOfPhysicalPlanEquivalenceWithMatchingEvaluationContextsWorks() {
         // basic check for reference equality.
         final var ppe1 = PhysicalPlanEquivalence.of(ec80);
         Assertions.assertThat(ppe1.equals(ppe1)).isTrue();

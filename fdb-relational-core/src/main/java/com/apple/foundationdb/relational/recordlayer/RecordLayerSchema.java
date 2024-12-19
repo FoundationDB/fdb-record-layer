@@ -65,7 +65,9 @@ public class RecordLayerSchema implements DatabaseSchema {
         return schemaName;
     }
 
-    @Nonnull public Table loadTable(@Nonnull String tableName) throws RelationalException {
+    @SuppressWarnings("PMD.CloseResource") // false positive as resource not closed is null
+    @Nonnull
+    public Table loadTable(@Nonnull String tableName) throws RelationalException {
         //TODO(bfines) load the record type index, rather than just the generic type, then
         // return an index object instead
         RecordTypeTable t = loadedTables.get(tableName);
@@ -80,6 +82,7 @@ public class RecordLayerSchema implements DatabaseSchema {
         return t;
     }
 
+    @SuppressWarnings("PMD.CloseResource") // appears to be a false positive, as we are closing the resources
     @Override
     public void close() throws RelationalException {
         currentStore = null;

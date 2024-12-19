@@ -50,6 +50,7 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
         return connect(url, null, connectionOptions);
     }
 
+    @SuppressWarnings("PMD.CloseResource") // returns connection outliving auto-closeable object. Should consider refactoring
     public RelationalConnection connect(@Nonnull URI url,
                                       @Nullable Transaction existingTransaction,
                                       @Nonnull Options connectionOptions) throws SQLException {

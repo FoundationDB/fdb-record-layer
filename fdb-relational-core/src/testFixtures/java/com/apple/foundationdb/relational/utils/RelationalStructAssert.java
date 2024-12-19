@@ -423,6 +423,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
         return this;
     }
 
+    @SuppressWarnings("unchecked")
     public RelationalStructAssert hasValue(String columnName, Object value) {
         try {
             final Object object = actual.getObject(columnName);

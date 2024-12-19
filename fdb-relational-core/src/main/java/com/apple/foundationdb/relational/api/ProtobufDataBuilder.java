@@ -238,6 +238,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return new ProtobufDataBuilder(typeDescriptor);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private Message convert(Message m, Descriptors.Descriptor destinationDescriptor) throws RelationalException {
         /*
          * Annoying RecordLayer-ism, but they don't check for semantic equality, they check for
@@ -247,6 +248,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
          */
 
         if (m.getDescriptorForType() == destinationDescriptor) {
+            // Pointer equality optimization
             return m;
         }
         DynamicMessage.Builder newMessage = DynamicMessage.newBuilder(destinationDescriptor);

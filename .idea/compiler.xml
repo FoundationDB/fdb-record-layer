@@ -52,6 +52,7 @@
         </processorPath>
         <module name="fdb-record-layer.fdb-record-layer-lucene.test" />
         <module name="fdb-record-layer.fdb-record-layer-spatial.main" />
+        <module name="fdb-record-layer.fdb-relational-core.main" />
         <module name="fdb-record-layer.fdb-extensions.test" />
         <module name="fdb-record-layer.fdb-record-layer-core.test" />
         <module name="fdb-record-layer.fdb-record-layer-icu.main" />
@@ -66,7 +67,7 @@
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.foundationdb/fdb-java/7.1.26/4c9db13fe80d9a99a6cdbaefaa3e6c8c9b1d041e/fdb-java-7.1.26.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.squareup/javapoet/1.12.0/459ae6c796db7dcbc723f9536af2ce49d86c1a80/javapoet-1.12.0.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.auto/auto-common/1.2/ca270191fd7d2a7297da7c8f29184206df10c67d/auto-common-1.2.jar" />
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/33.3.0-jre/13b4d0924e6023eda04b4c7aa83b32dfedf735a7/guava-33.3.0-jre.jar" />
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/33.3.1-jre/852f8b363da0111e819460021ca693cacca3e8db/guava-33.3.1-jre.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/1.7.36/6c62681a2f655b49963a5983b8b0950a6120ae14/slf4j-api-1.7.36.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.auto.service/auto-service-annotations/1.0.1/ac86dacc0eb9285ea9d42eee6aad8629ca3a7432/auto-service-annotations-1.0.1.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.guava/failureaccess/1.0.2/c4a06a64e650562f30b7bf9aaec1bfed43aca12b/failureaccess-1.0.2.jar" />
@@ -74,6 +75,7 @@
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.code.findbugs/jsr305/3.0.2/25ea2e8b0c338a877313bd4672d3fe056ea78f0d/jsr305-3.0.2.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.checkerframework/checker-qual/3.43.0/9425eee39e56b116d2b998b7c2cebcbd11a3c98b/checker-qual-3.43.0.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.errorprone/error_prone_annotations/2.28.0/59fc00087ce372de42e394d2c789295dff2d19f0/error_prone_annotations-2.28.0.jar" />
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.j2objc/j2objc-annotations/3.0.0/7399e65dd7e9ff3404f4535b2f017093bdb134c7/j2objc-annotations-3.0.0.jar" />
         </processorPath>
         <module name="fdb-record-layer.fdb-record-layer-core.main" />
       </profile>

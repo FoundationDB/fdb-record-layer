@@ -176,7 +176,7 @@ public class StandardQueryTests {
     }
 
     @Test
-    void canQueryPKZero() throws Exception {
+    void canQueryPrimaryKeyZero() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement, 0L, "");

@@ -1,9 +1,9 @@
 /*
- * package-info.java
+ * antlr.gradle
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,14 @@
  * limitations under the License.
  */
 
-/**
- * Utility methods to use in Relational implementation classes.
- */
-package com.apple.foundationdb.relational.util;
+apply plugin: 'antlr'
+
+generateGrammarSource {
+    maxHeapSize = "128m"
+    arguments += ['-package','com.apple.foundationdb.relational.generated', '-listener','-visitor', '-long-messages']
+}
+
+sourceSets.configureEach {
+    var generateGrammarSource = tasks.named(getTaskName("generate", "GrammarSource"))
+    java.srcDir(generateGrammarSource.map { files() })
+}

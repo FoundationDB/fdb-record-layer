@@ -303,7 +303,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             Type type = recordQueryPlan.getResultType().getInnerType();
             Assert.notNull(type);
             Assert.that(type instanceof Type.Record, ErrorCode.INTERNAL_ERROR, "unexpected plan returning top-level result of type %s", type.getTypeCode());
-            final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
+            final FDBRecordStoreBase<?> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
 
             final var options = executionContext.getOptions();
 

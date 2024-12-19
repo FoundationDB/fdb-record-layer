@@ -148,7 +148,7 @@
         <module name="AbbreviationAsWordInName">
             <property name="ignoreFinal" value="false"/>
             <property name="allowedAbbreviationLength" value="1"/>
-            <property name="allowedAbbreviations" value="ID,DB,UUID,URL,API,FDB,JDBC,JSON,DNF,JCE,SQL"/>
+            <property name="allowedAbbreviations" value="ID,DB,UUID,URL,URI,API,FDB,JDBC,JSON,DNF,JCE,SQL,PK"/>
         </module>
         <!-- <module name="OverloadMethodsDeclarationOrder"/> -->
         <module name="VariableDeclarationUsageDistance"/>

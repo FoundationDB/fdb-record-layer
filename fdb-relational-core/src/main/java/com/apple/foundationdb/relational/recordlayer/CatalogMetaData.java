@@ -85,14 +85,14 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 //TODO(bfines) we need to transform this live, not materialize like this
                 List<Row> simplifiedRows = new ArrayList<>();
                 while (rrs.next()) {
-                    Object[] data = new Object[]{
+                    Object[] data = {
                             conn.getPath(),
                             rrs.getString("SCHEMA_NAME"),
                     };
                     simplifiedRows.add(new ArrayRow(data));
                 }
 
-                FieldDescription[] fields = new FieldDescription[]{
+                FieldDescription[] fields = {
                         FieldDescription.primitive("TABLE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
                         FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable)
                 };
@@ -126,7 +126,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         return conn.runIsolatedInTransactionIfPossible(() -> {
             final RecordMetaDataProto.MetaData schemaInfo = loadSchemaMetadata(database, schema);
             List<Row> tableList = schemaInfo.getRecordTypesList().stream()
-                    .map(type -> new Object[]{
+                    .map(type -> {
                             database,  //TABLE_CAT
                             schema,  //TABLE_SCHEM
                             type.getName(), //TABLE_NAME
@@ -135,7 +135,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     .map(ArrayRow::new)
                     .collect(Collectors.toList());
 
-            FieldDescription[] fields = new FieldDescription[]{
+            FieldDescription[] fields = {
                     FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
@@ -161,7 +161,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                             pks.getValue()[pos],
                             pos + 1,
                             null)));
-            FieldDescription[] fields = new FieldDescription[]{
+            FieldDescription[] fields = {
                     FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
@@ -208,7 +208,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             final Descriptors.Descriptor tableDescriptor = fileDesc.findMessageTypeByName(tablePattern);
             final List<Row> columnDefs = tableDescriptor.getFields().stream()
                     .map(field -> {
-                        Object[] row = new Object[]{
+                        Object[] row = {
                                 database,
                                 schema,
                                 tablePattern,
@@ -237,7 +237,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         return new ArrayRow(row);
                     }).collect(Collectors.toList());
 
-            FieldDescription[] columns = new FieldDescription[]{
+            FieldDescription[] columns = {
                     FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
@@ -295,7 +295,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 final List<Index> indexes = recordType.getIndexes();
                 indexDefs = indexes.stream()
                         .map(index -> {
-                            Object[] row = new Object[]{
+                            Object[] row = {
                                     database,
                                     schema,
                                     recordType.getName(),
@@ -317,7 +317,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.UNDEFINED_TABLE);
             }
 
-            FieldDescription[] columns = new FieldDescription[]{
+            FieldDescription[] columns = {
                     FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),

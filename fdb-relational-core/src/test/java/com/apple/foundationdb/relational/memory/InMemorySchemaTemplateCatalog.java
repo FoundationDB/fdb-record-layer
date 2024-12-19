@@ -36,7 +36,9 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
+import java.util.Comparator;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -84,7 +86,7 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
         if (versions == null) {
             throw new RelationalException(String.format("Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
-        final var template = versions.entrySet().stream().max((a, b) -> (int) (a.getKey() - b.getKey()));
+        final var template = versions.entrySet().stream().max(Comparator.comparingInt(Map.Entry::getKey));
         if (template.isEmpty()) {
             throw new RelationalException(String.format("Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
