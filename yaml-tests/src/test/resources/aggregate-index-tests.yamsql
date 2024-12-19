@@ -1,0 +1,285 @@
+#
+# aggregate-index-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index mv1 as select sum(col2) from t1 group by col1
+    create index mv6 as select max_ever(col2) from t1 group by col1
+    create index mv8 as select col1, max(col2) from t1 group by col1 order by col1
+    create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+    create index mv2 as select col1, col2 from t2 order by col1, col2
+    create index mv3 as select col1, col3 from t2 order by col1, col3
+    create index mv4 as select min_ever(col3) from T2 group by col1, col2
+    create index mv5 as select max_ever(col3) from t2 group by col1, col2
+    create index mv12 as select min_ever(col2) from t1 group by col1 with attributes LEGACY_EXTREMUM_EVER
+    create index mv13 as select max_ever(col2) from t1 group by col1 with attributes LEGACY_EXTREMUM_EVER
+    create index mv9 as select col1, max(col2), col3 from T2 group by col1, col3 order by col1, max(col2), col3
+    create index vi1 as select col1 from t1
+    create index mv7 as select min_ever(col3) from t2
+    create table t3(id bigint, a bigint, b bigint, primary key(id))
+    create index mv10 as select a+3, max(b) from t3 group by a+3
+    create index mv11 as select a+b, b+10, min(b) from t3 group by a+b, b+10
+    create table t4(id bigint, col1 string, col2 bigint, primary key(id))
+    create index mv14 as select min_ever(col1) from t4 group by col2
+    create index mv15 as select max_ever(col1) from t4 group by col2
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3),
+               (4, 10, 4),
+               (5, 10, 5),
+               (6, 20, 6),
+               (7, 20, 7),
+               (8, 20, 8),
+               (9, 20, 9),
+               (10, 20, 10),
+               (11, 20, 11),
+               (12, 20, 12),
+               (13, 20, 13)
+    - query: INSERT INTO T2(ID, COL1, COL2, COL3)
+        VALUES (1, 1, 1, 100),
+               (2, 1, 1, 1),
+               (3, 1, 2, 2),
+               (4, 1, 2, 200),
+               (5, 2, 1, 200),
+               (6, 2, 1, 3),
+               (7, 2, 1, 400),
+               (8, 2, 1, 400),
+               (9, 2, 1, 400)
+    - query: INSERT INTO T3
+        VALUES (1, 10, 3),
+               (2, 10, 3),
+               (3, 10, 500),
+               (4, 20, 2),
+               (5, 20, 200),
+               (6, 20, 2),
+               (7, 20, 2),
+               (8, 30, 6),
+               (9, 30, 900),
+               (10, 30, 6)
+    - query: INSERT INTO T4
+        VALUES (1, 'value1', 10),
+               (2, 'value2', 10),
+               (3, 'value3', 10),
+               (4, 'value4', 10),
+               (5, 'valueA', 20),
+               (6, 'valueZ', 20)
+---
+test_block:
+  tests:
+    -
+      - query: select col1, sum(col2) from T1 group by col1;
+      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
+      - result: [{!l 10, !l 15}, {!l 20, !l 76}]
+    -
+      - query: select col1 from T1 group by col1;
+      - explainContains: "Index(VI1"
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select sum(col2) from T1 group by col1;
+      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
+      - result: [{!l 15}, {!l 76}]
+    -
+      - query: select col1, sum(col2) from T1 group by col1 order by col1 asc;
+      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
+      - result: [{!l 10, !l 15}, {!l 20, !l 76}]
+    -
+      - query: select col1, sum(col2) from T1 group by col1 order by col1 desc;
+      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP REVERSE)"
+      - result: [{!l 20, !l 76}, {!l 10, !l 15}]
+    -
+      - query: select col1, sum(col2) + 1 from T1 group by col1;
+      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
+      - result: [{!l 10, !l 16}, {!l 20, !l 77}]
+    -
+       - query: select col1, max(col2) from T1 group by col1;
+       - explainContains: "AggregateIndexScan(Index(MV8 <,> BY_GROUP)"
+       - result: [{!l 10, !l 5}, {!l 20, !l 13}]
+    -
+       - query: select col1, max(col2) from T1 group by col1 order by col1;
+       - explainContains: "AggregateIndexScan(Index(MV8 <,> BY_GROUP)"
+       - result: [{!l 10, !l 5}, {!l 20, !l 13}]
+    -
+       - query: select col1, max(col2) from T1 group by col1 order by col1 desc;
+       - explainContains: "AggregateIndexScan(Index(MV8 <,> BY_GROUP REVERSE)"
+       - result: [{!l 20, !l 13}, {!l 10, !l 5}]
+    -
+       - query: select col1, max(col2) from T1 where col1 = 10 group by col1;
+       - explainContains: "AggregateIndexScan(Index(MV8 [EQUALS promote(@c13 as LONG)] BY_GROUP)"
+       - result: [{!l 10, !l 5}]
+    -
+       # At some point, should be able to roll up values from the aggregate index. However, even
+       # controlling for that, it can still use the index
+       - query: select max(col2) from T1 use index (mv8);
+       - explainContains: "map(Index(MV8 <,>)"
+       - result: [{!l 13}]
+    -
+       # Min/max indexes need keep what amounts to a standard value index on their keys (in order to properly look up
+       # the min/max). That index should be usable for normal queries just like a value index. Note that the scan is
+       # NOT by group
+       - query: select col2 from T1 where col1 = 10;
+       - explainContains: "Covering(Index(MV8 [EQUALS promote(@c8 as LONG)]) -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]])"
+       - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}, {!l 5}]
+    -
+       - query: select col2 from T1 where col1 = 10 order by col2 desc;
+       - explainContains: "Covering(Index(MV8 [EQUALS promote(@c8 as LONG)] REVERSE) -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]])"
+       - result: [{!l 5}, {!l 4}, {!l 3}, {!l 2}, {!l 1}]
+    -
+      - query: select min(col3) from T2 group by col1, col2;
+      - explainContains: "AGGREGATE BY (min_l("
+      - result: [{!l 1}, {!l 2}, {!l 3}]
+    -
+      # this should use the aggregate index in the future, for now, it is using streaming aggregate
+      # over base table scan.
+      - query: select max(col2) from t2;
+      - explainContains: "AGGREGATE BY (max_l"
+      - result: [{!l 2}]
+    -
+      - query: select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
+      - explainContains: "AGGREGATE BY (sum_l"
+    -
+      - query: select max(col2) from t2 group by col1, col3;
+      - explainContains: "AggregateIndexScan(Index(MV9 <,> BY_GROUP)"
+      - result: [{!l 1}, {!l 1}, {!l 2}, {!l 2}, {!l 1}, {!l 1}, {!l 1}]
+    -
+      - query: select col1, col3, max(col2) from t2 group by col1, col3;
+      - explainContains: "AggregateIndexScan(Index(MV9 <,> BY_GROUP)"
+      - result: [{COL1: 1, COL3: 1, !l 1}, {COL1: 1, COL3: 100, !l 1}, {COL1: 1, COL3: 2, !l 2}, {COL1: 1, COL3: 200, !l 2}, {COL1: 2, COL3: 3, !l 1}, {COL1: 2, COL3: 200, !l 1}, {COL1: 2, Col3: 400, !l 1}]
+    -
+      - query: select col3, max(col2) from t2 where col1 = 2 group by col1, col3;
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG)] BY_GROUP)"
+      - result: [{COL3: 3, !l 1}, {COL3: 200, !l 1}, {COL3: 400, !l 1}]
+    -
+      - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 order by max(col2) desc;
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG)] BY_GROUP REVERSE)"
+      - result: [{COL3: 200, !l 2}, {COL3: 2, !l 2}, {COL3: 100, !l 1}, {COL3: 1, !l 1}]
+    -
+      - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 order by max(col2) desc;
+      - maxRows: 3
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG)] BY_GROUP REVERSE)"
+      - result: [{COL3: 200, !l 2}, {COL3: 2, !l 2}, {COL3: 100, !l 1}]
+    -
+      - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 order by max(col2) desc;
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG), [LESS_THAN promote(@c25 as LONG)]] BY_GROUP REVERSE)"
+      - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
+    -
+      - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 and max(col2) >= 1 order by max(col2) desc;
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG), [GREATER_THAN_OR_EQUALS promote(@c13 as LONG) && LESS_THAN promote(@c25 as LONG)]] BY_GROUP REVERSE)"
+      - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
+    -
+      - query: select t.* from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t where m < 2 order by m desc;
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c21 as LONG)] BY_GROUP REVERSE)"
+      - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
+    -
+      - query: select col3, m from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t order by m desc;
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c21 as LONG)] BY_GROUP REVERSE)"
+      - result: [{COL3: 200, M: 2}, {COL3: 2, M: 2}, {COL3: 100, M: 1}, {COL3: 1, M: 1}]
+    -
+      # Permuted max index can be used as a value index on the underlying columns
+      - query: select col3, col2 from t2 where col1 = 1 order by col3 asc;
+      - explainContains: "Covering(Index(MV9 [EQUALS promote(@c10 as LONG)])"
+      - result: [{COL3: 1, COL2: 1}, {COL3: 2, COL2: 2}, {COL3: 100, COL2: 1}, {COL3: 200, COL2: 2}]
+    -
+      - query: select col3, col2 from t2 where col1 = 1 order by col3 desc;
+      - explainContains: "Covering(Index(MV9 [EQUALS promote(@c10 as LONG)] REVERSE)"
+      - result: [{COL3: 200, COL2: 2}, {COL3: 100, COL2: 1}, {COL3: 2, COL2: 2}, {COL3: 1, COL2: 1}]
+    -
+      # Permuted max index can also be used to evaluate other aggregate functions via aggregation and roll-up
+      - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
+      - explainContains: "Index(MV9 [EQUALS promote(@c20 as LONG)])"
+      - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
+    -
+      - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
+      - explainContains: "Index(MV9 [EQUALS promote(@c20 as LONG)] REVERSE)"
+      - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
+#    -
+#      # grouping by constant is not yet supported.
+#      - query: select sum(col2) from t1 group by 3,2,1;
+#      - result: [{!l 220}]
+    -
+      # make sure we're not choosing the aggregate index (because we aggregate by col3 not col2)
+      - query: select max(col3) from t2 group by col1, col3;
+      - explainContains: "AGGREGATE BY (max_l"
+    -
+      - query: select min_ever(col3) from T2 group by col1, col2;
+      - result: [{!l 1}, {!l 2}, {!l 3}]
+    -
+      - query: select max_ever(col3) from T2 group by col1, col2;
+      - result: [{!l 100}, {!l 200}, {!l 400}]
+    -
+      - query: select min_ever(col3) from t2
+      - result: [{!l 1}]
+    -
+      - query: select min_ever(col3) from t2
+      - explainContains: "AggregateIndexScan(Index(MV7 <,> BY_GROUP)"
+    -
+      - query: select col1, max_ever(col2) from T1 group by col1;
+      - result: [{!l 10, !l 5}, {!l 20, !l 13}]
+      - explainContains: "AggregateIndexScan(Index(MV13 <,> BY_GROUP)"
+    -
+      - query: select col1, min_ever(col2) from T1 group by col1;
+      - result: [{!l 10, !l 1}, {!l 20, !l 6}]
+      - explainContains: "AggregateIndexScan(Index(MV12 <,> BY_GROUP)"
+    -
+      # TODO, check how this aligns with COLLATION support
+      - query: select col2, max_ever(col1) from T4 group by col2;
+      - result: [{!l 10, 'value4'}, {!l 20, 'valueZ'}]
+      - explainContains: "AggregateIndexScan(Index(MV15 <,> BY_GROUP)"
+    -
+      # TODO, check how this aligns with COLLATION support
+      - query: select col2, min_ever(col1) from T4 group by col2;
+      - result: [{!l 10, 'value1'}, {!l 20, 'valueA'}]
+      - explainContains: "AggregateIndexScan(Index(MV14 <,> BY_GROUP)"
+    -
+      - query: select col1, sum(col2) from T1 where col1 > 15 group by col1;
+      - explainContains: "map(AggregateIndexScan(Index(MV1 "
+      - result: [{!l 20, !l 76}]
+    -
+      - query: select sum(col2) from T1 where col1  = 10 group by col1
+      - explain: "map(AggregateIndexScan(Index(MV1 [EQUALS promote(@c11 as LONG)] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as _0)])"
+      - result: [{!l 15}]
+    -
+      - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
+      - explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@c19 as LONG) && LESS_THAN_OR_EQUALS promote(@c12 as LONG)]] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as _0)])"
+      - result: [{!l 15}]
+    -
+      - query: select max(b) as x1, a+3 as x2 from t3 group by a+3;
+      - explainContains: "AggregateIndexScan(Index(MV10 <,> BY_GROUP)"
+      - result: [{x1: 500, x2: 13}, {x1: 200, x2: 23}, {x1: 900, x2: 33}]
+    -
+      - query: select a+3 as x1, max(b) as x2 from t3 group by a+3;
+      - explainContains: "AggregateIndexScan(Index(MV10 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 500}, {x1: 23, x2: 200}, {x1: 33, x2: 900}]
+    -
+      - query: select a+b as x1, min(b) as x2 from t3 group by a+b, b+10;
+      - explainContains: "AggregateIndexScan(Index(MV11 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 3}, {x1: 22, x2: 2}, {x1: 36, x2: 6}, {220, 200}, {510, 500}, {930, 900}]
+    -
+      - query: select M as x1, min(b) as x2 from t3 group by a+b as M, b+10;
+      - explainContains: "AggregateIndexScan(Index(MV11 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 3}, {x1: 22, x2: 2}, {x1: 36, x2: 6}, {220, 200}, {510, 500}, {930, 900}]
+    -
+      - query: select M as x1, min(b) as x2 from t3 group by a+b as M, b+10 as N;
+      - explainContains: "AggregateIndexScan(Index(MV11 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 3}, {x1: 22, x2: 2}, {x1: 36, x2: 6}, {220, 200}, {510, 500}, {930, 900}]
+...

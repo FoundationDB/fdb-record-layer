@@ -1,0 +1,188 @@
+#
+# groupby-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index i1 as select col1 from t1
+    create type as struct st1(y bigint, z bigint)
+    create type as struct st2(w bigint, x bigint)
+    create type as struct st3(u st2, v st1)
+    create type as struct st4(s bigint, t bigint)
+    create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
+    create index i2 as select r.v.z from nested order by r.v.z
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3),
+               (4, 10, 4),
+               (5, 10, 5),
+               (6, 20, 6),
+               (7, 20, 7),
+               (8, 20, 8),
+               (9, 20, 9),
+               (10, 20, 10),
+               (11, 20, 11),
+               (12, 20, 12),
+               (13, 20, 13)
+    - query: INSERT INTO NESTED
+        VALUES (1, (200, 1), ((5, 15), (10, 100))),
+               (2, (201, 2), ((5, 15), (10, 100))),
+               (3, (202, 3), ((5, 15), (10, 100))),
+               (4, (203, 4), ((5, 15), (10, 100))),
+               (5, (330, 5), ((5, 15), (10, 140))),
+               (6, (329, 6), ((5, 15), (10, 140))),
+               (7, (328, 7), ((5, 15), (10, 140))),
+               (8, (327, 8), ((5, 15), (10, 140)))
+---
+test_block:
+  tests:
+    -
+      - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
+      - result: [{330}]
+    -
+      - query: select max(q.s) from nested group by r.v.z as GRP having GRP > 120
+      - result: [{330}]
+    -
+      - query: select max(id) from t1 group by col1 having min(id) > 0 and col1 = 20;
+      - result: [{13}]
+    -
+      - query: select max(id) from t1 group by col1
+      - result: [{5}, {13}]
+#    -
+#        # grouping by constant is not yet supported.
+#      - query: select sum(col2) from T1 group by 3;
+#      - result: [{!l 210}]
+    -
+      - query: select * from T1 group by col1;
+      - error: "42803"
+    -
+      - query: select ID from T1 group by col1;
+      - error: "42803"
+    -
+      - query: select BLA from T1 group by col1;
+      - error: "42703"
+    -
+      - query: select col1 from T1 group by col1;
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
+    -
+      - query: select col1 from T1 group by col1 AS Y;
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
+    -
+      - query: select Y from T1 group by col1 AS Y;
+      - result: [{Y: !l 10}, {Y: !l 20}]
+    -
+      - query: select * from (select col1 from T1) as X group by col1;
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
+    -
+      - query: select * from (select col1 from T1) as X group by col1 AS Y;
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
+    -
+      - query: select col1 as XX from T1 group by col1;
+      - result: [{XX: !l 10}, {XX: !l 20}]
+    -
+      # named group by columns resolution rule gives precedence to the SELECT
+      - query: select col1 as XX from T1 group by col1 AS YY;
+      - result: [{XX: !l 10}, {XX: !l 20}]
+    -
+      - query: select YY as XX from T1 group by col1 AS YY;
+      - result: [{XX: !l 10}, {XX: !l 20}]
+    -
+      - query: select x from T1 group by col1 as x;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select col1 from (select col1 from t1) as x group by col1;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select y from (select col1 from t1) as x group by col1 as y;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select col1 from (select col1 from t1) as x group by x.col1;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select MAX(z) from (select col1 from t1) as x group by x.col1 as z;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - result: [{!l 5}, {!l 13}]
+    -
+      - query: select MIN(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - result: [{!l 1}, {!l 6}]
+    -
+      - query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - result: [{!l 5}, {!l 8}]
+    -
+      - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - result: [{3.0}, {9.5}]
+    -
+      - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - result: [{!l 15}, {!l 76}]
+    -
+      # result is correct since we don't use (not support, yet) explicit casting.
+      - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - result: [{!l 3, 3.0}, {!l 9, 9.5}]
+    -
+      - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
+      - error: "42703"
+    -
+      - query: select X.col2 from (select  col1, col2 from t1) as x group by x.col1;
+      - error: "42803"
+    -
+      - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
+      - result: [{!l 13}]
+    -
+      - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
+      - result: [{!l 1}]
+    -
+      - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
+      - result: [{!l 13}]
+    -
+      - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
+      - result: [{7.0}]
+    -
+      - query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
+      - result: [{!l 20}, {!l 30}]
+    -
+      - query: select x.col1 + x.col2 from (select col1, col2 from t1) as x group by x.col1;
+      - error: "42803"
+    -
+      - query: select x.col1 + x.col1 from (select col1, col2 from t1) as x group by x.col1;
+      - result: [{!l 20}, {!l 40}]
+    -
+      - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
+      - result: [{!l 10}]
+    -
+      - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
+      - result: [{!l 10}]
+    -
+      - query: select COUNT(*) from T1;
+      - result: [{!l 13}]
+    -
+      - query: select COUNT(col1) from T1;
+      - result: [{!l 13}]
+    -
+      - query: select x from t1 group by col1 as x, col2 as x;
+      - error: "42702"
+...
