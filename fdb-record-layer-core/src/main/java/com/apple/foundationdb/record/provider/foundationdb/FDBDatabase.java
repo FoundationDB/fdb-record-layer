@@ -38,19 +38,19 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResu
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.PassThroughRecordStoreStateCache;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -116,7 +116,7 @@ public class FDBDatabase {
     @Nonnull
     private final ScheduledExecutorService scheduledExecutor;
     @Nullable
-    private Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout;
+    private Function<FDBStoreTimer.Wait, Duration> asyncToSyncTimeout;
     @Nonnull
     private ExceptionMapper asyncToSyncExceptionMapper;
     @Nonnull
@@ -162,9 +162,9 @@ public class FDBDatabase {
     private final APIVersion apiVersion;
 
     @Nonnull
-    private static final ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
+    private static final Pair<Long, Long> initialVersionPair = Pair.of(null, null);
     @Nonnull
-    private final AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
+    private final AtomicReference<Pair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
 
     private final NavigableMap<Long, FDBRecordContext> trackedOpenContexts = new ConcurrentSkipListMap<>();
 
@@ -622,7 +622,7 @@ public class FDBDatabase {
     public void updateLastSeenFDBVersion(long startTime, long readVersion) {
         lastSeenFDBVersion.updateAndGet(pair ->
                 (pair.getLeft() == null || readVersion > pair.getLeft()) ?
-                        new ImmutablePair<>(readVersion, versionTimeEstimate(startTime)) : pair);
+                        Pair.of(readVersion, versionTimeEstimate(startTime)) : pair);
     }
 
     @Nonnull
@@ -1058,7 +1058,7 @@ public class FDBDatabase {
     }
 
     @Nullable
-    public Pair<Long, TimeUnit> getAsyncToSyncTimeout(FDBStoreTimer.Wait event) {
+    public Duration getAsyncToSyncTimeout(FDBStoreTimer.Wait event) {
         if (asyncToSyncTimeout == null) {
             return null;
         } else {
@@ -1067,16 +1067,17 @@ public class FDBDatabase {
     }
 
     @Nullable
-    public Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> getAsyncToSyncTimeout() {
+    public Function<FDBStoreTimer.Wait, Duration> getAsyncToSyncTimeout() {
         return asyncToSyncTimeout;
     }
 
-    public void setAsyncToSyncTimeout(@Nullable Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout) {
+    public void setAsyncToSyncTimeout(@Nullable Function<FDBStoreTimer.Wait, Duration> asyncToSyncTimeout) {
         this.asyncToSyncTimeout = asyncToSyncTimeout;
     }
 
     public void setAsyncToSyncTimeout(long asyncToSyncTimeout, @Nonnull TimeUnit asyncToSyncTimeoutUnit) {
-        setAsyncToSyncTimeout(event -> new ImmutablePair<>(asyncToSyncTimeout, asyncToSyncTimeoutUnit));
+        Duration timeout = Duration.ofNanos(asyncToSyncTimeoutUnit.toNanos(asyncToSyncTimeout));
+        setAsyncToSyncTimeout(event -> timeout);
     }
 
     public void clearAsyncToSyncTimeout() {
@@ -1105,18 +1106,18 @@ public class FDBDatabase {
             }
         } else {
 
-            final Pair<Long, TimeUnit> timeout = getAsyncToSyncTimeout(event);
+            final Duration timeout = getAsyncToSyncTimeout(event);
             final long startTime = System.nanoTime();
             try {
                 if (timeout != null) {
-                    return async.get(timeout.getLeft(), timeout.getRight());
+                    return async.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
                 } else {
                     return async.get();
                 }
             } catch (TimeoutException ex) {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
-                    throw asyncToSyncExceptionMapper.apply(new LoggableTimeoutException(ex, LogMessageKeys.TIME_LIMIT.toString(), timeout.getLeft(), LogMessageKeys.TIME_UNIT.toString(), timeout.getRight()), event);
+                    throw asyncToSyncExceptionMapper.apply(new LoggableTimeoutException(ex, LogMessageKeys.TIME_LIMIT.toString(), timeout.toNanos(), LogMessageKeys.TIME_UNIT.toString(), TimeUnit.NANOSECONDS), event);
                 }
                 throw asyncToSyncExceptionMapper.apply(ex, event);
             } catch (ExecutionException ex) {

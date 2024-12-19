@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -43,7 +44,6 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -122,7 +122,7 @@ public class KeySpaceDirectoryTest {
                 random.nextBytes(bytes);
                 return bytes;
             }))
-            .add(new KeyTypeValue(KeyType.STRING, "hello", "goodbye", () -> RandomStringUtils.random(random.nextInt(10) + 1)))
+            .add(new KeyTypeValue(KeyType.STRING, "hello", "goodbye", () -> RandomUtil.randomAlphanumericString(random, random.nextInt(10) + 1)))
             .add(new KeyTypeValue(KeyType.LONG, 11L,  -11L, random::nextLong))
             .add(new KeyTypeValue(KeyType.FLOAT, 3.2f, -5.4f, random::nextFloat))
             .add(new KeyTypeValue(KeyType.DOUBLE, 9.7d, -3845.6d, random::nextDouble))

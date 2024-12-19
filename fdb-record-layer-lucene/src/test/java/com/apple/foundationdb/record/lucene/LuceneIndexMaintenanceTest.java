@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.LoggableTimeoutException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -37,7 +35,6 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -58,7 +55,6 @@ import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,9 +69,9 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayDeque;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -86,6 +82,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -119,9 +117,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void setUp() {
         fdb.setAsyncToSyncTimeout(waitEvent -> {
             if (waitEvent == FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX) {
-                return org.apache.commons.lang3.tuple.Pair.of(60L, TimeUnit.SECONDS);
+                return Duration.ofSeconds(60L);
             } else {
-                return org.apache.commons.lang3.tuple.Pair.of(7L, TimeUnit.SECONDS);
+                return Duration.ofSeconds(7L);
             }
         });
     }
@@ -179,10 +177,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
                 .build();
 
-        // Generate random documents
-        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup,
-                dataModel.nextInt(15) + 1, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator,
-                new AtomicInteger(), new AtomicInteger());
+        dataModel.saveManyRecords(minDocumentCount, () -> openContext(contextProps), dataModel.nextInt(15) + 1);
 
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
 
@@ -192,12 +187,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
         }
-    }
-
-    private @Nonnull Function<FDBRecordContext, FDBRecordStore> getSchemaSetup(final RecordMetaDataBuilder metaDataBuilder) {
-        final RecordMetaData metadata = metaDataBuilder.build();
-        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-        return context -> createOrOpenRecordStore(context, metadata, path).getLeft();
     }
 
     static Stream<Arguments> manyDocumentsArgumentsSlow() {
@@ -290,8 +279,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     "docCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum(),
                     "docMinPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).min(),
                     "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
-            generateDocuments(isGrouped, isSynthetic, 1, dataModel.random,
-                    contextProps, dataModel.schemaSetup, dataModel.nextInt(maxTransactionsPerLoop - 1) + 1, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
+            dataModel.saveManyRecords(1, () -> openContext(contextProps), dataModel.nextInt(maxTransactionsPerLoop - 1) + 1);
 
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
@@ -373,12 +361,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         // Generate random documents
         final int transactionCount = dataModel.nextInt(15) + 10;
-        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup, transactionCount, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
+        dataModel.saveManyRecords(minDocumentCount, () -> openContext(contextProps), transactionCount);
 
-        final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
+        final Function<StoreTimer.Wait, Duration> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
         AtomicInteger waitCounts = new AtomicInteger();
         try {
-            final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout = (wait) -> {
+            final Function<StoreTimer.Wait, Duration> asyncToSyncTimeout = (wait) -> {
                 if (wait.getClass().equals(LuceneEvents.Waits.class) &&
                         // don't have the timeout on FILE_LOCK_CLEAR because that will leave the file lock around,
                         // and the next iteration will fail on that.
@@ -388,9 +376,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         wait != LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET &&
                         waitCounts.getAndDecrement() == 0) {
 
-                    return Pair.of(1L, TimeUnit.NANOSECONDS);
+                    return Duration.ofNanos(1L);
                 } else {
-                    return oldAsyncToSyncTimeout == null ? Pair.of(1L, TimeUnit.DAYS) : oldAsyncToSyncTimeout.apply(wait);
+                    return oldAsyncToSyncTimeout == null ? Duration.ofDays(1L) : oldAsyncToSyncTimeout.apply(wait);
                 }
             };
             for (int i = 0; i < 100; i++) {
@@ -781,6 +769,94 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
+    /**
+     * Test that updating records in the same transaction does not cause issues with the executor, and doesn't result in
+     * a corrupted index.
+     * <p>
+     *     See issues: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2989">#2989</a> and
+     *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2990">#2990</a>.
+     * </p>
+     * @throws IOException if there's an issue with Lucene
+     */
+    @Test
+    void concurrentUpdate() throws IOException {
+        // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
+        // configurations.
+        AtomicInteger threadCounter = new AtomicInteger();
+        // Synchronization blocks in FDBDirectoryWrapper can cause a deadlock
+        // see https://github.com/FoundationDB/fdb-record-layer/issues/2989
+        // So set the pool large enough to overcome that
+        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(30,
+                pool -> {
+                    final ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+                    thread.setName("ConcurrentUpdatePool-" + threadCounter.getAndIncrement());
+                    return thread;
+                },
+                null, false));
+        final long seed = 320947L;
+        final boolean isGrouped = true;
+        // updating the parent & child concurrently is not thread safe, we may want to fix the behavior, or say that is
+        // not supported, as it is the same as updating the same record concurrently, which I don't think is generally
+        // supported.
+        final boolean isSynthetic = false;
+        final boolean primaryKeySegmentIndexEnabled = true;
+        // LucenePartitioner is not thread safe, and the counts get broken
+        // See: https://github.com/FoundationDB/fdb-record-layer/issues/2990
+        final int partitionHighWatermark = -1;
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
+                .setPartitionHighWatermark(partitionHighWatermark)
+                .build();
+
+        final int repartitionCount = 10;
+        final int loopCount = 30;
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, dataModel.nextInt(1000) + repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+        for (int i = 0; i < loopCount; i++) {
+            LOGGER.info(KeyValueLogMessage.of("concurrentUpdate loop",
+                    "iteration", i,
+                    "groupCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.size(),
+                    "docCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum(),
+                    "docMinPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).min(),
+                    "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
+
+            long start = 234098;
+            try (FDBRecordContext context = openContext(contextProps)) {
+                dataModel.saveRecords(10, start, context, 1);
+                commit(context);
+            }
+            explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+        }
+
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            assertThat(dataModel.updateableRecords, Matchers.aMapWithSize(Matchers.greaterThan(30)));
+            LOGGER.info("concurrentUpdate: Starting updates");
+            RecordCursor.fromList(new ArrayList<>(dataModel.updateableRecords.entrySet()))
+                    .mapPipelined(entry -> {
+                        return dataModel.updateRecord(recordStore, entry.getKey(), entry.getValue());
+                    }, 10)
+                    .asList().join();
+            commit(context);
+        }
+
+
+        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
+        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
+
+        if (isGrouped) {
+            validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
+        }
+    }
+
     static Stream<Arguments> concurrentStoreTest() {
         return Stream.concat(
                 Stream.of(
@@ -805,16 +881,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         // that should take long to take 30+ minutes.... But we're probably getting pretty good coverage if it is just
         // running in a loop for 5 minutes even if it doesn't hit the requested loop count
         final long end = System.nanoTime() + TimeUnit.MINUTES.toNanos(5);
-
-        final Map<String, String> options = Map.of(
-                LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
-                LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(1000),
-                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
-
-        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexTestDataModel.createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, isSynthetic);
-        Index index = LuceneIndexTestDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
-        final RecordMetaData metadata = metaDataBuilder.build();
         Random random = new Random(seed);
         final int repartitionCount = 2;
         final RandomTextGenerator outerTextGenerator = new RandomTextGenerator(random);
@@ -823,14 +889,19 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, random.nextInt(1000) + repartitionCount)
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)random.nextInt(10) + 2) // it must be at least 2.0
                 .build();
+        // We create one builder here, and reuse it so that the dataModel for each thread has the same metadata,
+        // but different paths.
+        final LuceneIndexTestDataModel.Builder dataModelBuilder = new LuceneIndexTestDataModel
+                .Builder(random.nextLong(), LuceneIndexMaintenanceTest.this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
+                .setPartitionHighWatermark(1000)
+                .setTextGeneratorWithNewRandom(outerTextGenerator);
 
         final List<ConcurrentStoreTestRunner> runners = IntStream.range(0, storeCount)
-                .mapToObj(i -> {
-                    final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-                    return new ConcurrentStoreTestRunner(contextProps, context -> createOrOpenRecordStore(context, metadata, path).getLeft(),
-                            end, isGrouped, isSynthetic, new Random(random.nextLong()),
-                            index, outerTextGenerator);
-                }).collect(Collectors.toList());
+                .mapToObj(i -> new ConcurrentStoreTestRunner(contextProps, end, dataModelBuilder))
+                .collect(Collectors.toList());
 
         final List<Map<Tuple, Map<Tuple, Tuple>>> allIds = AsyncUtil.getAll(runners.stream()
                         .map(CompletableFuture::supplyAsync)
@@ -847,77 +918,50 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     }
 
     private class ConcurrentStoreTestRunner implements Supplier<Map<Tuple, Map<Tuple, Tuple>>> {
-
-
-        private final AtomicInteger currentLoop;
-        private final RandomTextGenerator textGenerator;
         private final RecordLayerPropertyStorage contextProps;
-        Function<FDBRecordContext, FDBRecordStore> schemaSetup;
+        private final LuceneIndexTestDataModel dataModel;
         private final long endTime;
-        private final boolean isGrouped;
-        private final boolean isSynthetic;
-        private final Random random;
-        private final Index index;
-        final Map<Tuple, Map<Tuple, Tuple>> ids;
-        private final AtomicInteger transactionCounter;
-        private final AtomicInteger documentCount;
 
         public ConcurrentStoreTestRunner(final RecordLayerPropertyStorage contextProps,
-                                         final Function<FDBRecordContext, FDBRecordStore> schemaSetup,
-                                         final long endTime,
-                                         final boolean isGrouped,
-                                         final boolean isSynthetic,
-                                         final Random random,
-                                         final Index index,
-                                         final RandomTextGenerator outerTextGenerator) {
+                                         final long endTime, final LuceneIndexTestDataModel.Builder dataModelBuilder) {
             this.contextProps = contextProps;
-            this.schemaSetup = schemaSetup;
             this.endTime = endTime;
-            this.isGrouped = isGrouped;
-            this.isSynthetic = isSynthetic;
-            this.random = random;
-            this.index = index;
-            this.textGenerator = outerTextGenerator.withNewRandom(random);
-            this.currentLoop = new AtomicInteger(-1);
-            this.ids = new HashMap<>();
-            this.transactionCounter = new AtomicInteger();
-            this.documentCount = new AtomicInteger();
+            this.dataModel = dataModelBuilder.build();
         }
 
         @Override
         public Map<Tuple, Map<Tuple, Tuple>> get() {
             int maxTransactionsPerLoop = 5;
             final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps),
-                    context -> Objects.requireNonNull(schemaSetup.apply(context)));
-            currentLoop.set(0);
+                    dataModel::createOrOpenRecordStore);
+            int currentLoop = 0;
             while (System.nanoTime() < endTime) {
-                currentLoop.incrementAndGet();
+                currentLoop++;
                 try {
-                    transactionCounter.set(0);
-                    generateDocuments(isGrouped, isSynthetic, 1, random,
-                            contextProps, schemaSetup, random.nextInt(maxTransactionsPerLoop - 1) + 1, ids, textGenerator, transactionCounter, documentCount);
+                    dataModel.saveManyRecords(1, () -> openContext(contextProps), dataModel.nextInt(maxTransactionsPerLoop - 1) + 1);
                 } catch (RuntimeException e) {
-                    throw new RuntimeException("Failed to generate documents at iteration " + currentLoop.get(), e);
+                    throw new RuntimeException("Failed to generate documents at iteration " + currentLoop, e);
                 }
 
-                boolean mergeFailed = mergeIndex();
+                boolean mergeFailed = mergeIndex(currentLoop);
                 try {
-                    luceneIndexTestValidator.validate(index, ids, isSynthetic ? "child_str_value:forth" : "text_value:about", mergeFailed);
+                    luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey,
+                            dataModel.isSynthetic ? "child_str_value:forth" : "text_value:about", mergeFailed);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
-            return ids;
+            return dataModel.groupingKeyToPrimaryKeyToPartitionKey;
         }
 
-        private boolean mergeIndex() {
+        private boolean mergeIndex(final int currentLoop) {
             try {
-                explicitMergeIndex(index, contextProps, schemaSetup);
+                explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
             } catch (FDBExceptions.FDBStoreRetriableException e) {
                 if (e.getCause() instanceof FDBException) {
                     final FDBException fe = (FDBException)e.getCause();
                     if (fe.getCode() == 1051) { // Batch GRV request rate limit exceeded
-                        LOGGER.info("Batch GRV exceeded at iteration " + currentLoop.get(), e);
+                        LOGGER.info("Batch GRV exceeded at iteration " + currentLoop, e);
                         try {
                             Thread.sleep(50);
                             return true;
@@ -927,9 +971,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         }
                     }
                 }
-                throw new RuntimeException("Failed merge at iteration " + currentLoop.get(), e);
+                throw new RuntimeException("Failed merge at iteration " + currentLoop, e);
             } catch (RuntimeException e) {
-                throw new RuntimeException("Failed merge at iteration " + currentLoop.get(), e);
+                throw new RuntimeException("Failed merge at iteration " + currentLoop, e);
             }
             return false;
         }
@@ -982,41 +1026,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             }
         }
         return null;
-    }
-
-    private void generateDocuments(final boolean isGrouped,
-                                   final boolean isSynthetic,
-                                   final int minDocumentCount,
-                                   final Random random,
-                                   final RecordLayerPropertyStorage contextProps,
-                                   final Function<FDBRecordContext, FDBRecordStore> schemaSetup,
-                                   final int transactionCount,
-                                   final Map<Tuple, Map<Tuple, Tuple>> ids,
-                                   final RandomTextGenerator textGenerator,
-                                   AtomicInteger transactionCounter,
-                                   final AtomicInteger documentCount) {
-        final long start = Instant.now().toEpochMilli();
-        int i = 0;
-        while (i < transactionCount ||
-                // keep inserting data until at least two groups have at least minDocumentCount
-                ids.values().stream()
-                        .map(Map::size)
-                        .sorted(Comparator.reverseOrder())
-                        .limit(2).skip(isGrouped ? 1 : 0).findFirst()
-                        .orElse(0) < minDocumentCount) {
-            final int docCount = random.nextInt(10) + 1;
-            try (FDBRecordContext context = openContext(contextProps)) {
-                FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                for (int j = 0; j < docCount; j++) {
-                    LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0);
-                }
-                commit(context);
-                documentCount.addAndGet(docCount);
-            }
-            transactionCounter.incrementAndGet();
-            i++;
-        }
     }
 
     @Nonnull

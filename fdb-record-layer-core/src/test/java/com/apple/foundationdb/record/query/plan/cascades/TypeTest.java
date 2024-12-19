@@ -31,12 +31,12 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.record.util.RandomUtil;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -106,7 +107,7 @@ class TypeTest {
                     Arguments.of(
                             "TestRecords2Proto.MyLongRecord", TestRecords2Proto.MyLongRecord.newBuilder()
                                     .setRecNo(random.nextInt())
-                                    .setBytesValue(ByteString.copyFrom(RandomUtils.nextBytes(20))).build()
+                                    .setBytesValue(RandomUtil.randomByteString(random, 20)).build()
                     ),
                     Arguments.of(
                             "TestRecords3Proto.MyHierarchicalRecord", TestRecords3Proto.MyHierarchicalRecord.newBuilder()
@@ -273,7 +274,7 @@ class TypeTest {
                     // Unsupported cases
                     Arguments.of(new int[] {1, 2, 3}, Type.any()), // primitive Arrays are not supported
                     Arguments.of(new Integer[] {1, 2, 3}, Type.any()), // object Arrays are not supported
-                    Arguments.of(TestRecords2Proto.MyLongRecord.newBuilder().setRecNo(42).setBytesValue(ByteString.copyFrom(RandomUtils.nextBytes(20))).build(), Type.any()), // messages are not supported
+                    Arguments.of(TestRecords2Proto.MyLongRecord.newBuilder().setRecNo(42).setBytesValue(RandomUtil.randomByteString(ThreadLocalRandom.current(), 20)).build(), Type.any()), // messages are not supported
                     Arguments.of(Type.TypeCode.ANY, Type.any()) // enums are not supported
             );
         }

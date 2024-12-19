@@ -21,13 +21,15 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.lucene.directory.LuceneSerializer;
+import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Test for Lucene data compression/decompression validation.
@@ -36,7 +38,7 @@ import org.junit.jupiter.api.Test;
 public class LuceneCompressionTest {
     @Test
     void testEncodingWithoutCompression() throws InvalidProtocolBufferException {
-        final ByteString content = ByteString.copyFrom(RandomUtils.nextBytes(100));
+        final ByteString content = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100);
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
                 .setSize(20L)

@@ -88,7 +88,7 @@ public class IndexingScrubMissing extends IndexingBase {
         return Arrays.asList(
                 LogMessageKeys.INDEXING_METHOD, "scrub missing index entries",
                 LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
-                LogMessageKeys.LIMIT, scrubbingPolicy.getEntriesScanLimit()
+                LogMessageKeys.SCAN_LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
 
