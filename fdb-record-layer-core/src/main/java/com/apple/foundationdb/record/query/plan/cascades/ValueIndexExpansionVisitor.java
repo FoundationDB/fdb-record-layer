@@ -92,7 +92,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         // add the value for the flow of records
-        allExpansionsBuilder.add(GraphExpansion.builder().pullUpQuantifier(baseQuantifier).build());
+        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
         var rootExpression = index.getRootExpression();
 
@@ -190,8 +190,13 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
         final var sealedExpansion = completeExpansion.seal();
-        final var parameters = sealedExpansion.getPlaceholders().stream().map(Placeholder::getParameterAlias).collect(ImmutableList.toImmutableList());
-        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, sealedExpansion.buildSelect());
+        final var parameters =
+                sealedExpansion.getPlaceholders()
+                        .stream()
+                        .map(Placeholder::getParameterAlias)
+                        .collect(ImmutableList.toImmutableList());
+        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse,
+                sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,
                 Traversal.withRoot(Reference.of(matchableSortExpression)),

@@ -372,10 +372,11 @@ public interface Compensation {
         // - it is an impossible compensation (in which case the predicate compensation map may be empty)
         // - we need to change the shape of the record
         // - there are predicates that need to be compensated
-        // - there may be unmatched quantifiers that we need to deal with -- tested in isNeededForFiltering()
+        // - there may be unmatched quantifiers that we need to deal with
         // - any of this compensation's children need to compensate for something -- tested in isNeededForFiltering()
         //
-        Verify.verify(isImpossible || resultCompensationFunction.isNeeded() || isNeededForFiltering());
+        Verify.verify(isImpossible || !unmatchedQuantifiers.isEmpty() ||
+                !predicateCompensationMap.isEmpty() || resultCompensationFunction.isNeeded() || isNeededForFiltering());
 
         return new ForMatch(isImpossible, this, predicateCompensationMap, matchedQuantifiers,
                 unmatchedQuantifiers, compensatedAliases, resultCompensationFunction);

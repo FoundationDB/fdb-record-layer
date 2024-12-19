@@ -442,7 +442,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
                 final var maxMatchMap =
-                        MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
+                        MaxMatchMap.compute(translatedResultValue, candidateExpression.getResultValue(),
                                 Quantifiers.aliases(candidateExpression.getQuantifiers()), bindingValueEquivalence);
                 return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
                                 PredicateMap.empty(), maxMatchMap, maxMatchMap.getQueryPlanConstraint())
@@ -558,7 +558,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 return allParameterBindingMapOptional
                                         .flatMap(allParameterBindingMap -> {
                                             final var maxMatchMap =
-                                                    MaxMatchMap.calculate(translatedResultValue,
+                                                    MaxMatchMap.compute(translatedResultValue,
                                                             candidateExpression.getResultValue(),
                                                             Quantifiers.aliases(candidateExpression.getQuantifiers()),
                                                             bindingValueEquivalence);

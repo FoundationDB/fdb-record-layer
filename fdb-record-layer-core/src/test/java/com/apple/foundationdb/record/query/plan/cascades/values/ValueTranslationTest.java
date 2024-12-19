@@ -514,7 +514,7 @@ public class ValueTranslationTest {
          */
 
         final var l1m3 =
-                MaxMatchMap.calculate(l1TranslatedQueryValue, p_v, ImmutableSet.of(t_Alias),
+                MaxMatchMap.compute(l1TranslatedQueryValue, p_v, ImmutableSet.of(t_Alias),
                         ValueEquivalence.fromAliasMap(AliasMap.ofAliases(sAlias, s_Alias)));
 
         Map<Value, Value> l1ExpectedMapping = Map.of(
@@ -1167,7 +1167,7 @@ public class ValueTranslationTest {
         final var p_v =
                 rcv(fv(m_, "m2"), innerRcv);
 
-        final var m3 = MaxMatchMap.calculate(t_, p_v, ImmutableSet.of(t_Alias));
+        final var m3 = MaxMatchMap.compute(t_, p_v, ImmutableSet.of(t_Alias));
 
         final var computedMap = m3.getMap();
         final var expectedMap = ImmutableMap.of(innerRcv, innerRcv);
@@ -1231,7 +1231,7 @@ public class ValueTranslationTest {
 
     @Nonnull
     private static MaxMatchMap calculate(@Nonnull final Value queryResultValue, @Nonnull final Value candidateResultValue) {
-        return MaxMatchMap.calculate(queryResultValue, candidateResultValue, candidateResultValue.getCorrelatedTo());
+        return MaxMatchMap.compute(queryResultValue, candidateResultValue, candidateResultValue.getCorrelatedTo());
     }
 
     @Nonnull
