@@ -53,6 +53,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 @API(API.Status.EXPERIMENTAL)
@@ -187,14 +188,19 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         getDelegate().replaceCatalog(ddlCatalog);
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
 
+        // argumentValue
         final var inputColumnId = ctx.columnType(0).customType != null ? visitUid(ctx.columnType(0).customType) : Identifier.of(ctx.columnType(0).getText());
         final var columnType = semanticAnalyzer.lookupType(inputColumnId, true, false, metadataBuilder::findType);
-        QuantifiedObjectValue argumentValue = QuantifiedObjectValue.of(CorrelationIdentifier.of(ctx.paramName.getText()), DataTypeUtils.toRecordLayerType(columnType));
+        QuantifiedObjectValue argumentValue = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), DataTypeUtils.toRecordLayerType(columnType));
 
-        final var id = visitFullId(ctx.fullId());
+        // function return type
+        final var returnColumnId = ctx.columnType(1).customType != null ? visitUid(ctx.columnType(1).customType) : Identifier.of(ctx.columnType(1).getText());
+        final var returnType = semanticAnalyzer.lookupType(returnColumnId, true, false, metadataBuilder::findType);
+
+        final var functionBody = visitFullId(ctx.fullId());
         final var paramNameId = Identifier.of(ctx.paramName.getText().toUpperCase(Locale.ROOT));
 
-        Optional<Value> fieldValue = semanticAnalyzer.lookUpNestedField(id, paramNameId, argumentValue);
+        Optional<Value> fieldValue = semanticAnalyzer.lookUpNestedField(functionBody, paramNameId, argumentValue, returnType);
         Assert.thatUnchecked(fieldValue.isPresent(), "couldn't resolve function definition");
 
         return new UserDefinedFunctionDefinition(ctx.functionName.getText(), MacroFunctionValue.of(List.of(argumentValue), fieldValue.get()));
@@ -260,7 +266,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             metadataBuilder.addTable(tableWithIndex);
         }
         final var functions = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
-        final var udfs = functions.stream().map(v -> v.toUDF()).collect(Collectors.toList());
+        final var udfs = functions.stream().map(v -> v.toUdf()).collect(Collectors.toList());
         metadataBuilder.addUdfs(udfs);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }

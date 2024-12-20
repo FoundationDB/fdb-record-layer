@@ -255,9 +255,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
         final var functionName = ctx.userDefinedFunctionName().getText();
-        // special case for user-defined functions where we want to exclude the first argument from
-        // being literal-stripped.
-        @Nonnull Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
         return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
     }
 

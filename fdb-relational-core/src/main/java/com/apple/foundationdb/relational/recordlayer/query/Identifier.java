@@ -129,10 +129,10 @@ public class Identifier {
     }
 
     @Nonnull
-    public Identifier removePrefix(@Nonnull Identifier identifier) {
+    public List<String> removePrefix(@Nonnull Identifier prefix) {
+        // assume the identifier has the prefix, should call prefixedWith(prefix) to check before calling this method
         final var fullName = fullyQualifiedName();
-        final var newIdFullName = fullName.subList(identifier.fullyQualifiedName().size(), fullName.size());
-        return Identifier.of(newIdFullName.get(newIdFullName.size() - 1), newIdFullName.subList(0, newIdFullName.size() - 1));
+        return fullName.subList(prefix.fullyQualifiedName().size(), fullName.size());
     }
 
     public boolean qualifiedWith(@Nonnull Identifier identifier) {

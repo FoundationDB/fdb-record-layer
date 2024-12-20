@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MacroFunctionVal
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
 import java.util.List;
 
 public class UserDefinedFunctionDefinition {
@@ -44,17 +43,17 @@ public class UserDefinedFunctionDefinition {
         return functionName;
     }
 
+    @Nonnull
     public BuiltInFunction<? extends Typed> getBuiltInFunction() {
-        return new BuiltInFunction<Value>(functionName, List.of(), (builtInFunction, arguments) -> {
-            final var result = ((MacroFunctionValue) functionValue).call(arguments);
-            return result;
-        }) {};
+        return new BuiltInFunction<Value>(functionName, List.of(), (builtInFunction, arguments) -> ((MacroFunctionValue) functionValue).call(arguments)) {};
     }
 
-    public Udf toUDF() {
+    @Nonnull
+    public Udf toUdf() {
         return new Udf(functionName, functionValue);
     }
 
+    @Nonnull
     public static UserDefinedFunctionDefinition fromUdf(Udf udf) {
         return new UserDefinedFunctionDefinition(udf.getFunctionName(), udf.getValue());
     }

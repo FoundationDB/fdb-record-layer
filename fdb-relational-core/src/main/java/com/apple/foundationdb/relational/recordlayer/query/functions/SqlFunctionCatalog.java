@@ -115,7 +115,8 @@ public final class SqlFunctionCatalog implements FunctionCatalog {
         return INSTANCE;
     }
 
-    public BuiltInFunction<? extends Typed> addFunction(UserDefinedFunctionDefinition functionDefinition) {
+    @Nonnull
+    public BuiltInFunction<? extends Typed> addFunction(@Nonnull UserDefinedFunctionDefinition functionDefinition) {
         final var func = functionDefinition.getBuiltInFunction();
         udfMap.put(functionDefinition.getName(), func);
         return func;

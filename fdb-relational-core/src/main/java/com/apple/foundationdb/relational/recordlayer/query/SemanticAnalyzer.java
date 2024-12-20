@@ -461,25 +461,28 @@ public class SemanticAnalyzer {
     @Nonnull
     public Optional<Value> lookUpNestedField(@Nonnull Identifier requestedIdentifier,
                                              @Nonnull Identifier paramId,
-                                             @Nonnull QuantifiedObjectValue objectValue) {
+                                             @Nonnull QuantifiedObjectValue existingValue,
+                                             @Nonnull DataType targetDataType) {
         Assert.thatUnchecked(requestedIdentifier.prefixedWith(paramId), "Invalid function definition");
 
+        // x -> x
         if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {
-            return Optional.of(objectValue);
+            return Optional.of(existingValue);
         }
-        final var remainingPath = requestedIdentifier.removePrefix(paramId).fullyQualifiedName();
+        // find nested field path
+        final var remainingPath = requestedIdentifier.removePrefix(paramId);
         final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
-        DataType currentDataType = DataTypeUtils.toRelationalType(objectValue.getResultType());
+        DataType existingDataType = DataTypeUtils.toRelationalType(existingValue.getResultType());
         for (String s : remainingPath) {
-            if (currentDataType.getCode() != DataType.Code.STRUCT) {
+            if (existingDataType.getCode() != DataType.Code.STRUCT) {
                 return Optional.empty();
             }
-            final var fields = ((DataType.StructType) currentDataType).getFields();
+            final var fields = ((DataType.StructType) existingDataType).getFields();
             var found = false;
             for (int j = 0; j < fields.size(); j++) {
                 if (fields.get(j).getName().equals(s)) {
                     accessors.add(new FieldValue.Accessor(fields.get(j).getName(), j));
-                    currentDataType = fields.get(j).getType();
+                    existingDataType = fields.get(j).getType();
                     found = true;
                     break;
                 }
@@ -489,9 +492,10 @@ public class SemanticAnalyzer {
             }
         }
         // probably need to check if currentDataType = targetDataType
-        final var fieldPath = FieldValue.resolveFieldPath(objectValue.getResultType(), accessors.build());
-        final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(objectValue, fieldPath);
-        return Optional.of(attributeExpression);
+        final var fieldPath = FieldValue.resolveFieldPath(existingValue.getResultType(), accessors.build());
+        final var fieldValue = FieldValue.ofFieldsAndFuseIfPossible(existingValue, fieldPath);
+        Assert.thatUnchecked(fieldValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
+        return Optional.of(fieldValue);
     }
 
     @Nonnull
