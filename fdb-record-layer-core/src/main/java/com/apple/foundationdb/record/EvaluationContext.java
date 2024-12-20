@@ -209,10 +209,7 @@ public class EvaluationContext {
      *
      * @return a new <code>EvaluationContext</code> with the new binding
      */
-    @Nonnull
-    public EvaluationContext withBinding(@Nonnull final Bindings.Internal type,
-                                         @Nonnull final CorrelationIdentifier alias,
-                                         @Nullable final Object value) {
+    public EvaluationContext withBinding(final Bindings.Internal type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {
         return childBuilder().setBinding(type.bindingName(alias.getId()), value).build(typeRepository);
     }
 }
