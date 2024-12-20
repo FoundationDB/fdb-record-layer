@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.server.jdbc.v1;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
-import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLException;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetRequest;
@@ -98,7 +98,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onNext(statementResponseBuilder.build());
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLExceptionUtil.create(e)));
         } catch (RuntimeException e) {
             throw handleUncaughtException(e);
         }
@@ -115,7 +115,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onNext(statementResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLExceptionUtil.create(e)));
         } catch (RuntimeException e) {
             throw handleUncaughtException(e);
         }
@@ -153,7 +153,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onNext(insertResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLExceptionUtil.create(e)));
         } catch (RuntimeException e) {
             throw handleUncaughtException(e);
         }
@@ -184,14 +184,13 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         if (!checkGetRequest(request, responseObserver)) {
             return;
         }
-        try {
-            RelationalResultSet rs = this.frl.get(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    TypeConversion.fromProtobuf(request.getKeySet()));
+        try (RelationalResultSet rs = frl.get(request.getDatabase(), request.getSchema(), request.getTableName(),
+                    TypeConversion.fromProtobuf(request.getKeySet()))) {
             GetResponse getResponse = GetResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
             responseObserver.onNext(getResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLExceptionUtil.create(e)));
         } catch (RuntimeException e) {
             throw handleUncaughtException(e);
         }
@@ -231,14 +230,13 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         if (!checkScanRequest(request, responseObserver)) {
             return;
         }
-        try {
-            RelationalResultSet rs = this.frl.scan(request.getDatabase(), request.getSchema(), request.getTableName(),
-                    TypeConversion.fromProtobuf(request.getKeySet()));
+        try (RelationalResultSet rs = this.frl.scan(request.getDatabase(), request.getSchema(), request.getTableName(),
+                    TypeConversion.fromProtobuf(request.getKeySet()))) {
             ScanResponse scanResponse = ScanResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
             responseObserver.onNext(scanResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
-            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLException.create(e)));
+            responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLExceptionUtil.create(e)));
         } catch (RuntimeException e) {
             throw handleUncaughtException(e);
         }
@@ -266,7 +264,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
 
     private StatusRuntimeException handleUncaughtException(Throwable t) {
         return Status.INTERNAL.withDescription("Uncaught exception")
-                .augmentDescription(GrpcSQLException.stacktraceToString(t))
+                .augmentDescription(GrpcSQLExceptionUtil.stacktraceToString(t))
                 .withCause(t).asRuntimeException();
     }
 

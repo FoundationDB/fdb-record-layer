@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 
-public class GrpcSQLExceptionTest {
+public class GrpcSQLExceptionUtilTest {
     @Test
     public void testCreate() {
         final String message = "Some old status message";

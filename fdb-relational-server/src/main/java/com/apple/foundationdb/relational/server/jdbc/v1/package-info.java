@@ -18,4 +18,8 @@
  * limitations under the License.
  */
 
+/**
+ * JDBC server implementation. Includes implementation for gRPC services used to power a database
+ * server accessible via a JDBC client.
+ */
 package com.apple.foundationdb.relational.server.jdbc.v1;
