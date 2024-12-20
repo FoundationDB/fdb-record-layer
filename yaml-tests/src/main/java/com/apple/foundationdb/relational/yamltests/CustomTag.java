@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import javax.annotation.Nonnull;
 
+@SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class CustomTag {
 
     static final class Ignore extends CustomTag {

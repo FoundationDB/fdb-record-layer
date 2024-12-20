@@ -180,29 +180,27 @@ public abstract class QueryConfig {
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching results of query '{}'", queryDescription);
-                final var resultSet = (RelationalResultSet) actual;
-                final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
-                if (!resultSet.isClosed()) {
-                    resultSet.close();
-                }
-                if (!matchResult.getLeft().equals(Matchers.ResultSetMatchResult.success())) {
-                    var toReport = "‼️ result mismatch at line " + getLineNumber() + ":\n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
-                            Matchers.notNull(matchResult.getLeft().getExplanation(), "failure error message") + "\n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n";
-                    final var valueString = getValueString();
-                    if (!valueString.isEmpty()) {
-                        toReport += "↪ expected result:\n" +
-                                getValueString() + "\n";
+                try (RelationalResultSet resultSet = (RelationalResultSet)actual) {
+                    final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
+                    if (!matchResult.getLeft().equals(Matchers.ResultSetMatchResult.success())) {
+                        var toReport = "‼️ result mismatch at line " + getLineNumber() + ":\n" +
+                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                                Matchers.notNull(matchResult.getLeft().getExplanation(), "failure error message") + "\n" +
+                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n";
+                        final var valueString = getValueString();
+                        if (!valueString.isEmpty()) {
+                            toReport += "↪ expected result:\n" +
+                                    getValueString() + "\n";
+                        }
+                        if (matchResult.getRight() != null) {
+                            toReport += "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                                    "↩ actual result left to be matched:\n" +
+                                    Matchers.notNull(matchResult.getRight(), "failure error actual result set");
+                        }
+                        reportTestFailure(toReport);
+                    } else {
+                        logger.debug("✅ results match!");
                     }
-                    if (matchResult.getRight() != null) {
-                        toReport += "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
-                                "↩ actual result left to be matched:\n" +
-                                Matchers.notNull(matchResult.getRight(), "failure error actual result set");
-                    }
-                    reportTestFailure(toReport);
-                } else {
-                    logger.debug("✅ results match!");
                 }
             }
         };
@@ -217,6 +215,7 @@ public abstract class QueryConfig {
                 return "explain " + query;
             }
 
+            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable resource persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
@@ -338,6 +337,7 @@ public abstract class QueryConfig {
                 return "explain " + query;
             }
 
+            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching plan hash of query '{}'", queryDescription);
@@ -354,6 +354,7 @@ public abstract class QueryConfig {
 
     public static QueryConfig getNoCheckConfig(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(QUERY_CONFIG_NO_CHECKS, null, lineNumber, executionContext) {
+            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 if (actual instanceof RelationalResultSet) {
@@ -385,21 +386,21 @@ public abstract class QueryConfig {
         try {
             final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
             final var value = Matchers.notNull(configEntry, "query configuration").getValue();
-            if (key.equals(QUERY_CONFIG_COUNT)) {
+            if (QUERY_CONFIG_COUNT.equals(key)) {
                 return getCheckCountConfig(value, lineNumber, executionContext);
-            } else if (key.equals(QUERY_CONFIG_ERROR)) {
+            } else if (QUERY_CONFIG_ERROR.equals(key)) {
                 return getCheckErrorConfig(value, lineNumber, executionContext);
-            } else if (key.equals(QUERY_CONFIG_EXPLAIN)) {
+            } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
                 return getCheckExplainConfig(true, key, value, lineNumber, executionContext);
-            } else if (key.equals(QUERY_CONFIG_EXPLAIN_CONTAINS)) {
+            } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
                 return getCheckExplainConfig(false, key, value, lineNumber, executionContext);
-            } else if (key.equals(QUERY_CONFIG_PLAN_HASH)) {
+            } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
                 return getCheckPlanHashConfig(value, lineNumber, executionContext);
             } else if (key.contains(QUERY_CONFIG_RESULT)) {
                 return getCheckResultConfig(true, key, value, lineNumber, executionContext);
-            } else if (key.equals(QUERY_CONFIG_UNORDERED_RESULT)) {
+            } else if (QUERY_CONFIG_UNORDERED_RESULT.equals(key)) {
                 return getCheckResultConfig(false, key, value, lineNumber, executionContext);
-            } else if (key.equals(QUERY_CONFIG_MAX_ROWS)) {
+            } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
                 return getMaxRowConfig(value, lineNumber, executionContext);
             } else {
                 Assert.failUnchecked("‼️ '%s' is not a valid configuration");

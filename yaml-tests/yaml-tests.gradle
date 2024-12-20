@@ -1,0 +1,98 @@
+/*
+ * yaml-tests.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: rootProject.file('gradle/proto.gradle')
+
+project.tasks.named("processResources") {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+project.tasks.named("processTestResources") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named("sourcesJar") {
+    duplicatesStrategy('include')
+    // classifier('sources')
+    from sourceSets.main.allSource
+}
+
+java {
+    withSourcesJar()
+}
+
+apply from: rootProject.file('gradle/publishing.gradle')
+
+configurations {
+    // The :fdb-relational-grpc project includes the slf4j bindings transitively through :fdb-relational-cli.
+    // Excluding it from the individual project seems to be insufficient (and results in a runtime
+    // warning about there being multiple implementations present from slf4j), so this applies the
+    // exclusion globally
+    runtime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
+    testImplementation.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
+    testRuntime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
+}
+
+def coreProject = ":${ext.coreProjectName}"
+dependencies {
+    implementation project(coreProject)
+    implementation project(path: coreProject, configuration: 'tests')
+    implementation project(":fdb-relational-api")
+    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "com.google.protobuf:protobuf-java-util:${protobufVersion}"
+    implementation project(":fdb-relational-core")
+    implementation "org.yaml:snakeyaml:${snakeyamlVersion}"
+    implementation "com.google.code.findbugs:jsr305:${jsr305Version}"
+    implementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+
+    testImplementation project(":fdb-relational-server")
+    testImplementation project(":fdb-relational-jdbc")
+    implementation "de.vandermeer:asciitable:${asciitableVersion}"
+    implementation "io.github.java-diff-utils:java-diff-utils:4.12"
+    // slf4j binding. Allows Record Layer dependencies to log to same place as Relational
+    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+}
+
+test {
+    // These are the system properties that are looked at by the YamlTesting framework to initialize the execution context
+    var isNightly = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY")
+    if (isNightly != null) {
+        systemProperty("yaml_testing_nightly", isNightly);
+    }
+    var seed = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_SEED")
+    if (seed != null) {
+        systemProperty("yaml_testing_seed", Long.parseLong(seed))
+    }
+    var maxThreads = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_MAX_THREADS")
+    if (maxThreads != null) {
+        systemProperty("yaml_testing_max_threads", Integer.parseInt(maxThreads))
+    } else {
+        systemProperty("yaml_testing_max_threads", (int) (Runtime.runtime.availableProcessors() / 2))
+    }
+    var nightlyRepetitions = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY_REPETITION")
+    if (nightlyRepetitions != null) {
+        systemProperty("yaml_testing_nightly_repetition", Integer.parseInt(nightlyRepetitions))
+    } else {
+        systemProperty("yaml_testing_nightly_repetition", 100)
+    }
+}
