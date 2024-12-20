@@ -564,6 +564,11 @@ uid
     | DOUBLE_QUOTE_ID
     ;
 
+userDefinedFunctionName
+    : ID
+    | DOUBLE_QUOTE_ID
+    ;
+
 // done
 simpleId
     : ID
@@ -792,8 +797,8 @@ ifNotExists
 functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
     | specificFunction                                              #specificFunctionCall //
-    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
-    | userDefinedFunctionName=uid '(' functionArgs? ')'             #userDefinedFunctionCall
+    | scalarFunctionName  '(' functionArgs? ')'                     #scalarFunctionCall // done (unsupported)
+    | userDefinedFunctionName '(' functionArgs? ')'                 #userDefinedFunctionCall
     ;
 
 specificFunction
@@ -904,7 +909,7 @@ levelInWeightListElement
     ;
 
 aggregateWindowedFunction
-    : functionName=(AVG | MAX | MIN | SUM | MAX_EVER | MIN_EVER )
+    : functionName=(AVG | MAX | MIN | SUM | MAX_EVER | MIN_EVER)
       '(' aggregator=(ALL | DISTINCT)? functionArg ')' overClause?
     | functionName=BITMAP_CONSTRUCT_AGG '(' functionArg ')'
     | functionName=COUNT '(' (starArg='*' | aggregator=ALL? functionArg | aggregator=DISTINCT functionArgs) ')' overClause?

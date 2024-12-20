@@ -351,6 +351,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // deliberate use of pointer equality
     public Void visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
+        // final var functionName = ctx.scalarFunctionName() == null ? ctx.userDefinedFunctionName.getText() : ctx.scalarFunctionName().getText();
         final var functionName = ctx.scalarFunctionName().getText();
         boolean skipFirstFunctionArgument = "JAVA_CALL".equals(SemanticAnalyzer.normalizeString(functionName, false));
         for (int i = 0; i < ctx.getChildCount(); i++) {

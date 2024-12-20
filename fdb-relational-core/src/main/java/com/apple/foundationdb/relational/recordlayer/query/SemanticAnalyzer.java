@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
@@ -30,21 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.JavaCallFunction;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.query.plan.cascades.values.*;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -96,6 +82,10 @@ public class SemanticAnalyzer {
                             @Nonnull FunctionCatalog functionCatalog) {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
+        // add UDFs to functionCatalog
+        for (Udf udf: ((RecordLayerSchemaTemplate) metadataCatalog).getAllUdfs()) {
+            ((SqlFunctionCatalog)this.functionCatalog).addFunction(UserDefinedFunctionDefinition.fromUdf(udf));
+        }
     }
 
     /**
@@ -471,7 +461,7 @@ public class SemanticAnalyzer {
     @Nonnull
     public Optional<Value> lookUpNestedField(@Nonnull Identifier requestedIdentifier,
                                              @Nonnull Identifier paramId,
-                                             @Nonnull ObjectValue objectValue) {
+                                             @Nonnull QuantifiedObjectValue objectValue) {
         Assert.thatUnchecked(requestedIdentifier.prefixedWith(paramId), "Invalid function definition");
 
         if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {

@@ -792,6 +792,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Object visitUserDefinedFunctionName(@Nonnull RelationalParser.UserDefinedFunctionNameContext ctx);
+
+    @Nonnull
+    @Override
     Expressions visitFunctionArgs(@Nonnull RelationalParser.FunctionArgsContext ctx);
 
     @Nonnull

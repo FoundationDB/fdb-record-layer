@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -219,7 +219,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var classNameExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
                 final var result = visitFunctionArg(argumentNodes.get(0));
                 Assert.thatUnchecked(result.getUnderlying() instanceof LiteralValue,
-                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect UDF '%s'",
+                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect Udf '%s'",
                                 result.getUnderlying()));
                 return result;
             });
@@ -254,31 +254,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
-        final var functionName = ctx.userDefinedFunctionName.getText();
+        final var functionName = ctx.userDefinedFunctionName().getText();
         // special case for user-defined functions where we want to exclude the first argument from
         // being literal-stripped.
-        @Nonnull Expressions arguments;
-        // look up in FunctionCatalog
-        boolean isUdf = getDelegate().getSemanticAnalyzer().isUdfFunction(functionName);
-        if (isUdf) {
-            final var argumentNodes = ctx.functionArgs().children.stream()
-                    .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)
-                    .map(RelationalParser.FunctionArgContext.class::cast)
-                    .collect(Collectors.toUnmodifiableList());
-            Assert.thatUnchecked(!argumentNodes.isEmpty());
-            final var classNameExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
-                final var result = visitFunctionArg(argumentNodes.get(0));
-                Assert.thatUnchecked(result.getUnderlying() instanceof LiteralValue,
-                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect UDF '%s'",
-                                result.getUnderlying()));
-                return result;
-            });
-            arguments = Expressions.of(Streams.concat(Stream.of(classNameExpression),
-                            argumentNodes.stream().skip(1).map(this::visitFunctionArg))
-                    .collect(Collectors.toUnmodifiableList()));
-        } else {
-            arguments = visitFunctionArgs(ctx.functionArgs());
-        }
+        @Nonnull Expressions arguments = visitFunctionArgs(ctx.functionArgs());
         return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
     }
 

@@ -21,7 +21,6 @@
 syntax = "proto3";
 package com.apple.foundationdb.relational.continuation;
 import "record_metadata.proto";
-import "record_value.proto";
 import "record_query_plan.proto";
 import "record_query_runtime.proto";
 

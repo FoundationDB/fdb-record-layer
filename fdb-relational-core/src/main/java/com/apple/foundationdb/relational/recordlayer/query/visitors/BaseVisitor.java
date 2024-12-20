@@ -1339,6 +1339,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
+    public Object visitUserDefinedFunctionName(@Nonnull RelationalParser.UserDefinedFunctionNameContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expressions visitFunctionArgs(@Nonnull RelationalParser.FunctionArgsContext ctx) {
         return expressionVisitor.visitFunctionArgs(ctx);
     }

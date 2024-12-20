@@ -24,7 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MacroFunctionValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -188,15 +189,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var inputColumnId = ctx.columnType(0).customType != null ? visitUid(ctx.columnType(0).customType) : Identifier.of(ctx.columnType(0).getText());
         final var columnType = semanticAnalyzer.lookupType(inputColumnId, true, false, metadataBuilder::findType);
-        ObjectValue argumentValue = ObjectValue.of(CorrelationIdentifier.of("PARAM"), DataTypeUtils.toRecordLayerType(columnType));
+        QuantifiedObjectValue argumentValue = QuantifiedObjectValue.of(CorrelationIdentifier.of(ctx.paramName.getText()), DataTypeUtils.toRecordLayerType(columnType));
 
         final var id = visitFullId(ctx.fullId());
         final var paramNameId = Identifier.of(ctx.paramName.getText().toUpperCase(Locale.ROOT));
 
-        Optional<Value> functionValue = semanticAnalyzer.lookUpNestedField(id, paramNameId, argumentValue);
-        Assert.thatUnchecked(functionValue.isPresent(), "couldn't resolve function definition");
+        Optional<Value> fieldValue = semanticAnalyzer.lookUpNestedField(id, paramNameId, argumentValue);
+        Assert.thatUnchecked(fieldValue.isPresent(), "couldn't resolve function definition");
 
-        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), functionValue.get(), argumentValue);
+        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), MacroFunctionValue.of(List.of(argumentValue), fieldValue.get()));
     }
 
     @Nonnull
@@ -259,13 +260,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             metadataBuilder.addTable(tableWithIndex);
         }
         final var functions = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
-        for (final var func : functions) {
-            // (TODO): maybe a table type too?
-            final var auxiliaryType = metadataBuilder.extractAuxiliaryType(func.getInputTypeName());
-            System.out.println("auxiliaryType:" + auxiliaryType);
-            Assert.thatUnchecked(auxiliaryType instanceof DataType.StructType);
-            metadataBuilder.addAuxiliaryType(((DataType.StructType) auxiliaryType).withFunctionDefinition(func));
-        }
+        final var udfs = functions.stream().map(v -> v.toUDF()).collect(Collectors.toList());
+        metadataBuilder.addUdfs(udfs);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 

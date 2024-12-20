@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
@@ -55,56 +56,56 @@ public class NullableArrayUtilsTest {
         Descriptors.FileDescriptor file = generateFileDescriptor();
         Descriptors.Descriptor parentDescriptor = file.findMessageTypeByName("Parent");
         // original field("stringListField", FAN_OUT), expected to become stringListField.values
-        RecordMetaDataProto.KeyExpression original1 = RecordMetaDataProto.KeyExpression.newBuilder()
-                .setField(RecordMetaDataProto.Field.newBuilder()
+        RecordKeyExpressionProto.KeyExpression original1 = RecordKeyExpressionProto.KeyExpression.newBuilder()
+                .setField(RecordKeyExpressionProto.Field.newBuilder()
                         .setFieldName("stringListField")
-                        .setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT)
-                        .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))
+                        .setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT)
+                        .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))
                 .build();
-        RecordMetaDataProto.KeyExpression expected1 = RecordMetaDataProto.KeyExpression.newBuilder()
-                .setNesting(RecordMetaDataProto.Nesting.newBuilder()
-                        .setParent(RecordMetaDataProto.Field.newBuilder()
+        RecordKeyExpressionProto.KeyExpression expected1 = RecordKeyExpressionProto.KeyExpression.newBuilder()
+                .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
+                        .setParent(RecordKeyExpressionProto.Field.newBuilder()
                                 .setFieldName("stringListField")
-                                .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
-                                .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))
-                        .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                .setField(RecordMetaDataProto.Field.newBuilder()
+                                .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR)
+                                .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))
+                        .setChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                .setField(RecordKeyExpressionProto.Field.newBuilder()
                                         .setFieldName(NullableArrayUtils.getRepeatedFieldName())
-                                        .setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT)
-                                        .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))))
+                                        .setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT)
+                                        .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))))
                 .build();
         Assertions.assertEquals(expected1, NullableArrayUtils.wrapArray(original1, parentDescriptor, true));
 
         // userListField.name, expected to become userListField.values.name
-        RecordMetaDataProto.KeyExpression original2 = RecordMetaDataProto.KeyExpression.newBuilder()
-                .setNesting(RecordMetaDataProto.Nesting.newBuilder()
-                        .setParent(RecordMetaDataProto.Field.newBuilder()
+        RecordKeyExpressionProto.KeyExpression original2 = RecordKeyExpressionProto.KeyExpression.newBuilder()
+                .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
+                        .setParent(RecordKeyExpressionProto.Field.newBuilder()
                                 .setFieldName("userListField")
-                                .setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT)
-                                .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))
-                        .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                .setField(RecordMetaDataProto.Field.newBuilder()
+                                .setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT)
+                                .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))
+                        .setChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                .setField(RecordKeyExpressionProto.Field.newBuilder()
                                         .setFieldName("name")
-                                        .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
-                                        .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))))
+                                        .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR)
+                                        .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))))
                 .build();
-        RecordMetaDataProto.KeyExpression expected2 = RecordMetaDataProto.KeyExpression.newBuilder()
-                .setNesting(RecordMetaDataProto.Nesting.newBuilder()
-                        .setParent(RecordMetaDataProto.Field.newBuilder()
+        RecordKeyExpressionProto.KeyExpression expected2 = RecordKeyExpressionProto.KeyExpression.newBuilder()
+                .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
+                        .setParent(RecordKeyExpressionProto.Field.newBuilder()
                                 .setFieldName("userListField")
-                                .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
-                                .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))
-                        .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                .setNesting(RecordMetaDataProto.Nesting.newBuilder()
-                                        .setParent(RecordMetaDataProto.Field.newBuilder()
+                                .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR)
+                                .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))
+                        .setChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
+                                        .setParent(RecordKeyExpressionProto.Field.newBuilder()
                                                 .setFieldName(NullableArrayUtils.getRepeatedFieldName())
-                                                .setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT)
-                                                .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))
-                                        .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                                .setField(RecordMetaDataProto.Field.newBuilder()
+                                                .setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT)
+                                                .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))
+                                        .setChild(RecordKeyExpressionProto.KeyExpression.newBuilder()
+                                                .setField(RecordKeyExpressionProto.Field.newBuilder()
                                                         .setFieldName("name")
-                                                        .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
-                                                        .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))))))
+                                                        .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR)
+                                                        .setNullInterpretation(RecordKeyExpressionProto.Field.NullInterpretation.NOT_UNIQUE))))))
                 .build();
         Assertions.assertEquals(expected2, NullableArrayUtils.wrapArray(original2, parentDescriptor, true));
     }

@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -71,6 +72,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Set<RecordLayerTable> tables;
 
+    @Nonnull
+    private final Set<Udf> udfs;
     private final int version;
 
     private final boolean enableLongRows;
@@ -88,6 +91,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Set<Udf> udfs,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions) {
@@ -103,6 +107,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Set<Udf> udfs,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -150,17 +155,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return new RecordLayerSchema(schemaName, databaseId, this);
     }
 
-    @Nullable
-    public FunctionDefinition getOperationDefinition(@Nonnull final String operatorName, @Nonnull final DataType.StructType structType) {
-        for (RecordLayerTable table: tables) {
-            for (RecordLayerColumn column: table.getColumns()) {
-                final var dt = column.getDataType();
-                if (dt instanceof DataType.StructType && dt.equals(structType) && ((DataType.StructType) dt).getUserDefinedFunctions().containsKey(operatorName)) {
-                    return ((DataType.StructType) dt).getUserDefinedFunctions().get(operatorName);
-                }
-            }
-        }
-        return null;
+    @Nonnull
+    public Set<Udf> getAllUdfs() {
+        return udfs;
     }
 
     @Nonnull
@@ -421,15 +418,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder addUDF(@Nonnull UDF udf) {
-            Assert.thatUnchecked(!udfMap.containsKey(udf.getUdfName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, udf.getUdfName());
-            udfMap.put(udf.getUdfName(), udf);
+        public Builder addUdf(@Nonnull Udf Udf) {
+            Assert.thatUnchecked(!udfMap.containsKey(Udf.getFunctionName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, Udf.getFunctionName());
+            udfMap.put(Udf.getFunctionName(), Udf);
             return this;
         }
 
         @Nonnull
-        public Builder addUDFs(@Nonnull Collection<UDF> udf) {
-            udf.forEach(this::addUDF);
+        public Builder addUdfs(@Nonnull Collection<Udf> Udf) {
+            Udf.forEach(this::addUdf);
             return this;
         }
 

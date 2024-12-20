@@ -20,24 +20,23 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
-import com.apple.foundationdb.record.metadata.UDF;
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MacroFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.List;
 
 public class UserDefinedFunctionDefinition {
     @Nonnull private final String functionName;
-    @Nonnull private final Value value;
-    @Nonnull private final ObjectValue argumentValue;
+    @Nonnull private final Value functionValue;
 
-    public UserDefinedFunctionDefinition(@Nonnull String functionName, @Nonnull Value value, @Nonnull ObjectValue argumentValue) {
+    public UserDefinedFunctionDefinition(@Nonnull String functionName, @Nonnull Value value) {
         this.functionName = functionName;
-        this.value = value;
-        this.argumentValue = argumentValue;
+        this.functionValue = value;
     }
 
     @Nonnull
@@ -46,25 +45,17 @@ public class UserDefinedFunctionDefinition {
     }
 
     public BuiltInFunction<? extends Typed> getBuiltInFunction() {
-        return new BuiltInFunction<Value>(functionName, List.of(), (builtInFunction, arguments) -> replaceArgument((Value) arguments.get(0))) {};
+        return new BuiltInFunction<Value>(functionName, List.of(), (builtInFunction, arguments) -> {
+            final var result = ((MacroFunctionValue) functionValue).call(arguments);
+            return result;
+        }) {};
     }
 
-    public UDF toUDF() {
-        return new UDF(functionName, value, argumentValue);
+    public Udf toUDF() {
+        return new Udf(functionName, functionValue);
     }
 
-    public static UserDefinedFunctionDefinition fromUDF(UDF udf) {
-        return new UserDefinedFunctionDefinition(udf.getUdfName(), udf.getValue(), (ObjectValue) udf.getArgumentValue());
-    }
-
-    // replace the argumentValue with argument in value
-    private Value replaceArgument(Value argument) {
-        return value.replace((v) -> {
-            if (v instanceof ObjectValue && v.getResultType().equals(argumentValue.getResultType())) {
-                return argument;
-            } else {
-                return v;
-            }
-        });
+    public static UserDefinedFunctionDefinition fromUdf(Udf udf) {
+        return new UserDefinedFunctionDefinition(udf.getFunctionName(), udf.getValue());
     }
 }
