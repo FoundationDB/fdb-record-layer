@@ -23,9 +23,7 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,11 +45,7 @@ public class EvaluationContext {
     @Nonnull
     private final TypeRepository typeRepository;
 
-    @Nonnull
-    private final TempTable.Factory tempTableFactory;
-
-    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA,
-            TempTable.Factory.instance());
+    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA);
 
     /**
      * Get an empty evaluation context.
@@ -62,12 +56,9 @@ public class EvaluationContext {
         return EMPTY;
     }
 
-    private EvaluationContext(@Nonnull final Bindings bindings,
-                              @Nonnull final TypeRepository typeRepository,
-                              @Nonnull final TempTable.Factory tempTableFactory) {
+    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
         this.bindings = bindings;
         this.typeRepository = typeRepository;
-        this.tempTableFactory = tempTableFactory;
     }
 
     /**
@@ -78,65 +69,24 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBindings(@Nonnull Bindings bindings) {
-        return new EvaluationContext(bindings, TypeRepository.EMPTY_SCHEMA, TempTable.Factory.instance());
+        return new EvaluationContext(bindings, TypeRepository.EMPTY_SCHEMA);
     }
 
     /**
-     * Create a new {@link EvaluationContext} around a given set of {@link Bindings} from parameter names to values,
-     * and a {@link TypeRepository}.
+     * Create a new {@link EvaluationContext} around a given set of {@link Bindings} and a {@link TypeRepository}.
+     * from parameter names to values.
      * @param bindings a mapping from parameter name to values
      * @param typeRepository a type repository
      * @return a new evaluation context with the bindings and the schema.
      */
     @Nonnull
-    public static EvaluationContext forBindingsAndTypeRepository(@Nonnull final Bindings bindings,
-                                                                 @Nonnull final TypeRepository typeRepository) {
-        return new EvaluationContext(bindings, typeRepository, TempTable.Factory.instance());
+    public static EvaluationContext forBindingsAndTypeRepository(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
+        return new EvaluationContext(bindings, typeRepository);
     }
 
     @Nonnull
-    public static EvaluationContext forTypeRepository(@Nonnull final TypeRepository typeRepository) {
-        return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository, TempTable.Factory.instance());
-    }
-
-    /**
-     * Create a new {@link EvaluationContext} around a given set of {@link Bindings} from parameter names to values,
-     * and a custom {@link TempTable.Factory}.
-     * @param bindings a mapping from parameter name to values
-     * @param tempTableFactory a factory of {@link TempTable} instances.
-     * @return a new evaluation context with the bindings and the schema.
-     */
-    @Nonnull
-    public static EvaluationContext forBindingsAndTempTableFactory(@Nonnull final Bindings bindings,
-                                                                   @Nonnull final TempTable.Factory tempTableFactory) {
-        return new EvaluationContext(bindings, TypeRepository.EMPTY_SCHEMA, tempTableFactory);
-    }
-
-    /**
-     * Create a new {@link EvaluationContext} around a custom {@link TempTable.Factory} and a {@link TypeRepository}.
-     * @param typeRepository a type repository
-     * @param tempTableFactory a factory of {@link TempTable} instances.
-     * @return a new evaluation context with the bindings and the schema.
-     */
-    @Nonnull
-    public static EvaluationContext forTypeRepositoryAndTempTableFactory(@Nonnull final TypeRepository typeRepository,
-                                                                         @Nonnull final TempTable.Factory tempTableFactory) {
-        return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository, tempTableFactory);
-    }
-
-    /**
-     * Create a new {@link EvaluationContext} around a given set of {@link Bindings} from parameter names to values,
-     * a {@link TypeRepository}, and a custom {@link TempTable.Factory}.
-     * @param bindings a mapping from parameter name to values
-     * @param typeRepository a type repository
-     * @param tempTableFactory a factory of {@link TempTable} instances.
-     * @return a new evaluation context with the bindings and the schema.
-     */
-    @Nonnull
-    public static EvaluationContext forBindingsAndTypeRepositoryAndTempTableFactory(@Nonnull final Bindings bindings,
-                                                                                    @Nonnull final TypeRepository typeRepository,
-                                                                                    @Nonnull final TempTable.Factory tempTableFactory) {
-        return new EvaluationContext(bindings, typeRepository, TempTable.Factory.instance());
+    public static EvaluationContext forTypeRepository(@Nonnull TypeRepository typeRepository) {
+        return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository);
     }
 
     /**
@@ -148,8 +98,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA,
-                TempTable.Factory.instance());
+        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA);
     }
 
     /**
@@ -265,24 +214,5 @@ public class EvaluationContext {
                                          @Nonnull final CorrelationIdentifier alias,
                                          @Nullable final Object value) {
         return childBuilder().setBinding(type.bindingName(alias.getId()), value).build(typeRepository);
-    }
-
-    @Nonnull
-    public EvaluationContext withNewTempTableBinding(@Nonnull final Bindings.Internal type,
-                                                     @Nonnull final CorrelationIdentifier alias) {
-        final var tempTable = getTempTableFactory().createTempTable();
-        // CONSTANT and CORRELATION types expect a different layout of the values.
-        // ideally this should be streamlined differently.
-        if (type == Bindings.Internal.CONSTANT) {
-            final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
-            constants.put(alias.getId(), tempTable);
-            return childBuilder().setBinding(type.bindingName(alias.getId()), constants.build()).build(typeRepository);
-        }
-        return childBuilder().setBinding(type.bindingName(alias.getId()), getTempTableFactory().createTempTable()).build(typeRepository);
-    }
-
-    @Nonnull
-    public TempTable.Factory getTempTableFactory() {
-        return tempTableFactory;
     }
 }

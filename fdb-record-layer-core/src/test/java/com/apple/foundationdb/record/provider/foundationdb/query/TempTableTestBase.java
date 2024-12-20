@@ -298,14 +298,6 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static EvaluationContext setUpPlanContextTypesAndTempTableFactory(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                                                      @Nonnull final TempTable.Factory tempTableFactory) {
-        final var usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
-        return EvaluationContext.forTypeRepositoryAndTempTableFactory(TypeRepository.newBuilder().addAllTypes(usedTypes).build(), tempTableFactory);
-    }
-
-
-    @Nonnull
     static FieldValue getIdField(@Nonnull final Quantifier.ForEach quantifier) {
         return FieldValue.ofFieldName(quantifier.getFlowedObjectValue(), "id");
     }

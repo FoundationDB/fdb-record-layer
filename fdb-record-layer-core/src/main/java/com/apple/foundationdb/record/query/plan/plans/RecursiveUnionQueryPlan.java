@@ -178,7 +178,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                 tempTableScanValueReference,
                 tempTableInsertValueReference,
                 store,
-                proto -> TempTable.from(proto, type), continuation);
+                proto -> TempTable.from(proto, type), store.getContext().getTempTableFactory(), continuation);
         return new RecursiveUnionCursor<>(recursiveStateManager, store.getExecutor());
     }
 
@@ -388,6 +388,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
          * @param insertTempTableReference a {@link Value} reference to the {@link TempTable} used by insert operator(s).
          * @param store The record store.
          * @param tempTableDeserializer a deserializer of {@link TempTable} used by the recursive scan.
+         * @param tempTableFactory the {@link TempTable} factory.
          * @param continuationBytes optional continuation of the {@link RecursiveUnionCursor}.
          */
         RecursiveStateManagerImpl(@Nonnull final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
@@ -396,17 +397,18 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
                                   @Nonnull final Value scanTempTableReference,
                                   @Nonnull final Value insertTempTableReference,
                                   @Nullable final FDBRecordStoreBase<?> store,
-                                  @Nonnull Function<PTempTable, TempTable> tempTableDeserializer,
+                                  @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer,
+                                  @Nonnull final TempTable.Factory tempTableFactory,
                                   @Nullable byte[] continuationBytes) {
             this.recursiveCursorCreator = recursiveCursorCreator;
             this.baseContext = baseContext;
             this.insertTempTableReference = insertTempTableReference;
             this.scanTempTableReference = scanTempTableReference;
-            overridenEvaluationContext = withEmptyTempTable(insertTempTableReference, baseContext);
+            overridenEvaluationContext = withEmptyTempTable(insertTempTableReference, baseContext, tempTableFactory);
             this.store = store;
             if (continuationBytes == null) {
                 isInitialState = true;
-                recursiveUnionTempTable = baseContext.getTempTableFactory().createTempTable();
+                recursiveUnionTempTable = tempTableFactory.createTempTable();
                 overridenEvaluationContext = overrideTempTableBinding(overridenEvaluationContext, scanTempTableReference, recursiveUnionTempTable);
                 activeCursor = initialCursorCreator.apply(null, overridenEvaluationContext);
             } else {
@@ -485,6 +487,11 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             }
         }
 
+        @Nonnull
+        private TempTable getTempTable(@Nonnull final EvaluationContext evaluationContext, @Nonnull final Value value) {
+            return Objects.requireNonNull((TempTable)value.eval(store, evaluationContext));
+        }
+
         /**
          * Creates a nested {@link EvaluationContext} that has a reference, implied by the {@code key}, to a new
          * {@link TempTable} referred to by {@code value}.
@@ -518,19 +525,34 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
          */
         @Nonnull
         private static EvaluationContext withEmptyTempTable(@Nonnull final Value tempTableReferenceValue,
-                                                            @Nonnull final EvaluationContext context) {
+                                                            @Nonnull final EvaluationContext context,
+                                                            @Nonnull final TempTable.Factory tempTableFactory) {
             if (tempTableReferenceValue instanceof ConstantObjectValue) {
                 final var tempTableConstantReferenceValue = (ConstantObjectValue)tempTableReferenceValue;
-                return context.withNewTempTableBinding(Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias());
+                return withTempTableBinding(context, Bindings.Internal.CONSTANT, tempTableConstantReferenceValue.getAlias(),
+                        tempTableFactory.createTempTable());
             }
             Verify.verify(tempTableReferenceValue instanceof QuantifiedObjectValue);
             final var tempTableQuantifiedReferenceValue = (QuantifiedObjectValue)tempTableReferenceValue;
-            return context.withNewTempTableBinding(Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias());
+            return withTempTableBinding(context, Bindings.Internal.CORRELATION, tempTableQuantifiedReferenceValue.getAlias(),
+                    tempTableFactory.createTempTable());
         }
 
         @Nonnull
-        private TempTable getTempTable(@Nonnull final EvaluationContext evaluationContext, @Nonnull final Value value) {
-            return Objects.requireNonNull((TempTable)value.eval(store, evaluationContext));
+        public static EvaluationContext withTempTableBinding(@Nonnull final EvaluationContext baseContext,
+                                                             @Nonnull final Bindings.Internal type,
+                                                             @Nonnull final CorrelationIdentifier alias,
+                                                             @Nonnull final TempTable tempTable) {
+            // CONSTANT and CORRELATION types expect a different layout of the values.
+            // ideally this should be streamlined differently.
+            if (type == Bindings.Internal.CONSTANT) {
+                final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
+                constants.put(alias.getId(), tempTable);
+                return baseContext.childBuilder().setBinding(type.bindingName(alias.getId()), constants.build())
+                        .build(baseContext.getTypeRepository());
+            }
+            return baseContext.childBuilder().setBinding(type.bindingName(alias.getId()), tempTable)
+                    .build(baseContext.getTypeRepository());
         }
     }
 }
