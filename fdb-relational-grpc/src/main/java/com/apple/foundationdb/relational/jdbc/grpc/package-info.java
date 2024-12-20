@@ -18,4 +18,7 @@
  * limitations under the License.
  */
 
+/**
+ * Common Utilities used by the Relational gRPC client and server.
+ */
 package com.apple.foundationdb.relational.jdbc.grpc;

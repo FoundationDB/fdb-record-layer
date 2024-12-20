@@ -184,7 +184,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
         int index = 0;
         for (ColumnMetadata metadata : metadatas) {
             if (metadata.getName().equalsIgnoreCase(columnLabel)) {
-                return index + 1;/*1-based*/
+                return index + 1; // 1-based
             }
             index++;
         }
@@ -263,15 +263,15 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @ExcludeFromJacocoGeneratedReport
     @Nonnull
     public Continuation getContinuation() throws SQLException {
-        // Not implemented. Not throwing an exception though because usually null continuation is right answer. TODO.
-        return null;
+        // Not implemented
+        throw new SQLException("Not implemented getContinuation");
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalStruct getStruct(String columnLabel) throws SQLException {
-        // Not implemented. Not throwing an exception though because usually null continuation is right answer. TODO.
-        return null;
+        // Not implemented
+        throw new SQLException("Not implemented getStruct");
     }
 
     @Override
