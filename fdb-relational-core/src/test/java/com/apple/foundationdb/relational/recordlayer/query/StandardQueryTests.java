@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalStatement;
@@ -51,6 +52,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
@@ -876,7 +878,6 @@ public class StandardQueryTests {
         }
     }
 
-    // (TODO): more tests: 1) invalid param type lat(x loc) 2) return (x+1) 3) nested functions
     @Test
     void testUserDefinedFunction() throws Exception {
         // "name" is a reserved keyword, users need to put a double quote around it
@@ -884,7 +885,8 @@ public class StandardQueryTests {
                 "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
                 "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
                 "CREATE FUNCTION lat(x Location) RETURNS string AS x.coord.latitude\n" +
-                "CREATE FUNCTION \"name\"(x Location) RETURNS string AS x.name\n";
+                "CREATE FUNCTION \"name\"(x Location) RETURNS string AS x.name\n" +
+                "CREATE FUNCTION id(x bigint) RETURNS bigint AS x\n";
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -907,7 +909,9 @@ public class StandardQueryTests {
         final String schemaTemplate = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
                 "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
                 "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
-                "CREATE FUNCTION lat(x Location) RETURNS string AS x.coord.latitude\n";
+                "CREATE FUNCTION lat(x Location) RETURNS string AS x.coord.latitude\n" +
+                "CREATE FUNCTION \"name\"(x Location) RETURNS string AS x.name\n" +
+                "CREATE FUNCTION id(x bigint) RETURNS bigint AS x\n";
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -935,7 +939,6 @@ public class StandardQueryTests {
             try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
             }
-            // (TODO): double quote around loc, to differentiate udf from scalar function call, better way of doing it?
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE id(uid) = ?id")) {
                 ps.setLong("id", 1L);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -948,21 +951,40 @@ public class StandardQueryTests {
         }
     }
 
-    private RelationalStruct insertLocationComplexRecord(RelationalStatement s, long uid, @Nonnull final String name, String latitude, String longitude) throws SQLException {
-        var coord = EmbeddedRelationalStruct.newBuilder()
-                .addString("LATITUDE", latitude)
-                .addString("LONGITUDE", longitude)
-                .build();
-        var struct = EmbeddedRelationalStruct.newBuilder()
-                .addLong("UID", uid)
-                .addStruct("LOC", EmbeddedRelationalStruct.newBuilder()
-                        .addString("NAME", name)
-                        .addStruct("COORD", coord)
-                        .build())
-                .build();
-        int cnt = s.executeInsert("T1", struct);
-        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-        return struct;
+    @Test
+    void testIncorrectUserDefinedFunction() throws Exception {
+        final String schemaTemplate1 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION lat(x Location) RETURNS string AS x.coor.latitude\n"; // "coor" is wrong
+
+        // fail to build the MacroFunctionValue in the DDL step
+        final var errorMsg1 = Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate1).build()).getMessage();
+        Assertions.assertTrue(errorMsg1.contains("couldn't resolve function"));
+
+        final String schemaTemplate2 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION id(x bigint) RETURNS string AS x\n"; // wrong return type
+        // fail to build the MacroFunctionValue in the DDL step
+        final var errorMsg2 = Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate2).build()).getMessage();
+        Assertions.assertTrue(errorMsg2.contains("Result data types don't match"));
+
+        final String schemaTemplate3 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION name(x Location) RETURNS string AS x.name\n";  // no double quote around name
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
+            try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name(loc) = ?name")) {
+                ps.setString("name", "Apple Park Visitor Center");
+                final var errorMsg3 = Assertions.assertThrows(SQLException.class, ps::executeQuery).getMessage();
+                Assertions.assertTrue(errorMsg3.contains("syntax error"));
+            }
+        }
     }
 
     @Test
@@ -1614,5 +1636,21 @@ public class StandardQueryTests {
         int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", struct);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return struct;
+    }
+
+    private void insertLocationComplexRecord(@Nonnull RelationalStatement s, long uid, @Nonnull final String name, @Nonnull String latitude, @Nonnull String longitude) throws SQLException {
+        var coord = EmbeddedRelationalStruct.newBuilder()
+                .addString("LATITUDE", latitude)
+                .addString("LONGITUDE", longitude)
+                .build();
+        var struct = EmbeddedRelationalStruct.newBuilder()
+                .addLong("UID", uid)
+                .addStruct("LOC", EmbeddedRelationalStruct.newBuilder()
+                        .addString("NAME", name)
+                        .addStruct("COORD", coord)
+                        .build())
+                .build();
+        int cnt = s.executeInsert("T1", struct);
+        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
     }
 }

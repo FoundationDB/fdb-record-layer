@@ -467,6 +467,7 @@ public class SemanticAnalyzer {
 
         // x -> x
         if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {
+            Assert.thatUnchecked(existingValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
             return Optional.of(existingValue);
         }
         // find nested field path
