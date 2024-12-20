@@ -21,9 +21,9 @@
 plugins {
     id 'java-test-fixtures'
     id 'application'
+    id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
 }
 
-apply plugin: 'com.github.johnrengelman.shadow'
 apply from: rootProject.file('gradle/publishing.gradle')
 
 description = 'Relational Layer Server.'

@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLException;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
@@ -177,7 +177,7 @@ class JDBCRelationalStatement implements RelationalStatement {
             throws SQLException {
         checkOpen();
         // Punt on transaction/autocommit consideration for now (autocommit==true).
-        StatementResponse statementResponse = null;
+        StatementResponse statementResponse;
         try {
             StatementRequest.Builder builder = StatementRequest.newBuilder()
                     .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema()).setOptions(optionsAsProto());
@@ -187,7 +187,7 @@ class JDBCRelationalStatement implements RelationalStatement {
             statementResponse = this.connection.getStub().execute(builder.build());
         } catch (StatusRuntimeException statusRuntimeException) {
             // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
             if (sqlException == null) {
                 throw statusRuntimeException;
             }
@@ -271,7 +271,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     @ExcludeFromJacocoGeneratedReport
     public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options) throws SQLException {
         checkOpen();
-        GetResponse getResponse = null;
+        GetResponse getResponse;
         try {
             getResponse = this.connection.getStub().get(GetRequest.newBuilder()
                     .setKeySet(TypeConversion.toProtobuf(keySet))
@@ -281,7 +281,7 @@ class JDBCRelationalStatement implements RelationalStatement {
                     .build());
         } catch (StatusRuntimeException statusRuntimeException) {
             // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
             if (sqlException == null) {
                 throw statusRuntimeException;
             }
@@ -298,7 +298,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options)
             throws SQLException {
         checkOpen();
-        ScanResponse response = null;
+        ScanResponse response;
         try {
             response = this.connection.getStub().scan(ScanRequest.newBuilder()
                     .setKeySet(TypeConversion.toProtobuf(keySet))
@@ -308,7 +308,7 @@ class JDBCRelationalStatement implements RelationalStatement {
                     .build());
         } catch (StatusRuntimeException statusRuntimeException) {
             // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
             if (sqlException == null) {
                 throw statusRuntimeException;
             }
@@ -322,7 +322,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
             throws SQLException {
         checkOpen();
-        InsertResponse insertResponse = null;
+        InsertResponse insertResponse;
         try {
             insertResponse = this.connection.getStub().insert(InsertRequest.newBuilder()
                     .setDataResultSet(TypeConversion.toResultSetProtobuf(data))
@@ -332,7 +332,7 @@ class JDBCRelationalStatement implements RelationalStatement {
                     .build());
         } catch (StatusRuntimeException statusRuntimeException) {
             // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
             if (sqlException == null) {
                 throw statusRuntimeException;
             }

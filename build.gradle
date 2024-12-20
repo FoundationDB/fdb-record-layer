@@ -29,7 +29,6 @@ buildscript {
 
     dependencies {
         classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
     }
 }
 
