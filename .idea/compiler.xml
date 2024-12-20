@@ -53,6 +53,7 @@
         <module name="fdb-record-layer.fdb-record-layer-lucene.test" />
         <module name="fdb-record-layer.fdb-record-layer-spatial.main" />
         <module name="fdb-record-layer.fdb-relational-core.main" />
+        <module name="fdb-record-layer.fdb-relational-cli.main" />
         <module name="fdb-record-layer.fdb-extensions.test" />
         <module name="fdb-record-layer.fdb-record-layer-core.test" />
         <module name="fdb-record-layer.fdb-record-layer-icu.main" />

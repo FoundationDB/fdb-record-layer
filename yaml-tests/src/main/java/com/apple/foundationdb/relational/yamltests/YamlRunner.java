@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.yamltests.block.Block;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -47,6 +46,7 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner {
@@ -100,23 +100,25 @@ public final class YamlRunner {
     }
 
     private void evaluateTestBlockResults(List<TestBlock> testBlocks) {
-        RuntimeException failure = null;
         logger.info("");
         logger.info("");
         logger.info("--------------------------------------------------------------------------------------------------------------");
         logger.info("TEST RESULTS");
         logger.info("--------------------------------------------------------------------------------------------------------------");
 
+        RuntimeException failure = null;
         for (int i = 0; i < testBlocks.size(); i++) {
             final var block = testBlocks.get(i);
-            if (block.getFailureExceptionIfPresent().isEmpty()) {
+            Optional<RuntimeException> maybeFailure = block.getFailureExceptionIfPresent();
+            if (maybeFailure.isEmpty()) {
                 logger.info("🟢 TestBlock {}/{} runs successfully", i + 1, testBlocks.size());
             } else {
+                RuntimeException failureInBlock = maybeFailure.get();
                 logger.error("🔴 TestBlock {}/{} (at line {}) fails", i + 1, testBlocks.size(), block.getLineNumber());
                 logger.error("--------------------------------------------------------------------------------------------------------------");
-                logger.error("Error:", block.getFailureExceptionIfPresent().get());
+                logger.error("Error:", failureInBlock);
                 logger.error("--------------------------------------------------------------------------------------------------------------");
-                failure = failure == null ? block.getFailureExceptionIfPresent().get() : failure;
+                failure = failure == null ? failureInBlock : failure;
             }
         }
         if (failure != null) {

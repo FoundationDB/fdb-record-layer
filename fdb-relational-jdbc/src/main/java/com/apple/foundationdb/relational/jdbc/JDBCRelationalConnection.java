@@ -130,7 +130,7 @@ class JDBCRelationalConnection implements RelationalConnection {
      * connection close, it gets cleaned up too).
      */
     private String startInProcessRelationalServer() {
-        String serverName = null;
+        String serverName;
         try {
             Object obj = Class.forName("com.apple.foundationdb.relational.server.InProcessRelationalServer")
                     .getDeclaredConstructor().newInstance();

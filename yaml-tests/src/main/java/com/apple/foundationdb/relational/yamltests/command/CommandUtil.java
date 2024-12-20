@@ -49,7 +49,7 @@ import java.util.StringTokenizer;
  */
 public class CommandUtil {
     /**
-     * Create a SchemaTemplate object from .proto
+     * Create a SchemaTemplate object from {@code .proto} file.
      *
      * @param loadCommandString input format is: "load: schema template ${SCHEMA_TEMPLATE_NAME} from ${PROTO_CLASS_NAME}"
      * @return a SchemaTemplate object

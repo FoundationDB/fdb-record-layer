@@ -30,20 +30,20 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 
-public class GrpcSQLExceptionTest {
+public class GrpcSQLExceptionUtilTest {
     @Test
     public void testCreate() {
         final String message = "Some old status message";
-        com.google.rpc.Status status = GrpcSQLException.create(new SQLException(message));
+        com.google.rpc.Status status = GrpcSQLExceptionUtil.create(new SQLException(message));
         Assertions.assertTrue(status.getMessage().contains(message));
     }
 
     @Test
     public void testFromAndToSQLException() throws InvalidProtocolBufferException {
         final String message = "Some old status message";
-        com.google.rpc.Status status = GrpcSQLException.create(new SQLException(message));
+        com.google.rpc.Status status = GrpcSQLExceptionUtil.create(new SQLException(message));
         StatusRuntimeException statusRuntimeException = StatusProto.toStatusRuntimeException(status);
-        SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+        SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
         Assertions.assertEquals(message, sqlException.getMessage());
     }
 
@@ -56,9 +56,9 @@ public class GrpcSQLExceptionTest {
         final String message = "Some old status message";
         // Arbitrary 'cause'.
         IOException cause = new IOException(message);
-        com.google.rpc.Status status = GrpcSQLException.create(new SQLNonTransientException(message, cause));
+        com.google.rpc.Status status = GrpcSQLExceptionUtil.create(new SQLNonTransientException(message, cause));
         StatusRuntimeException statusRuntimeException = StatusProto.toStatusRuntimeException(status);
-        SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
+        SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
         Assertions.assertEquals(message, sqlException.getMessage());
         Assertions.assertTrue(sqlException instanceof SQLNonTransientException);
         Assertions.assertTrue(sqlException.getCause() instanceof IOException);

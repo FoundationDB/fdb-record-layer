@@ -18,7 +18,9 @@
  * limitations under the License.
  */
 
-apply plugin: 'com.github.johnrengelman.shadow'
+plugins {
+    id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
+}
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 

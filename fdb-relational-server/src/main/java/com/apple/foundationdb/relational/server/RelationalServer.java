@@ -130,7 +130,6 @@ public class RelationalServer implements Closeable {
     RelationalServer start() throws IOException {
         // Create access to backing database.
         // TODO: Make this multi-query/-tenant/-database!
-        FRL frl;
         try {
             frl = new FRL();
         } catch (RelationalException ve) {
@@ -167,8 +166,10 @@ public class RelationalServer implements Closeable {
                 .collect(Collectors.joining(", "));
         // Start http server in daemon mode.
         new HTTPServer.Builder().withPort(this.httpPort).withRegistry(this.collectorRegistry).build();
-        logger.info("Started on grpcPort={}/httpPort={} with services: {}",
-                getGrpcPort(), getHttpPort(), services);
+        if (logger.isInfoEnabled()) {
+            logger.info("Started on grpcPort={}/httpPort={} with services: {}",
+                    getGrpcPort(), getHttpPort(), services);
+        }
         // From https://github.com/grpc/grpc-java/blob/master/examples/src/main/java/io/grpc/examples/routeguide/RouteGuideServer.java
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -207,8 +208,6 @@ public class RelationalServer implements Closeable {
         if (this.frl != null) {
             try {
                 this.frl.close();
-            } catch (IOException e) {
-                ioe = e;
             } catch (Exception e) {
                 ioe = new IOException(e);
             }
@@ -225,6 +224,7 @@ public class RelationalServer implements Closeable {
     /**
      * Process port option.
      */
+    @SuppressWarnings("PMD.DoNotTerminateVM") // should consider refactoring to remove System.exit
     private static int getPort(CommandLine cli, Option option, int defaultPort) {
         int port = defaultPort;
         if (cli.hasOption(option.getOpt())) {
