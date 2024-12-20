@@ -42,10 +42,11 @@ import java.util.Map;
  * <a href="https://github.com/julianhyde/sqlline/blob/main/src/main/java/sqlline/Application.java#L38">Application.java</a>
  * on how this works. The main thing we add is output of Relational STRUCT and ARRAY missing from basic sqlline.
  */
- // Overriding {@link #getDefaultInteractiveMode()}, and {@link #getConnectInteractiveModes()} doesn't work -- bug
- // because sqlline does this <code>new HashSet<>(new Application().getConnectInteractiveModes()))</code> -- so we have
- // an ugly workaround in the below to avoid folks have to supply name and password every time (the default).
 public class Customize extends sqlline.Application {
+    // Overriding {@link #getDefaultInteractiveMode()}, and {@link #getConnectInteractiveModes()} doesn't work -- bug
+    // because sqlline does this <code>new HashSet<>(new Application().getConnectInteractiveModes()))</code> -- so we have
+    // an ugly workaround in the below to avoid folks have to supply name and password every time (the default).
+
     /**
      * Override to fix a bug in sqlline customization; an oversight prevents us being able to set the
      * CONNECT_INTERACTION_MODE default so we do the below ugly intercept instead. Relational does not support

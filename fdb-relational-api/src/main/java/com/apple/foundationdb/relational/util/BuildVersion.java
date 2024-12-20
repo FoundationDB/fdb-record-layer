@@ -87,7 +87,7 @@ public final class BuildVersion {
             String[] splitVersion = version.split("[-.]");
             v[0] = Integer.parseInt(splitVersion[0]);
             v[1] = Integer.parseInt(splitVersion[1]);
-            if (splitVersion[2].equals("SNAPSHOT")) {
+            if ("SNAPSHOT".equals(splitVersion[2])) {
                 v[2] = -1;
             } else {
                 v[2] = Integer.parseInt(splitVersion[2]);
