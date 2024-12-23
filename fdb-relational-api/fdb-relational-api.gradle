@@ -64,7 +64,6 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 
     testFixturesImplementation "org.assertj:assertj-core:${assertjVersion}"
-    testFixturesImplementation "com.google.protobuf:protobuf-java:${protobufVersion}"
 }
 
 sourceSets {

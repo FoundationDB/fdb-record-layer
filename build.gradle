@@ -128,8 +128,8 @@ allprojects {
     task sourcesJar(type: Jar, dependsOn: 'compileJava') {
         description = "Assembles a Jar archive containing the main sources."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
-        appendix = null
-        classifier = "sources"
+        archiveAppendix = null
+        archiveClassifier = "sources"
         from sourceSets.main.allSource
     }
 
@@ -137,8 +137,8 @@ allprojects {
     task javadocJar(type: Jar) {
         description = "Assembles a Jar archive containing the main Javadoc."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
-        appendix = null
-        classifier = "javadoc"
+        archiveAppendix = null
+        archiveClassifier = "javadoc"
         from tasks.javadoc
     }
 

@@ -234,7 +234,7 @@ tasks.withType(Test).configureEach { task ->
 task testJar(type: Jar, dependsOn: testClasses) {
     group = 'Build'
     description = 'Build a jar file of test classes as an exported artifact'
-    classifier='test'
+    archiveClassifier = 'test'
     from sourceSets.test.output
 }
 
