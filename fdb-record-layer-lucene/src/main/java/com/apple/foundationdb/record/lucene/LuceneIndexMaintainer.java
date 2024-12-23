@@ -112,6 +112,7 @@ import java.util.stream.Stream;
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
 
+    @Nonnull
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
@@ -757,9 +758,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public IndexScrubbingTools<?> getIndexScrubbingTools(final IndexScrubbingTools.ScrubbingType type) {
         switch (type) {
             case MISSING:
-                return new LuceneIndexScrubbingToolsMissing(partitioner, state);
+                final Map<String, String> options = state.index.getOptions();
+                if (Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
+                        Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED))) {
+                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager);
+                }
+                return null;
             case DANGLING:
-                return new LuceneIndexScrubbingToolsDangling(partitioner, state);
+                return new LuceneIndexScrubbingToolsDangling(state);
             default:
                 return null;
         }

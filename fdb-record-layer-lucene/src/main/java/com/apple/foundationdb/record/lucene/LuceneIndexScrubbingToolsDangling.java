@@ -54,12 +54,9 @@ public class LuceneIndexScrubbingToolsDangling implements IndexScrubbingTools<In
     Index index = null;
     boolean isSynthetic = false;
     @Nonnull
-    private final LucenePartitioner partitioner; // non-mutable
-    @Nonnull
     private final IndexMaintainerState state;
 
-    public LuceneIndexScrubbingToolsDangling(@Nonnull final LucenePartitioner partitioner, @Nonnull final IndexMaintainerState state) {
-        this.partitioner = partitioner;
+    public LuceneIndexScrubbingToolsDangling(@Nonnull final IndexMaintainerState state) {
         this.state = state;
     }
 
