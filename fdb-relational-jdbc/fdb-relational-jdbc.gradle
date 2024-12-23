@@ -23,7 +23,6 @@ plugins {
     id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
 }
 
-description = 'The Relational JDBC Driver; has no FDB nor Record Layer dependencies.'
 
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -78,10 +77,10 @@ createDistribution.configure {
 
 publishing {
     publications {
-        // Note: in new versions this changes, see docs:
-        // https://gradleup.com/shadow/publishing/#publishing-with-maven-publish-plugin
-        shadow(MavenPublication) { publication ->
-            from project.shadow.component(publication)
+        library(MavenPublication) {
+            pom {
+                description = 'JDBC Driver for FDB Relational.'
+            }
         }
     }
 }

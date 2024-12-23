@@ -34,10 +34,6 @@ tasks.named("sourcesJar") {
     from sourceSets.main.allSource
 }
 
-java {
-    withSourcesJar()
-}
-
 apply from: rootProject.file('gradle/publishing.gradle')
 
 configurations {
@@ -94,5 +90,15 @@ test {
         systemProperty("yaml_testing_nightly_repetition", Integer.parseInt(nightlyRepetitions))
     } else {
         systemProperty("yaml_testing_nightly_repetition", 100)
+    }
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Tests of the Relational project driven off of YAML specifications.'
+            }
+        }
     }
 }

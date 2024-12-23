@@ -21,11 +21,10 @@
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
-description = "Relational GRPC client/server protos and generated code. \
-Keep the generated protobufs in their own module so clients and servers \
-can mix-in grpc dependencies independently without having to pull in \
-unrelated concerns. In particular, we do not want client jars bundling \
-server-side code or dependencies."
+// Keep the generated protobufs in their own module so clients and servers \
+// can mix-in grpc dependencies independently without having to pull in \
+// unrelated concerns. In particular, we do not want client jars bundling \
+// server-side code or dependencies."
 
 // From https://github.com/google/protobuf-gradle-plugin
 protobuf {
@@ -76,4 +75,14 @@ dependencies {
 javadoc {
     source = sourceSets.main.allJava
     exclude '**/grpc/**'
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Relational gRPC client/server protos and generated code.'
+            }
+        }
+    }
 }
