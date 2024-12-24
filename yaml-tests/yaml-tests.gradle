@@ -69,7 +69,58 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
+ext.resolveOtherServer = { ->
+    def configurationName = "resolveArtifact-${UUID.randomUUID()}"
+    return rootProject.with {
+        configurations.create(configurationName, {
+            resolutionStrategy {
+                failOnChangingVersions()
+                // Note: In the root of the project we set cacheChangingModulesFor and cacheDynamicVersionFor to 0
+                // We explicitly change that for changing modules, because we should reject those anyways.
+                cacheChangingModulesFor 1000, "days" // TTL for snapshots
+            }
+        })
+        // I tried setting the version to 'latest.release', but that causes it to download all of the snapshots
+        // every time you execute. This is because `latest.release` becomes `LatestVersionSelector` which
+        // `requiresMetadata`, because it looks at the metadata for the module to determine if it is a release.
+        // I also tried just setting it to `+`, but that causes it to fetch the latest snapshot, which isn't exactly
+        // what we want.
+        dependencies.add(configurationName,
+                ['group': 'org.foundationdb',
+                 'name': 'fdb-relational-server',
+                 'version': '3.5-SNAPSHOT', // todo: will have to set to a known version once a build is published
+                 // the all classifier specifies that we want to fetch the shadow jar, which includes all the
+                 // dependencies
+                 'classifier': 'all'],
+                {
+                    // we don't want to take in any transitive dependencies.
+                    // There shouldn't be any external dependencies, but commenting this out, this fails with a missing
+                    // grpc dependency.
+                    transitive=false
+                    changing=true
+                })
+        def configuration = configurations.getByName(configurationName, { })
+
+        def resolution = configuration.resolve()[0]
+        System.out.println("Downloaded old external server: " + resolution.getName())
+        return resolution
+    }
+}
+
+task cleanExternalServerDirectory(type: Delete) {
+    delete project.layout.buildDirectory.dir('externalServer')
+}
+
+task downloadExternalServer(type: Copy) {
+    dependsOn "cleanExternalServerDirectory"
+    // todo: will be able to uncomment once other server has been published
+    // from resolveOtherServer()
+    into project.layout.buildDirectory.dir('externalServer')
+}
+
 test {
+    dependsOn "downloadExternalServer"
+    systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
     // These are the system properties that are looked at by the YamlTesting framework to initialize the execution context
     var isNightly = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY")
     if (isNightly != null) {
