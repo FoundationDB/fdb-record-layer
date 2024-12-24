@@ -1239,8 +1239,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
-                    .build()) {
+            try (OnlineIndexer indexBuilder = newIndexer(indexName)) {
                 indexBuilder.buildIndex(false);
             }
             commit(context);

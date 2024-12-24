@@ -145,6 +145,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
                 .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setPriority(FDBTransactionPriority.DEFAULT)
                 .setMaxAttempts(9)
                 .build()) {
             Assertions.assertThrows(FDBExceptions.FDBStoreTransactionIsTooOldException.class, indexer::mergeIndex);

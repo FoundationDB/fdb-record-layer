@@ -305,4 +305,18 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         md.removeIndex("MySimpleRecord$str_value_indexed");
         md.setStoreRecordVersions(false);
     };
+
+    @Nonnull
+    protected OnlineIndexer.Builder newIndexerBuilder() {
+        return OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setPriority(FDBTransactionPriority.DEFAULT);
+    }
+
+    @Nonnull
+    protected OnlineIndexer newIndexer(@Nonnull String indexName) {
+        return newIndexerBuilder()
+                .setIndex(indexName)
+                .build();
+    }
 }

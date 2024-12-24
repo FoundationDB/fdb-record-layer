@@ -156,6 +156,7 @@ public abstract class OnlineIndexerTest {
                 .setMetaData(metaData)
                 .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
+                .setPriority(FDBTransactionPriority.DEFAULT)
                 .setFormatVersion(formatVersion);
     }
 
@@ -181,6 +182,7 @@ public abstract class OnlineIndexerTest {
                 .setMetaData(metaData)
                 .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
+                .setPriority(FDBTransactionPriority.DEFAULT)
                 .setFormatVersion(formatVersion);
     }
 
