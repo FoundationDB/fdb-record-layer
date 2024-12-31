@@ -1,5 +1,5 @@
 /*
- * Formatter.java
+ * ExplainSelfContainedSymbolMap.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,36 +34,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Formatting for {@link Value#explain}.
  */
-public class Formatter {
+public class ExplainSelfContainedSymbolMap implements ExplainSymbolMap {
     @Nonnull private final AtomicInteger quantifierNumber;
     @Nonnull private final BiMap<CorrelationIdentifier, String> aliasToFormattingNameMap;
     @Nonnull private final Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap;
 
-    public Formatter() {
+    public ExplainSelfContainedSymbolMap() {
         this.quantifierNumber = new AtomicInteger(0);
         this.aliasToFormattingNameMap = HashBiMap.create();
         this.aliasToQuantifierMap = Maps.newHashMap();
     }
 
-    public void registerForFormatting(@Nonnull final Quantifier quantifier) {
-        aliasToFormattingNameMap.put(quantifier.getAlias(), "q" + quantifierNumber.getAndIncrement());
-        aliasToQuantifierMap.put(quantifier.getAlias(), quantifier);
-    }
-
-    public void registerForFormatting(@Nonnull final CorrelationIdentifier alias) {
+    @Override
+    public void registerAlias(@Nonnull final CorrelationIdentifier alias) {
         aliasToFormattingNameMap.putIfAbsent(alias, "q" + quantifierNumber.getAndIncrement());
     }
 
     @SpotBugsSuppressWarnings(value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
             justification = "If we get a NP from the map because the key does not exist, a NPE" +
-                            " will be thrown because of Objects.requireNonNull")
+                    " will be thrown because of Objects.requireNonNull")
     @Nonnull
-    public String getQuantifierName(@Nonnull final CorrelationIdentifier alias) {
+    @Override
+    public String getSymbolForAlias(@Nonnull final CorrelationIdentifier alias) {
         return Objects.requireNonNull(aliasToFormattingNameMap.get(alias));
-    }
-
-    @Nonnull
-    public Quantifier getQuantifier(@Nonnull final CorrelationIdentifier alias) {
-        return Objects.requireNonNull(aliasToQuantifierMap.get(alias));
     }
 }

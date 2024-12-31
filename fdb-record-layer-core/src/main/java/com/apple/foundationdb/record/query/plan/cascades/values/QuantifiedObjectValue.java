@@ -33,14 +33,17 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
@@ -49,6 +52,7 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A value representing the quantifier as an object. For example, this is used to represent non-nested repeated fields.
@@ -138,12 +142,6 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
         return super.pullUp(toBePulledUpValues, aliasMap, constantAliases, upperBaseAlias);
     }
 
-    @Nonnull
-    @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return formatter.getQuantifierName(alias);
-    }
-
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
@@ -154,9 +152,11 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return alias.equals(Quantifier.current()) ? "_" : "$" + alias;
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        Verify.verify(Iterables.isEmpty(explainSuppliers));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addAliasReference(alias));
     }
 
     @Override

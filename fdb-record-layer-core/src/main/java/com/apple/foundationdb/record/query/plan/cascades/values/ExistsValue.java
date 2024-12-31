@@ -31,7 +31,8 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -49,6 +50,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
@@ -89,13 +91,9 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "exists(" + alias + ")";
-    }
-
-    @Override
-    public String toString() {
-        return "exists(" + alias + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("exists",
+                new ExplainTokens().addAliasReference(getAlias())));
     }
 
     @Override

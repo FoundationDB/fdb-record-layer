@@ -37,7 +37,8 @@ import com.apple.foundationdb.record.planprotos.PType.PRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PRelationType;
 import com.apple.foundationdb.record.planprotos.PType.PTypeCode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
@@ -252,10 +253,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     @Nonnull
-    default String describe(@Nonnull final Formatter formatter) {
-        // TODO make better
-        return toString();
-    }
+    ExplainTokens describe();
 
     /**
      * Creates a synthetic protobuf descriptor that is equivalent to <code>this</code> {@link Type}.
@@ -974,7 +972,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return getTypeCode().toString();
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            return new ExplainTokens().addIdentifier(getTypeCode().toString());
         }
 
         @Nonnull
@@ -1060,7 +1064,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return "null";
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            return new ExplainTokens().addIdentifier("null");
         }
 
         @Nonnull
@@ -1142,7 +1152,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return "none";
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            return new ExplainTokens().addIdentifier("none");
         }
 
         @Nonnull
@@ -1262,7 +1278,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return getTypeCode().toString();
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            return new ExplainTokens().addIdentifier(getTypeCode().toString());
         }
 
         @Nonnull
@@ -1390,7 +1412,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return getTypeCode().toString();
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            return new ExplainTokens().addIdentifier(getTypeCode().toString());
         }
 
         @Nonnull
@@ -1532,12 +1560,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             descriptorBuilder.addField(builder);
         }
 
-        @Nonnull
-        @Override
-        public String describe(@Nonnull final Formatter formatter) {
-            return toString();
-        }
-
         @Override
         public boolean equals(final Object obj) {
             if (obj == null) {
@@ -1568,14 +1590,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            final var resultExplainTokens = new ExplainTokens();
+            resultExplainTokens.addIdentifier(getTypeCode().toString());
             if (isErased()) {
-                return getTypeCode().toString();
+                return resultExplainTokens;
             }
-            return getTypeCode() + "<" +
-                   Objects.requireNonNull(enumValues)
-                           .stream()
-                           .map(EnumValue::toString)
-                           .collect(Collectors.joining(", ")) + ">";
+
+            return resultExplainTokens
+                    .addOpeningAngledBracket()
+                    .addToStrings(Objects.requireNonNull(enumValues))
+                    .addClosingAngledBracket();
         }
 
         @Nonnull
@@ -1982,16 +2012,38 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     (Objects.requireNonNull(fields).equals(otherType.fields)));
         }
 
-        @Override
+        @Nonnull
         public String toString() {
-            return isErased()
-                   ? getTypeCode().toString()
-                   : getTypeCode() + "(" +
-                     Objects.requireNonNull(getFields()).stream().map(field -> {
-                         final Optional<String> fieldNameOptional = field.getFieldNameOptional();
-                         return fieldNameOptional.map(s -> field.getFieldType() + " as " + s)
-                                 .orElseGet(() -> field.getFieldType().toString());
-                     }).collect(Collectors.joining(", ")) + ")";
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            final var resultExplainTokens = new ExplainTokens();
+            if (isErased()) {
+                return resultExplainTokens.addIdentifier(getTypeCode().toString());
+            }
+
+            int i = 0;
+            for (final var field : getFields()) {
+                final Optional<String> fieldNameOptional = field.getFieldNameOptional();
+                if (fieldNameOptional.isPresent()) {
+                    resultExplainTokens.addNested(field.getFieldType().describe())
+                            .addWhitespace()
+                            .addIdentifier("as")
+                            .addWhitespace()
+                            .addIdentifier(fieldNameOptional.get());
+                } else {
+                    resultExplainTokens.addNested(field.getFieldType().describe());
+                }
+
+                if (i + 1 < getFields().size()) {
+                    return resultExplainTokens.addCommaAndWhiteSpace();
+                }
+                i ++;
+            }
+            return resultExplainTokens;
         }
 
         @Nonnull
@@ -2533,11 +2585,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
         }
 
-        @Override
+        @Nonnull
         public String toString() {
-            return isErased()
-                   ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getInnerType()) + ")";
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            final var resultExplainTokens = new ExplainTokens();
+            resultExplainTokens.addIdentifier(getTypeCode().toString());
+            if (isErased()) {
+                return resultExplainTokens;
+            }
+            return resultExplainTokens.addOptionalWhitespace().addOpeningParen().addOptionalWhitespace()
+                    .addNested(Objects.requireNonNull(getInnerType()).describe()).addOptionalWhitespace()
+                    .addClosingParen();
         }
 
         @Nonnull
@@ -2746,11 +2809,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
         }
 
-        @Override
+        @Nonnull
         public String toString() {
-            return isErased()
-                   ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")" + "(isNullable:" + isNullable + ")";
+            return describe().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            final var resultExplainTokens = new ExplainTokens();
+            resultExplainTokens.addIdentifier(getTypeCode().toString());
+            if (isErased()) {
+                return resultExplainTokens;
+            }
+            return resultExplainTokens.addOptionalWhitespace().addOpeningParen().addOptionalWhitespace()
+                    .addNested(Objects.requireNonNull(getElementType()).describe()).addOptionalWhitespace()
+                    .addClosingParen();
         }
 
         @Nonnull

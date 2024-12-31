@@ -32,7 +32,8 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
@@ -50,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A {@link Value} that applies a like operator on its child expressions.
@@ -116,12 +118,6 @@ public class PatternForLikeValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return patternChild.explain(formatter) + " ESCAPE " + escapeChild.explain(formatter);
-    }
-
-    @Nonnull
-    @Override
     protected Iterable<? extends Value> computeChildren() {
         return  ImmutableList.of(patternChild, escapeChild);
     }
@@ -145,9 +141,14 @@ public class PatternForLikeValue extends AbstractValue {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, patternChild, escapeChild);
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return patternChild + " ESCAPE " + escapeChild;
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var pattern = Iterables.get(explainSuppliers, 0).get();
+        final var escape = Iterables.get(explainSuppliers, 1).get();
+
+        return ExplainTokensWithPrecedence.of(Precedence.BETWEEN.parenthesizeChild(pattern).addWhitespace()
+                .addIdentifier("ESCAPE").addWhitespace().addNested(Precedence.BETWEEN.parenthesizeChild(escape)));
     }
 
     @Override

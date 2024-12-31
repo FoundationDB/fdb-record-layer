@@ -1,5 +1,5 @@
 /*
- * PlanStringRepresentation.java
+ * ExplainPlanVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,6 +25,11 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainSelfContainedSymbolMap;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainSymbolMap;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -45,7 +50,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -59,7 +63,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
-import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -69,12 +72,14 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Collection;
+import java.util.function.Supplier;
 
 /**
  * Visitor that produces a string representation of a {@link RecordQueryPlan}. This can be used as a
@@ -109,16 +114,16 @@ import java.util.Collection;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("PMD.AvoidStringBufferField") // Class should be short-lived
-public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStringRepresentation> {
+public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlanVisitor<ExplainTokens> {
     private final int maxSize;
     @Nonnull
-    private final StringBuilder stringBuilder;
+    private final ExplainSymbolMap explainSymbolMap;
+
     private boolean done;
 
-    public PlanStringRepresentation(int maxSize) {
+    public ExplainPlanVisitor(final int maxSize) {
         this.maxSize = maxSize;
-        this.stringBuilder = new StringBuilder();
+        this.explainSymbolMap = new ExplainSelfContainedSymbolMap();
     }
 
     /**
@@ -144,170 +149,110 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
         return done;
     }
 
-    /**
-     * Add an arbitrary object to the string representation of a given plan. This can be useful if
-     * one wants to construct a (potentially length-limited) string that combines a {@link RecordQueryPlan}
-     * with other data. If this plan string representation {@linkplain #isDone() has hit its maximum size},
-     * this will be a no-op and, in particular, will not call {@link Object#toString()} to construct
-     * the given object's string representation. In this way, this method can be more efficient than
-     * calling {@code append(toAppend.toString())}.
-     *
-     * @param toAppend object to append to the end of the plan string representation
-     * @return this object
-     * @see #append(String)
-     * @see #getMaxSize()
-     * @see #isDone()
-     */
+    @Override
     @Nonnull
-    public PlanStringRepresentation append(@Nullable Object toAppend) {
+    public ExplainTokens add(@Nonnull final ExplainTokens.Token toAppend) {
         if (done) {
             return this;
         }
-        return append(toAppend == null ? "null" : toAppend.toString());
-    }
 
-    /**
-     * Append an arbitrary string to the end of this plan representation. This can be used to
-     * combine a string with plan data to form a larger (potentially length-limited) string
-     * that combines a {@link RecordQueryPlan} with other data. If this plan string representation
-     * {@linkplain #isDone() has hit its maximum size}, this will be a no-op.
-     *
-     * @param toAppend string to append to the end of the plan string representation
-     * @return this object
-     * @see #append(Object)
-     * @see #getMaxSize()
-     * @see #isDone()
-     */
-    @Nonnull
-    public PlanStringRepresentation append(@Nonnull String toAppend) {
-        if (done) {
-            return this;
-        }
-        if (stringBuilder.length() + toAppend.length() > maxSize) {
-            stringBuilder.append(toAppend, 0, maxSize - stringBuilder.length())
-                    .append("...");
+        if (getMinLength() + toAppend.getMinLength() > maxSize) {
+            super.add(toAppend).addToString("...");
             done = true;
             return this;
         }
-        stringBuilder.append(toAppend);
+        super.add(toAppend);
         return this;
     }
 
-    /**
-     * Append a collection of items to this plan string representation. The string representation of
-     * each item will be added to the underlying string representation, with the given delimiter being
-     * used to separate each one. Note that if the {@link #isDone() maximum size has been hit}, the list
-     * may be truncated or may not actually be appended at all.
-     * 
-     * @param items the collection of items to add to the plan string representation
-     * @param delimiter the delimiter to use between each item
-     * @return this object
-     * @see #isDone() 
-     * @see #getMaxSize() 
-     * @see #append(String) 
-     */
-    @Nonnull
-    public PlanStringRepresentation appendItems(@Nonnull Collection<?> items, @Nonnull String delimiter) {
-        if (done) {
-            return this;
-        }
-        boolean first = true;
-        for (Object o : items) {
-            if (first) {
-                first = false;
-            } else {
-                append(delimiter);
-            }
-            if (o instanceof RecordQueryPlan) {
-                visit((RecordQueryPlan) o);
-            } else {
-                append(o);
-            }
-            if (done) {
-                return this;
-            }
+    private ExplainPlanVisitor visitAndJoin(@Nonnull final Iterable<? extends RecordQueryPlan> plans,
+                                            @Nonnull final Supplier<ExplainTokens> delimiterExplainTokensSupplier) {
+        for (final var plan : plans) {
+            visit(plan);
+            addAll(delimiterExplainTokensSupplier.get().getTokens());
         }
         return this;
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitComposedBitmapIndexQueryPlan(@Nonnull ComposedBitmapIndexQueryPlan element) {
-        return visitDefault(element);
+    public ExplainTokens visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
+        return addToString(element.toString());
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitAggregateIndexPlan(@Nonnull RecordQueryAggregateIndexPlan element) {
-        return append("AggregateIndexScan(")
-                .visit(element.getIndexPlan())
-                .append(" -> ")
-                .append(element.getToRecord())
-                .append(")");
+    public ExplainTokens visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan element) {
+        addIdentifier("AISCAN").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
+        visit(element.getIndexPlan());
+        return addWhitespace().addToString("->").addWhitespace()
+                .addToString(element.getToRecord())
+                .addOptionalWhitespace()
+                .addClosingParen();
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitComparatorPlan(@Nonnull RecordQueryComparatorPlan element) {
-        return append("COMPARATOR OF ")
-                .appendItems(element.getChildren(), " ");
+    public ExplainTokens visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan comparatorPlan) {
+        addIdentifier("COMPARATOR").addWhitespace().addIdentifier("OF").addWhitespace();
+        return visitAndJoin(comparatorPlan.getChildren(), () -> new ExplainTokens().addCommaAndWhiteSpace());
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitCoveringIndexPlan(@Nonnull RecordQueryCoveringIndexPlan element) {
-        return append("Covering(")
-                .visit(element.getIndexPlan())
-                .append(" -> ")
-                .append(element.getToRecord())
-                .append(")");
+    public ExplainTokens visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+        addIdentifier("COVERING").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
+        visit(coveringIndexPlan.getIndexPlan());
+        return addWhitespace().addToString("->").addWhitespace()
+                .addToString(coveringIndexPlan.getToRecord())
+                .addOptionalWhitespace()
+                .addClosingParen();
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitDeletePlan(@Nonnull RecordQueryDeletePlan element) {
+    public ExplainTokens visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
         // TODO provide proper explain
-        return visit(element.getChild())
-                .append(" | DELETE ");
+        visit(deletePlan.getChild());
+        return addWhitespace().addToString("|").addWhitespace().addIdentifier("DELETE");
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitExplodePlan(@Nonnull RecordQueryExplodePlan element) {
-        return append("explode([")
-                .append(element.getCollectionValue())
-                .append("])");
+    public ExplainTokens visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
+        return addFunctionCall("EXPLODE",
+                Value.explainFunctionArguments(ImmutableList.of(() -> explodePlan.getCollectionValue().explain())));
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitFetchFromPartialRecordPlan(@Nonnull RecordQueryFetchFromPartialRecordPlan element) {
-        return append("Fetch(")
-                .visit(element.getChild())
-                .append(")");
+    public ExplainTokens visitFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan fromPartialRecordPlan) {
+        visit(fromPartialRecordPlan.getChild());
+        return addWhitespace().addToString("|").addWhitespace().addIdentifier("FETCH");
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitFilterPlan(@Nonnull RecordQueryFilterPlan element) {
-        return visit(element.getChild())
-                .append(" | ")
-                .append(element.getConjunctedFilter());
+    public ExplainTokens visitFilterPlan(@Nonnull final RecordQueryFilterPlan filterPlan) {
+        visit(filterPlan.getChild());
+        return addWhitespace().addToString("|").addWhitespace().addIdentifier("FILTER").addWhitespace()
+                .addAliasDefinition(filterPlan.getInner().getAlias())
+                .addNested(filterPlan.getConjunctedFilter().explain());
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitFirstOrDefaultPlan(@Nonnull RecordQueryFirstOrDefaultPlan element) {
-        return append("firstOrDefault(")
-                .visit(element.getChild())
-                .append(" || ")
-                .append(element.getOnEmptyResultValue())
-                .append(")");
+    public ExplainTokens visitFirstOrDefaultPlan(@Nonnull RecordQueryFirstOrDefaultPlan element) {
+        addIdentifier("firstOrDefault").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
+        visit(element.getChild());
+        return addWhitespace().addIdentifier("||").addWhitespace()
+                .addNested(element.getOnEmptyResultValue().explain().getExplainTokens())
+                .addOptionalWhitespace().addClosingParen();
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitDefaultOnEmptyPlan(@Nonnull RecordQueryDefaultOnEmptyPlan element) {
+    public ExplainPlanVisitor visitDefaultOnEmptyPlan(@Nonnull RecordQueryDefaultOnEmptyPlan element) {
         return append("defaultOnEmpty(")
                 .visit(element.getChild())
                 .append(" || ")
@@ -317,7 +262,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitFlatMapPlan(@Nonnull RecordQueryFlatMapPlan element) {
+    public ExplainPlanVisitor visitFlatMapPlan(@Nonnull RecordQueryFlatMapPlan element) {
         return append("flatMap(")
                 .visit(element.getOuterQuantifier().getRangesOverPlan())
                 .append(", ")
@@ -326,7 +271,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     }
 
     @Nonnull
-    private PlanStringRepresentation visitInJoinPlan(@Nonnull RecordQueryInJoinPlan element) {
+    private ExplainPlanVisitor visitInJoinPlan(@Nonnull RecordQueryInJoinPlan element) {
         final InSource inSource = element.getInSource();
         visit(element.getInnerPlan())
                 .append(" WHERE ")
@@ -344,18 +289,18 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitInComparandJoinPlan(@Nonnull RecordQueryInComparandJoinPlan element) {
+    public ExplainPlanVisitor visitInComparandJoinPlan(@Nonnull RecordQueryInComparandJoinPlan element) {
         return visitInJoinPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitInParameterJoinPlan(@Nonnull RecordQueryInParameterJoinPlan element) {
+    public ExplainPlanVisitor visitInParameterJoinPlan(@Nonnull RecordQueryInParameterJoinPlan element) {
         return visitInJoinPlan(element);
     }
 
     @Nonnull
-    private PlanStringRepresentation visitInUnionPlan(@Nonnull RecordQueryInUnionPlan element) {
+    private ExplainPlanVisitor visitInUnionPlan(@Nonnull RecordQueryInUnionPlan element) {
         return append("∪(")
                 .appendItems(element.getInSources(), ", ")
                 .append(") ")
@@ -364,25 +309,25 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitInUnionOnKeyExpressionPlan(@Nonnull RecordQueryInUnionOnKeyExpressionPlan element) {
+    public ExplainPlanVisitor visitInUnionOnKeyExpressionPlan(@Nonnull RecordQueryInUnionOnKeyExpressionPlan element) {
         return visitInUnionPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitInUnionOnValuesPlan(@Nonnull RecordQueryInUnionOnValuesPlan element) {
+    public ExplainPlanVisitor visitInUnionOnValuesPlan(@Nonnull RecordQueryInUnionOnValuesPlan element) {
         return visitInUnionPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitInValuesJoinPlan(@Nonnull RecordQueryInValuesJoinPlan element) {
+    public ExplainPlanVisitor visitInValuesJoinPlan(@Nonnull RecordQueryInValuesJoinPlan element) {
         return visitInJoinPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitIndexPlan(@Nonnull RecordQueryIndexPlan element) {
+    public ExplainPlanVisitor visitIndexPlan(@Nonnull RecordQueryIndexPlan element) {
         final IndexScanParameters scanParameters = element.getScanParameters();
         append("Index(")
                 .append(element.getIndexName())
@@ -399,7 +344,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitInsertPlan(@Nonnull RecordQueryInsertPlan element) {
+    public ExplainPlanVisitor visitInsertPlan(@Nonnull RecordQueryInsertPlan element) {
         return visit(element.getChild())
                 .append(" | INSERT INTO ")
                 .append(element.getTargetRecordType());
@@ -407,32 +352,32 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan element) {
+    public ExplainPlanVisitor visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan element) {
         return visit(element.getChild())
                 .append(" | TEMP TABLE INSERT INTO ")
                 .append(element.getResultType());
     }
 
     @Nonnull
-    private PlanStringRepresentation visitIntersectionPlan(@Nonnull RecordQueryIntersectionPlan element) {
+    private ExplainPlanVisitor visitIntersectionPlan(@Nonnull RecordQueryIntersectionPlan element) {
         return appendItems(element.getChildren(), " ∩ ");
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitIntersectionOnKeyExpressionPlan(@Nonnull RecordQueryIntersectionOnKeyExpressionPlan element) {
+    public ExplainPlanVisitor visitIntersectionOnKeyExpressionPlan(@Nonnull RecordQueryIntersectionOnKeyExpressionPlan element) {
         return visitIntersectionPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitIntersectionOnValuesPlan(@Nonnull RecordQueryIntersectionOnValuesPlan element) {
+    public ExplainPlanVisitor visitIntersectionOnValuesPlan(@Nonnull RecordQueryIntersectionOnValuesPlan element) {
         return visitIntersectionPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitLoadByKeysPlan(@Nonnull RecordQueryLoadByKeysPlan element) {
+    public ExplainPlanVisitor visitLoadByKeysPlan(@Nonnull RecordQueryLoadByKeysPlan element) {
         return append("ByKeys(")
                 .append(element.getKeysSource())
                 .append(")");
@@ -440,7 +385,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitMapPlan(@Nonnull RecordQueryMapPlan element) {
+    public ExplainPlanVisitor visitMapPlan(@Nonnull RecordQueryMapPlan element) {
         return append("map(")
                 .visit(element.getChild())
                 .append("[")
@@ -450,7 +395,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitPredicatesFilterPlan(@Nonnull RecordQueryPredicatesFilterPlan element) {
+    public ExplainPlanVisitor visitPredicatesFilterPlan(@Nonnull RecordQueryPredicatesFilterPlan element) {
         return visit(element.getChild())
                 .append(" | ")
                 .append(element.getConjunctedPredicate());
@@ -458,7 +403,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitRangePlan(@Nonnull RecordQueryRangePlan element) {
+    public ExplainPlanVisitor visitRangePlan(@Nonnull RecordQueryRangePlan element) {
         return append("Range(")
                 .append(element.getExclusiveLimitValue())
                 .append(")");
@@ -466,7 +411,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitScanPlan(@Nonnull RecordQueryScanPlan element) {
+    public ExplainPlanVisitor visitScanPlan(@Nonnull RecordQueryScanPlan element) {
         final TupleRange tupleRange = element.getScanComparisons().toTupleRangeWithoutContext();
         return append("Scan(")
                 .append(tupleRange == null ? element.getScanComparisons() : tupleRange)
@@ -475,7 +420,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitScoreForRankPlan(@Nonnull RecordQueryScoreForRankPlan element) {
+    public ExplainPlanVisitor visitScoreForRankPlan(@Nonnull RecordQueryScoreForRankPlan element) {
         return visit(element.getChild())
                 .append(" WHERE ")
                 .appendItems(element.getRanks(), ", ");
@@ -483,14 +428,14 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitSelectorPlan(@Nonnull RecordQuerySelectorPlan element) {
+    public ExplainPlanVisitor visitSelectorPlan(@Nonnull RecordQuerySelectorPlan element) {
         return append("SELECTOR OF ")
                 .appendItems(element.getChildren(), " ");
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitStreamingAggregationPlan(@Nonnull RecordQueryStreamingAggregationPlan element) {
+    public ExplainPlanVisitor visitStreamingAggregationPlan(@Nonnull RecordQueryStreamingAggregationPlan element) {
         return visit(element.getChild())
                 .append(" | AGGREGATE BY ")
                 .append(element.getAggregateValue())
@@ -500,7 +445,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitTextIndexPlan(@Nonnull RecordQueryTextIndexPlan element) {
+    public ExplainPlanVisitor visitTextIndexPlan(@Nonnull RecordQueryTextIndexPlan element) {
         final TextScan textScan = element.getTextScan();
         return append("TextIndex(")
                 .append(textScan.getIndex().getName())
@@ -515,32 +460,32 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitTypeFilterPlan(@Nonnull RecordQueryTypeFilterPlan element) {
+    public ExplainPlanVisitor visitTypeFilterPlan(@Nonnull RecordQueryTypeFilterPlan element) {
         return visit(element.getChild())
                 .append(" | ")
                 .append(element.getRecordTypes());
     }
 
     @Nonnull
-    private PlanStringRepresentation visitUnionPlan(@Nonnull RecordQueryUnionPlanBase element) {
+    private ExplainPlanVisitor visitUnionPlan(@Nonnull RecordQueryUnionPlanBase element) {
         return appendItems(element.getChildren(), element.getDelimiter());
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitUnionOnKeyExpressionPlan(@Nonnull RecordQueryUnionOnKeyExpressionPlan element) {
+    public ExplainPlanVisitor visitUnionOnKeyExpressionPlan(@Nonnull RecordQueryUnionOnKeyExpressionPlan element) {
         return visitUnionPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitUnionOnValuesPlan(@Nonnull RecordQueryUnionOnValuesPlan element) {
+    public ExplainPlanVisitor visitUnionOnValuesPlan(@Nonnull RecordQueryUnionOnValuesPlan element) {
         return visitUnionPlan(element);
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitUnorderedDistinctPlan(@Nonnull RecordQueryUnorderedDistinctPlan element) {
+    public ExplainPlanVisitor visitUnorderedDistinctPlan(@Nonnull RecordQueryUnorderedDistinctPlan element) {
         return visit(element.getChild())
                 .append(" | UnorderedDistinct(")
                 .append(element.getComparisonKey())
@@ -549,14 +494,14 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryUnorderedPrimaryKeyDistinctPlan element) {
+    public ExplainPlanVisitor visitUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryUnorderedPrimaryKeyDistinctPlan element) {
         return visit(element.getChild())
                 .append(" | UnorderedPrimaryKeyDistinct()");
     }
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitUnorderedUnionPlan(@Nonnull RecordQueryUnorderedUnionPlan element) {
+    public ExplainPlanVisitor visitUnorderedUnionPlan(@Nonnull RecordQueryUnorderedUnionPlan element) {
         return append("Unordered(")
                 .visitUnionPlan(element)
                 .append(")");
@@ -564,7 +509,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitUpdatePlan(@Nonnull RecordQueryUpdatePlan element) {
+    public ExplainPlanVisitor visitUpdatePlan(@Nonnull RecordQueryUpdatePlan element) {
         // TODO provide proper explain
         return visit(element.getInnerPlan())
                 .append(" | UPDATE ")
@@ -573,7 +518,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitDamPlan(@Nonnull RecordQueryDamPlan element) {
+    public ExplainPlanVisitor visitDamPlan(@Nonnull RecordQueryDamPlan element) {
         return visit(element.getChild())
                 .append(" | DAM ")
                 .append(element.getKey());
@@ -581,7 +526,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitSortPlan(@Nonnull RecordQuerySortPlan element) {
+    public ExplainPlanVisitor visitSortPlan(@Nonnull RecordQuerySortPlan element) {
         return visit(element.getChild())
                 .append(" ORDER BY ")
                 .append(element.getKey());
@@ -589,7 +534,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+    public ExplainPlanVisitor visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
         return append("TEMP TABLE SCAN ([")
                 .append(element.getResultValue())
                 .append("])");
@@ -597,7 +542,16 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     @Override
-    public PlanStringRepresentation visitDefault(@Nonnull RecordQueryPlan element) {
+    public ExplainTokens visit(@Nonnull final RecordQueryPlan element) {
+        if (done) {
+            return this;
+        }
+        return RecordQueryPlanVisitor.super.visit(element);
+    }
+
+    @Nonnull
+    @Override
+    public ExplainPlanVisitor visitDefault(@Nonnull RecordQueryPlan element) {
         return append(element.toString());
     }
 
@@ -609,7 +563,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
 
     @Nonnull
     public static String toString(@Nonnull RecordQueryPlan plan, int maxSize) {
-        PlanStringRepresentation visitor = new PlanStringRepresentation(maxSize);
+        ExplainPlanVisitor visitor = new ExplainPlanVisitor(maxSize);
         return visitor.visit(plan).toString();
     }
 

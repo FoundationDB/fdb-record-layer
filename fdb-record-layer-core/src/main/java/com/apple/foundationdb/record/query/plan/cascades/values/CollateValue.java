@@ -39,7 +39,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
@@ -47,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
@@ -55,6 +57,7 @@ import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A {@link Value} that turns a string into a locale-specific sort key.
@@ -98,19 +101,21 @@ public class CollateValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        StringBuilder str = new StringBuilder(stringChild.explain(formatter));
-        str.append(" COLLATE ");
-        if (localeChild != null) {
-            str.append(localeChild.explain(formatter));
-        } else {
-            str.append("DEFAULT");
-        }
-        if (strengthChild != null) {
-            str.append(" STRENGTH ");
-            str.append(strengthChild.explain(formatter));
-        }
-        return str.toString();
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var stringExplainTokens =
+                Iterables.get(explainSuppliers, 0).get().getExplainTokens();
+        final var localeExplainTokens =
+                localeChild == null
+                ? new ExplainTokens().addIdentifier("DEFAULT")
+                : Iterables.get(explainSuppliers, 1).get().getExplainTokens();
+        final var strengthExplainTokens =
+                strengthChild == null
+                ? new ExplainTokens().addIdentifier("DEFAULT")
+                : Iterables.get(explainSuppliers, localeChild == null ? 1 : 2).get().getExplainTokens();
+
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("collate",
+                new ExplainTokens().addSequence(
+                        stringExplainTokens, localeExplainTokens, strengthExplainTokens)));
     }
 
     @Nonnull
@@ -173,26 +178,6 @@ public class CollateValue extends AbstractValue {
             CollateValue otherCollate = (CollateValue)other;
             return collatorRegistry.equals(otherCollate.collatorRegistry);
         });
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder str = new StringBuilder("collate(");
-        str.append(stringChild);
-        str.append(", ");
-        if (localeChild != null) {
-            str.append(localeChild);
-        } else {
-            str.append("DEFAULT");
-        }
-        str.append(", ");
-        if (strengthChild != null) {
-            str.append(strengthChild);
-        } else {
-            str.append("DEFAULT");
-        }
-        str.append(")");
-        return str.toString();
     }
 
     @Override

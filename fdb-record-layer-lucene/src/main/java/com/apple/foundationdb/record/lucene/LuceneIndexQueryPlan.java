@@ -30,9 +30,9 @@ import com.apple.foundationdb.record.planprotos.PLuceneIndexQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
-import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
@@ -244,10 +244,10 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         // we should switch to using that.
         //
         // Note that if this plan is a sub-plan within a larger plan tree, then this will end up creating a
-        // new PlanStringRepresentation object with a new string builder. However, as index plans are always leaf plans,
+        // new ExplainPlanVisitor object with a new string builder. However, as index plans are always leaf plans,
         // the amount of waste here is limited to a constant overhead per Lucene leaf node (whereas this could
         // be much costlier on, say, a union or intersection plan).
-        return new PlanStringRepresentation(Integer.MAX_VALUE)
+        return new ExplainPlanVisitor(Integer.MAX_VALUE)
                 .visitIndexPlan(this)
                 .toString();
     }

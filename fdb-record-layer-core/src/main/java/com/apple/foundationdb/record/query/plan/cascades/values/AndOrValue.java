@@ -35,7 +35,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
@@ -54,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A {@link Value} that applies conjunction/disjunction on its boolean children, and if possible, simplifies its boolean children.
@@ -71,19 +73,27 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     private final Operator operator;
 
     private enum Operator {
-        AND("AND"),
-        OR("OR");
+        AND("AND", Precedence.AND),
+        OR("OR", Precedence.OR);
 
         @Nonnull
         private final String infixRepresentation;
+        @Nonnull
+        private final Precedence precedence;
 
-        Operator(@Nonnull final String infixRepresentation) {
+        Operator(@Nonnull final String infixRepresentation, @Nonnull final Precedence precedence) {
             this.infixRepresentation = infixRepresentation;
+            this.precedence = precedence;
         }
 
         @Nonnull
         private String getInfixRepresentation() {
             return infixRepresentation;
+        }
+
+        @Nonnull
+        public Precedence getPrecedence() {
+            return precedence;
         }
 
         @Nonnull
@@ -134,8 +144,14 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "(" + leftChild.explain(formatter) + " " + operator.getInfixRepresentation() + " " + rightChild.explain(formatter) + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var left = Iterables.get(explainSuppliers, 0).get();
+        final var right = Iterables.get(explainSuppliers, 1).get();
+        final var precedence = operator.getPrecedence();
+        return ExplainTokensWithPrecedence.of(precedence,
+                precedence.parenthesizeChild(left).addWhitespace()
+                        .addToString(operator.getInfixRepresentation()).addWhitespace()
+                        .addNested(precedence.parenthesizeChild(right)));
     }
 
     @Nonnull
@@ -152,11 +168,6 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, functionName, leftChild, rightChild);
-    }
-
-    @Override
-    public String toString() {
-        return functionName + "(" + leftChild + ", " + rightChild + ")";
     }
 
     @Override
@@ -294,7 +305,6 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
             return new AndOrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1), Operator.AND);
         }
     }
-
 
     /**
      * The {@code or} function.

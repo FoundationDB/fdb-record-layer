@@ -35,7 +35,8 @@ import com.apple.foundationdb.record.planprotos.PPromoteValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
@@ -47,6 +48,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -260,13 +262,11 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "promote(" + inValue.explain(formatter) + " as " + promoteToType + ")";
-    }
-
-    @Override
-    public String toString() {
-        return "promote(" + inValue + " as " + promoteToType + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var in = Iterables.getOnlyElement(explainSuppliers).get();
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("promote",
+                in.getExplainTokens().addWhitespace().addIdentifier("as").addWhitespace()
+                        .addNested(promoteToType.describe())));
     }
 
     @Override

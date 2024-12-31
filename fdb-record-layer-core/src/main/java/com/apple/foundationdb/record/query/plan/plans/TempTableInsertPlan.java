@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PTempTableInsertPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -188,7 +188,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     @Nonnull
     @Override
     public String toString() {
-        return PlanStringRepresentation.toString(this);
+        return ExplainPlanVisitor.toString(this);
     }
 
     /**

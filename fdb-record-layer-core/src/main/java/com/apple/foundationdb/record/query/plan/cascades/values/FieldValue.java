@@ -37,7 +37,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -49,6 +51,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -194,20 +197,13 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, fieldPath);
     }
 
-    @Override
-    public String toString() {
-        final var fieldPathString = fieldPath.toString();
-        if (childValue instanceof QuantifiedValue || childValue instanceof ObjectValue) {
-            return childValue + fieldPathString;
-        } else {
-            return "(" + childValue + ")" + fieldPathString;
-        }
-    }
-
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return childValue.explain(formatter) + fieldPath;
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var explainSupplier = Iterables.getOnlyElement(explainSuppliers);
+        final var childExplain =
+                Precedence.DOT.parenthesizeChild(explainSupplier.get(), true);
+        return ExplainTokensWithPrecedence.of(Precedence.DOT, new ExplainTokens().addNested(childExplain).addToString(fieldPath));
     }
 
     @Override

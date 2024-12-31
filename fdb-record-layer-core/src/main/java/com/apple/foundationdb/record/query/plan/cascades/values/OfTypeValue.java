@@ -31,15 +31,18 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Checks whether a {@link Value}'s evaluation conforms to its result type.
@@ -122,9 +125,12 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, expectedType);
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return child + " ofType " + expectedType;
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var child = Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens();
+        return ExplainTokensWithPrecedence.of(ExplainTokensWithPrecedence.Precedence.ALWAYS_PARENS,
+                child.addWhitespace().addIdentifier("ofType").addWhitespace().addNested(expectedType.describe()));
     }
 
     @Nonnull

@@ -34,7 +34,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
@@ -47,6 +48,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A wrapper around a literal of the given type.
@@ -156,28 +158,11 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
                 (T)PlanSerialization.protoToValueObject(literalValueProto.getValue()));
     }
 
-    @Override
-    public String toString() {
-        if (value == null) {
-            return "null";
-        }
-
-        switch (resultType.getTypeCode()) {
-            case INT:
-            case LONG:
-            case FLOAT:
-            case DOUBLE:
-                return value.toString();
-            default:
-                return "'" + value + "'";
-        }
-
-    }
-
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return formatLiteral(resultType, Comparisons.toPrintable(value));
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(
+                new ExplainTokens().addToString(formatLiteral(resultType, Comparisons.toPrintable(value))));
     }
 
     @Override

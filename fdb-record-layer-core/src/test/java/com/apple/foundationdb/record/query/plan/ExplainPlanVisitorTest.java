@@ -1,5 +1,5 @@
 /*
- * PlanStringRepresentationTest.java
+ * ExplainPlanVisitorTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -107,12 +107,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests of the {@link PlanStringRepresentation} visitor. This test fixture has the ability to generate random plan
+ * Tests of the {@link ExplainPlanVisitor} visitor. This test fixture has the ability to generate random plan
  * trees, and then it attempts to compare the expected plan string representations built by those random plans with
  * the plan strings that the visitor produces. The visitor also has logic to terminate early if it has reached
  * a maximum size, which this also tests out on random plans.
  */
-public class PlanStringRepresentationTest {
+public class ExplainPlanVisitorTest {
     @Nonnull
     private static String randomAlphabetic(@Nonnull Random r, int minCount, int maxCount) {
         final int letterCount = minCount + r.nextInt(maxCount - minCount);
@@ -492,7 +492,7 @@ public class PlanStringRepresentationTest {
         Random r = ThreadLocalRandom.current();
         NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         assertEquals(planAndString.getRight(), planAndString.getLeft().toString());
-        assertEquals(planAndString.getRight(), PlanStringRepresentation.toString(planAndString.getLeft()));
+        assertEquals(planAndString.getRight(), ExplainPlanVisitor.toString(planAndString.getLeft()));
     }
 
     @RepeatedTest(100)
@@ -502,7 +502,7 @@ public class PlanStringRepresentationTest {
         RecordQueryPlan plan = planAndString.getLeft();
         String planString = planAndString.getRight();
         for (int i = 0; i < Math.min(planString.length() + 10, 1000); i++) {
-            String abbreviatedString = PlanStringRepresentation.toString(plan, i);
+            String abbreviatedString = ExplainPlanVisitor.toString(plan, i);
             assertEquals(i < planString.length() ? (planString.substring(0, i) + "...") : planString, abbreviatedString);
         }
     }
@@ -531,11 +531,11 @@ public class PlanStringRepresentationTest {
 
         // Constructing the full plan string should throw an error
         assertThrows(UnsupportedOperationException.class, unorderedUnionPlan::toString);
-        assertThrows(UnsupportedOperationException.class, () -> PlanStringRepresentation.toString(unorderedUnionPlan));
+        assertThrows(UnsupportedOperationException.class, () -> ExplainPlanVisitor.toString(unorderedUnionPlan));
 
         // If the unstringable query isn't needed for the string representation, it shouldn't be called, so the
         // error shouldn't be thrown
-        String lengthLimitedString = PlanStringRepresentation.toString(unorderedUnionPlan, withoutUnstringable.length() - 2);
+        String lengthLimitedString = ExplainPlanVisitor.toString(unorderedUnionPlan, withoutUnstringable.length() - 2);
         assertEquals(withoutUnstringable.substring(0, withoutUnstringable.length() - 2) + "...", lengthLimitedString);
     }
 

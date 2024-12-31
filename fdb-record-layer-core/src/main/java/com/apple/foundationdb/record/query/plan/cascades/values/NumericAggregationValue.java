@@ -41,7 +41,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
@@ -56,6 +57,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -122,8 +124,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return operator.name().toLowerCase(Locale.ROOT) + child.explain(formatter) + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens()
+                .addFunctionCall(operator.name().toLowerCase(Locale.ROOT),
+                        Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens()));
     }
 
     @Nonnull
@@ -152,11 +156,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, child);
-    }
-
-    @Override
-    public String toString() {
-        return operator.name().toLowerCase(Locale.ROOT) + "(" + child + ")";
     }
 
     @Override

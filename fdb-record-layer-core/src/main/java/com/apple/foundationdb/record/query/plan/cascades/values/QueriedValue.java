@@ -29,7 +29,8 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PQueriedValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -39,6 +40,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A value representing the source of a value derivation.
@@ -106,16 +108,12 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "base()";
-    }
-
-    @Override
-    public String toString() {
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         if (recordTypeNames == null) {
-            return "base()";
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("base"));
         }
-        return "base(" + String.join(",", recordTypeNames) + ")";
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("base",
+                new ExplainTokens().addToStrings(recordTypeNames)));
     }
 
     @Override

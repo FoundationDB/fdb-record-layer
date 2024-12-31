@@ -22,10 +22,10 @@ package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -383,7 +383,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return type.describe(new Formatter());
+            return type.describe().render(ExplainFormatter.forDebugging());
         }
     }
 
@@ -448,7 +448,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no plan" : expression.getResultType().describe(new Formatter());
+            return expression == null ? "no plan" : expression.getResultType().describe().render(ExplainFormatter.forDebugging());
         }
 
         @Nullable
@@ -536,7 +536,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no expression" : expression.getResultType().describe(new Formatter());
+            return expression == null ? "no expression" : expression.getResultType().describe().render(ExplainFormatter.forDebugging());
         }
 
         @Nullable
@@ -588,7 +588,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no expression" : expression.getResultType().describe(new Formatter());
+            return expression == null ? "no expression" : expression.getResultType().describe().render(ExplainFormatter.forDebugging());
         }
 
         @Nullable

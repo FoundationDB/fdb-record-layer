@@ -31,7 +31,8 @@ import com.apple.foundationdb.record.planprotos.PFirstOrDefaultValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -121,16 +122,11 @@ public class FirstOrDefaultValue extends AbstractValue {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, childValue, onEmptyResultValue);
     }
 
-    @Override
-    public String toString() {
-        return "firstOrDefault(" + childValue + ", " + onEmptyResultValue + ")";
-    }
-
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "firstOrDefault(" + childValue.explain(formatter) + ", " +
-                onEmptyResultValue.explain(formatter) + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("firstOrDefault",
+                Value.explainFunctionArguments(explainSuppliers)));
     }
 
     @Override
