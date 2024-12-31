@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInSource;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -79,7 +81,19 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
     public abstract boolean isReverse();
 
     @Nonnull
-    public abstract String valuesString();
+    public abstract ExplainTokensWithPrecedence explain();
+
+    @Nonnull
+    protected ExplainTokens explainSuffix() {
+        final var resultExplainTokens = new ExplainTokens();
+        if (isSorted()) {
+            resultExplainTokens.addWhitespace().addIdentifier("SORTED");
+        }
+        if (isReverse()) {
+            resultExplainTokens.addWhitespace().addIdentifier("DESC");
+        }
+        return resultExplainTokens;
+    }
 
     protected abstract int size(@Nonnull EvaluationContext context);
 

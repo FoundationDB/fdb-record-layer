@@ -57,6 +57,9 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
@@ -878,6 +881,9 @@ public class Comparisons {
                                               @Nonnull final PComparison comparisonProto) {
             return (Comparison)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonProto);
         }
+
+        @Nonnull
+        ExplainTokensWithPrecedence explain();
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -995,7 +1001,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -1295,7 +1308,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Nonnull
@@ -1597,7 +1617,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+                    .addWhitespace().addNested(comparandValue.explain().getExplainTokens()));
         }
 
         @Override
@@ -1820,7 +1847,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -1981,7 +2015,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type.toString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type));
         }
 
         @Override
@@ -2103,7 +2143,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return Type.EQUALS + " " + typelessString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(Type.EQUALS)
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -2325,10 +2372,16 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         public String toString() {
-            return type.name() + " " + typelessString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -2716,7 +2769,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return inner.toString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return inner.explain();
         }
 
         @Nonnull
@@ -2901,7 +2960,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return getType() + " " + typelessString();
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Nonnull

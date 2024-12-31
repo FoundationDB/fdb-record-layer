@@ -154,10 +154,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     @Nonnull
     @SuppressWarnings("unused")
-    default ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
-        throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() +
-                " does not override explain");
-    }
+    ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
 
     /**
      * Checks whether this {@link Value} is compile-time constant.
@@ -728,7 +725,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     static ExplainTokens explainFunctionArguments(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
-        return new ExplainTokens().addSequence(
+        return new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
                 () -> Streams.stream(explainSuppliers)
                         .map(explainSupplier -> explainSupplier.get().getExplainTokens())
                         .iterator());

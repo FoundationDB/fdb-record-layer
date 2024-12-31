@@ -36,6 +36,10 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
@@ -56,7 +60,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Represents a compile-time range that can be evaluated against other compile-time ranges with an optional list
@@ -287,20 +290,30 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return PlanHashable.objectsPlanHash(mode, evaluableRange);
     }
 
+    @Nonnull
+    public ExplainTokensWithPrecedence explain() {
+        final var resultExplainTokens = new ExplainTokens();
+        resultExplainTokens.addOpeningBracket();
+        if (evaluableRange == null) {
+            resultExplainTokens.addOpeningParen().addToString("-∞..+∞").addClosingParen();
+        } else {
+            resultExplainTokens.addNested(Precedence.AND.parenthesizeChild(evaluableRange.explain()));
+        }
+
+        if (!deferredRanges.isEmpty()) {
+            resultExplainTokens.addSequence(() -> new ExplainTokens().addWhitespace()
+                            .addIdentifier("and").addWhitespace(),
+                    () -> deferredRanges.stream().map(Comparisons.Comparison::explain)
+                            .map(Precedence.AND::parenthesizeChild).iterator());
+        }
+        resultExplainTokens.addClosingBracket();
+        return ExplainTokensWithPrecedence.of(resultExplainTokens);
+    }
+
     @Override
     @Nonnull
     public String toString() {
-        final var result = new StringBuilder();
-        if (evaluableRange == null) {
-            result.append("(-∞..+∞)");
-        } else {
-            result.append(evaluableRange);
-        }
-        if (!deferredRanges.isEmpty()) {
-            result.append(deferredRanges.stream().map(Comparisons.Comparison::toString)
-                    .collect(Collectors.joining(" && " )));
-        }
-        return result.toString();
+        return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
     }
 
     @Override
@@ -576,9 +589,19 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             return PlanHashable.objectPlanHash(mode, compilableComparisons);
         }
 
+        @Nonnull
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens()
+                    .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                            () -> compilableComparisons.stream()
+                                    .map(compilableComparison -> compilableComparison.explain()
+                                            .getExplainTokens()).iterator()));
+        }
+
+        @Nonnull
         @Override
         public String toString() {
-            return compilableComparisons.stream().map(Objects::toString).collect(Collectors.joining("∩"));
+            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
         }
 
         @Nonnull

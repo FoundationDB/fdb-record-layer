@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -40,6 +42,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -49,6 +52,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 /**
@@ -185,9 +189,14 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return PlanHashable.objectsPlanHash(mode, value, comparison);
     }
 
+
+    @Nonnull
     @Override
-    public String toString() {
-        return value + " " + comparison;
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        Verify.verify(Iterables.isEmpty(explainSuppliers));
+        return ExplainTokensWithPrecedence.of(Precedence.COMPARISONS,
+                Precedence.COMPARISONS.parenthesizeChild(value.explain()).addWhitespace()
+                        .addNested(Precedence.COMPARISONS.parenthesizeChild(comparison.explain())));
     }
 
     @Nonnull

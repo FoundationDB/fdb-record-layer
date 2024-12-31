@@ -102,7 +102,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("array",
-                new ExplainTokens().addSequence(
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
                         () -> Streams.stream(explainSuppliers)
                                 .map(explainFunction -> explainFunction.get().getExplainTokens())
                                 .iterator())));

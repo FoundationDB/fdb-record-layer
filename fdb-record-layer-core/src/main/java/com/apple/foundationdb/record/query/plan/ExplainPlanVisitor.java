@@ -21,14 +21,17 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainSelfContainedSymbolMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
@@ -237,92 +240,112 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         visit(filterPlan.getChild());
         return addWhitespace().addToString("|").addWhitespace().addIdentifier("FILTER").addWhitespace()
                 .addAliasDefinition(filterPlan.getInner().getAlias())
-                .addNested(filterPlan.getConjunctedFilter().explain());
+                .addToString(filterPlan.getConjunctedFilter());
     }
 
     @Nonnull
     @Override
-    public ExplainTokens visitFirstOrDefaultPlan(@Nonnull RecordQueryFirstOrDefaultPlan element) {
-        addIdentifier("firstOrDefault").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
-        visit(element.getChild());
-        return addWhitespace().addIdentifier("||").addWhitespace()
-                .addNested(element.getOnEmptyResultValue().explain().getExplainTokens())
-                .addOptionalWhitespace().addClosingParen();
+    public ExplainTokens visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
+        visit(firstOrDefaultPlan.getChild());
+        return addWhitespace().addToString("|").addWhitespace()
+                .addIdentifier("DEFAULT").addWhitespace()
+                .addNested(firstOrDefaultPlan.getOnEmptyResultValue().explain().getExplainTokens());
     }
 
     @Nonnull
     @Override
-    public ExplainPlanVisitor visitDefaultOnEmptyPlan(@Nonnull RecordQueryDefaultOnEmptyPlan element) {
-        return append("defaultOnEmpty(")
-                .visit(element.getChild())
-                .append(" || ")
-                .append(element.getOnEmptyResultValue())
-                .append(")");
+    public ExplainTokens visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
+        visit(defaultOnEmptyPlan.getChild());
+        return addWhitespace().addToString("|").addWhitespace()
+                .addIdentifier("ON").addWhitespace().addIdentifier("EMPTY").addWhitespace()
+                .addNested(defaultOnEmptyPlan.getOnEmptyResultValue().explain().getExplainTokens());
     }
 
     @Nonnull
     @Override
-    public ExplainPlanVisitor visitFlatMapPlan(@Nonnull RecordQueryFlatMapPlan element) {
-        return append("flatMap(")
-                .visit(element.getOuterQuantifier().getRangesOverPlan())
-                .append(", ")
-                .visit(element.getInnerQuantifier().getRangesOverPlan())
-                .append(")");
+    public ExplainTokens visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+        final var outerQuantifier = flatMapPlan.getOuterQuantifier();
+        visit(outerQuantifier.getRangesOverPlan());
+        addWhitespace().addToString("|").addWhitespace().addIdentifier("FLATMAP").addWhitespace()
+                .addAliasDefinition(outerQuantifier.getAlias()).addToString("->").addWhitespace()
+                .addOpeningBrace().addWhitespace();
+        return visit(flatMapPlan.getInnerQuantifier().getRangesOverPlan()).addWhitespace().addClosingBrace();
     }
 
     @Nonnull
-    private ExplainPlanVisitor visitInJoinPlan(@Nonnull RecordQueryInJoinPlan element) {
-        final InSource inSource = element.getInSource();
-        visit(element.getInnerPlan())
-                .append(" WHERE ")
-                .append(inSource.getBindingName())
-                .append(" IN ")
-                .append(inSource.valuesString());
-        if (inSource.isSorted()) {
-            append(" SORTED");
-            if (inSource.isReverse()) {
-                append(" DESC");
-            }
+    private ExplainTokens visitInJoinPlan(@Nonnull final RecordQueryInJoinPlan inJoinPlan) {
+        final var inSource = inJoinPlan.getInSource();
+        final var isCorrelation = Bindings.Internal.CORRELATION.isOfType(inSource.getBindingName());
+        final var bindingName =
+                isCorrelation
+                ? Bindings.Internal.CORRELATION.identifier(inSource.getBindingName())
+                : inSource.getBindingName();
+
+        addOpeningBracket().addOptionalWhitespace().addNested(inSource.explain().getExplainTokens())
+                .addOptionalWhitespace().addClosingBracket().addWhitespace()
+                .addToString("|").addWhitespace().addIdentifier("INJOIN").addWhitespace()
+                .addAliasDefinition(CorrelationIdentifier.of(bindingName)).addWhitespace().addToString("->")
+                .addWhitespace().addOpeningBrace().addWhitespace();
+        return visit(inJoinPlan.getChild()).addWhitespace().addClosingBrace();
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
+        return visitInJoinPlan(inComparandJoinPlan);
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
+        return visitInJoinPlan(inParameterJoinPlan);
+    }
+
+    @Nonnull
+    private ExplainTokens visitInUnionPlan(@Nonnull final RecordQueryInUnionPlan inUnionPlan) {
+        final var resultExplainTokens = new ExplainTokens();
+        final var inSourcesBuilder = ImmutableList.<ExplainTokens>builder();
+        final var bindingsBuilder = ImmutableList.<ExplainTokens>builder();
+
+        for (final var inSource : inUnionPlan.getInSources()) {
+            inSourcesBuilder.add(inSource.explain().getExplainTokens());
+
+            final var isCorrelation = Bindings.Internal.CORRELATION.isOfType(inSource.getBindingName());
+            final var bindingName =
+                    isCorrelation
+                    ? Bindings.Internal.CORRELATION.identifier(inSource.getBindingName())
+                    : inSource.getBindingName();
+            bindingsBuilder.add(new ExplainTokens().addAliasDefinition(CorrelationIdentifier.of(bindingName)));
         }
-        return this;
+
+        resultExplainTokens.addOpeningParen().addOptionalWhitespace()
+                .addSequence(() -> new ExplainTokens().addWhitespace().addToString("⋈").addWhitespace(),
+                        inSourcesBuilder.build())
+                .addOptionalWhitespace().addClosingParen()
+                .addWhitespace().addToString("⋓").addWhitespace()
+                .addOpeningParen().addOptionalWhitespace()
+                .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), bindingsBuilder.build())
+                .addWhitespace().addToString("->").addWhitespace()
+                .addOpeningBrace().addWhitespace();
+        return visit(inUnionPlan.getChild()).addWhitespace().addClosingBrace();
     }
 
     @Nonnull
     @Override
-    public ExplainPlanVisitor visitInComparandJoinPlan(@Nonnull RecordQueryInComparandJoinPlan element) {
-        return visitInJoinPlan(element);
+    public ExplainTokens visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
+        return visitInUnionPlan(inUnionOnKeyExpressionPlan);
     }
 
     @Nonnull
     @Override
-    public ExplainPlanVisitor visitInParameterJoinPlan(@Nonnull RecordQueryInParameterJoinPlan element) {
-        return visitInJoinPlan(element);
-    }
-
-    @Nonnull
-    private ExplainPlanVisitor visitInUnionPlan(@Nonnull RecordQueryInUnionPlan element) {
-        return append("∪(")
-                .appendItems(element.getInSources(), ", ")
-                .append(") ")
-                .visit(element.getChild());
+    public ExplainTokens visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
+        return visitInUnionPlan(inUnionOnValuesPlan);
     }
 
     @Nonnull
     @Override
-    public ExplainPlanVisitor visitInUnionOnKeyExpressionPlan(@Nonnull RecordQueryInUnionOnKeyExpressionPlan element) {
-        return visitInUnionPlan(element);
-    }
-
-    @Nonnull
-    @Override
-    public ExplainPlanVisitor visitInUnionOnValuesPlan(@Nonnull RecordQueryInUnionOnValuesPlan element) {
-        return visitInUnionPlan(element);
-    }
-
-    @Nonnull
-    @Override
-    public ExplainPlanVisitor visitInValuesJoinPlan(@Nonnull RecordQueryInValuesJoinPlan element) {
-        return visitInJoinPlan(element);
+    public ExplainTokens visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
+        return visitInJoinPlan(inValuesJoinPlan);
     }
 
     @Nonnull

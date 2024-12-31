@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Holder class for the result of a call to {@link Value#explain()} and derivatives.
@@ -216,17 +217,19 @@ public class ExplainTokens {
     }
 
     @Nonnull
-    public ExplainTokens addSequence(@Nonnull final ExplainTokens... childrenExplainTokens) {
-        return addSequence(Arrays.asList(childrenExplainTokens));
+    public ExplainTokens addSequence(@Nonnull final Supplier<ExplainTokens> delimiterSupplier,
+                                     @Nonnull final ExplainTokens... childrenExplainTokens) {
+        return addSequence(delimiterSupplier, Arrays.asList(childrenExplainTokens));
     }
 
     @Nonnull
-    public ExplainTokens addSequence(@Nonnull final Iterable<ExplainTokens> childrenExplainTokens) {
+    public ExplainTokens addSequence(@Nonnull final Supplier<ExplainTokens> delimiterSupplier,
+                                     @Nonnull final Iterable<ExplainTokens> childrenExplainTokens) {
         for (final var iterator = childrenExplainTokens.iterator(); iterator.hasNext(); ) {
             final var childExplainTokens = iterator.next();
             addNested(childExplainTokens);
             if (iterator.hasNext()) {
-                addCommaAndWhiteSpace();
+                addAll(delimiterSupplier.get().getTokens());
             }
         }
         return this;

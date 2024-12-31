@@ -33,6 +33,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
@@ -47,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryPredicate} that is satisfied when its child component is not satisfied.
@@ -92,9 +96,12 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
         return child;
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return "Not(" + getChild() + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(Precedence.NOT,
+                new ExplainTokens().addIdentifier("not").addWhitespace()
+                        .addNested(Precedence.NOT.parenthesizeChild(Iterables.getOnlyElement(explainSuppliers).get())));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

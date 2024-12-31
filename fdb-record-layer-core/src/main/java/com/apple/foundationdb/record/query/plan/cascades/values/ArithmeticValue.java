@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -116,7 +115,7 @@ public class ArithmeticValue extends AbstractValue {
         final var logicalOperator = getLogicalOperator();
         final var precedence = logicalOperator.getPrecedence();
         return ExplainTokensWithPrecedence.of(precedence,
-                new ExplainTokens().addNested(precedence.parenthesizeChild(left)).addWhitespace()
+                precedence.parenthesizeChild(left).addWhitespace()
                         .addToString(logicalOperator.getInfixNotation()).addWhitespace()
                         .addNested(precedence.parenthesizeChild(right)));
     }
