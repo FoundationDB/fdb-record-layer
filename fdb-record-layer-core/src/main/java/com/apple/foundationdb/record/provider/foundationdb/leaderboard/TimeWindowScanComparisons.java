@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.planprotos.PTimeWindowScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -71,8 +72,9 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
 
     @Nonnull
     @Override
-    public String getScanDetails() {
-        return super.getScanDetails() + "@" + timeWindow;
+    public ExplainTokensWithPrecedence explain() {
+        return ExplainTokensWithPrecedence.of(
+                super.explain().getExplainTokens().addToString("@").addToString(timeWindow));
     }
 
     @Override

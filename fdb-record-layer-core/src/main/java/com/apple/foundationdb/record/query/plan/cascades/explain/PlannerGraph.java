@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -383,7 +383,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return type.describe().render(ExplainFormatter.forDebugging());
+            return type.describe().render(DefaultExplainFormatter.forDebugging());
         }
     }
 
@@ -448,7 +448,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no plan" : expression.getResultType().describe().render(ExplainFormatter.forDebugging());
+            return expression == null ? "no plan" : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nullable
@@ -536,7 +536,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no expression" : expression.getResultType().describe().render(ExplainFormatter.forDebugging());
+            return expression == null ? "no expression" : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nullable
@@ -588,7 +588,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no expression" : expression.getResultType().describe().render(ExplainFormatter.forDebugging());
+            return expression == null ? "no expression" : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nullable

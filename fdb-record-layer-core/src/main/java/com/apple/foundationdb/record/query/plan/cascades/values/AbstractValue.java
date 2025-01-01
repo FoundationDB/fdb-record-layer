@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
@@ -105,6 +105,6 @@ public abstract class AbstractValue implements Value {
 
     @Override
     public String toString() {
-        return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
     }
 }

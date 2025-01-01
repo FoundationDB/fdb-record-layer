@@ -92,6 +92,18 @@ public class ExplainTokens {
     }
 
     @Nonnull
+    public ExplainTokens addPush() {
+        add(new PushToken());
+        return this;
+    }
+
+    @Nonnull
+    public ExplainTokens addPop() {
+        add(new PopToken());
+        return this;
+    }
+
+    @Nonnull
     public ExplainTokens addWhitespace() {
         add(new WhiteSpaceToken());
         return this;
@@ -124,6 +136,12 @@ public class ExplainTokens {
     @Nonnull
     public ExplainTokens addAliasDefinition(@Nonnull final CorrelationIdentifier alias) {
         add(new AliasDefinitionToken(alias));
+        return this;
+    }
+
+    @Nonnull
+    public ExplainTokens addCurrentAliasDefinition(@Nonnull final CorrelationIdentifier alias) {
+        add(new CurrentAliasDefinitionToken(alias));
         return this;
     }
 
@@ -188,7 +206,7 @@ public class ExplainTokens {
     }
 
     @Nonnull
-    public ExplainTokens addToStrings(@Nonnull final Iterable<? extends Object> objects) {
+    public ExplainTokens addToStrings(@Nonnull final Iterable<?> objects) {
         final ExplainTokens resultTokens = new ExplainTokens();
 
         for (final var iterator = objects.iterator(); iterator.hasNext(); ) {
@@ -239,6 +257,8 @@ public class ExplainTokens {
      * A token enumeration that is used intermittently when something is explained.
      */
     public enum TokenKind {
+        PUSH,
+        POP,
         NESTED,
         WHITESPACE,
         OPTIONAL_WHITESPACE,
@@ -288,6 +308,38 @@ public class ExplainTokens {
     }
 
     /**
+     * A push token.
+     */
+    public static class PushToken extends Token {
+        public PushToken() {
+            super(TokenKind.PUSH, 0, 0);
+        }
+
+        @Nonnull
+        @Override
+        public String render(@Nonnull final ExplainFormatter explainFormatter) {
+            explainFormatter.pushScope();
+            return "";
+        }
+    }
+
+    /**
+     * A push token.
+     */
+    public static class PopToken extends Token {
+        public PopToken() {
+            super(TokenKind.POP, 0, 0);
+        }
+
+        @Nonnull
+        @Override
+        public String render(@Nonnull final ExplainFormatter explainFormatter) {
+            explainFormatter.popScope();
+            return "";
+        }
+    }
+
+    /**
      * A nested token.
      */
     public static class NestedToken extends Token {
@@ -302,7 +354,9 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return nestedExplainTokens.render(explainFormatter);
+            return explainFormatter.enterNested(this) +
+                    nestedExplainTokens.render(explainFormatter) +
+                    explainFormatter.leaveNested(this);
         }
     }
 
@@ -317,7 +371,8 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return " ";
+            return explainFormatter.enterWhitespace(this) + " " +
+                    explainFormatter.leaveWhiteSpace(this);
         }
     }
 
@@ -332,7 +387,8 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return "";
+            return explainFormatter.enterOptionalWhitespace(this) +
+                    explainFormatter.leaveOptionalWhitespace(this);
         }
     }
 
@@ -356,7 +412,8 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return identifier;
+            return explainFormatter.enterIdentifier(this) + identifier +
+                    explainFormatter.leaveIdentifier(this);
         }
     }
 
@@ -375,7 +432,8 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return commaLike;
+            return explainFormatter.enterCommaLike(this) + commaLike +
+                    explainFormatter.leaveCommaLike(this);
         }
     }
 
@@ -387,7 +445,7 @@ public class ExplainTokens {
         private final CorrelationIdentifier alias;
 
         public AliasDefinitionToken(@Nonnull final CorrelationIdentifier alias) {
-            super(TokenKind.ALIAS_DEFINITION, alias.getId().length());
+            super(TokenKind.ALIAS_DEFINITION, 1);
             this.alias = alias;
         }
 
@@ -399,7 +457,35 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return explainFormatter.getSymbolForAlias(alias);
+            explainFormatter.registerAlias(alias);
+            return explainFormatter.enterAliasDefinition(this) +
+                    explainFormatter.getSymbolForAlias(alias) +
+                    explainFormatter.leaveAliasDefinition(this);
+        }
+    }
+
+    /**
+     * An alias definition token.
+     */
+    public static class CurrentAliasDefinitionToken extends Token {
+        @Nonnull
+        private final CorrelationIdentifier alias;
+
+        public CurrentAliasDefinitionToken(@Nonnull final CorrelationIdentifier alias) {
+            super(TokenKind.ALIAS_DEFINITION, 1);
+            this.alias = alias;
+        }
+
+        @Nonnull
+        public CorrelationIdentifier getAlias() {
+            return alias;
+        }
+
+        @Nonnull
+        @Override
+        public String render(@Nonnull final ExplainFormatter explainFormatter) {
+            explainFormatter.registerAliasExplicitly(alias, "_");
+            return "";
         }
     }
 
@@ -423,7 +509,9 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return explainFormatter.getSymbolForAlias(alias);
+            return explainFormatter.enterAliasReference(this) +
+                    explainFormatter.getSymbolForAlias(alias) +
+                    explainFormatter.leaveAliasReference(this);
         }
     }
 
@@ -448,7 +536,8 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return bracket;
+            return explainFormatter.enterBrackets(this) + bracket +
+                    explainFormatter.leaveBrackets(this);
         }
     }
 
@@ -478,7 +567,8 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(@Nonnull final ExplainFormatter explainFormatter) {
-            return objectAsString;
+            return explainFormatter.enterToString(this) + objectAsString +
+                    explainFormatter.leaveToString(this);
         }
     }
 }

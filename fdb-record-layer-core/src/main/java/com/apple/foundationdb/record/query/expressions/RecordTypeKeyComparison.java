@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.planprotos.PRecordTypeComparison;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -239,7 +239,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull

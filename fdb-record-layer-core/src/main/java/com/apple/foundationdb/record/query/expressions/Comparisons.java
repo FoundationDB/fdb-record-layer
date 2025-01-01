@@ -57,7 +57,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
@@ -65,8 +65,8 @@ import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -1001,7 +1001,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1308,7 +1308,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1617,7 +1617,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1847,7 +1847,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2015,7 +2015,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2143,7 +2143,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2374,7 +2374,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2769,7 +2769,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2960,7 +2960,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(ExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull

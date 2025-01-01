@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Formatting for {@link Value#explain}.
@@ -30,10 +31,15 @@ import javax.annotation.Nonnull;
 public class DefaultExplainSymbolMap implements ExplainSymbolMap {
     @Override
     public void registerAlias(@Nonnull final CorrelationIdentifier alias) {
-        throw new UnsupportedOperationException("not supported");
+        // empty
     }
 
-    @Nonnull
+    @Override
+    public void registerAliasExplicitly(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
+        // empty
+    }
+
+    @Nullable
     @Override
     public String getSymbolForAlias(@Nonnull final CorrelationIdentifier alias) {
         return alias.getId();

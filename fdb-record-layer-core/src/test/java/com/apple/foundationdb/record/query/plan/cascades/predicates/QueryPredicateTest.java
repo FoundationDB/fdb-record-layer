@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.DefaultQueryPredicateRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithCnfRuleSet;
@@ -49,6 +51,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate.not;
 import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.field;
@@ -135,6 +138,12 @@ public class QueryPredicateTest {
         public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens());
+        }
     };
 
     private static final QueryPredicate FALSE = new TestPredicate() {
@@ -155,6 +164,12 @@ public class QueryPredicateTest {
         public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens());
+        }
     };
 
     private static final QueryPredicate NULL = new TestPredicate() {
@@ -174,6 +189,12 @@ public class QueryPredicateTest {
         @Override
         public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens());
         }
     };
 

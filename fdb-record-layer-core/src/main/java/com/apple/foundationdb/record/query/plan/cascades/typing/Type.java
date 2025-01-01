@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.planprotos.PType.PRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PRelationType;
 import com.apple.foundationdb.record.planprotos.PType.PTypeCode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -972,7 +972,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1064,7 +1064,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1152,7 +1152,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1278,7 +1278,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1412,7 +1412,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -1590,7 +1590,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2014,7 +2014,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2587,7 +2587,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull
@@ -2811,7 +2811,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public String toString() {
-            return describe().render(ExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging());
         }
 
         @Nonnull

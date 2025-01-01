@@ -20,28 +20,133 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.AliasDefinitionToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.AliasReferenceToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.BracketsToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.CommaLikeToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.IdentifierToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.NestedToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.OptionalWhiteSpaceToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.ToStringToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.WhiteSpaceToken;
+
 import javax.annotation.Nonnull;
 
 /**
  * A formatter for tokens.
  */
-public class ExplainFormatter {
-    private static final ExplainFormatter FOR_DEBUGGING = new ExplainFormatter(new DefaultExplainSymbolMap());
+public interface ExplainFormatter {
+
+    void registerAlias(@Nonnull CorrelationIdentifier alias);
+
+    void registerAliasExplicitly(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
 
     @Nonnull
-    private final ExplainSymbolMap symbolMap;
+    String getSymbolForAlias(@Nonnull CorrelationIdentifier alias);
 
-    public ExplainFormatter(@Nonnull final ExplainSymbolMap symbolMap) {
-        this.symbolMap = symbolMap;
+    void pushScope();
+
+    void popScope();
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String enterNested(@Nonnull final NestedToken nestedToken) {
+        return "";
     }
 
     @Nonnull
-    String getSymbolForAlias(@Nonnull CorrelationIdentifier alias) {
-        return symbolMap.getSymbolForAlias(alias);
+    @SuppressWarnings("unused")
+    default String leaveNested(@Nonnull final NestedToken nestedToken) {
+        return "";
     }
 
     @Nonnull
-    public static ExplainFormatter forDebugging() {
-        return FOR_DEBUGGING;
+    @SuppressWarnings("unused")
+    default String enterWhitespace(@Nonnull final WhiteSpaceToken whiteSpaceToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String leaveWhiteSpace(@Nonnull final WhiteSpaceToken whiteSpaceToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String enterOptionalWhitespace(@Nonnull final OptionalWhiteSpaceToken optionalWhiteSpaceToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String leaveOptionalWhitespace(@Nonnull final OptionalWhiteSpaceToken optionalWhiteSpaceToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String enterIdentifier(@Nonnull final IdentifierToken identifierToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String leaveIdentifier(@Nonnull final IdentifierToken identifierToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String enterCommaLike(@Nonnull final CommaLikeToken commaLikeToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String leaveCommaLike(@Nonnull final CommaLikeToken commaLikeToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String enterAliasDefinition(@Nonnull final AliasDefinitionToken aliasDefinitionToken) {
+        return "";
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default String leaveAliasDefinition(@Nonnull final AliasDefinitionToken aliasDefinitionToken) {
+        return "";
+    }
+
+    @Nonnull
+    default String enterAliasReference(@Nonnull final AliasReferenceToken aliasReferenceToken) {
+        return "";
+    }
+
+    @Nonnull
+    default String leaveAliasReference(@Nonnull final AliasReferenceToken aliasReferenceToken) {
+        return "";
+    }
+
+    @Nonnull
+    default String enterBrackets(@Nonnull final BracketsToken bracketsToken) {
+        return "";
+    }
+
+    @Nonnull
+    default String leaveBrackets(@Nonnull final BracketsToken bracketsToken) {
+        return "";
+    }
+
+    @Nonnull
+    default String enterToString(@Nonnull final ToStringToken toStringToken) {
+        return "";
+    }
+
+    @Nonnull
+    default String leaveToString(@Nonnull final ToStringToken toStringToken) {
+        return "";
     }
 }

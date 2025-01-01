@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -113,9 +115,9 @@ public class IndexScanComparisons implements IndexScanParameters {
 
     @Nonnull
     @Override
-    public String getScanDetails() {
+    public ExplainTokensWithPrecedence explain() {
         @Nullable final TupleRange tupleRange = scanComparisons.toTupleRangeWithoutContext();
-        return tupleRange == null ? scanComparisons.toString() : tupleRange.toString();
+        return tupleRange == null ? scanComparisons.explain() : ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(tupleRange));
     }
 
     @Override

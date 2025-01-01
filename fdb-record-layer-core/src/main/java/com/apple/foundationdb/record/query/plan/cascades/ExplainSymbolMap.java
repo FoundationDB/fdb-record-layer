@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Interface for all kinds of explain formatters.
@@ -28,6 +29,8 @@ import javax.annotation.Nonnull;
 public interface ExplainSymbolMap {
     void registerAlias(@Nonnull CorrelationIdentifier alias);
 
-    @Nonnull
+    void registerAliasExplicitly(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
+
+    @Nullable
     String getSymbolForAlias(@Nonnull CorrelationIdentifier alias);
 }

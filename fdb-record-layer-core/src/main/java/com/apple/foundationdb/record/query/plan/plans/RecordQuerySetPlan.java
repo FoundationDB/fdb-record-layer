@@ -34,6 +34,9 @@ import com.apple.foundationdb.record.planprotos.PComparisonKeyFunction.POnValues
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -268,6 +271,9 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
         <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext evaluationContext);
 
         @Nonnull
+        ExplainTokensWithPrecedence explain();
+
+        @Nonnull
         PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
@@ -324,7 +330,13 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
 
             @Override
             public String toString() {
-                return comparisonKeyExpression.toString();
+                return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            }
+
+            @Nonnull
+            @Override
+            public ExplainTokensWithPrecedence explain() {
+                return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(comparisonKeyExpression));
             }
 
             @Override
@@ -430,7 +442,17 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
 
             @Override
             public String toString() {
-                return comparisonKeyValues.toString();
+                return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            }
+
+            @Nonnull
+            @Override
+            public ExplainTokensWithPrecedence explain() {
+                return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningParen().addOptionalWhitespace()
+                        .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                                () -> comparisonKeyValues.stream().map(Value::explain)
+                                        .map(ExplainTokensWithPrecedence::getExplainTokens).iterator())
+                        .addOptionalWhitespace().addClosingParen());
             }
 
             @Override

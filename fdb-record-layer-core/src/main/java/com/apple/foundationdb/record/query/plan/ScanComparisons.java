@@ -38,6 +38,9 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Extractor;
@@ -48,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Internal;
@@ -56,11 +60,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
@@ -445,16 +449,31 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         }
     }
 
+    @Nonnull
+    public ExplainTokensWithPrecedence explain() {
+        var resultExplainTokenStream =
+                equalityComparisons.stream().map(Comparisons.Comparison::explain)
+                        .map(ExplainTokensWithPrecedence::getExplainTokens);
+        if (!inequalityComparisons.isEmpty()) {
+            final var inequalityComparisonLists  = Lists.newArrayList(inequalityComparisons);
+            inequalityComparisonLists.sort(Comparator.comparing(Comparisons.Comparison::toString));
+            resultExplainTokenStream = Stream.concat(resultExplainTokenStream, Stream.of(
+                    new ExplainTokens().addOpeningBracket().addOptionalWhitespace()
+                            .addSequence(() -> new ExplainTokens().addWhitespace().addToString("&&").addWhitespace(),
+                                    () -> inequalityComparisons.stream().map(Comparisons.Comparison::explain)
+                                            .map(ExplainTokensWithPrecedence::getExplainTokens).iterator())
+                            .addOpeningBracket().addClosingBracket()));
+        }
+        final var resultExplainTokenIterator = resultExplainTokenStream.iterator();
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningBracket().addOptionalWhitespace()
+                .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), () -> resultExplainTokenIterator)
+                .addOptionalWhitespace().addClosingBracket());
+    }
+
+    @Nonnull
     @Override
     public String toString() {
-        Stream<String> strs = equalityComparisons.stream().map(Comparisons.Comparison::toString);
-        if (!inequalityComparisons.isEmpty()) {
-            strs = Stream.concat(strs, Stream.of(
-                    inequalityComparisons.stream().map(Comparisons.Comparison::toString)
-                            .sorted() // Make the order stable.
-                            .collect(Collectors.joining(" && ", "[", "]"))));
-        }
-        return strs.collect(Collectors.joining(", ", "[", "]"));
+        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
     }
 
     @Nonnull

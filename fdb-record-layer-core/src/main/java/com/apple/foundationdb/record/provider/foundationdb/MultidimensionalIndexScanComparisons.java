@@ -35,6 +35,8 @@ import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndex
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -47,7 +49,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * {@link ScanComparisons} for use in a multidimensional index scan.
@@ -116,22 +117,30 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
 
     @Nonnull
     @Override
-    public String getScanDetails() {
-        @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
-        final String prefix = tupleRange == null ? prefixScanComparisons.toString() : tupleRange.toString();
+    public ExplainTokensWithPrecedence explain() {
+        @Nullable var tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
+        final var prefix = tupleRange == null
+                           ? prefixScanComparisons.explain().getExplainTokens()
+                           : new ExplainTokens().addToString(tupleRange);
 
-        final String dimensions =
-                dimensionsScanComparisons.stream()
-                        .map(dimensionScanComparisons -> {
-                            @Nullable final TupleRange dimensionTupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
-                            return dimensionTupleRange == null ? dimensionScanComparisons.toString() : dimensionTupleRange.toString();
-                        })
-                        .collect(Collectors.joining(","));
+        final var dimensions =
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                        () -> dimensionsScanComparisons.stream()
+                                .map(dimensionScanComparisons -> {
+                                    @Nullable var dimensionTupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
+                                    return dimensionTupleRange == null
+                                           ? dimensionScanComparisons.explain().getExplainTokens()
+                                           : new ExplainTokens().addToString(dimensionTupleRange);
+                                }).iterator());
+
 
         tupleRange = suffixScanComparisons.toTupleRangeWithoutContext();
-        final String suffix = tupleRange == null ? suffixScanComparisons.toString() : tupleRange.toString();
+        final var suffix = tupleRange == null
+                           ? suffixScanComparisons.explain().getExplainTokens()
+                           : new ExplainTokens().addToString(tupleRange);
 
-        return prefix + ":{" + dimensions + "}:" + suffix;
+        return ExplainTokensWithPrecedence.of(prefix.addOptionalWhitespace().addToString(":{").addOptionalWhitespace()
+                .addNested(dimensions).addOptionalWhitespace().addToString("}:").addOptionalWhitespace().addNested(suffix));
     }
 
     @Override

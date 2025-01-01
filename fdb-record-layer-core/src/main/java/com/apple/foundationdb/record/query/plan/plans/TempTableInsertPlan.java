@@ -67,7 +67,6 @@ import java.util.Set;
 @API(API.Status.INTERNAL)
 public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
 
-
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Insert-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(TempTableInsertPlan.class);

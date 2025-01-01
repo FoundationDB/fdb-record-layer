@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -292,6 +293,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planQuery(query);
+
+        System.out.println(ExplainPlanVisitor.toString(plan));
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))),
