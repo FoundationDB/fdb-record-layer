@@ -485,7 +485,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         if (!ranges.isEmpty()) {
             resultExplainTokens.addWhitespace()
                     .addSequence(() -> new ExplainTokens()
-                                    .addWhitespace().addIdentifier("or").addWhitespace(),
+                                    .addWhitespace().addKeyword("OR").addWhitespace(),
                             () -> ranges.stream()
                                     .map(RangeConstraints::explain)
                                     .map(Precedence.OR::parenthesizeChild)
@@ -493,7 +493,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         }
         return ExplainTokensWithPrecedence.of(Precedence.ALWAYS_PARENS, resultExplainTokens);
     }
-    
+
     @Nonnull
     private PredicateWithValueAndRanges compileTimeEvalRanges(@Nonnull final EvaluationContext evaluationContext) {
         if (rangesCompileTimeChecker.get()) {

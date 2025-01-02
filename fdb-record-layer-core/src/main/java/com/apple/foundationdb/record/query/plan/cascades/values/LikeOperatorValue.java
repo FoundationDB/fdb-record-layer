@@ -133,7 +133,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         final var src = Iterables.get(explainSuppliers, 0).get();
         final var pattern = Iterables.get(explainSuppliers, 1).get();
         return ExplainTokensWithPrecedence.of(Precedence.BETWEEN,
-                Precedence.BETWEEN.parenthesizeChild(src, true).addWhitespace().addIdentifier("LIKE")
+                Precedence.BETWEEN.parenthesizeChild(src, true).addWhitespace().addKeyword("LIKE")
                         .addWhitespace().addNested(Precedence.BETWEEN.parenthesizeChild(pattern)));
     }
 

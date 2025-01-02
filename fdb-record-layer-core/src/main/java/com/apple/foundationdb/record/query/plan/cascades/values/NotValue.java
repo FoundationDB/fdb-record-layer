@@ -143,7 +143,7 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var childExplainInfo = Iterables.getOnlyElement(explainSuppliers).get();
         return ExplainTokensWithPrecedence.of(ExplainTokensWithPrecedence.Precedence.NOT,
-                new ExplainTokens().addIdentifier("not").addWhitespace()
+                new ExplainTokens().addKeyword("NOT").addWhitespace()
                         .addNested(ExplainTokensWithPrecedence.Precedence.NOT.parenthesizeChild(childExplainInfo)));
     }
 

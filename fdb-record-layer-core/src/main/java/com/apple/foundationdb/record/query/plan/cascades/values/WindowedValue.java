@@ -149,7 +149,7 @@ public abstract class WindowedValue extends AbstractValue {
                         argumentsBuilder.build());
         final var partitioning = partitioningBuilder.build();
         if (!partitioning.isEmpty()) {
-            allArgumentsExplainTokens.addIdentifier("PARTITION").addWhitespace().addIdentifier("BY").addWhitespace()
+            allArgumentsExplainTokens.addKeyword("PARTITION").addWhitespace().addKeyword("BY").addWhitespace()
                     .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), partitioning);
         }
 

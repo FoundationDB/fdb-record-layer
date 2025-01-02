@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.planprotos.PInValuesSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -108,7 +109,11 @@ public class InValuesSource extends InSource {
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addToStrings(values).addNested(explainSuffix()));
+        return ExplainTokensWithPrecedence.of(
+                new ExplainTokens()
+                        .addNested(ExplainLevel.ALL_DETAILS, new ExplainTokens().addToStrings(values),
+                                "...")
+                        .addNested(explainSuffix()));
     }
 
     @Override

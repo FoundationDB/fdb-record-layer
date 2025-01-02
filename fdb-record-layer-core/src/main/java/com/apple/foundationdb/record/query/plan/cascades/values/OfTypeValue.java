@@ -130,7 +130,8 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var child = Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens();
         return ExplainTokensWithPrecedence.of(ExplainTokensWithPrecedence.Precedence.ALWAYS_PARENS,
-                child.addWhitespace().addIdentifier("ofType").addWhitespace().addNested(expectedType.describe()));
+                child.addWhitespace().addIdentifier("OF").addWhitespace().addKeyword("TYPE")
+                        .addWhitespace().addNested(expectedType.describe()));
     }
 
     @Nonnull

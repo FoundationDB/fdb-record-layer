@@ -302,7 +302,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
         if (!deferredRanges.isEmpty()) {
             resultExplainTokens.addSequence(() -> new ExplainTokens().addWhitespace()
-                            .addIdentifier("and").addWhitespace(),
+                            .addKeyword("AND").addWhitespace(),
                     () -> deferredRanges.stream().map(Comparisons.Comparison::explain)
                             .map(Precedence.AND::parenthesizeChild).iterator());
         }
@@ -313,7 +313,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Override
     @Nonnull
     public String toString() {
-        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
     }
 
     @Override
@@ -601,7 +601,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         @Nonnull
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull

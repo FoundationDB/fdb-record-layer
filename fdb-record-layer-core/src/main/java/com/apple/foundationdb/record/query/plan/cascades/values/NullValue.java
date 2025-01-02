@@ -110,7 +110,7 @@ public class NullValue extends AbstractValue implements LeafValue {
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addIdentifier("null"));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("NULL"));
     }
 
     @Override

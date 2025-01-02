@@ -241,7 +241,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("∃").addAliasReference(existentialAlias));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("∃").addAliasReference(existentialAlias));
     }
 
     @Nonnull

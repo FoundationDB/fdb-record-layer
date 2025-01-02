@@ -265,7 +265,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var in = Iterables.getOnlyElement(explainSuppliers).get();
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("promote",
-                in.getExplainTokens().addWhitespace().addIdentifier("as").addWhitespace()
+                in.getExplainTokens().addWhitespace().addKeyword("AS").addWhitespace()
                         .addNested(promoteToType.describe())));
     }
 

@@ -1001,13 +1001,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 
@@ -1308,13 +1308,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 
@@ -1617,13 +1617,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addNested(comparandValue.explain().getExplainTokens()));
         }
 
@@ -1847,13 +1847,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 
@@ -2015,13 +2015,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type));
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name()));
         }
 
         @Override
@@ -2143,13 +2143,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(Type.EQUALS)
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(Type.EQUALS.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 
@@ -2374,13 +2374,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 
@@ -2769,7 +2769,7 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
@@ -2960,13 +2960,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(type)
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 

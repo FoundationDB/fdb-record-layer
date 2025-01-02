@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -1105,6 +1106,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
                     return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
+
+        System.out.println(ExplainPlanVisitor.toString(plan));
 
         // TODO write a matcher when this plan becomes more stable
         Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);

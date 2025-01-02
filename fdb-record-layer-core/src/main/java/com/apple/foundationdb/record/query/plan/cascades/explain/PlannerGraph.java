@@ -383,7 +383,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return type.describe().render(DefaultExplainFormatter.forDebugging());
+            return type.describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
     }
 
@@ -448,7 +448,9 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no plan" : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging());
+            return expression == null
+                   ? "no plan"
+                   : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nullable
@@ -536,7 +538,9 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no expression" : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging());
+            return expression == null
+                   ? "no expression"
+                   : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nullable
@@ -588,7 +592,9 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         String getToolTip() {
-            return expression == null ? "no expression" : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging());
+            return expression == null
+                   ? "no expression"
+                   : expression.getResultType().describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nullable

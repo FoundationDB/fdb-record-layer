@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInComparandSource;
 import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -88,7 +89,9 @@ public class InComparandSource extends InSource {
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
-        return ExplainTokensWithPrecedence.of(comparison.explain().getExplainTokens().addNested(explainSuffix()));
+        return ExplainTokensWithPrecedence.of(
+                new ExplainTokens().addNested(ExplainLevel.ALL_DETAILS,
+                        comparison.explain().getExplainTokens(), "...").addNested(explainSuffix()));
     }
 
     @Override

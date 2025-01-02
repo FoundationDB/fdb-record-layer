@@ -100,7 +100,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(Precedence.NOT,
-                new ExplainTokens().addIdentifier("not").addWhitespace()
+                new ExplainTokens().addKeyword("NOT").addWhitespace()
                         .addNested(Precedence.NOT.parenthesizeChild(Iterables.getOnlyElement(explainSuppliers).get())));
     }
 

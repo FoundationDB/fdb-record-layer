@@ -87,10 +87,10 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
     protected ExplainTokens explainSuffix() {
         final var resultExplainTokens = new ExplainTokens();
         if (isSorted()) {
-            resultExplainTokens.addWhitespace().addIdentifier("SORTED");
+            resultExplainTokens.addWhitespace().addKeyword("SORTED");
         }
         if (isReverse()) {
-            resultExplainTokens.addWhitespace().addIdentifier("DESC");
+            resultExplainTokens.addWhitespace().addKeyword("DESC");
         }
         return resultExplainTokens;
     }

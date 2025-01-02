@@ -239,13 +239,13 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Override
         public String toString() {
-            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addIdentifier("IS")
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("IS")
                     .addWhitespace().addIdentifier(typelessString()));
         }
 

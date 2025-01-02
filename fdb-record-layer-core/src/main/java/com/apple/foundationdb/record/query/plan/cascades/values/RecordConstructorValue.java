@@ -248,8 +248,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             final var column = columns.get(i);
             final var field = column.getField();
             if (field.getFieldNameOptional().isPresent()) {
-                arguments.addNested(child.getExplainTokens()).addWhitespace().addIdentifier("as").addWhitespace()
-                        .addIdentifier(field.getFieldName());
+                arguments.addNested(child.getExplainTokens()).addWhitespace().addKeyword("AS").addWhitespace()
+                        .addToString(field.getFieldName());
             } else {
                 arguments.addNested(child.getExplainTokens());
             }

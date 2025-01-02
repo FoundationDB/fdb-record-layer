@@ -1558,7 +1558,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addIdentifier("multidimensional"));
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("multidimensional"));
         }
 
         @Override
@@ -1640,7 +1640,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addIdentifier("multidimensional"));
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("multidimensional"));
         }
 
         @Override

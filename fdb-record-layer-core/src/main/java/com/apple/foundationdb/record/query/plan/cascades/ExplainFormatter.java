@@ -25,10 +25,12 @@ import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.AliasRefe
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.BracketsToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.CommaLikeToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.IdentifierToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.KeywordToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.NestedToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.OptionalWhiteSpaceToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.LineBreakOrSpaceToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.OptionalWhitespaceToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.ToStringToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.WhiteSpaceToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.WhitespaceToken;
 
 import javax.annotation.Nonnull;
 
@@ -50,103 +52,78 @@ public interface ExplainFormatter {
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String enterNested(@Nonnull final NestedToken nestedToken) {
-        return "";
+    default CharSequence visitNested(@Nonnull final NestedToken nestedToken,
+                                     @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String leaveNested(@Nonnull final NestedToken nestedToken) {
-        return "";
+    default CharSequence visitWhitespace(@Nonnull final WhitespaceToken whiteSpaceToken,
+                                         @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String enterWhitespace(@Nonnull final WhiteSpaceToken whiteSpaceToken) {
-        return "";
+    default CharSequence visitOptionalWhitespace(@Nonnull final OptionalWhitespaceToken optionalWhiteSpaceToken,
+                                                 @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String leaveWhiteSpace(@Nonnull final WhiteSpaceToken whiteSpaceToken) {
-        return "";
+    default CharSequence visitLineBreakOrSpace(@Nonnull final LineBreakOrSpaceToken lineBreakOrSpaceToken,
+                                               @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String enterOptionalWhitespace(@Nonnull final OptionalWhiteSpaceToken optionalWhiteSpaceToken) {
-        return "";
+    default CharSequence visitIdentifier(@Nonnull final IdentifierToken identifierToken,
+                                         @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String leaveOptionalWhitespace(@Nonnull final OptionalWhiteSpaceToken optionalWhiteSpaceToken) {
-        return "";
+    default CharSequence visitKeyword(@Nonnull final KeywordToken keywordToken,
+                                      @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String enterIdentifier(@Nonnull final IdentifierToken identifierToken) {
-        return "";
+    default CharSequence visitCommaLike(@Nonnull final CommaLikeToken commaLikeToken,
+                                        @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String leaveIdentifier(@Nonnull final IdentifierToken identifierToken) {
-        return "";
+    default CharSequence visitAliasDefinition(@Nonnull final AliasDefinitionToken aliasDefinitionToken,
+                                              @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String enterCommaLike(@Nonnull final CommaLikeToken commaLikeToken) {
-        return "";
+    default CharSequence visitAliasReference(@Nonnull final AliasReferenceToken aliasReferenceToken,
+                                             @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String leaveCommaLike(@Nonnull final CommaLikeToken commaLikeToken) {
-        return "";
+    default CharSequence visitBrackets(@Nonnull final BracketsToken bracketsToken,
+                                       @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    default String enterAliasDefinition(@Nonnull final AliasDefinitionToken aliasDefinitionToken) {
-        return "";
-    }
-
-    @Nonnull
-    @SuppressWarnings("unused")
-    default String leaveAliasDefinition(@Nonnull final AliasDefinitionToken aliasDefinitionToken) {
-        return "";
-    }
-
-    @Nonnull
-    default String enterAliasReference(@Nonnull final AliasReferenceToken aliasReferenceToken) {
-        return "";
-    }
-
-    @Nonnull
-    default String leaveAliasReference(@Nonnull final AliasReferenceToken aliasReferenceToken) {
-        return "";
-    }
-
-    @Nonnull
-    default String enterBrackets(@Nonnull final BracketsToken bracketsToken) {
-        return "";
-    }
-
-    @Nonnull
-    default String leaveBrackets(@Nonnull final BracketsToken bracketsToken) {
-        return "";
-    }
-
-    @Nonnull
-    default String enterToString(@Nonnull final ToStringToken toStringToken) {
-        return "";
-    }
-
-    @Nonnull
-    default String leaveToString(@Nonnull final ToStringToken toStringToken) {
-        return "";
+    default CharSequence visitToString(@Nonnull final ToStringToken toStringToken,
+                                       @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
     }
 }

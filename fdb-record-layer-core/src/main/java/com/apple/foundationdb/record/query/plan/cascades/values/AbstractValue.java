@@ -105,6 +105,6 @@ public abstract class AbstractValue implements Value {
 
     @Override
     public String toString() {
-        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
     }
 }

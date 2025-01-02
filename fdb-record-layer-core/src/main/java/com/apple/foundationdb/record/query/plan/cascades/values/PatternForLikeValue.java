@@ -148,7 +148,7 @@ public class PatternForLikeValue extends AbstractValue {
         final var escape = Iterables.get(explainSuppliers, 1).get();
 
         return ExplainTokensWithPrecedence.of(Precedence.BETWEEN.parenthesizeChild(pattern).addWhitespace()
-                .addIdentifier("ESCAPE").addWhitespace().addNested(Precedence.BETWEEN.parenthesizeChild(escape)));
+                .addKeyword("ESCAPE").addWhitespace().addNested(Precedence.BETWEEN.parenthesizeChild(escape)));
     }
 
     @Override

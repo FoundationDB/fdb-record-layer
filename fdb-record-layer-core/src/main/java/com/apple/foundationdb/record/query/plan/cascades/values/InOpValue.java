@@ -163,7 +163,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
         return ExplainTokensWithPrecedence.of(Precedence.BETWEEN,
                 Precedence.BETWEEN.parenthesizeChild(probe, true)
-                        .addWhitespace().addIdentifier("IN")
+                        .addWhitespace().addKeyword("IN")
                         .addWhitespace().addNested(Precedence.BETWEEN.parenthesizeChild(inArray, true)));
     }
 

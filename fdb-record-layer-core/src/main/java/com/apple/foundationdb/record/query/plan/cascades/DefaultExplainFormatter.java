@@ -80,6 +80,13 @@ public class DefaultExplainFormatter implements ExplainFormatter {
     }
 
     @Nonnull
+    @Override
+    public CharSequence visitLineBreakOrSpace(@Nonnull final ExplainTokens.LineBreakOrSpaceToken lineBreakOrSpaceToken,
+                                              @Nonnull final CharSequence stringedToken) {
+        return " ";
+    }
+
+    @Nonnull
     public static DefaultExplainFormatter forDebugging() {
         return FOR_DEBUGGING;
     }

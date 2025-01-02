@@ -972,13 +972,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
-            return new ExplainTokens().addIdentifier(getTypeCode().toString());
+            return new ExplainTokens().addKeyword(getTypeCode().toString());
         }
 
         @Nonnull
@@ -1064,13 +1064,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
-            return new ExplainTokens().addIdentifier("null");
+            return new ExplainTokens().addKeyword("NULL");
         }
 
         @Nonnull
@@ -1152,13 +1152,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
-            return new ExplainTokens().addIdentifier("none");
+            return new ExplainTokens().addKeyword("NONE");
         }
 
         @Nonnull
@@ -1278,13 +1278,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
-            return new ExplainTokens().addIdentifier(getTypeCode().toString());
+            return new ExplainTokens().addKeyword(getTypeCode().toString());
         }
 
         @Nonnull
@@ -1412,13 +1412,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
-            return new ExplainTokens().addIdentifier(getTypeCode().toString());
+            return new ExplainTokens().addKeyword(getTypeCode().toString());
         }
 
         @Nonnull
@@ -1590,14 +1590,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
             final var resultExplainTokens = new ExplainTokens();
-            resultExplainTokens.addIdentifier(getTypeCode().toString());
+            resultExplainTokens.addKeyword(getTypeCode().toString());
             if (isErased()) {
                 return resultExplainTokens;
             }
@@ -2014,7 +2014,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
@@ -2022,7 +2022,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         public ExplainTokens describe() {
             final var resultExplainTokens = new ExplainTokens();
             if (isErased()) {
-                return resultExplainTokens.addIdentifier(getTypeCode().toString());
+                return resultExplainTokens.addKeyword(getTypeCode().toString());
             }
 
             int i = 0;
@@ -2031,7 +2031,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 if (fieldNameOptional.isPresent()) {
                     resultExplainTokens.addNested(field.getFieldType().describe())
                             .addWhitespace()
-                            .addIdentifier("as")
+                            .addKeyword("AS")
                             .addWhitespace()
                             .addIdentifier(fieldNameOptional.get());
                 } else {
@@ -2587,14 +2587,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
             final var resultExplainTokens = new ExplainTokens();
-            resultExplainTokens.addIdentifier(getTypeCode().toString());
+            resultExplainTokens.addKeyword(getTypeCode().toString());
             if (isErased()) {
                 return resultExplainTokens;
             }
@@ -2811,14 +2811,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public String toString() {
-            return describe().render(DefaultExplainFormatter.forDebugging());
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
         @Nonnull
         @Override
         public ExplainTokens describe() {
             final var resultExplainTokens = new ExplainTokens();
-            resultExplainTokens.addIdentifier(getTypeCode().toString());
+            resultExplainTokens.addKeyword(getTypeCode().toString());
             if (isErased()) {
                 return resultExplainTokens;
             }

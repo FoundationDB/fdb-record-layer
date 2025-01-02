@@ -86,7 +86,7 @@ public class InParameterSource extends InSource {
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
-                new ExplainTokens().addIdentifier(parameterName).addNested(explainSuffix()));
+                new ExplainTokens().addToString("$").addIdentifier(parameterName).addNested(explainSuffix()));
     }
 
     @Override

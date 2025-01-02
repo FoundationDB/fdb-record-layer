@@ -330,7 +330,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
 
             @Override
             public String toString() {
-                return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+                return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
             }
 
             @Nonnull
@@ -442,7 +442,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
 
             @Override
             public String toString() {
-                return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+                return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
             }
 
             @Nonnull

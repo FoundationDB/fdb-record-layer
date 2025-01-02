@@ -105,7 +105,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     @Nonnull
     @Override
     public String toString() {
-        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging());
+        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
     }
 
     @Override

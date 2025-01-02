@@ -150,7 +150,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
         final var precedence = operator.getPrecedence();
         return ExplainTokensWithPrecedence.of(precedence,
                 precedence.parenthesizeChild(left).addWhitespace()
-                        .addToString(operator.getInfixRepresentation()).addWhitespace()
+                        .addKeyword(operator.getInfixRepresentation()).addWhitespace()
                         .addNested(precedence.parenthesizeChild(right)));
     }
 

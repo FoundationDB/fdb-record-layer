@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -691,6 +692,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(RecordQueryPlanMatchers.isReverse())
                     )
             ));
+            System.out.println(ExplainPlanVisitor.toString(plan));
             assertEquals(inComparisonCase.getLegacyPlanHash(), plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
