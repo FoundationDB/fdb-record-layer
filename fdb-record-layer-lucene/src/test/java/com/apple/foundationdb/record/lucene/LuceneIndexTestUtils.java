@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegist
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
