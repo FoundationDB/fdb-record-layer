@@ -142,7 +142,6 @@ public class IndexScrubbing extends IndexingBase {
             throw new UnsupportedOperationException("This index does not support scrubbing type " + scrubbingType);
         }
 
-
         return indexScrubRangeOnly(store, recordsScanned, index, tools, maintainer.isIdempotent());
     }
 

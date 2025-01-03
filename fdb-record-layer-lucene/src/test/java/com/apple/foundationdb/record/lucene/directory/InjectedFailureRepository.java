@@ -44,6 +44,7 @@ public class InjectedFailureRepository {
         LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC,
         LUCENE_DELETE_FILE_INTERNAL,
         LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX,
+        LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL,
         LUCENE_GET_ALL_FIELDS_INFO_STREAM
     }
 
@@ -63,6 +64,10 @@ public class InjectedFailureRepository {
     public void clear() {
         failureDescriptions.clear();
         invocationCounts.clear();
+    }
+
+    public boolean hasFailure(@Nonnull Methods method) {
+        return failureDescriptions.get(method) != null;
     }
 
     public void checkFailureForIoException(@Nonnull final Methods method) throws IOException {
