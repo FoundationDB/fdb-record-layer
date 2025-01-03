@@ -40,6 +40,7 @@ import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepo
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_INCREMENT;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_LIST_ALL;
 import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_READ_BLOCK;
 
@@ -112,6 +113,9 @@ public class MockedFDBDirectory extends FDBDirectory {
     @Override
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
         injectedFailures.checkFailureForCoreException(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX);
+        if (injectedFailures.hasFailure(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL)) {
+            return null;
+        }
         return super.getPrimaryKeySegmentIndex();
     }
 

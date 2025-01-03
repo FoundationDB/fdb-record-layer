@@ -66,10 +66,14 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
     private final LucenePartitioner partitioner;
     @Nonnull
     private final FDBDirectoryManager directoryManager;
+    @Nonnull
+    private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
 
-    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager) {
+    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager,
+                                            @Nonnull LuceneAnalyzerCombinationProvider indexAnalyzerSelector) {
         this.partitioner = partitioner;
         this.directoryManager = directoryManager;
+        this.indexAnalyzerSelector = indexAnalyzerSelector;
     }
 
 
@@ -183,7 +187,15 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
             // Here: iternal error, getIndexScrubbingTools should have indicated that scrub missing is not supported.
             throw new IllegalStateException("This scrubber should not have been used");
         }
-        try (DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId)) {
+
+        try {
+            // TODO: this is called to initilize the writer, else we get an exception at getDirectoryReader. Should it really be done for a RO operation?
+            directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(""));
+        } catch (IOException e) {
+            throw LuceneExceptions.toRecordCoreException("failed getIndexWriter", e);
+        }
+        try {
+            DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
             final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, rec.getPrimaryKey());
             if (documentIndexEntry == null) {
                 // Here: the document had not been found in the PK segment index
