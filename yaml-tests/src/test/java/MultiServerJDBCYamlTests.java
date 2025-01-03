@@ -22,14 +22,19 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 
+import java.io.File;
 import java.io.IOException;
 import java.sql.DriverManager;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A test runner to launch the YAML tests with multiple servers.
@@ -38,8 +43,9 @@ import java.util.List;
  * either server according to the selection policy.
  */
 public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrationTests {
-    // TODO: This should eventually be replaced by the jar that gets downloaded from the repo
-    public static final String SERVER_JAR_FILE = "fdb-relational-server-2433B353-SNAPSHOT-all.jar";
+
+    private static final Logger LOG = LogManager.getLogger(JDBCExternalYamlIntegrationTests.class);
+    public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     public static final String SERVER_PORT = "1111";
 
     private static Process serverProcess;
@@ -54,7 +60,6 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
      * Concrete implementation of the test class that uses embedded server as the initial connection.
      */
     @Nested
-    @Disabled("These tests are disabled since quantifier names are not predictable when server runs on a remote server")
     public static class MultiServerInitialConnectionEmbeddedTests extends MultiServerJDBCYamlTests {
         public MultiServerInitialConnectionEmbeddedTests() {
             super(0);
@@ -65,17 +70,20 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
      * Concrete implementation of the test class that uses external server as the initial connection.
      */
     @Nested
-    @Disabled("These tests are disabled since quantifier names are not predictable when server runs on a remote server")
     public static class MultiServerInitialConnectionExternalTests extends MultiServerJDBCYamlTests {
         public MultiServerInitialConnectionExternalTests() {
             super(1);
         }
     }
 
-    // @BeforeAll
-    // TODO: starting the server from a hard-coded jar fails even if the test is @Disabled, so comment out the @BeforeAll
+    @BeforeAll
     public static void startServer() throws IOException, InterruptedException {
-        ProcessBuilder processBuilder = new ProcessBuilder("java", "-jar", SERVER_JAR_FILE);
+        final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
+        final File[] externalServers = externalDirectory.listFiles(file -> file.getName().endsWith(".jar"));
+        Assertions.assertEquals(1, externalServers.length);
+        File jar = externalServers[0];
+        LOG.info("Starting " + jar);
+        ProcessBuilder processBuilder = new ProcessBuilder("java", "-jar", jar.getAbsolutePath());
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
 
@@ -108,5 +116,47 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         if ((serverProcess != null) && serverProcess.isAlive()) {
             serverProcess.destroy();
         }
+    }
+
+    @Override
+    @Disabled("Test asserts about quantifiers")
+    public void updateDeleteReturning() throws Exception {
+        super.updateDeleteReturning();
+    }
+
+    @Override
+    @Disabled("Test asserts about quantifiers")
+    public void aggregateIndexTests() throws Exception {
+        super.aggregateIndexTests();
+    }
+
+    @Override
+    @Disabled("Test asserts about quantifiers")
+    public void indexedFunctions() throws Exception {
+        super.indexedFunctions();
+    }
+
+    @Override
+    @Disabled("Test asserts about quantifiers")
+    public void bitmap() throws Exception {
+        super.bitmap();
+    }
+
+    @Override
+    @Disabled("Test asserts about quantifiers")
+    public void cte() throws Exception {
+        super.cte();
+    }
+
+    @Override
+    @Disabled("Test asserts about quantifiers")
+    public void unionEmptyTables() throws Exception {
+        super.unionEmptyTables();
+    }
+
+    @Override
+    @Disabled("Test asserts about quantifiers")
+    public void union() throws Exception {
+        super.union();
     }
 }
