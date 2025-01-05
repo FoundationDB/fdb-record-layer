@@ -107,7 +107,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
             this.recordStore = pair.getLeft();
             this.planner = pair.getRight();
             injectedFailures.addFailure(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL,
-                    new LuceneConcurrency.AsyncToSyncTimeoutException("", new TimeoutException("Blah")), 3);
+                    new LuceneConcurrency.AsyncToSyncTimeoutException("", new TimeoutException("Dummy")), 3);
 
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(7771547L, WAYLON, 1));

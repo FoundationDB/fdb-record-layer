@@ -100,7 +100,7 @@ public class InjectedFailureRepository {
 
     public boolean shouldFailWithoutException(@Nonnull Methods method) {
         // Return true "count" times, then return false
-        // (Note that "checkFailure" will succeed "count" times, the repeatedly throw an exception)
+        // (Note that it's a reverse logic of "checkFailure" - which will succeed "count" times, then repeatedly throw an exception)
         FailureDescription failureDescription = failureDescriptions.get(method);
         if (failureDescription != null) {
             AtomicLong count = invocationCounts.computeIfAbsent(method, m -> new AtomicLong(0));
