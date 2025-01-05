@@ -66,10 +66,6 @@ public class InjectedFailureRepository {
         invocationCounts.clear();
     }
 
-    public boolean hasFailure(@Nonnull Methods method) {
-        return failureDescriptions.get(method) != null;
-    }
-
     public void checkFailureForIoException(@Nonnull final Methods method) throws IOException {
         try {
             checkFailure(method);
@@ -100,6 +96,18 @@ public class InjectedFailureRepository {
                 throw failureDescription.getException();
             }
         }
+    }
+
+    public boolean shouldFailWithoutException(@Nonnull Methods method) {
+        // Return true "count" times, then return false
+        // (Note that "checkFailure" will succeed "count" times, the repeatedly throw an exception)
+        FailureDescription failureDescription = failureDescriptions.get(method);
+        if (failureDescription != null) {
+            AtomicLong count = invocationCounts.computeIfAbsent(method, m -> new AtomicLong(0));
+            long invocations = count.incrementAndGet();
+            return invocations < failureDescription.getCount();
+        }
+        return false;
     }
 
     /**
