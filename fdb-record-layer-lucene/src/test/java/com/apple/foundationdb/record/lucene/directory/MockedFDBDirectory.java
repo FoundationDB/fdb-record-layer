@@ -113,7 +113,7 @@ public class MockedFDBDirectory extends FDBDirectory {
     @Override
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
         injectedFailures.checkFailureForCoreException(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX);
-        if (injectedFailures.hasFailure(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL)) {
+        if (injectedFailures.shouldFailWithoutException(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL)) {
             return null;
         }
         return super.getPrimaryKeySegmentIndex();
