@@ -180,7 +180,7 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
         });
     }
 
-
+    @SuppressWarnings("PMD.CloseResource")
     private boolean isMissingIndexKey(FDBStoredRecord<Message> rec, Integer partitionId, Tuple groupingKey) {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
         if (segmentIndex == null) {
