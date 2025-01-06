@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementFilterRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTempTableInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
@@ -69,6 +70,8 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrde
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughGroupByRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInsertTempTableRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughRecursiveUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectExistentialRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSortRule;
@@ -127,12 +130,14 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughSortRule(),
             new PushRequestedOrderingThroughDistinctRule(),
             new PushRequestedOrderingThroughUnionRule(),
+            new PushRequestedOrderingThroughRecursiveUnionRule(),
             new PushRequestedOrderingThroughInLikeSelectRule(),
             new PushRequestedOrderingThroughSelectRule(),
             new PushRequestedOrderingThroughSelectExistentialRule(),
             new PushRequestedOrderingThroughGroupByRule(),
             new PushRequestedOrderingThroughDeleteRule(),
             new PushRequestedOrderingThroughInsertRule(),
+            new PushRequestedOrderingThroughInsertTempTableRule(),
             new PushRequestedOrderingThroughUpdateRule(),
             new PushRequestedOrderingThroughUniqueRule()
     );
@@ -173,7 +178,8 @@ public class PlannerRuleSet {
             new ImplementDeleteRule(),
             new ImplementInsertRule(),
             new ImplementTempTableInsertRule(),
-            new ImplementUpdateRule()
+            new ImplementUpdateRule(),
+            new ImplementRecursiveUnionRule()
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =

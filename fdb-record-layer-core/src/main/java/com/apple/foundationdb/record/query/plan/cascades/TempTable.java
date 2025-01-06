@@ -20,16 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ProtoSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
@@ -53,6 +54,8 @@ import java.util.List;
  */
 public class TempTable implements ProtoSerializable {
 
+    public static final int DEFAULT_ROW_LIMIT = 100_000;
+
     @Nonnull
     private final List<QueryResult> underlyingBuffer;
 
@@ -60,7 +63,7 @@ public class TempTable implements ProtoSerializable {
     private final PTempTable.Builder protoBuilder;
 
     @Nullable
-    private Message cachedProto;
+    private PTempTable cachedProto;
 
     private TempTable() {
         this(Collections.synchronizedList(new ArrayList<>()), PTempTable.newBuilder());
@@ -78,7 +81,7 @@ public class TempTable implements ProtoSerializable {
      */
     public void add(@Nonnull QueryResult element) {
         underlyingBuffer.add(element);
-        protoBuilder.addBufferItems(element.toProto().toByteString());
+        protoBuilder.addBufferItems(element.toProto());
         cachedProto = null;
     }
 
@@ -91,10 +94,21 @@ public class TempTable implements ProtoSerializable {
         cachedProto = null;
     }
 
+    public void print() {
+        for (final var item : underlyingBuffer) {
+            System.out.println(item.getMessage().toString());
+        }
+    }
+
+    public boolean isEmpty() {
+        return underlyingBuffer.isEmpty();
+    }
+
     /**
-     * Returns a iterator of the underlying buffer, note that this iterator is not synchronized.
+     * Returns an iterator of the underlying buffer, note that this iterator is not synchronized.
      * @return an iterator of the underlying buffer.
      */
+
     @Nonnull
     public Iterator<QueryResult> getIterator() {
         return underlyingBuffer.iterator();
@@ -109,9 +123,13 @@ public class TempTable implements ProtoSerializable {
         return underlyingBuffer;
     }
 
+    public int size() {
+        return underlyingBuffer.size();
+    }
+
     @Nonnull
     @Override
-    public Message toProto() {
+    public PTempTable toProto() {
         if (cachedProto == null) {
             cachedProto = protoBuilder.build();
         }
@@ -172,7 +190,31 @@ public class TempTable implements ProtoSerializable {
      * @return a new instance of {@link TempTable}.
      */
     @Nonnull
-    public static TempTable newInstance() {
+    private static TempTable newInstance() {
         return new TempTable();
+    }
+
+    /**
+     * Factory of {@link TempTable} instances.
+     */
+    public static class Factory {
+
+        @Nonnull
+        private static final Factory INSTANCE = new Factory();
+
+        @VisibleForTesting // through injection
+        @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "This is made non-private for testing through dependency injection")
+        protected Factory() {
+        }
+
+        @Nonnull
+        public TempTable createTempTable() {
+            return TempTable.newInstance();
+        }
+
+        @Nonnull
+        public static Factory instance() {
+            return INSTANCE;
+        }
     }
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -27,6 +28,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.TempTableInsertCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
@@ -49,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -101,22 +104,32 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        final var rowLimit = executeProperties.getReturnedRowLimitOrMax();
+        final var effectiveRowLimit = Math.min(rowLimit, TempTable.DEFAULT_ROW_LIMIT);
         if (isOwningTempTable) {
             final var typeDescriptor = getInnerTypeDescriptor(context);
             return TempTableInsertCursor.from(continuation,
                     proto -> {
                         final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
                         if (proto != null) {
-                            TempTable.from(proto, typeDescriptor).getIterator().forEachRemaining(tempTable::add);
+                            final var deserialized = TempTable.from(proto, typeDescriptor);
+                            if (deserialized.getList().size() + tempTable.size() > effectiveRowLimit) {
+                                throw new RecordCoreException("temp table row limit exceeded");
+                            }
+                            deserialized.getIterator().forEachRemaining(tempTable::add);
                         }
                         return tempTable;
                     },
-                    childContinuation -> getChild().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()));
+                    childContinuation -> getChild().executePlan(store, context, childContinuation, executeProperties.clearSkipAndLimit()),
+                    effectiveRowLimit);
         } else {
             return getChild().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
                     .map(queryResult ->
                     {
                         final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
+                        if (tempTable.size() == effectiveRowLimit) {
+                            throw new RecordCoreException("temp table row limit exceeded");
+                        }
                         tempTable.add(queryResult);
                         return queryResult;
                     });
@@ -162,6 +175,12 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     @Override
     public Value getResultValue() {
         return tempTableReferenceValue;
+    }
+
+    @Nonnull
+    @Override
+    public Type.Relation getResultType() {
+        return (Type.Relation)tempTableReferenceValue.getResultType();
     }
 
     @Nonnull
@@ -249,8 +268,9 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
      */
     @Nonnull
     public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
-                                                 @Nonnull final Value tempTableReferenceValue) {
-        return new TempTableInsertPlan(inner, tempTableReferenceValue, true);
+                                                 @Nonnull final Value tempTableReferenceValue,
+                                                 boolean isOwningTempTable) {
+        return new TempTableInsertPlan(inner, tempTableReferenceValue, isOwningTempTable);
     }
 
     @Nonnull
@@ -273,6 +293,12 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     public void logPlanStructure(final StoreTimer timer) {
         // TODO timer.increment(FDBStoreTimer.Counts.PLAN_TYPE_FILTER);
         getChild().logPlanStructure(timer);
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        return ImmutableSet.of(Objects.requireNonNull(getResultType().getInnerType()));
     }
 
     @Override

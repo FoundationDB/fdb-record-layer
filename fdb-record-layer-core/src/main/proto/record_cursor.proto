@@ -21,6 +21,7 @@ syntax = "proto2";
 
 package com.apple.foundationdb.record;
 import "google/protobuf/descriptor.proto";
+import "record_query_runtime.proto";
 
 option java_outer_classname = "RecordCursorProto";
 
@@ -123,5 +124,13 @@ message MultidimensionalIndexScanContinuation {
 
 message TempTableInsertContinuation {
     optional bytes child_continuation = 1;
-    optional bytes tempTable = 2;
+    optional planprotos.PTempTable tempTable = 2;
+}
+
+message RecursiveCursorContinuation {
+    optional bool isInitialState = 1;
+    optional bool buffersAreFlipped = 2;
+    optional planprotos.PTempTable tempTable = 3;
+    optional bytes activeStateContinuation = 4;
+    optional int32 recursionDepth = 5;
 }

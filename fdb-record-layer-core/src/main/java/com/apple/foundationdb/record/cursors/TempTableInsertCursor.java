@@ -56,10 +56,14 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
     @Nonnull
     private final TempTable tempTable;
 
+    private final int rowLimit; // transient.
+
     private TempTableInsertCursor(@Nonnull final RecordCursor<QueryResult> childCursor,
-                                  @Nonnull final TempTable tempTable) {
+                                  @Nonnull final TempTable tempTable,
+                                  final int rowLimit) {
         this.childCursor = childCursor;
         this.tempTable = tempTable;
+        this.rowLimit = rowLimit;
     }
 
     @Nonnull
@@ -73,6 +77,9 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
                     return RecordCursorResult.withoutNextValue(new Continuation(tempTable, childCursorResult.getContinuation()), childCursorResult.getNoNextReason());
                 }
             } else {
+                if (tempTable.size() == rowLimit) {
+                    throw new RecordCoreException("temp table row limit exceeded");
+                }
                 tempTable.add(Objects.requireNonNull(childCursorResult.get()));
                 return RecordCursorResult.withNextValue(childCursorResult.get(), new Continuation(tempTable, childCursorResult.getContinuation()));
             }
@@ -117,10 +124,11 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
     @SuppressWarnings("PMD.CloseResource")
     public static TempTableInsertCursor from(@Nullable byte[] unparsed,
                                              @Nonnull Function<PTempTable, TempTable> tempTableDeserializer,
-                                             @Nonnull Function<byte[], RecordCursor<QueryResult>> childCursorCreator) {
+                                             @Nonnull Function<byte[], RecordCursor<QueryResult>> childCursorCreator,
+                                             int rowLimit) {
         final var continuation = Continuation.from(unparsed, tempTableDeserializer);
         final var childCursor = childCursorCreator.apply(continuation.getChildContinuation().toBytes());
-        return new TempTableInsertCursor(childCursor, continuation.getTempTable());
+        return new TempTableInsertCursor(childCursor, continuation.getTempTable(), rowLimit);
     }
 
     private static class Continuation implements RecordCursorContinuation {
@@ -150,7 +158,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
         private RecordCursorProto.TempTableInsertContinuation toProto() {
             RecordCursorProto.TempTableInsertContinuation.Builder builder =
                     RecordCursorProto.TempTableInsertContinuation.newBuilder();
-            builder.setTempTable(tempTable.toProto().toByteString());
+            builder.setTempTable(tempTable.toProto());
             ByteString childBytes = childContinuation.toByteString();
             if (!childBytes.isEmpty()) {
                 builder.setChildContinuation(childBytes);
@@ -197,7 +205,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
             } else {
                 try {
                     final var parsed = RecordCursorProto.TempTableInsertContinuation.parseFrom(unparsed);
-                    final var parsedTempTable = parsed.hasTempTable() ? PTempTable.parseFrom(parsed.getTempTable()) : null;
+                    final var parsedTempTable = parsed.hasTempTable() ? PTempTable.parseFrom(parsed.getTempTable().toByteString()) : null;
                     return Continuation.from(parsed, parsedTempTable, tempTableDeserializer);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("invalid continuation", ex)

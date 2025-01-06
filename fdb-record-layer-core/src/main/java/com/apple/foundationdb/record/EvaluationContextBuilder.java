@@ -22,6 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
@@ -37,12 +38,15 @@ import javax.annotation.Nullable;
 public class EvaluationContextBuilder {
     @Nonnull
     protected final Bindings.Builder bindings;
+    @Nonnull
+    protected final TempTable.Factory tempTableFactory;
 
     /**
      * Create an empty builder.
      */
     protected EvaluationContextBuilder() {
         this.bindings = Bindings.newBuilder();
+        this.tempTableFactory = TempTable.Factory.instance();
     }
 
     /**
@@ -54,6 +58,7 @@ public class EvaluationContextBuilder {
      */
     protected EvaluationContextBuilder(@Nonnull EvaluationContext original) {
         this.bindings = original.getBindings().childBuilder();
+        this.tempTableFactory = original.getTempTableFactory();
     }
 
     /**
@@ -116,6 +121,6 @@ public class EvaluationContextBuilder {
      */
     @Nonnull
     public EvaluationContext build(@Nonnull final TypeRepository typeRepository) {
-        return EvaluationContext.forBindingsAndTypeRepository(bindings.build(), typeRepository);
+        return EvaluationContext.forBindingsAndTypeRepositoryAndTempTableFactory(bindings.build(), typeRepository, tempTableFactory);
     }
 }

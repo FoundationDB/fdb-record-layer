@@ -35,6 +35,7 @@ import java.util.List;
  * <li>limit on number of records returned</li>
  * <li>time limit for execution</li>
  * <li>limit on number of key-value pairs scanned</li>
+ * <li>limit on maximum recursion, for recursive queries</li>
  * </ul>
  */
 @API(API.Status.MAINTAINED)
@@ -43,6 +44,12 @@ public class ExecuteProperties {
      * A constant representing that no time limit is set.
      */
     public static final long UNLIMITED_TIME = 0L;
+
+    /**
+     * a constant representing the default maximum recursion depth.
+     */
+    public static final int DEFAULT_MAX_RECURSION_DEPTH = 1000;
+
     /**
      * A basic set of properties for an unlimited query/scan execution with serializable isolation.
      */
@@ -64,7 +71,7 @@ public class ExecuteProperties {
     // a limit on the length of time that the cursor will run for.
     private final long timeLimit;
 
-    // A wrapper that encapsulates all of the mutable state associated with the execution, such as the record scan limit.
+    // A wrapper that encapsulates all the mutable state associated with the execution, such as the record scan limit.
     // In general, the state should be preserved under all transformations except for explicit mutations of the state member.
     @Nonnull
     private final ExecuteState state;
@@ -75,9 +82,13 @@ public class ExecuteProperties {
 
     private final CursorStreamingMode defaultCursorStreamingMode;
 
+    private final int recursionLimit;
+
     @SuppressWarnings("java:S107")
     private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
-                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
+                              @Nonnull ExecuteState state, boolean failOnScanLimitReached,
+                              @Nonnull CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun,
+                              int recursionLimit) {
         this.skip = skip;
         this.rowLimit = rowLimit;
         this.isolationLevel = isolationLevel;
@@ -86,6 +97,7 @@ public class ExecuteProperties {
         this.failOnScanLimitReached = failOnScanLimitReached;
         this.defaultCursorStreamingMode = defaultCursorStreamingMode;
         this.isDryRun = isDryRun;
+        this.recursionLimit = recursionLimit;
     }
 
     @Nonnull
@@ -102,7 +114,7 @@ public class ExecuteProperties {
         if (skip == this.skip) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     public boolean isDryRun() {
@@ -114,9 +126,27 @@ public class ExecuteProperties {
         if (isDryRun == this.isDryRun) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
+    /**
+     * Gets the recursion limit, i.e. the maximum recursion depth a recursive query is allowed to reach. When traversing
+     * a tree structure, the recursion depth corresponds, usually, to the depth of the tree itself.
+     * @return the maximum allowed depth of recursion.
+     */
+    public int getRecursionLimit() {
+        return recursionLimit;
+    }
+
+    @Nonnull
+    public ExecuteProperties setRecursionLimit(final int newRecursionLimit) {
+        if (newRecursionLimit == recursionLimit) {
+            return this;
+        }
+        final int effectiveRecursionLimit = validateRecursionLimit(newRecursionLimit);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode,
+                isDryRun, effectiveRecursionLimit);
+    }
 
     /**
      * Get the limit on the number of rows that will be returned as it would be passed to FDB.
@@ -137,7 +167,7 @@ public class ExecuteProperties {
         if (newLimit == this.rowLimit) {
             return this;
         }
-        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -184,7 +214,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties setState(@Nonnull ExecuteState newState) {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -193,7 +223,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties clearState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -209,7 +239,7 @@ public class ExecuteProperties {
         if (failOnScanLimitReached == this.failOnScanLimitReached) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     @Nonnull
@@ -217,7 +247,7 @@ public class ExecuteProperties {
         if (getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -229,7 +259,7 @@ public class ExecuteProperties {
         if (getTimeLimit() == UNLIMITED_TIME && getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -241,7 +271,7 @@ public class ExecuteProperties {
         if (skip == 0 && rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -254,7 +284,7 @@ public class ExecuteProperties {
             return this;
         }
         return copy(0, rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? ReadTransaction.ROW_LIMIT_UNLIMITED : rowLimit + skip,
-                timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+                timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -305,7 +335,7 @@ public class ExecuteProperties {
         if (defaultCursorStreamingMode == this.defaultCursorStreamingMode) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -315,7 +345,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties resetState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
     }
 
     /**
@@ -328,13 +358,16 @@ public class ExecuteProperties {
      * @param failOnScanLimitReached fail on scan limit reached
      * @param defaultCursorStreamingMode default streaming mode
      * @param isDryRun whether it is dry run
+     * @param recursionLimit limit of the recursion.
      * @return a new properties with the given fields changed and other fields copied from this properties
      */
     @SuppressWarnings("java:S107")
     @Nonnull
     protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, @Nonnull IsolationLevel isolationLevel,
-                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
-        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode,
+                                     boolean isDryRun, int recursionLimit) {
+        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode,
+                isDryRun, recursionLimit);
     }
 
     @Nonnull
@@ -357,6 +390,13 @@ public class ExecuteProperties {
             return UNLIMITED_TIME;
         }
         return timeLimit;
+    }
+
+    private static int validateRecursionLimit(final int recursionLimit) {
+        if (recursionLimit < 1L) {
+            throw new RecordCoreException("Invalid recursion limit specified: " + recursionLimit);
+        }
+        return recursionLimit;
     }
 
     @Nonnull
@@ -409,6 +449,7 @@ public class ExecuteProperties {
         private boolean failOnScanLimitReached = false;
         private boolean isDryRun = false;
         private CursorStreamingMode defaultCursorStreamingMode = CursorStreamingMode.ITERATOR;
+        private int recursionLimit = DEFAULT_MAX_RECURSION_DEPTH;
 
         private Builder() {
         }
@@ -422,6 +463,7 @@ public class ExecuteProperties {
             this.failOnScanLimitReached = executeProperties.failOnScanLimitReached;
             this.defaultCursorStreamingMode = executeProperties.defaultCursorStreamingMode;
             this.isDryRun = executeProperties.isDryRun;
+            this.recursionLimit = executeProperties.recursionLimit;
         }
 
         @Nonnull
@@ -453,6 +495,22 @@ public class ExecuteProperties {
         public Builder setDryRun(boolean isDryRun) {
             this.isDryRun = isDryRun;
             return this;
+        }
+
+        @Nonnull
+        public Builder setRecursionLimit(final int recursionLimit) {
+            this.recursionLimit = validateRecursionLimit(recursionLimit);
+            return this;
+        }
+
+        @Nonnull
+        public Builder clearRecursionLimit() {
+            this.recursionLimit = DEFAULT_MAX_RECURSION_DEPTH;
+            return this;
+        }
+
+        public int getRecursionLimit() {
+            return recursionLimit;
         }
 
         @Nonnull
@@ -607,7 +665,7 @@ public class ExecuteProperties {
             } else {
                 state = new ExecuteState(RecordScanLimiterFactory.enforce(scannedRecordsLimit), ByteScanLimiterFactory.enforce(scannedBytesLimit));
             }
-            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
+            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, recursionLimit);
         }
     }
 }

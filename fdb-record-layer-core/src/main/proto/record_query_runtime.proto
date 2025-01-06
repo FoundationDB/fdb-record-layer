@@ -58,5 +58,5 @@ message PQueryResult {
 }
 
 message PTempTable {
-  repeated bytes bufferItems = 2;
+  repeated PQueryResult bufferItems = 2;
 }
