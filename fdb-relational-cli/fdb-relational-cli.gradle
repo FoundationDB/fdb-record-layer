@@ -22,8 +22,6 @@ plugins {
     id 'application'
 }
 
-description = 'FDB Relational CLI (Connects to FDB Relational Layer via JDBC)'
-
 apply from: rootProject.file('gradle/publishing.gradle')
 apply from: rootProject.file('gradle/antlr.gradle')
 
@@ -132,4 +130,14 @@ distTar {
     dependsOn "javadoc"
     compression = Compression.GZIP
     archiveExtension = "tar.gz"
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Relational CLI (Connects to FDB Relational Layer via JDBC)'
+            }
+        }
+    }
 }

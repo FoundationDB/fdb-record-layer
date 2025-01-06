@@ -26,8 +26,6 @@ plugins {
 
 apply from: rootProject.file('gradle/publishing.gradle')
 
-description = 'Relational Layer Server.'
-
 // Don't build a zip assembly, just the tar one.
 tasks.distZip.enabled = false
 build.dependsOn installDist
@@ -74,10 +72,10 @@ createDistribution.configure {
 
 publishing {
     publications {
-        // Note: in new versions this changes, see docs:
-        // https://gradleup.com/shadow/publishing/#publishing-with-maven-publish-plugin
-        shadow(MavenPublication) { publication ->
-            from project.shadow.component(publication)
+        library {
+            pom {
+                description = 'Relational Layer server'
+            }
         }
     }
 }

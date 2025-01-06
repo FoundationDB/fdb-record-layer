@@ -29,7 +29,7 @@ dependencies {
 }
 
 shadowJar {
-    classifier = null
+    setArchiveClassifier(null)
     relocate 'com.google', 'com.apple.foundationdb.record.shaded.com.google'
     dependencies {
         include(dependency(coreProject))
@@ -48,8 +48,8 @@ createDistribution {dependsOn('shadowJar')}
 task shadedSourcesJar(type: Jar) {
     description = "Assembles a Jar archive containing the main sources."
     group = JavaBasePlugin.DOCUMENTATION_GROUP
-    appendix = null
-    classifier = "sources"
+    archiveAppendix = null
+    archiveClassifier = "sources"
     from project(coreProject).sourceSets.main.allSource
     from project(':fdb-extensions').sourceSets.main.allSource
 }
@@ -57,8 +57,8 @@ task shadedSourcesJar(type: Jar) {
 task shadedJavadocJar(type: Jar) {
     description = "Assembles a Jar archive containing the main Javadoc."
     group = JavaBasePlugin.DOCUMENTATION_GROUP
-    appendix = null
-    classifier = "javadoc"
+    archiveAppendix = null
+    archiveClassifier = "javadoc"
     from project(coreProject).tasks.javadoc
 }
 
@@ -80,7 +80,10 @@ def addDependencies(projectObj, dependenciesNode) {
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')
+
 publishing {
+    publications.remove(publishing.publications.library)
+
     publications {
         shadow(MavenPublication) { publication ->
             from project.shadow.component(publication)

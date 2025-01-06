@@ -65,7 +65,7 @@ sourceSets {
 }
 
 task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    classifier = 'standalone-tests'
+    archiveClassifier = 'standalone-tests'
     from sourceSets.main.output
     from sourceSets.test.output
     configurations = [ project.configurations.testRuntimeOnly ]
@@ -79,7 +79,7 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
 }
 
 task replJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    classifier = 'repl'
+    archiveClassifier = 'repl'
     from sourceSets.main.output
     from sourceSets.test.output
     configurations = [ project.configurations.repl ]
