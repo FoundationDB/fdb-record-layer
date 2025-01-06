@@ -1734,7 +1734,8 @@ message PRecordQueryUpdatePlan {
 // PRecursiveUnionQueryPlan
 //
 message PRecursiveUnionQueryPlan {
-  repeated PPhysicalQuantifier quantifiers = 1;
-  optional PValue initialTempTableValueReference = 2;
-  optional PValue recursiveTempTableValueReference = 3;
+  optional PPhysicalQuantifier initialStateQuantifier = 1;
+  optional PPhysicalQuantifier recursiveStateQuantifier = 2;
+  optional string initialTempTableAlias = 3;
+  optional string recursiveTempTableAlias = 4;
 }
