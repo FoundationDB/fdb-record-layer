@@ -2519,8 +2519,10 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public String toString() {
-            return getType().name() + "(" + maxDistance + ") " + typelessString();
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(getType().name())
+                    .addOptionalWhitespace().addOpeningParen().addOptionalWhitespace().addToString(maxDistance)
+                    .addOptionalWhitespace().addClosingParen().addWhitespace().addIdentifier(typelessString()));
         }
     }
 
@@ -2633,8 +2635,18 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public String toString() {
-            return getType().name() + "(" + (strict ? "strictly" : "approximately") + ") " + typelessString();
+        public ExplainTokensWithPrecedence explain() {
+            final var resultExplainTokens =
+                    new ExplainTokens().addKeyword(getType().name())
+                            .addOptionalWhitespace().addOpeningParen().addOpeningParen();
+            if (strict) {
+                resultExplainTokens.addKeyword("STRICTLY");
+            } else {
+                resultExplainTokens.addKeyword("APPROVIMATELY");
+            }
+            resultExplainTokens.addOptionalWhitespace().addClosingParen().addWhitespace()
+                    .addIdentifier(typelessString());
+            return ExplainTokensWithPrecedence.of(resultExplainTokens);
         }
     }
 

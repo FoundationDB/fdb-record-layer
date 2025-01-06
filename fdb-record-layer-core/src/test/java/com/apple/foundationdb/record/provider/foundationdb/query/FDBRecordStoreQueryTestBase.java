@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -632,6 +633,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             return plannedPlan;
         }
         assertThat(planner, instanceOf(CascadesPlanner.class));
+        System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plannedPlan) + "\n");
         return verifySerialization(plannedPlan);
     }
 
@@ -650,8 +652,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         } else {
             allowedIndexesOptional = Optional.empty();
         }
-        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional, IndexQueryabilityFilter.DEFAULT, EvaluationContext.forBindings(bindings));
-        return verifySerialization(planResult.getPlan());
+        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional,
+                IndexQueryabilityFilter.DEFAULT, EvaluationContext.forBindings(bindings));
+        final var plan = planResult.getPlan();
+        System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plan) + "\n");
+        return verifySerialization(plan);
     }
 
     /**

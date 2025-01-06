@@ -89,7 +89,7 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
             try (FDBRecordContext context = openContext()) {
                 for (int i = 0; i < queries.size(); i++) {
                     Integer value2 = (records.get(i).hasNumValue2()) ? records.get(i).getNumValue2() : null;
-                    String planString = "Scan(<,>) | [MySimpleRecord] | " + ((value2 == null) ?  "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
+                    String planString = "SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER " + ((value2 == null) ?  "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
                     executeQuery(queries.get(i), planString, valueMap.get(value2));
                 }
                 context.commit();
@@ -127,7 +127,7 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
                     // The build job shouldn't affect the reads.
                     for (int i = 0; i < updatedQueries.size(); i++) {
                         Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
-                        String planString = "Scan(<,>) | [MySimpleRecord] | " + ((value2 == null) ? "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
+                        String planString = "SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER " + ((value2 == null) ? "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
                         executeQuery(updatedQueries.get(i), planString, updatedValueMap.get(value2));
                     }
                 }
@@ -138,13 +138,13 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
             try (FDBRecordContext context = openContext()) {
                 for (int i = 0; i < updatedQueries.size(); i++) {
                     Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
-                    executeQuery(updatedQueries.get(i), "Index(newIndex [[" + value2 + "],[" + value2 + "]])", updatedValueMap.get(value2));
+                    executeQuery(updatedQueries.get(i), "ISCAN(newIndex [[" + value2 + "],[" + value2 + "]])", updatedValueMap.get(value2));
                 }
                 RecordQuery sortQuery = RecordQuery.newBuilder()
                         .setRecordType("MySimpleRecord")
                         .setSort(field("num_value_2"))
                         .build();
-                executeQuery(sortQuery, "Index(newIndex <,>)", updatedRecords.stream().map(msg -> (msg.hasNumValue2()) ? msg.getNumValue2() : Integer.MIN_VALUE).sorted().collect(Collectors.toList()), projection);
+                executeQuery(sortQuery, "ISCAN(newIndex <,>)", updatedRecords.stream().map(msg -> (msg.hasNumValue2()) ? msg.getNumValue2() : Integer.MIN_VALUE).sorted().collect(Collectors.toList()), projection);
                 context.commit();
             }
         };

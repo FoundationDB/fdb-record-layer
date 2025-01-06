@@ -451,22 +451,23 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
 
     @Nonnull
     public ExplainTokensWithPrecedence explain() {
-        var resultExplainTokenStream =
-                equalityComparisons.stream().map(Comparisons.Comparison::explain)
-                        .map(ExplainTokensWithPrecedence::getExplainTokens);
+        final var explainTokensListBuilder = ImmutableList.<ExplainTokens>builder();
+        equalityComparisons.stream().map(Comparisons.Comparison::explain)
+                .map(ExplainTokensWithPrecedence::getExplainTokens)
+                .forEach(explainTokensListBuilder::add);
         if (!inequalityComparisons.isEmpty()) {
             final var inequalityComparisonLists  = Lists.newArrayList(inequalityComparisons);
             inequalityComparisonLists.sort(Comparator.comparing(Comparisons.Comparison::toString));
-            resultExplainTokenStream = Stream.concat(resultExplainTokenStream, Stream.of(
+            explainTokensListBuilder.add(
                     new ExplainTokens().addOpeningBracket().addOptionalWhitespace()
                             .addSequence(() -> new ExplainTokens().addWhitespace().addToString("&&").addWhitespace(),
-                                    () -> inequalityComparisons.stream().map(Comparisons.Comparison::explain)
+                                    () -> inequalityComparisonLists.stream().map(Comparisons.Comparison::explain)
                                             .map(ExplainTokensWithPrecedence::getExplainTokens).iterator())
-                            .addOpeningBracket().addClosingBracket()));
+                            .addOptionalWhitespace().addClosingBracket());
         }
-        final var resultExplainTokenIterator = resultExplainTokenStream.iterator();
+
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningBracket().addOptionalWhitespace()
-                .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), () -> resultExplainTokenIterator)
+                .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), explainTokensListBuilder.build())
                 .addOptionalWhitespace().addClosingBracket());
     }
 

@@ -42,6 +42,6 @@ public class DefaultExplainSymbolMap implements ExplainSymbolMap {
     @Nullable
     @Override
     public String getSymbolForAlias(@Nonnull final CorrelationIdentifier alias) {
-        return alias.getId();
+        return Quantifier.current().equals(alias) ? "_" : alias.getId();
     }
 }

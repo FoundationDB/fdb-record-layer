@@ -20,20 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordCoreException;
-
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
  * A formatter for tokens.
  */
 public class DefaultExplainFormatter implements ExplainFormatter {
-    private static final DefaultExplainFormatter FOR_DEBUGGING = new DefaultExplainFormatter(DefaultExplainSymbolMap::new);
-
     @Nonnull
     private final Supplier<ExplainSymbolMap> symbolMapSupplier;
 
@@ -59,14 +56,14 @@ public class DefaultExplainFormatter implements ExplainFormatter {
 
     @Nonnull
     @Override
-    public String getSymbolForAlias(@Nonnull CorrelationIdentifier alias) {
+    public Optional<String> getSymbolForAliasMaybe(@Nonnull final CorrelationIdentifier alias) {
         for (final var scope : scopes) {
             final var resolvedSymbol = scope.getSymbolForAlias(alias);
             if (resolvedSymbol != null) {
-                return resolvedSymbol;
+                return Optional.of(resolvedSymbol);
             }
         }
-        throw new RecordCoreException("unresolved symbol");
+        return Optional.empty();
     }
 
     @Override
@@ -88,6 +85,6 @@ public class DefaultExplainFormatter implements ExplainFormatter {
 
     @Nonnull
     public static DefaultExplainFormatter forDebugging() {
-        return FOR_DEBUGGING;
+        return new DefaultExplainFormatter(DefaultExplainSymbolMap::new);
     }
 }

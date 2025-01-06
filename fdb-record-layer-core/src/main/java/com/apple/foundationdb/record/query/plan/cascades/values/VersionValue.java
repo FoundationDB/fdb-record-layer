@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -98,12 +97,6 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public String toString() {
-        return "version(" + baseAlias + ")";
-    }
-
-    @Nonnull
-    @Override
     public VersionValue rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
         return new VersionValue(targetAlias);
     }
@@ -126,7 +119,7 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("version",
-                Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens()));
+                new ExplainTokens().addAliasReference(baseAlias)));
     }
 
     @Override

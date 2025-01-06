@@ -153,8 +153,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nonnull
-    @SuppressWarnings("unused")
-    ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
+    ExplainTokensWithPrecedence explain(@Nonnull Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
 
     /**
      * Checks whether this {@link Value} is compile-time constant.

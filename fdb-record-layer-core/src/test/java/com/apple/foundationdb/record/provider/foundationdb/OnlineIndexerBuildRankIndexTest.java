@@ -91,7 +91,7 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
                             .setFilter(Query.rank("num_value_2").equalsValue(0L))
                             .build();
                     RecordQueryPlan plan = planner.plan(query);
-                    assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
+                    assertEquals("SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
                     Optional<?> first = recordStore.executeQuery(plan).first().join();
                     assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
                 } catch (CompletionException e) {
@@ -122,7 +122,7 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
                             .setFilter(Query.rank("num_value_2").equalsValue(0L))
                             .build();
                     RecordQueryPlan plan = planner.plan(query);
-                    assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
+                    assertEquals("SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
                     Optional<?> first = recordStore.executeQuery(plan).first().join();
                     assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
                 } catch (CompletionException e) {
@@ -168,7 +168,7 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
                             .setFilter(Query.rank("num_value_2").equalsValue(rank))
                             .build();
                     RecordQueryPlan plan = planner.plan(query);
-                    assertEquals("Index(newRankIndex [[" + rank + "],[" + rank + "]] BY_RANK)", plan.toString());
+                    assertEquals("ISCAN(newRankIndex [[" + rank + "],[" + rank + "]] BY_RANK)", plan.toString());
                     Optional<TestRecords1Proto.MySimpleRecord> retrieved = recordStore.executeQuery(plan).map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                             .filter(rec -> rec.getRecNo() == record.getRecNo()).first().join();
                     assertTrue(retrieved.isPresent(), "empty range after rank index build");

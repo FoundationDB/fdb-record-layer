@@ -29,8 +29,6 @@ import java.util.function.Supplier;
  * A formatter for tokens.
  */
 public class PrettyExplainFormatter extends DefaultExplainFormatter {
-    private static final PrettyExplainFormatter FOR_DEBUGGING =
-            new PrettyExplainFormatter(DefaultExplainSymbolMap::new, false);
     private static final int TAB_SIZE = 4;
 
     private final boolean useOptionalLineBreaks;
@@ -101,8 +99,14 @@ public class PrettyExplainFormatter extends DefaultExplainFormatter {
     }
 
     @Nonnull
+    @Override
+    public CharSequence visitError(@Nonnull final ExplainTokens.Token token, @Nonnull final CharSequence stringedToken) {
+        return new StringBuilder().append(Color.BRIGHT_RED).append(stringedToken).append(Color.RESET);
+    }
+
+    @Nonnull
     public static PrettyExplainFormatter forDebugging() {
-        return FOR_DEBUGGING;
+        return new PrettyExplainFormatter(DefaultExplainSymbolMap::new, false);
     }
 
     /**

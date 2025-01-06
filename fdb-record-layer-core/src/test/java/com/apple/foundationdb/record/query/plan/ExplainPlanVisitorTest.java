@@ -44,6 +44,9 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainSymbolMap;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -189,20 +192,30 @@ public class ExplainPlanVisitorTest {
     private static NonnullPair<RecordQueryPlan, String> randomScanPlan(Random r) {
         Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         boolean reverse = r.nextBoolean();
-        return NonnullPair.of(new RecordQueryScanPlan(comparisons.getLeft(), reverse), String.format("Scan(%s)", comparisons.getRight()));
+        return NonnullPair.of(new RecordQueryScanPlan(comparisons.getLeft(), reverse), String.format("SCAN(%s)", comparisons.getRight()));
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomIndexPlan(Random r) {
+        final NonnullPair<RecordQueryPlan, String> childPlan = randomIndexDetails(r);
+        return NonnullPair.of(childPlan.getLeft(), String.format("ISCAN(%s)", childPlan.getRight()));
+    }
+
+    private static NonnullPair<RecordQueryPlan, String> randomIndexDetails(Random r) {
         Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         IndexScanType scanType = randomChoice(r, List.of(IndexScanType.BY_VALUE, IndexScanType.BY_RANK, IndexScanType.BY_GROUP, IndexScanType.BY_VALUE_OVER_SCAN));
         IndexScanParameters scanParameters = IndexScanComparisons.byValue(comparisons.getLeft(), scanType);
         String indexName = randomIndexName(r);
         boolean reverse = r.nextBoolean();
         return NonnullPair.of(new RecordQueryIndexPlan(indexName, scanParameters, reverse),
-                String.format("Index(%s %s%s%s)", indexName, comparisons.getRight(), scanType == IndexScanType.BY_VALUE ? "" : (" " + scanType), reverse ? " REVERSE" : ""));
+                String.format("%s %s%s%s", indexName, comparisons.getRight(), scanType == IndexScanType.BY_VALUE ? "" : (" " + scanType), reverse ? " REVERSE" : ""));
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomTextIndexPlan(Random r) {
+        final NonnullPair<RecordQueryPlan, String> childPlan = randomTextIndexDetails(r);
+        return NonnullPair.of(childPlan.getLeft(), String.format("TISCAN(%s)", childPlan.getRight()));
+    }
+
+    private static NonnullPair<RecordQueryPlan, String> randomTextIndexDetails(Random r) {
         ScanComparisons.Builder groupComparisonsBuilder = new ScanComparisons.Builder();
         int groupingComparisons = r.nextInt(3);
         for (int i = 0; i < groupingComparisons; i++) {
@@ -249,16 +262,17 @@ public class ExplainPlanVisitorTest {
         String indexName = randomIndexName(r);
         Index index = new Index(indexName, Key.Expressions.concatenateFields("text", "suffix").groupBy(Key.Expressions.field("group")), IndexTypes.TEXT);
         TextScan textScan = new TextScan(index, groupComparisons, textComparison, suffixComparisons);
-        return NonnullPair.of(new RecordQueryTextIndexPlan(indexName, textScan, r.nextBoolean()), String.format("TextIndex(%s %s, %s, %s)", indexName, groupComparisons, textComparison, suffixComparisons));
+        return NonnullPair.of(new RecordQueryTextIndexPlan(indexName, textScan, r.nextBoolean()),
+                String.format("%s, %s, %s, %s", indexName, groupComparisons, textComparison, suffixComparisons == null ? "NULL" : suffixComparisons));
     }
 
     @Nonnull
     private static NonnullPair<RecordQueryPlan, String> randomCoveringIndexPlan(@Nonnull Random r) {
         NonnullPair<RecordQueryPlan, String> childPlan;
         if (r.nextDouble() < 0.8) {
-            childPlan = randomIndexPlan(r);
+            childPlan = randomIndexDetails(r);
         } else {
-            childPlan = randomTextIndexPlan(r);
+            childPlan = randomTextIndexDetails(r);
         }
 
         assertThat(childPlan.getLeft(), Matchers.instanceOf(RecordQueryPlanWithIndex.class));
@@ -267,7 +281,7 @@ public class ExplainPlanVisitorTest {
                 .addField("str_value_indexed", r.nextBoolean() ? IndexKeyValueToPartialRecord.TupleSource.KEY : IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.builder().add(r.nextInt(10)).build(), null)
                 .build();
         return NonnullPair.of(new RecordQueryCoveringIndexPlan(planWithIndex, randomTypeName(r), planWithIndex.getAvailableFields(), partialRecord),
-                String.format("Covering(%s -> %s)", childPlan.getRight(), partialRecord));
+                String.format("COVERING(%s -> %s)", childPlan.getRight(), partialRecord));
     }
 
     @Nonnull
@@ -278,21 +292,21 @@ public class ExplainPlanVisitorTest {
         } else {
             collectionValue = ConstantObjectValue.of(CorrelationIdentifier.uniqueID(), "__const_" + r.nextInt(10), new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)));
         }
-        return NonnullPair.of(new RecordQueryExplodePlan(collectionValue), String.format("explode([%s])", collectionValue));
+        return NonnullPair.of(new RecordQueryExplodePlan(collectionValue), String.format("EXPLODE %s", collectionValue));
     }
 
     @Nonnull
     private static NonnullPair<RecordQueryPlan, String> randomLoadByKeysPlan(@Nonnull Random r) {
         if (r.nextBoolean()) {
             String parameterName = randomParameterName(r);
-            return NonnullPair.of(new RecordQueryLoadByKeysPlan(parameterName), String.format("ByKeys($%s)", parameterName));
+            return NonnullPair.of(new RecordQueryLoadByKeysPlan(parameterName), String.format("BYKEYS $%s", parameterName));
         } else {
             List<Tuple> primaryKeys = new ArrayList<>();
             int primaryKeyCount = r.nextInt(10);
             for (int i = 0; i < primaryKeyCount; i++) {
                 primaryKeys.add(Tuple.from(r.nextBoolean(), r.nextLong()));
             }
-            return NonnullPair.of(new RecordQueryLoadByKeysPlan(primaryKeys), String.format("ByKeys(%s)", primaryKeys));
+            return NonnullPair.of(new RecordQueryLoadByKeysPlan(primaryKeys), String.format("BYKEYS %s", primaryKeys));
         }
     }
 
@@ -305,14 +319,14 @@ public class ExplainPlanVisitorTest {
             filters.add(Query.field(randomFieldName(r)).equalsParameter(randomParameterName(r)));
         }
         return NonnullPair.of(new RecordQueryFilterPlan(childPlan.getLeft(), filters),
-                String.format("%s | %s", childPlan.getRight(), filters.size() == 1 ? Iterables.getOnlyElement(filters) : Query.and(filters)));
+                String.format("%s | QCFILTER %s", childPlan.getRight(), filters.size() == 1 ? Iterables.getOnlyElement(filters) : Query.and(filters)));
     }
 
     @Nonnull
     private static NonnullPair<RecordQueryPlan, String> randomFetchFromPartialRecordPlan(@Nonnull Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         return NonnullPair.of(new RecordQueryFetchFromPartialRecordPlan(childPlan.getLeft(), TranslateValueFunction.unableToTranslate(), Type.primitiveType(Type.TypeCode.UNKNOWN), RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY),
-                String.format("Fetch(%s)", childPlan.getRight()));
+                String.format("%s | FETCH", childPlan.getRight()));
     }
 
     @Nonnull
@@ -320,7 +334,7 @@ public class ExplainPlanVisitorTest {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         Value resultValue = LiteralValue.ofScalar("a_value");
         return NonnullPair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.of(childPlan.getLeft())), resultValue),
-                String.format("map(%s[%s])", childPlan.getRight(), resultValue));
+                String.format("%s | MAP %s", childPlan.getRight(), resultValue));
     }
 
     @Nonnull
@@ -348,33 +362,34 @@ public class ExplainPlanVisitorTest {
             valueString = "$" + outerParamName;
         } else if (choice < 0.67) {
             inJoinPlan = new RecordQueryInValuesJoinPlan(childPlan.getLeft(), innerParam, Bindings.Internal.IN, ImmutableList.copyOf(values), sortValues, sortReverse);
-            valueString = values.toString();
+            valueString = values.stream().map(Object::toString).collect(Collectors.joining(", "));
         } else {
             Comparisons.Comparison comparison;
             if (r.nextBoolean()) {
                 comparison = new Comparisons.ListComparison(Comparisons.Type.IN, values);
-                valueString = values.toString();
+                valueString = "IN " + values;
             } else {
                 comparison = new Comparisons.ParameterComparison(Comparisons.Type.IN, outerParamName);
-                valueString = "$" + outerParamName;
+                valueString = "IN $" + outerParamName;
             }
             inJoinPlan = new RecordQueryInComparandJoinPlan(childPlan.getLeft(), innerParam, Bindings.Internal.IN, comparison, sortValues, sortReverse);
         }
 
-        return NonnullPair.of(inJoinPlan, String.format("%s WHERE %s IN %s%s%s", childPlan.getRight(), innerParam, valueString, sortValues ? " SORTED" : "", sortValues && sortReverse ? " DESC" : ""));
+        return NonnullPair.of(inJoinPlan,
+                String.format("[%s%s%s] | INJOIN %s -> { %s }", valueString, sortValues ? " SORTED" : "", sortValues && sortReverse ? " DESC" : "", innerParam, childPlan.getRight()));
     }
 
     @Nonnull
     private static NonnullPair<RecordQueryPlan, String> randomPrimaryKeyUnorderedDistinctPlan(@Nonnull Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
-        return NonnullPair.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(childPlan.getLeft()), String.format("%s | UnorderedPrimaryKeyDistinct()", childPlan.getRight()));
+        return NonnullPair.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(childPlan.getLeft()), String.format("%s | DISTINCT BY PK", childPlan.getRight()));
     }
 
     @Nonnull
     private static NonnullPair<RecordQueryPlan, String> randomUnorderedDistinctPlan(@Nonnull Random r, double decay) {
         Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         KeyExpression expression = Key.Expressions.field(randomAlphabetic(r, 5, 10));
-        return NonnullPair.of(new RecordQueryUnorderedDistinctPlan(childPlan.getLeft(), expression), String.format("%s | UnorderedDistinct(%s)", childPlan.getRight(), expression));
+        return NonnullPair.of(new RecordQueryUnorderedDistinctPlan(childPlan.getLeft(), expression), String.format("%s | DISTINCT BY %s", childPlan.getRight(), expression));
     }
 
     @Nonnull
@@ -382,7 +397,7 @@ public class ExplainPlanVisitorTest {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         KeyExpression expression = Key.Expressions.field(randomAlphabetic(r, 5, 10));
         boolean reverse = r.nextBoolean();
-        return NonnullPair.of(new RecordQuerySortPlan(childPlan.getLeft(), new RecordQuerySortKey(expression, reverse)), String.format("%s ORDER BY %s%s", childPlan.getRight(), expression, reverse ? " DESC" : ""));
+        return NonnullPair.of(new RecordQuerySortPlan(childPlan.getLeft(), new RecordQuerySortKey(expression, reverse)), String.format("%s | SORT BY %s%s", childPlan.getRight(), expression, reverse ? " DESC" : ""));
     }
 
     @Nonnull
@@ -393,7 +408,7 @@ public class ExplainPlanVisitorTest {
         for (int i = 0; i < typeCount; i++) {
             types.add(randomTypeName(r));
         }
-        return NonnullPair.of(new RecordQueryTypeFilterPlan(childPlan.getLeft(), types), String.format("%s | %s", childPlan.getRight(), types));
+        return NonnullPair.of(new RecordQueryTypeFilterPlan(childPlan.getLeft(), types), String.format("%s | TFILTER %s", childPlan.getRight(), String.join(", ", types)));
     }
 
     @Nonnull
@@ -419,15 +434,14 @@ public class ExplainPlanVisitorTest {
         double choice = r.nextDouble();
         boolean allSameReverse = plans.stream().allMatch(plan -> plan.isReverse() == plans.get(0).isReverse());
         if (!allSameReverse || choice < 0.2) {
-            return NonnullPair.of(RecordQueryUnorderedUnionPlan.from(plans), "Unordered(" + String.join(" ∪ ", strings) + ")");
+            return NonnullPair.of(RecordQueryUnorderedUnionPlan.from(plans), String.join(" ∪ ", strings));
         } else if (choice < 0.6) {
             KeyExpression comparisonKey = Key.Expressions.field(randomFieldName(r));
-            return NonnullPair.of(RecordQueryIntersectionPlan.from(plans, comparisonKey), String.join(" ∩ ", strings));
+            return NonnullPair.of(RecordQueryIntersectionPlan.from(plans, comparisonKey), String.join(" ∩ ", strings) + " COMPARE BY " + comparisonKey);
         } else {
             KeyExpression comparisonKey = Key.Expressions.field(randomFieldName(r));
-            boolean showComparisonKey = r.nextBoolean();
-            String delimiter = String.format(" ∪%s ", showComparisonKey ? comparisonKey : "");
-            return NonnullPair.of(RecordQueryUnionPlan.from(plans, comparisonKey, showComparisonKey), String.join(delimiter, strings));
+            return NonnullPair.of(RecordQueryUnionPlan.from(plans, comparisonKey, true),
+                    String.join(" ∪ ", strings) + " COMPARE BY " + comparisonKey);
         }
     }
 
@@ -501,8 +515,8 @@ public class ExplainPlanVisitorTest {
         Pair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         RecordQueryPlan plan = planAndString.getLeft();
         String planString = planAndString.getRight();
-        for (int i = 0; i < Math.min(planString.length() + 10, 1000); i++) {
-            String abbreviatedString = ExplainPlanVisitor.toString(plan, i);
+        for (int i = 113; i < Math.min(planString.length() + 10, 1000); i++) {
+            String abbreviatedString = ExplainPlanVisitor.toString(plan, ExplainLevel.ALL_DETAILS, i);
             assertEquals(i < planString.length() ? (planString.substring(0, i) + "...") : planString, abbreviatedString);
         }
     }
@@ -524,19 +538,28 @@ public class ExplainPlanVisitorTest {
             }
             plans.add(plan);
         }
-        final String withoutUnstringable = RecordQueryUnorderedUnionPlan.from(plans).toString();
+
+        final var unorderedUnionPlanWithoutUnstringable =
+                RecordQueryUnorderedUnionPlan.from(plans);
+        final var visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
+        final var explainTokens = visitor.visit(unorderedUnionPlanWithoutUnstringable);
+        final var minLength = explainTokens.getMinLength(ExplainLevel.ALL_DETAILS);
+        final var withoutUnstringable =
+                explainTokens.render(ExplainLevel.ALL_DETAILS,
+                        new DefaultExplainFormatter(DefaultExplainSymbolMap::new),
+                        Integer.MAX_VALUE).toString();
 
         plans.add(new UnstringableQueryPlan());
         RecordQueryUnorderedUnionPlan unorderedUnionPlan = RecordQueryUnorderedUnionPlan.from(plans);
 
         // Constructing the full plan string should throw an error
-        assertThrows(UnsupportedOperationException.class, unorderedUnionPlan::toString);
-        assertThrows(UnsupportedOperationException.class, () -> ExplainPlanVisitor.toString(unorderedUnionPlan));
+        assertThrows(RecordCoreException.class, () -> ExplainPlanVisitor.toString(unorderedUnionPlan));
 
         // If the unstringable query isn't needed for the string representation, it shouldn't be called, so the
         // error shouldn't be thrown
-        String lengthLimitedString = ExplainPlanVisitor.toString(unorderedUnionPlan, withoutUnstringable.length() - 2);
-        assertEquals(withoutUnstringable.substring(0, withoutUnstringable.length() - 2) + "...", lengthLimitedString);
+        String lengthLimitedString =
+                ExplainPlanVisitor.toString(unorderedUnionPlan, ExplainLevel.ALL_DETAILS, minLength);
+        assertEquals(withoutUnstringable.substring(0, minLength) + "...", lengthLimitedString);
     }
 
     /**
@@ -559,11 +582,6 @@ public class ExplainPlanVisitorTest {
         @Override
         public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final byte[] continuation, @Nonnull final ExecuteProperties executeProperties) {
             throw new UnsupportedOperationException("cannot execute unstringable plan");
-        }
-
-        @Nonnull
-        public String toString() {
-            throw new UnsupportedOperationException("cannot call toString on unstringable plan");
         }
 
         @Override

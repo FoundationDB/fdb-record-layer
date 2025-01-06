@@ -970,6 +970,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
         }
 
+        @Nonnull
         @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -1062,6 +1063,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             throw new RecordCoreException("should not be called");
         }
 
+        @Nonnull
         @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -1150,6 +1152,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             throw new RecordCoreException("should not be called");
         }
 
+        @Nonnull
         @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -1276,6 +1279,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
         }
 
+        @Nonnull
         @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -1410,6 +1414,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
         }
 
+        @Nonnull
         @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -1588,6 +1593,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return hashFunctionSupplier.get();
         }
 
+        @Nonnull
         @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -1723,6 +1729,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 return Objects.hash(name, number);
             }
 
+            @Nonnull
             @Override
             public String toString() {
                 return name + '(' + number + ')';
@@ -2013,6 +2020,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         @Nonnull
+        @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
@@ -2586,6 +2594,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         @Nonnull
+        @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }
@@ -2810,6 +2819,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         @Nonnull
+        @Override
         public String toString() {
             return describe().render(DefaultExplainFormatter.forDebugging()).toString();
         }

@@ -26,13 +26,15 @@ import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.BracketsT
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.CommaLikeToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.IdentifierToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.KeywordToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.NestedToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.LineBreakOrSpaceToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.NestedToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.OptionalWhitespaceToken;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.ToStringToken;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.Token;
 import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.WhitespaceToken;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 /**
  * A formatter for tokens.
@@ -44,7 +46,7 @@ public interface ExplainFormatter {
     void registerAliasExplicitly(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
 
     @Nonnull
-    String getSymbolForAlias(@Nonnull CorrelationIdentifier alias);
+    Optional<String> getSymbolForAliasMaybe(@Nonnull CorrelationIdentifier alias);
 
     void pushScope();
 
@@ -124,6 +126,13 @@ public interface ExplainFormatter {
     @SuppressWarnings("unused")
     default CharSequence visitToString(@Nonnull final ToStringToken toStringToken,
                                        @Nonnull final CharSequence stringedToken) {
+        return stringedToken;
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default CharSequence visitError(@Nonnull final Token token,
+                                    @Nonnull final CharSequence stringedToken) {
         return stringedToken;
     }
 }

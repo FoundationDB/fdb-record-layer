@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
@@ -363,10 +364,11 @@ public class CascadesPlanner implements QueryPlanner {
         final RelationalExpression singleRoot = currentRoot.getMembers().iterator().next();
         if (singleRoot instanceof RecordQueryPlan) {
             if (logger.isDebugEnabled()) {
-                logger.debug(KeyValueLogMessage.of("explain of plan",
+                logger.debug(KeyValueLogMessage.of("GML explain of plan",
                         "explain", PlannerGraphProperty.explain(singleRoot)));
+                logger.debug(KeyValueLogMessage.of("string explain of plan",
+                        "explain", ExplainPlanVisitor.toString((RecordQueryPlan)singleRoot)));
             }
-
             return (RecordQueryPlan)singleRoot;
         } else {
             throw new RecordCoreException("Cascades planner could not plan query")

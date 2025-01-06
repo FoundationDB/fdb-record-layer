@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
@@ -76,14 +77,34 @@ public class ExplainTokens {
 
     @Nonnull
     public CharSequence render(@Nonnull final ExplainFormatter formatter) {
-        return render(ExplainLevel.ALL_DETAILS, formatter);
+        return render(ExplainLevel.ALL_DETAILS, formatter, Integer.MAX_VALUE);
     }
 
     @Nonnull
-    public CharSequence render(final int renderingExplainLevel, @Nonnull final ExplainFormatter formatter) {
+    public CharSequence render(final int renderingExplainLevel,
+                               @Nonnull final ExplainFormatter formatter,
+                               int remainingCharacterBudget) {
         final StringBuilder stringBuilder = new StringBuilder();
-        for (final var token : tokens) {
-            stringBuilder.append(token.render(renderingExplainLevel, formatter));
+        for (int i = 0; i < tokens.size(); i++) {
+            final var token = tokens.get(i);
+            final var stringedToken =
+                    token.render(renderingExplainLevel, formatter, remainingCharacterBudget);
+            stringBuilder.append(stringedToken);
+            remainingCharacterBudget -= stringedToken.length();
+            if (remainingCharacterBudget < 1) {
+                if (remainingCharacterBudget == 0 && i + 1 < tokens.size()) {
+                    // if any of the remaining tokens render to more than an empty string we have to append ... instead
+                    for (int j = i + 1; j < tokens.size(); j++) {
+                        final var remainingToken = tokens.get(j);
+                        final var remainingStringedToken =
+                                remainingToken.render(renderingExplainLevel, formatter, 0);
+                        if (!remainingStringedToken.toString().isEmpty()) {
+                            return stringBuilder.append(remainingStringedToken);
+                        }
+                    }
+                }
+                return stringBuilder;
+            }
         }
         return stringBuilder;
     }
@@ -373,17 +394,15 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addToStrings(final int explainLevel, @Nonnull final Iterable<?> objects) {
-        final ExplainTokens resultTokens = new ExplainTokens();
-
         for (final var iterator = objects.iterator(); iterator.hasNext(); ) {
             final var object = iterator.next();
-            resultTokens.addToString(explainLevel, object);
+            addToString(explainLevel, object);
             if (iterator.hasNext()) {
-                resultTokens.addCommaAndWhiteSpace(explainLevel);
+                addCommaAndWhiteSpace(explainLevel);
             }
         }
 
-        return resultTokens;
+        return this;
     }
 
     @Nonnull
@@ -469,7 +488,7 @@ public class ExplainTokens {
      * Generic token structure.
      */
     public abstract static class Token {
-        protected static final int DEFAULT_EXPLAIN_LEVEL = ExplainLevel.STRUCTURE;
+        public static final int DEFAULT_EXPLAIN_LEVEL = ExplainLevel.STRUCTURE;
         @Nonnull
         private final TokenKind tokenKind;
         @Nonnull
@@ -498,16 +517,17 @@ public class ExplainTokens {
         }
 
         @Nonnull
+        @SuppressWarnings("PMD.UnusedPrivateMethod")
         private int[] getTokenSizes() {
             return tokenSizes;
         }
 
         @Nonnull
+        @SuppressWarnings("PMD.UnusedPrivateMethod")
         private int[] getMinLengths() {
             return minLengths;
         }
 
-        @Nonnull
         public int getExplainLevel() {
             Verify.verify(tokenSizes.length == minLengths.length);
             return tokenSizes.length - 1;
@@ -527,6 +547,16 @@ public class ExplainTokens {
             return "";
         }
 
+        protected CharSequence cutOffIfNeeded(final int remainingCharacterBudget,
+                                              @Nonnull final CharSequence stringedToken) {
+            Verify.verify(remainingCharacterBudget >= 0);
+            if (remainingCharacterBudget >= stringedToken.length()) {
+                return stringedToken;
+            }
+            return new StringBuilder(stringedToken.subSequence(0, remainingCharacterBudget)).append("...");
+        }
+
+
         public int getTokenSize(final int explainLevel) {
             return explainLevel < tokenSizes.length ? tokenSizes[explainLevel] : 0;
         }
@@ -537,7 +567,8 @@ public class ExplainTokens {
 
         @Nonnull
         public abstract CharSequence render(int renderingExplainLevel,
-                                            @Nonnull ExplainFormatter explainFormatter);
+                                            @Nonnull ExplainFormatter explainFormatter,
+                                            int remainingCharacterBudget);
 
         @Nonnull
         private static int[] vectorFromExplainLevel(final int explainLevel, int value) {
@@ -557,7 +588,7 @@ public class ExplainTokens {
 
         @Nonnull
         @Override
-        public String render(final int renderingExplainLevel, @Nonnull final ExplainFormatter explainFormatter) {
+        public String render(final int renderingExplainLevel, @Nonnull final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.pushScope();
             }
@@ -576,7 +607,7 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(final int renderingExplainLevel,
-                             @Nonnull final ExplainFormatter explainFormatter) {
+                             @Nonnull final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.popScope();
             }
@@ -615,16 +646,18 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
             final CharSequence renderedNested;
             if (explainLevel >= renderingExplainLevel) {
                 renderedNested =
                         nestedExplainTokens.render(renderingExplainLevel + explainLevelAdjustment,
-                                explainFormatter);
+                                explainFormatter, remainingCharacterBudget);
             } else {
-                renderedNested = replacementToken.render(Token.DEFAULT_EXPLAIN_LEVEL, explainFormatter);
+                renderedNested = replacementToken.render(Token.DEFAULT_EXPLAIN_LEVEL, explainFormatter, Integer.MAX_VALUE);
             }
-            return explainFormatter.visitNested(this, renderedNested);
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    explainFormatter.visitNested(this, renderedNested));
         }
 
         private static void validateNestedTokens(@Nonnull final List<Token> nestedTokens) {
@@ -650,8 +683,10 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                             @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, " ", explainFormatter::visitWhitespace);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, " ", explainFormatter::visitWhitespace));
         }
     }
 
@@ -666,8 +701,10 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                             @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, "", explainFormatter::visitOptionalWhitespace);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, "", explainFormatter::visitOptionalWhitespace));
         }
     }
 
@@ -682,8 +719,10 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                             @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, "", explainFormatter::visitLineBreakOrSpace);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, "", explainFormatter::visitLineBreakOrSpace));
         }
     }
 
@@ -707,8 +746,10 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, identifier, explainFormatter::visitIdentifier);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, identifier, explainFormatter::visitIdentifier));
         }
     }
 
@@ -732,8 +773,10 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, keyword, explainFormatter::visitKeyword);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, keyword, explainFormatter::visitKeyword));
         }
     }
 
@@ -752,8 +795,10 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, commaLike, explainFormatter::visitCommaLike);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, commaLike, explainFormatter::visitCommaLike));
         }
     }
 
@@ -777,12 +822,15 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.registerAlias(alias);
 
-                return explainFormatter.visitAliasDefinition(this,
-                        explainFormatter.getSymbolForAlias(alias));
+                return cutOffIfNeeded(remainingCharacterBudget,
+                        explainFormatter.visitAliasDefinition(this,
+                                explainFormatter.getSymbolForAliasMaybe(alias)
+                                        .orElseThrow(() -> new RecordCoreException("must have resolved symbol"))));
             }
             return "";
         }
@@ -808,7 +856,8 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public String render(final int renderingExplainLevel,
-                             @Nonnull final ExplainFormatter explainFormatter) {
+                             @Nonnull final ExplainFormatter explainFormatter,
+                             final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.registerAliasExplicitly(alias, "_");
             }
@@ -836,9 +885,18 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, explainFormatter.getSymbolForAlias(alias),
-                    explainFormatter::visitAliasReference);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            final CharSequence result;
+            final var symbolForAliasOptional = explainFormatter.getSymbolForAliasMaybe(alias);
+            if (symbolForAliasOptional.isPresent()) {
+                result = renderIfEnabled(renderingExplainLevel, symbolForAliasOptional.get(),
+                        explainFormatter::visitAliasReference);
+            } else {
+                result = renderIfEnabled(renderingExplainLevel, alias.getId(),
+                        explainFormatter::visitError);
+            }
+            return cutOffIfNeeded(remainingCharacterBudget, result);
         }
     }
 
@@ -865,8 +923,10 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, bracket, explainFormatter::visitBrackets);
+                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, bracket, explainFormatter::visitBrackets));
         }
     }
 
@@ -898,8 +958,9 @@ public class ExplainTokens {
         @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter) {
-            return renderIfEnabled(renderingExplainLevel, objectAsString, explainFormatter::visitToString);
+                                   @Nonnull final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
+            return cutOffIfNeeded(remainingCharacterBudget,
+                    renderIfEnabled(renderingExplainLevel, objectAsString, explainFormatter::visitToString));
         }
     }
 }
