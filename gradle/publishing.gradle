@@ -58,7 +58,7 @@ publishing {
             from components.java
 
             // Test fixtures appear to be placing their dependencies in the wrong scope
-            // for maven compilation, which means that their dependencies wing up in the
+            // for maven compilation, which means that their dependencies wind up in the
             // final project's pom.xml.
             // See: https://github.com/gradle/gradle/issues/14936
             // Until this is fixed, skip these configurations to avoid polluting the list of dependencies
