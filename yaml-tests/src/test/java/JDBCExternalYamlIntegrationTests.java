@@ -25,7 +25,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Disabled;
 
+import java.net.URI;
 import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
 
 /**
  * A version of {@link YamlIntegrationTests} that points to an external running server.
@@ -36,11 +41,22 @@ public class JDBCExternalYamlIntegrationTests extends JDBCYamlIntegrationTests {
 
     @Override
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return connectPath -> {
-            final String remoteUrl = connectPath.toString()
-                    .replaceFirst("embed:", "relational://localhost:1111");
-            LOG.info("Connecting to " + connectPath);
-            return DriverManager.getConnection(remoteUrl).unwrap(RelationalConnection.class);
+        return new YamlRunner.YamlConnectionFactory() {
+            @Override
+            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+                final String remoteUrl = connectPath.toString()
+                        .replaceFirst("embed:", "relational://localhost:1111");
+                LOG.info("Connecting to " + connectPath);
+                return DriverManager.getConnection(remoteUrl).unwrap(RelationalConnection.class);
+            }
+
+            @Override
+            public Set<String> getVersionsUnderTest() {
+                // Since the test doesn't control the version under test, assume it is the current version
+                // at some point, we could probably have a query for that, and query the server to find out,
+                // or change the test to download the version
+                return Set.of();
+            }
         };
     }
 

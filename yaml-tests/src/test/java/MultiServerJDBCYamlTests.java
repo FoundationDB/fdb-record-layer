@@ -33,9 +33,16 @@ import org.junit.jupiter.api.Nested;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.annotation.Nonnull;
 
 /**
  * A test runner to launch the YAML tests with multiple servers.
@@ -48,8 +55,10 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     private static final Logger LOG = LogManager.getLogger(JDBCExternalYamlIntegrationTests.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     public static final String SERVER_PORT = "1111";
+    private static final Pattern JAR_PATTERN = Pattern.compile("fdb-relational-server-(.*)-all.jar");
 
     private static Process serverProcess;
+    private static String version;
 
     private final int initialConnection;
 
@@ -90,6 +99,13 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
 
         serverProcess = processBuilder.start();
+        final String jarName = jar.getName();
+        final Matcher matcher = JAR_PATTERN.matcher(jarName);
+        if (matcher.matches()) {
+            version = matcher.group(1);
+        } else {
+            Assertions.fail("Cannot determine version from server jar name: " + jarName);
+        }
         // TODO: There should be a better way to figure out that the server is fully up and  running
         Thread.sleep(3000);
         if ((serverProcess == null) || !serverProcess.isAlive()) {
@@ -107,9 +123,17 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     }
 
     YamlRunner.YamlConnectionFactory createExternalServerConnection() {
-        return connectPath -> {
-            String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + SERVER_PORT);
-            return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
+        return new YamlRunner.YamlConnectionFactory() {
+            @Override
+            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+                String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + SERVER_PORT);
+                return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
+            }
+
+            @Override
+            public Set<String> getVersionsUnderTest() {
+                return Set.of(version);
+            }
         };
     }
 

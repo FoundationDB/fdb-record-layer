@@ -35,7 +35,6 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
-import javax.annotation.Nonnull;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,6 +46,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner {
@@ -66,6 +68,7 @@ public final class YamlRunner {
 
     public interface YamlConnectionFactory {
         RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+        Set<String> getVersionsUnderTest();
     }
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {

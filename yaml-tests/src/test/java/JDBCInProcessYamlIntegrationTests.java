@@ -30,9 +30,13 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Like {@link EmbeddedYamlIntegrationTests} only it runs the YAML via the fdb-relational-jdbc client
@@ -67,12 +71,20 @@ public class JDBCInProcessYamlIntegrationTests extends JDBCYamlIntegrationTests 
 
     @Override
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return connectPath -> {
-            // Add name of the in-process running server to the connectPath.
-            URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
-            String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
-            LOG.info("Rewrote {} as {}", connectPath, uriStr);
-            return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
+        return new YamlRunner.YamlConnectionFactory() {
+            @Override
+            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+                // Add name of the in-process running server to the connectPath.
+                URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
+                String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
+                LOG.info("Rewrote {} as {}", connectPath, uriStr);
+                return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
+            }
+
+            @Override
+            public Set<String> getVersionsUnderTest() {
+                return Set.of();
+            }
         };
     }
 

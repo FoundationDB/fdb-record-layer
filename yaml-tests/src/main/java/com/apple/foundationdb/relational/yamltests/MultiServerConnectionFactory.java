@@ -24,11 +24,10 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.DatabaseMetaData;
@@ -36,7 +35,12 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A connection factory that creates a connection that can be used with multiple servers.
@@ -47,6 +51,7 @@ import java.util.stream.Collectors;
 public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFactory {
     // The fixed index of the default connection
     public static final int DEFAULT_CONNECTION = 0;
+    private final Set<String> versionsUnderTest;
 
     /**
      * Server selection policy.
@@ -64,23 +69,32 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
 
     public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nullable final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
+                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
         this(ConnectionSelectionPolicy.DEFAULT, 0, defaultFactory, alternateFactories);
     }
 
     public MultiServerConnectionFactory(@Nonnull final ConnectionSelectionPolicy connectionSelectionPolicy,
                                         final int initialConnection,
                                         @Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nullable final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
+                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
         this.connectionSelectionPolicy = connectionSelectionPolicy;
         this.initialConnection = initialConnection;
         this.defaultFactory = defaultFactory;
         this.alternateFactories = alternateFactories;
+        this.versionsUnderTest =
+                Stream.concat(Stream.of(defaultFactory), alternateFactories.stream())
+                        .flatMap(yamlConnectionFactory -> yamlConnectionFactory.getVersionsUnderTest().stream())
+                        .collect(Collectors.toSet());
     }
 
     @Override
     public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
         return new MultiServerRelationalConnection(connectionSelectionPolicy, initialConnection, defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
+    }
+
+    @Override
+    public Set<String> getVersionsUnderTest() {
+        return versionsUnderTest;
     }
 
     @Nullable
