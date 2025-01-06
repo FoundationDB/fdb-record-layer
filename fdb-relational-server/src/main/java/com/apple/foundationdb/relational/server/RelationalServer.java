@@ -264,6 +264,11 @@ public class RelationalServer implements Closeable {
             formatter.printHelp("relational", options, true);
             return;
         }
+
+        if (logger.isInfoEnabled()) {
+            logger.info("FDB_CLUSTER_FILE: " + System.getenv("FDB_CLUSTER_FILE"));
+            logger.info("DYLD_LIBRARY_PATH: " + System.getenv("DYLD_LIBRARY_PATH"));
+        }
         int grpcPort = getPort(cli, grpcPortOption, GrpcConstants.DEFAULT_SERVER_PORT);
         int httpPort = getPort(cli, httpPortOption, DEFAULT_HTTP_PORT);
         new RelationalServer(grpcPort, httpPort).start().awaitTermination();

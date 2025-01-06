@@ -18,66 +18,14 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.jdbc.JDBCURI;
-import com.apple.foundationdb.relational.server.InProcessRelationalServer;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nullable;
-import java.net.URI;
-import java.sql.DriverManager;
-
 /**
- * Like {@link EmbeddedYamlIntegrationTests} only it runs the YAML via the fdb-relational-jdbc client
- * talking to an in-process Relational Server.
+ * An extension of {@link YamlIntegrationTests} that disables tests that do not work when running
+ * through JDBC.
  */
-public class JDBCYamlIntegrationTests extends EmbeddedYamlIntegrationTests {
-    private static final Logger LOG = LogManager.getLogger(JDBCYamlIntegrationTests.class);
-
-    @Nullable
-    private static InProcessRelationalServer server;
-
-    @BeforeAll
-    public static void beforeAll() {
-        try {
-            server = new InProcessRelationalServer().start();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @AfterAll
-    public static void afterAll() {
-        if (server != null) {
-            try {
-                server.close();
-                server = null;
-            } catch (Exception e) {
-                throw new RelationalException(e.getMessage(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
-            }
-        }
-    }
-
-    @Override
-    YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return connectPath -> {
-            // Add name of the in-process running server to the connectPath.
-            URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
-            String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
-            LOG.info("Rewrote {} as {}", connectPath, uriStr);
-            return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
-        };
-    }
-
+public abstract class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     @Override
     @Test
     @Disabled("The field-index-tests-proto.yaml has 'load template' which is not supported")
