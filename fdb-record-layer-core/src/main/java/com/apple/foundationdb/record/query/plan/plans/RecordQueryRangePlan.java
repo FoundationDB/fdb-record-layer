@@ -146,7 +146,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

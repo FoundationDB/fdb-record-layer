@@ -184,7 +184,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

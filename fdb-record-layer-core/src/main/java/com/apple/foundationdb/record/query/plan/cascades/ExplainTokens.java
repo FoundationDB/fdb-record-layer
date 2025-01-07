@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.function.IntBinaryOperator;
 import java.util.function.Supplier;
 
 /**
@@ -41,11 +42,13 @@ public class ExplainTokens {
     private final List<Token> tokens;
     private int[] tokenSizes;
     private int[] minLengths;
+    private int[] maxLengths;
 
     public ExplainTokens() {
         this.tokens = Lists.newArrayList();
         this.tokenSizes = new int[0];
         this.minLengths = new int[0];
+        this.maxLengths = new int[0];
     }
 
     public boolean isEmpty() {
@@ -58,7 +61,7 @@ public class ExplainTokens {
     }
 
     @Nonnull
-    private int[] getTokenSizes() {
+    protected int[] getTokenSizes() {
         return tokenSizes;
     }
 
@@ -67,12 +70,21 @@ public class ExplainTokens {
     }
 
     @Nonnull
-    private int[] getMinLengths() {
+    protected int[] getMinLengths() {
         return minLengths;
     }
 
     public int getMinLength(final int explainLevel) {
         return explainLevel < minLengths.length ? minLengths[explainLevel] : 0;
+    }
+
+    @Nonnull
+    protected int[] getMaxLengths() {
+        return maxLengths;
+    }
+
+    public int getMaxLength(final int explainLevel) {
+        return explainLevel < maxLengths.length ? maxLengths[explainLevel] : 0;
     }
 
     @Nonnull
@@ -114,6 +126,7 @@ public class ExplainTokens {
         tokens.add(token);
         this.tokenSizes = vectorAdd(this.tokenSizes, token.getTokenSizes());
         this.minLengths = vectorAdd(this.minLengths, token.getMinLengths());
+        this.maxLengths = vectorAdd(this.maxLengths, token.getMaxLengths());
         return this;
     }
 
@@ -126,7 +139,8 @@ public class ExplainTokens {
     @Nonnull
     public ExplainTokens addNested(final int explainLevel,
                                    @Nonnull final ExplainTokens additionalExplainTokens) {
-        add(new NestedToken(explainLevel, additionalExplainTokens, new OptionalWhitespaceToken(explainLevel)));
+        add(new NestedToken(explainLevel, additionalExplainTokens,
+                new OptionalWhitespaceToken(Token.DEFAULT_EXPLAIN_LEVEL)));
         return this;
     }
 
@@ -455,11 +469,29 @@ public class ExplainTokens {
 
     @Nonnull
     private static int[] vectorAdd(@Nonnull final int[] left, @Nonnull final int[] right) {
+        return vectorOp(left, right, Integer::sum);
+    }
+
+    @Nonnull
+    private static int[] vectorCoalesce(@Nonnull final int[] left, @Nonnull final int[] right) {
+        return vectorOp(left, right, (a, b) -> {
+            if (a == 0) {
+                return b;
+            }
+            if (b == 0) {
+                return a;
+            }
+            throw new RecordCoreException("incorrect use of coalesce");
+        });
+    }
+
+    @Nonnull
+    private static int[] vectorOp(@Nonnull final int[] left, @Nonnull final int[] right, IntBinaryOperator intBinaryOperator) {
         final var maxSize = Math.max(left.length, right.length);
         final var result = new int[maxSize];
 
         for (int i = 0; i < maxSize; i ++) {
-            result[i] = (i < left.length ? left[i] : 0) + (i < right.length ? right[i] : 0);
+            result[i] = intBinaryOperator.applyAsInt(i < left.length ? left[i] : 0, i < right.length ? right[i] : 0);
         }
         return result;
     }
@@ -489,26 +521,42 @@ public class ExplainTokens {
      */
     public abstract static class Token {
         public static final int DEFAULT_EXPLAIN_LEVEL = ExplainLevel.STRUCTURE;
+        private static final int MAX_ALIAS_LENGTH = 36; // MAX UUID LENGTH
+
         @Nonnull
         private final TokenKind tokenKind;
         @Nonnull
         private final int[] tokenSizes;
         @Nonnull
         private final int[] minLengths;
+        @Nonnull
+        private final int[] maxLengths;
 
-        public Token(@Nonnull final TokenKind tokenKind, final int explainLevel, final int minLength) {
-            this(tokenKind, explainLevel, 1, minLength);
+        public Token(@Nonnull final TokenKind tokenKind,
+                     final int explainLevel,
+                     final int minLength,
+                     final int maxLength) {
+            this(tokenKind, explainLevel, 1, minLength, maxLength);
         }
 
-        public Token(@Nonnull final TokenKind tokenKind, final int explainLevel, final int tokenSize, final int minLength) {
-            this(tokenKind, vectorFromExplainLevel(explainLevel, tokenSize), vectorFromExplainLevel(explainLevel, minLength));
+        public Token(@Nonnull final TokenKind tokenKind,
+                     final int explainLevel,
+                     final int tokenSize,
+                     final int minLength,
+                     final int maxLength) {
+            this(tokenKind, vectorFromExplainLevel(explainLevel + 1, tokenSize),
+                    vectorFromExplainLevel(explainLevel + 1, minLength),
+                    vectorFromExplainLevel(explainLevel + 1, maxLength));
         }
 
-        protected Token(@Nonnull final TokenKind tokenKind, @Nonnull final int[] tokenSizes,
-                        @Nonnull final int[] minLengths) {
+        protected Token(@Nonnull final TokenKind tokenKind,
+                        @Nonnull final int[] tokenSizes,
+                        @Nonnull final int[] minLengths,
+                        @Nonnull final int[] maxLengths) {
             this.tokenKind = tokenKind;
             this.tokenSizes = tokenSizes;
             this.minLengths = minLengths;
+            this.maxLengths = maxLengths;
         }
 
         @Nonnull
@@ -526,6 +574,12 @@ public class ExplainTokens {
         @SuppressWarnings("PMD.UnusedPrivateMethod")
         private int[] getMinLengths() {
             return minLengths;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedPrivateMethod")
+        private int[] getMaxLengths() {
+            return maxLengths;
         }
 
         public int getExplainLevel() {
@@ -565,14 +619,18 @@ public class ExplainTokens {
             return explainLevel < minLengths.length ? minLengths[explainLevel] : 0;
         }
 
+        public int getMaxLength(final int explainLevel) {
+            return explainLevel < maxLengths.length ? maxLengths[explainLevel] : 0;
+        }
+
         @Nonnull
         public abstract CharSequence render(int renderingExplainLevel,
                                             @Nonnull ExplainFormatter explainFormatter,
                                             int remainingCharacterBudget);
 
         @Nonnull
-        private static int[] vectorFromExplainLevel(final int explainLevel, int value) {
-            final int[] result = new int[explainLevel + 1];
+        private static int[] vectorFromExplainLevel(final int explainLevelExclusive, int value) {
+            final int[] result = new int[explainLevelExclusive];
             Arrays.fill(result, value);
             return result;
         }
@@ -583,7 +641,7 @@ public class ExplainTokens {
      */
     public static class PushToken extends Token {
         public PushToken(final int explainLevel) {
-            super(TokenKind.PUSH, explainLevel, 0);
+            super(TokenKind.PUSH, explainLevel, 0, 0);
         }
 
         @Nonnull
@@ -629,9 +687,21 @@ public class ExplainTokens {
         public NestedToken(final int explainLevel,
                            @Nonnull final ExplainTokens nestedExplainTokens,
                            @Nonnull final Token replacementToken) {
-            super(TokenKind.NESTED, nestedExplainTokens.getTokenSizes(), nestedExplainTokens.getMinLengths());
+            this(explainLevel, DEFAULT_EXPLAIN_LEVEL - explainLevel, nestedExplainTokens,
+                    replacementToken);
+        }
+
+        private NestedToken(final int explainLevel,
+                           final int explainLevelAdjustment,
+                           @Nonnull final ExplainTokens nestedExplainTokens,
+                           @Nonnull final Token replacementToken) {
+            super(TokenKind.NESTED, nestedExplainTokens.getTokenSizes(),
+                    vectorCoalesce(shiftLengthsDownBy(nestedExplainTokens.getMinLengths(), explainLevelAdjustment),
+                            zeroOutLengthsUpTo(replacementToken.getMinLengths(), explainLevel + 1)),
+                    vectorCoalesce(shiftLengthsDownBy(nestedExplainTokens.getMaxLengths(), explainLevelAdjustment),
+                            zeroOutLengthsUpTo(replacementToken.getMaxLengths(), explainLevel + 1)));
             this.explainLevel = explainLevel;
-            this.explainLevelAdjustment = DEFAULT_EXPLAIN_LEVEL - explainLevel;
+            this.explainLevelAdjustment = explainLevelAdjustment;
             if (explainLevelAdjustment != 0) {
                 validateNestedTokens(nestedExplainTokens.getTokens());
             }
@@ -660,6 +730,27 @@ public class ExplainTokens {
                     explainFormatter.visitNested(this, renderedNested));
         }
 
+        private static int[] zeroOutLengthsUpTo(@Nonnull final int[] lengths, final int maxExplainLevelExclusive) {
+            final var resultArray = Arrays.copyOf(lengths, lengths.length);
+            Arrays.fill(resultArray, 0, maxExplainLevelExclusive, 0);
+            return resultArray;
+        }
+
+        private static int[] shiftLengthsDownBy(@Nonnull final int[] lengths, final int explainLevelAdjustment) {
+            Verify.verify(explainLevelAdjustment >= 0);
+            if (explainLevelAdjustment == 0) {
+                return lengths;
+            }
+
+            if (lengths.length - explainLevelAdjustment > 0) {
+                final var resultArray = new int[lengths.length - explainLevelAdjustment];
+                System.arraycopy(lengths, explainLevelAdjustment, resultArray, 0,
+                        lengths.length - explainLevelAdjustment);
+                return resultArray;
+            }
+            return new int[0];
+        }
+
         private static void validateNestedTokens(@Nonnull final List<Token> nestedTokens) {
             for (final var token : nestedTokens) {
                 if (token instanceof NestedToken) {
@@ -677,7 +768,7 @@ public class ExplainTokens {
      */
     public static class WhitespaceToken extends Token {
         public WhitespaceToken(final int explainLevel) {
-            super(TokenKind.WHITESPACE, explainLevel, 1);
+            super(TokenKind.WHITESPACE, explainLevel, 1, 1);
         }
 
         @Nonnull
@@ -695,7 +786,7 @@ public class ExplainTokens {
      */
     public static class OptionalWhitespaceToken extends Token {
         public OptionalWhitespaceToken(final int explainLevel) {
-            super(TokenKind.OPTIONAL_WHITESPACE, explainLevel, 0);
+            super(TokenKind.OPTIONAL_WHITESPACE, explainLevel, 0, 1);
         }
 
         @Nonnull
@@ -713,7 +804,7 @@ public class ExplainTokens {
      */
     public static class LineBreakOrSpaceToken extends Token {
         public LineBreakOrSpaceToken(final int explainLevel) {
-            super(TokenKind.LINE_BREAK_OR_SPACE, explainLevel, 0);
+            super(TokenKind.LINE_BREAK_OR_SPACE, explainLevel, 1, 1);
         }
 
         @Nonnull
@@ -734,7 +825,7 @@ public class ExplainTokens {
         private final String identifier;
 
         public IdentifierToken(final int explainLevel, @Nonnull final String identifier) {
-            super(TokenKind.IDENTIFIER, explainLevel, identifier.length());
+            super(TokenKind.IDENTIFIER, explainLevel, identifier.length(), identifier.length());
             this.identifier = identifier;
         }
 
@@ -761,7 +852,7 @@ public class ExplainTokens {
         private final String keyword;
 
         public KeywordToken(final int explainLevel, @Nonnull final String keyword) {
-            super(TokenKind.KEYWORD, explainLevel, keyword.length());
+            super(TokenKind.KEYWORD, explainLevel, keyword.length(), keyword.length());
             this.keyword = keyword;
         }
 
@@ -788,7 +879,7 @@ public class ExplainTokens {
         private final String commaLike;
 
         public CommaLikeToken(final int explainLevel, @Nonnull final String commaLike) {
-            super(TokenKind.COMMA_LIKE, explainLevel, 1);
+            super(TokenKind.COMMA_LIKE, explainLevel, 1, 1);
             this.commaLike = commaLike;
         }
 
@@ -810,7 +901,7 @@ public class ExplainTokens {
         private final CorrelationIdentifier alias;
 
         public AliasDefinitionToken(final int explainLevel, @Nonnull final CorrelationIdentifier alias) {
-            super(TokenKind.ALIAS_DEFINITION, explainLevel, 1);
+            super(TokenKind.ALIAS_DEFINITION, explainLevel, 1, Token.MAX_ALIAS_LENGTH);
             this.alias = alias;
         }
 
@@ -844,7 +935,7 @@ public class ExplainTokens {
         private final CorrelationIdentifier alias;
 
         public CurrentAliasDefinitionToken(final int explainLevel, @Nonnull final CorrelationIdentifier alias) {
-            super(TokenKind.ALIAS_DEFINITION, explainLevel, 1);
+            super(TokenKind.ALIAS_DEFINITION, explainLevel, 0, 0);
             this.alias = alias;
         }
 
@@ -873,7 +964,7 @@ public class ExplainTokens {
         private final CorrelationIdentifier alias;
 
         public AliasReferenceToken(final int explainLevel, @Nonnull final CorrelationIdentifier alias) {
-            super(TokenKind.ALIAS_REFERENCE, explainLevel, 1);
+            super(TokenKind.ALIAS_REFERENCE, explainLevel, 1, Token.MAX_ALIAS_LENGTH);
             this.alias = alias;
         }
 
@@ -911,7 +1002,7 @@ public class ExplainTokens {
         public BracketsToken(final int explainLevel,
                              final boolean isOpen,
                              @Nonnull final String bracket) {
-            super(isOpen ? TokenKind.BRACKETS_OPEN : TokenKind.BRACKETS_CLOSE, explainLevel, 1);
+            super(isOpen ? TokenKind.BRACKETS_OPEN : TokenKind.BRACKETS_CLOSE, explainLevel, 1, 1);
             this.isOpen = isOpen;
             this.bracket = bracket;
         }
@@ -945,7 +1036,7 @@ public class ExplainTokens {
         private ToStringToken(final int explainLevel,
                               @Nullable final Object object,
                               @Nonnull final String objectAsString) {
-            super(TokenKind.TO_STRING, explainLevel, objectAsString.length());
+            super(TokenKind.TO_STRING, explainLevel, objectAsString.length(), objectAsString.length());
             this.object = object;
             this.objectAsString = objectAsString;
         }

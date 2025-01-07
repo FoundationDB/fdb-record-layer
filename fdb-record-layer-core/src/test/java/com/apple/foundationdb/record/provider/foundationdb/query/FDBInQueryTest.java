@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -278,8 +277,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build());
 
         RecordQueryPlan plan = planQuery(query);
-        System.out.println(ExplainPlanVisitor.toString(plan));
-
         if (planner instanceof RecordQueryPlanner) {
             // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4]
             assertMatchesExactly(plan,
@@ -399,9 +396,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
                     return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
                 });
-
-        System.out.println(ExplainPlanVisitor.toString(plan));
-
 
         assertMatchesExactly(plan,
                 inComparandJoinPlan(

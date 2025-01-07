@@ -187,7 +187,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     /**

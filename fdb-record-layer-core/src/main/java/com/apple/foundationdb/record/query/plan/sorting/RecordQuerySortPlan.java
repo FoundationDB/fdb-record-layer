@@ -149,7 +149,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

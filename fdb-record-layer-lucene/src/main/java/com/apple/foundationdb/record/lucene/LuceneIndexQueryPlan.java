@@ -35,8 +35,11 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithExplain;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -53,7 +56,7 @@ import java.util.Set;
 /**
  * Lucene query plan for including search-related scan parameters.
  */
-public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey, PlanWithStoredFields {
+public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey, PlanWithStoredFields, RecordQueryPlanWithExplain {
     @Nullable
     private final PlanOrderingKey planOrderingKey;
     @Nullable
@@ -236,20 +239,11 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
 
     @Nonnull
     @Override
-    public String toString() {
-        // To avoid infinite recursion, this calls an explicit method within the plan string representation
-        // visitor. Otherwise, calling visit() would wind up calling visitDefault() in the visitor (as the jump map
-        // used by the visitor does its matching by exact class and doesn't account for inheritance) which in turn
-        // calls toString(). If a method is added to register new RecordQueryPlan implementations with the visitor,
-        // we should switch to using that.
-        //
-        // Note that if this plan is a sub-plan within a larger plan tree, then this will end up creating a
-        // new ExplainPlanVisitor object with a new string builder. However, as index plans are always leaf plans,
-        // the amount of waste here is limited to a constant overhead per Lucene leaf node (whereas this could
-        // be much costlier on, say, a union or intersection plan).
-        return new ExplainPlanVisitor(Integer.MAX_VALUE)
-                .visitIndexPlan(this)
-                .toString();
+    public ExplainTokensWithPrecedence explain() {
+        return ExplainTokensWithPrecedence.of(
+                new ExplainTokens().addKeyword("LISCAN").addOptionalWhitespace().addOpeningParen()
+                        .addNested(ExplainPlanVisitor.indexDetails(this))
+                        .addOptionalWhitespace().addClosingParen());
     }
 
     @Nonnull

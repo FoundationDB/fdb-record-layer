@@ -32,8 +32,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.query.plan.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.cascades.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -91,5 +94,14 @@ public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
         Verify.verify(newIndexScanParameters instanceof LuceneScanParameters);
         Verify.verify(newIndexScanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK));
         return new LuceneIndexSpellCheckQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, getFetchIndexRecords(), reverse, getPlanOrderingKey(), getStoredFields());
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokensWithPrecedence explain() {
+        return ExplainTokensWithPrecedence.of(
+                new ExplainTokens().addKeyword("LSISCAN").addOptionalWhitespace().addOpeningParen()
+                        .addNested(ExplainPlanVisitor.indexDetails(this))
+                        .addOptionalWhitespace().addClosingParen());
     }
 }

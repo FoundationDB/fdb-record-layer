@@ -242,7 +242,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

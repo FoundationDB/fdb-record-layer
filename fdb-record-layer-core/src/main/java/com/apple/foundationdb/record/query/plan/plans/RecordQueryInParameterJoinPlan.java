@@ -103,7 +103,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

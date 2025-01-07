@@ -147,7 +147,7 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override

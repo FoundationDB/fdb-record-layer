@@ -131,7 +131,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     /**

@@ -153,7 +153,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override

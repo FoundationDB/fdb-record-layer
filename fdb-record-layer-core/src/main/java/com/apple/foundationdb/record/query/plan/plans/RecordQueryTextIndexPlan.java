@@ -234,7 +234,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     /**

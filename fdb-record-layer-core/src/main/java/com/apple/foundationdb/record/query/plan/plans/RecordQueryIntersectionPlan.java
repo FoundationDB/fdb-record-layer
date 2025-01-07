@@ -165,7 +165,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

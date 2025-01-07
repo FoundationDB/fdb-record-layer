@@ -198,7 +198,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithExplain;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -81,6 +82,7 @@ import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.function.Supplier;
 
 /**
@@ -89,7 +91,7 @@ import java.util.function.Supplier;
  * represented as:
  *
  * <pre>
- * Index(&lt;index_name&gt; &lt;scan_range&gt;)
+ * ISCAN(&lt;index_name&gt; &lt;scan_range&gt;)
  * </pre>
  *
  * <p>
@@ -97,22 +99,42 @@ import java.util.function.Supplier;
  * </p>
  *
  * <pre>
- * &lt;child_plan&gt; | &lt;filter&gt;
+ * &lt;child_plan&gt; | FILTER &lt;filter&gt;
  * </pre>
  *
  * <p>
- * Here, the {@code child_plan} is calculated by recursively generating the string representation of
- * the filter plan's child plan via the same class. Note that for more complicated queries like unions or
- * intersections, there can be a lot of child plans which will be appended to the string. For very complex
- * query plans, this can result in very large query strings. For that reason, this visitor can be
- * given a {@linkplain #getMaxSize() maximum size}, after which it will stop appending new data. It
- * is recommended when logging query plans to set some maximum value to avoid logging excessively long
- * plan strings.
+ * We generate the explain string of a query plan in two phases. In the first phase, a token list is generated
+ * that is then rendered in the second phase.
+ * </p>
+ * <p>
+ * The logic to generate the token list is recursive and arranged using
+ * the visitor pattern. While this visitor can be considered the central hub of all individual plan-specific code,
+ * plenty of other explain-related logic resides (and should continue to do so) in several
+ * {@link com.apple.foundationdb.record.query.plan.cascades.TreeLike} hierarchies such as
+ * {@link com.apple.foundationdb.record.query.plan.cascades.values.Value} and
+ * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}.
+ * </p>
+ * <p>
+ * The token list is then rendered using a {@link com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter}
+ * which in turn employs a {@link com.apple.foundationdb.record.query.plan.cascades.ExplainSymbolMap} or derivatives
+ * to actually render the tokens into a char sequence. While the formatter may inject whitespaces, line breaks, or
+ * ANSI escape sequences (for color and in general prettification), the symbol map is used to resolve aliases used
+ * by the planner into a string. That resolved string may just be the alias itself (for debugging purposes) or some
+ * other alias that has desirable properties like stability across JVMs.
+ * </p>
+ * <p>
+ * By convention all plans can be stringified which is replaced by a direct call to this visitor:
+ * <pre>
+ * {@code
+ * ExplainVisitor.toStringForDebugging(this);
+ * }
+ * </pre>
+ * which preserves aliases and has no maximum string length boundary.
  * </p>
  *
  * <p>
- * Note that this class accumulates the plan string representation when it gets called. It is not safe to
- * use in multiple threads, and a new object should be created each time a new string is needed.
+ * Note that objects of this class are stateful. It is not safe to use the same visitor in multiple threads
+ * and a new object should be created each time a new explain is needed.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -155,7 +177,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         }
 
         super.add(toAppend);
-        if (getMinLength(ExplainLevel.ALL_DETAILS) > maxSize) {
+        if (Arrays.stream(getMinLengths()).allMatch(minLength -> minLength > maxSize)) {
             done = true;
         }
         return this;
@@ -189,7 +211,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Override
     public ExplainTokens visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan element) {
         addKeyword("AISCAN").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
-        indexDetails(element.getIndexPlan());
+        addNested(indexDetails(element.getIndexPlan()));
         return addWhitespace().addToString("->").addWhitespace()
                 .addToString(element.getToRecord())
                 .addOptionalWhitespace()
@@ -209,7 +231,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         addKeyword("COVERING").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
         final var underlyingWithIndex = coveringIndexPlan.getIndexPlan();
         if (underlyingWithIndex instanceof RecordQueryIndexPlan) {
-            indexDetails((RecordQueryIndexPlan)underlyingWithIndex);
+            addNested(indexDetails((RecordQueryIndexPlan)underlyingWithIndex));
         } else if (underlyingWithIndex instanceof RecordQueryTextIndexPlan) {
             textIndexDetails((RecordQueryTextIndexPlan)underlyingWithIndex);
         } else {
@@ -278,8 +300,8 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addToString("->").addWhitespace().addOpeningBrace().addLinebreakOrWhitespace();
         final var innerQuantifier = flatMapPlan.getInnerQuantifier();
         return visit(innerQuantifier.getRangesOverPlan())
-                .addWhitespace().addToString("=>").addWhitespace().addAliasDefinition(innerQuantifier.getAlias())
-                .addWhitespace().addToString("||").addWhitespace()
+                .addWhitespace().addKeyword("AS").addWhitespace().addAliasDefinition(innerQuantifier.getAlias())
+                .addLinebreakOrWhitespace().addKeyword("RETURN").addWhitespace()
                 .addNested(flatMapPlan.getResultValue().explain().getExplainTokens())
                 .addWhitespace().addClosingBrace();
     }
@@ -295,9 +317,13 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
         addOpeningBracket().addOptionalWhitespace().addNested(inSource.explain().getExplainTokens())
                 .addOptionalWhitespace().addClosingBracket();
-        pipe().addKeyword("INJOIN").addWhitespace()
-                .addAliasDefinition(CorrelationIdentifier.of(bindingName)).addWhitespace().addToString("->")
-                .addWhitespace().addOpeningBrace().addWhitespace();
+        pipe().addKeyword("INJOIN").addWhitespace();
+        if (isCorrelation) {
+            addAliasDefinition(CorrelationIdentifier.of(bindingName));
+        } else {
+            addToString(bindingName);
+        }
+        addWhitespace().addToString("->").addWhitespace().addOpeningBrace().addWhitespace();
         return visit(inJoinPlan.getChild()).addWhitespace().addClosingBrace();
     }
 
@@ -363,23 +389,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Override
     public ExplainTokens visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
         addKeyword("ISCAN").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
-        return indexDetails(indexPlan).addOptionalWhitespace().addClosingParen();
-    }
-
-    @Nonnull
-    private ExplainTokens indexDetails(@Nonnull final RecordQueryIndexPlan indexPlan) {
-        final IndexScanParameters scanParameters = indexPlan.getScanParameters();
-        addIdentifier(indexPlan.getIndexName()).addWhitespace(ExplainLevel.SOME_DETAILS)
-                .addNested(ExplainLevel.SOME_DETAILS, scanParameters.explain().getExplainTokens());
-        final var scanPropertiesExplainTokens = new ExplainTokens();
-        if (!IndexScanType.BY_VALUE.equals(scanParameters.getScanType())) {
-            scanPropertiesExplainTokens.addWhitespace().addKeyword(scanParameters.getScanType().toString());
-        }
-        if (indexPlan.isReverse()) {
-            scanPropertiesExplainTokens.addWhitespace().addKeyword("REVERSE");
-        }
-        addNested(ExplainLevel.SOME_DETAILS, scanPropertiesExplainTokens);
-        return this;
+        return addNested(indexDetails(indexPlan)).addOptionalWhitespace().addClosingParen();
     }
 
     @Nonnull
@@ -631,31 +641,75 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Nonnull
     @Override
     public ExplainPlanVisitor visitDefault(@Nonnull RecordQueryPlan element) {
+        if (element instanceof RecordQueryPlanWithExplain) {
+            addNested(((RecordQueryPlanWithExplain)element).explain().getExplainTokens());
+            return this;
+        }
+
         throw new RecordCoreException("no default implementation");
     }
 
     @Nonnull
-    public static String prettyExplain(@Nonnull RecordQueryPlan plan) {
-        ExplainPlanVisitor visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
-        return visitor.visit(plan).render(ExplainLevel.ALL_DETAILS,
+    public static ExplainTokens indexDetails(@Nonnull final RecordQueryIndexPlan indexPlan) {
+        final var resultExplainTokens = new ExplainTokens();
+        final IndexScanParameters scanParameters = indexPlan.getScanParameters();
+        resultExplainTokens.addIdentifier(indexPlan.getIndexName()).addWhitespace(ExplainLevel.SOME_DETAILS)
+                .addNested(ExplainLevel.SOME_DETAILS, scanParameters.explain().getExplainTokens());
+        final var scanPropertiesExplainTokens = new ExplainTokens();
+        if (!IndexScanType.BY_VALUE.equals(scanParameters.getScanType())) {
+            scanPropertiesExplainTokens.addWhitespace().addKeyword(scanParameters.getScanType().toString());
+        }
+        if (indexPlan.isReverse()) {
+            scanPropertiesExplainTokens.addWhitespace().addKeyword("REVERSE");
+        }
+        resultExplainTokens.addNested(ExplainLevel.SOME_DETAILS, scanPropertiesExplainTokens);
+        return resultExplainTokens;
+    }
+
+    @Nonnull
+    public static String prettyExplain(@Nonnull final RecordQueryPlan plan) {
+        return prettyExplain(plan, ExplainLevel.ALL_DETAILS);
+    }
+
+    @Nonnull
+    public static String prettyExplain(@Nonnull final RecordQueryPlan plan, final int explainLevel) {
+        final var visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
+        return visitor.visit(plan).render(explainLevel,
                 new PrettyExplainFormatter(ExplainSelfContainedSymbolMap::new, true),
                 Integer.MAX_VALUE).toString();
     }
 
     @Nonnull
-    public static String toString(@Nonnull final RecordQueryPlan plan) {
-        return toString(plan, Token.DEFAULT_EXPLAIN_LEVEL, Integer.MAX_VALUE);
+    @SuppressWarnings("unused")
+    public static String toStringForDebugging(@Nonnull final RecordQueryPlan plan) {
+        return toStringForDebugging(plan, ExplainLevel.ALL_DETAILS, Integer.MAX_VALUE);
     }
 
     @Nonnull
-    public static String toString(@Nonnull final RecordQueryPlan plan, int maxExplainLevel, final int maxSize) {
+    public static String toStringForDebugging(@Nonnull final RecordQueryPlan plan, final int explainLevel,
+                                              final int maxSize) {
+        final var visitor = new ExplainPlanVisitor(maxSize);
+        final var explainTokens = visitor.visit(plan);
+        return explainTokens.render(explainLevel,
+                        new DefaultExplainFormatter(DefaultExplainSymbolMap::new), maxSize).toString();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static String toStringForExternalExplain(@Nonnull final RecordQueryPlan plan) {
+        return toStringForExternalExplain(plan, ExplainLevel.ALL_DETAILS, Integer.MAX_VALUE);
+    }
+
+    @Nonnull
+    public static String toStringForExternalExplain(@Nonnull final RecordQueryPlan plan, final int maxExplainLevel,
+                                                    final int maxSize) {
         final var visitor = new ExplainPlanVisitor(maxSize);
         final var explainTokens = visitor.visit(plan);
         int level;
         if (maxSize < Integer.MAX_VALUE) {
             int i;
             for (i = ExplainLevel.ALL_DETAILS; i < maxExplainLevel; i++) {
-                if (explainTokens.getMinLength(i) <= maxSize) {
+                if (explainTokens.getMaxLength(i) <= maxSize) {
                     break;
                 }
             }
@@ -664,7 +718,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
             level = ExplainLevel.ALL_DETAILS;
         }
 
-        return explainTokens.render(level, new DefaultExplainFormatter(DefaultExplainSymbolMap::new), maxSize)
+        return explainTokens.render(level, new DefaultExplainFormatter(ExplainSelfContainedSymbolMap::new), maxSize)
                 .toString();
     }
 }

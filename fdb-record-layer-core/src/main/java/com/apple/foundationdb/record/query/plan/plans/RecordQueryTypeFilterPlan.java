@@ -127,7 +127,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

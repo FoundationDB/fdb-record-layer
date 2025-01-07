@@ -155,7 +155,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override

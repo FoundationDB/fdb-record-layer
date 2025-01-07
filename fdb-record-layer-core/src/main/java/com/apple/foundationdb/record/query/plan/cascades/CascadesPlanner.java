@@ -367,7 +367,7 @@ public class CascadesPlanner implements QueryPlanner {
                 logger.debug(KeyValueLogMessage.of("GML explain of plan",
                         "explain", PlannerGraphProperty.explain(singleRoot)));
                 logger.debug(KeyValueLogMessage.of("string explain of plan",
-                        "explain", ExplainPlanVisitor.toString((RecordQueryPlan)singleRoot)));
+                        "explain", ExplainPlanVisitor.toStringForDebugging((RecordQueryPlan)singleRoot)));
             }
             return (RecordQueryPlan)singleRoot;
         } else {

@@ -109,7 +109,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

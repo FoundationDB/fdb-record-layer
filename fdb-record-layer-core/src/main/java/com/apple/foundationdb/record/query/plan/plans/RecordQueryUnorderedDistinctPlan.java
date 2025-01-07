@@ -137,7 +137,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

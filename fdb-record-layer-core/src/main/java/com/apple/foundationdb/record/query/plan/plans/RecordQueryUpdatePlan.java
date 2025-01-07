@@ -170,7 +170,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     /**

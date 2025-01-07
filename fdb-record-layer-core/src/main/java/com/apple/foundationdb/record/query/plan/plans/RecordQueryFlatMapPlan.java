@@ -199,7 +199,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override

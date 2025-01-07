@@ -122,7 +122,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override

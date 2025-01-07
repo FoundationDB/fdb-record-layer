@@ -154,7 +154,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

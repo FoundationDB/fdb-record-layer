@@ -159,7 +159,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override

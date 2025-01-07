@@ -213,7 +213,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @Nonnull
     @Override
     public String toString() {
-        return ExplainPlanVisitor.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Nonnull

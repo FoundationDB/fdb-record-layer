@@ -92,6 +92,8 @@ import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -101,7 +103,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -116,6 +117,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * a maximum size, which this also tests out on random plans.
  */
 public class ExplainPlanVisitorTest {
+    private static final Logger logger = LoggerFactory.getLogger(ExplainPlanVisitorTest.class);
+
     @Nonnull
     private static String randomAlphabetic(@Nonnull Random r, int minCount, int maxCount) {
         final int letterCount = minCount + r.nextInt(maxCount - minCount);
@@ -503,27 +506,33 @@ public class ExplainPlanVisitorTest {
 
     @RepeatedTest(500)
     void randomPlanRepresentation() {
-        Random r = ThreadLocalRandom.current();
+        final var seed = System.nanoTime();
+        Random r = new Random(seed);
+        logger.info("randomPlanRepresentation seed {}", seed);
         NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         assertEquals(planAndString.getRight(), planAndString.getLeft().toString());
-        assertEquals(planAndString.getRight(), ExplainPlanVisitor.toString(planAndString.getLeft()));
+        assertEquals(planAndString.getRight(), ExplainPlanVisitor.toStringForDebugging(planAndString.getLeft()));
     }
 
     @RepeatedTest(100)
     void shrinkPlansToFit() {
-        Random r = ThreadLocalRandom.current();
+        final var seed = System.nanoTime();
+        Random r = new Random(seed);
+        logger.info("shrinkPlansToFit seed {}", seed);
         Pair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         RecordQueryPlan plan = planAndString.getLeft();
         String planString = planAndString.getRight();
-        for (int i = 113; i < Math.min(planString.length() + 10, 1000); i++) {
-            String abbreviatedString = ExplainPlanVisitor.toString(plan, ExplainLevel.ALL_DETAILS, i);
+        for (int i = 0; i < Math.min(planString.length() + 10, 1000); i++) {
+            String abbreviatedString = ExplainPlanVisitor.toStringForDebugging(plan, ExplainLevel.ALL_DETAILS, i);
             assertEquals(i < planString.length() ? (planString.substring(0, i) + "...") : planString, abbreviatedString);
         }
     }
 
     @Test
     void doNotEvaluateOutsideOfLimit() {
-        Random r = ThreadLocalRandom.current();
+        long seed = System.nanoTime();
+        Random r = new Random(seed);
+        logger.info("doNotEvaluateOutsideOfLimit seed={}", seed);
         List<RecordQueryPlan> plans = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             RecordQueryPlan plan;
@@ -543,9 +552,9 @@ public class ExplainPlanVisitorTest {
                 RecordQueryUnorderedUnionPlan.from(plans);
         final var visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
         final var explainTokens = visitor.visit(unorderedUnionPlanWithoutUnstringable);
-        final var minLength = explainTokens.getMinLength(ExplainLevel.ALL_DETAILS);
+        final var minLength = explainTokens.getMinLength(ExplainLevel.STRUCTURE);
         final var withoutUnstringable =
-                explainTokens.render(ExplainLevel.ALL_DETAILS,
+                explainTokens.render(ExplainLevel.STRUCTURE,
                         new DefaultExplainFormatter(DefaultExplainSymbolMap::new),
                         Integer.MAX_VALUE).toString();
 
@@ -553,12 +562,12 @@ public class ExplainPlanVisitorTest {
         RecordQueryUnorderedUnionPlan unorderedUnionPlan = RecordQueryUnorderedUnionPlan.from(plans);
 
         // Constructing the full plan string should throw an error
-        assertThrows(RecordCoreException.class, () -> ExplainPlanVisitor.toString(unorderedUnionPlan));
+        assertThrows(RecordCoreException.class, () -> ExplainPlanVisitor.toStringForDebugging(unorderedUnionPlan));
 
         // If the unstringable query isn't needed for the string representation, it shouldn't be called, so the
         // error shouldn't be thrown
         String lengthLimitedString =
-                ExplainPlanVisitor.toString(unorderedUnionPlan, ExplainLevel.ALL_DETAILS, minLength);
+                ExplainPlanVisitor.toStringForExternalExplain(unorderedUnionPlan, ExplainLevel.STRUCTURE, minLength);
         assertEquals(withoutUnstringable.substring(0, minLength) + "...", lengthLimitedString);
     }
 
