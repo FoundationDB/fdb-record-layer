@@ -415,8 +415,6 @@ public class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         // TODO (Rethink how execute continuation works)
         throw Assert.failUnchecked("execute package should not be handled here");
-
-import com.apple.foundationdb.annotation.API;
     }
 
     @Nonnull

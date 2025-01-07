@@ -28,6 +28,9 @@ apply from: rootProject.file('gradle/publishing.gradle')
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
+    api project(':fdb-extensions')
+    annotationProcessor project(':fdb-extensions')
+
     implementation(project(coreProject))
     implementation project(":fdb-relational-api")
 
@@ -41,6 +44,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("com.github.ben-manes.caffeine:guava:${caffeineVersion}")
 
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation project(path: coreProject, configuration: 'tests')
     testImplementation(testFixtures(project(":fdb-relational-api")))
     testImplementation "org.assertj:assertj-core:${assertjVersion}"

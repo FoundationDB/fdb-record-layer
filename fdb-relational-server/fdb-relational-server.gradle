@@ -82,6 +82,8 @@ publishing {
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
+    api project(':fdb-extensions')
+    annotationProcessor project(':fdb-extensions')
     // TODO: Why I have to do this when I've included core below..Why is it not
     // transitively included? Is this how gradle works?
     implementation project(coreProject)
@@ -101,6 +103,7 @@ dependencies {
     def prometheusVersion = '0.16.0'
     implementation "io.prometheus:simpleclient_httpserver:${prometheusVersion}"
     testFixturesImplementation "io.prometheus:simpleclient:${prometheusVersion}"
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation "io.grpc:grpc-testing:${grpcVersion}"
     implementation "io.dropwizard.metrics:metrics-core:${dropwizardVersion}"
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"

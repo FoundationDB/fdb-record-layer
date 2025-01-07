@@ -33,7 +33,6 @@ import java.util.Collections;
  */
 // This command is in same package as sqlline to get access to package private resources.
 
-import com.apple.foundationdb.annotation.API;
 @SuppressWarnings("PMD.GuardLogStatement")
 @API(API.Status.EXPERIMENTAL)
 public class SetSchema extends AbstractCommandHandler {

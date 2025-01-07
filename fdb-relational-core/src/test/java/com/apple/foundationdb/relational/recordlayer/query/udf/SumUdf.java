@@ -40,7 +40,7 @@ import java.util.List;
 public class SumUdf extends UdfFunction {
 
     @API(API.Status.EXPERIMENTAL)
-public class SumUdfValue extends UdfValue {
+    public class SumUdfValue extends UdfValue {
         public SumUdfValue(@Nonnull final Iterable<? extends Value> children, @Nonnull final Type resultType) {
             super(children, resultType);
         }
