@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  * control the client's behavior.
  *
  * <p>
- * This class is {@link API.Status.UNSTABLE}. However, additional values to this enum may be added
+ * This class is {@link API.Status#UNSTABLE}. However, additional values to this enum may be added
  * if more trace format options become available.
  * </p>
  */

@@ -27,7 +27,7 @@ import com.apple.foundationdb.annotation.API;
  * the transaction to indicate to the database the priority of the transaction's work.
  *
  * <p>
- * This API is {@link API.Status.UNSTABLE MAINTAINED}, but it may add additional values if they become available.
+ * This API is {@link API.Status#UNSTABLE UNSTABLE}, but it may add additional values if they become available.
  * </p>
  */
 @API(API.Status.UNSTABLE)
