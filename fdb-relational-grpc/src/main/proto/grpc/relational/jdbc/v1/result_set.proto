@@ -41,10 +41,29 @@ message ResultSet {
   // Each element in `rows` is a row whose format is defined by metadata. The ith element
   // in each row matches the ith field in ResultSetMetadata.
   repeated Struct row = 2;
+
+  // Optional continuation that can continue the query from the point the current results ended.
+  // Not all queries support continuations. Null (or non existent) continuations means "no continuation".
+  optional ResultSetContinuation continuation = 3;
 }
 
 // Metadata about a [ResultSet][grpc.relational.jdbc.v1.ResultSet]
 message ResultSetMetadata {
   // Indicates the field names and types for the rows in the result set.
   ListColumnMetadata columnMetadata = 1;
+}
+
+enum ResultSetContinuationReason {
+  // Reached a transaction limit, such as byte scan limit, row scan limit or time limit.
+  TRANSACTION_LIMIT_REACHED = 0;
+  // Reached a query execution limit, such as the maximum number of rows allowed in a result set.
+  QUERY_EXECUTION_LIMIT_REACHED = 1;
+  // All rows were returned.
+  CURSOR_AFTER_LAST = 2;
+}
+
+message ResultSetContinuation {
+  int32 version = 1;
+  bytes internal_state = 2;
+  ResultSetContinuationReason reason = 3;
 }

@@ -180,7 +180,10 @@ class JDBCRelationalStatement implements RelationalStatement {
         StatementResponse statementResponse;
         try {
             StatementRequest.Builder builder = StatementRequest.newBuilder()
-                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema()).setOptions(optionsAsProto());
+                    .setSql(sql)
+                    .setDatabase(this.connection.getDatabase())
+                    .setSchema(this.connection.getSchema())
+                    .setOptions(optionsAsProto());
             if (parameters != null) {
                 builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
             }

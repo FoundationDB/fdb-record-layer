@@ -265,9 +265,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Nonnull
     @SpotBugsSuppressWarnings("NP") // TODO: Will need to fix null handling
     public Continuation getContinuation() throws SQLException {
-        // Not implemented. We need to thread through the continuation from the query response, but for now,
-        // returning "null" is enough for the existing tests to pass.
-        return null;
+        return new RelationalGrpcContinuation(delegate.getContinuation());
     }
 
     @Override
