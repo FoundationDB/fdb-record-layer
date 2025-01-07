@@ -53,11 +53,15 @@ buildHost=${InetAddress.getLocalHost().getCanonicalHostName()}
 }
 
 dependencies {
+    api project(':fdb-extensions')
+    annotationProcessor project(':fdb-extensions')
+
     api "com.google.protobuf:protobuf-java:${protobufVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     implementation "com.google.guava:guava:${guavaVersion}"
 
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation "org.assertj:assertj-core:${assertjVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
