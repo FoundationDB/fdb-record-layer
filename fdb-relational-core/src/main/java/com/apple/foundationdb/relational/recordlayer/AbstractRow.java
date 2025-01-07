@@ -153,6 +153,7 @@ public abstract class AbstractRow implements Row {
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equals(Object other) {
         if (other == null) {
             return false;

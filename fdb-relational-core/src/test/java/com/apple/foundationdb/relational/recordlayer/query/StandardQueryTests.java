@@ -179,7 +179,7 @@ public class StandardQueryTests {
     }
 
     @Test
-    void canQueryPKZero() throws Exception {
+    void canQueryPrimaryKeyZero() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 var insertedRecord = insertRestaurantComplexRecord(statement, 0L, "");
@@ -745,7 +745,7 @@ public class StandardQueryTests {
 
     @Test
     void testSubquery() throws Exception {
-        final String schema = "CREATE TYPE AS STRUCT customer_detail(name string, phone_number string, address string) " +
+        final String schema = "CREATE TYPE AS STRUCT contact_detail(name string, phone_number string, address string) " +
                 "CREATE TYPE AS STRUCT messages(\"TEXT\" string, timestamp bigint,sent boolean) " +
                 "CREATE TABLE conversations(id bigint, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {

@@ -147,6 +147,7 @@ public class LogicalOperator {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public LogicalOperator withQuantifier(@Nonnull Quantifier quantifier) {
         if (quantifier == getQuantifier()) {
             return this;
@@ -308,7 +309,7 @@ public class LogicalOperator {
                                                       @Nonnull Optional<Expression> where,
                                                       boolean isForDdl) {
         final var quantifiers = logicalOperators.getQuantifiers();
-        final var quantifiedObjectValues = Streams.stream(quantifiers).map(QuantifiedObjectValue::of).collect(ImmutableList.toImmutableList());
+        final var quantifiedObjectValues = quantifiers.stream().map(QuantifiedObjectValue::of).collect(ImmutableList.toImmutableList());
         final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers).addAllResultValues(quantifiedObjectValues);
         where.ifPresent(predicate -> {
             final var innermostAlias = getInnermostAlias(logicalOperators);

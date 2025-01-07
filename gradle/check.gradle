@@ -121,6 +121,7 @@ pmd {
 }
 tasks.withType(Pmd) { task ->
     task.exclude '**/protogen/**'
+    task.exclude '**/generated-src/**'
     // the PMD plugin doesn't respect above exclusion, so we manually set the source directory instead
     task.setSource 'src/main/java'
 }

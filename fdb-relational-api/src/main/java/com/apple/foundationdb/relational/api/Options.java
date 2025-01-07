@@ -196,6 +196,7 @@ public class Options {
         USE_REMOTE_FETCH_WITH_FALLBACK
     }
 
+    @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     private static final Map<Name, List<OptionContract>> OPTIONS = makeContracts();
 
     @Nonnull

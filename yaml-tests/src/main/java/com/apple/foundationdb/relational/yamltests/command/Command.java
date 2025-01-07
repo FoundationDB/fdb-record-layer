@@ -96,7 +96,7 @@ public abstract class Command {
         }
     }
 
-    abstract void executeInternal(@Nonnull final RelationalConnection connection) throws SQLException, RelationalException;
+    abstract void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException;
 
     private static Command getLoadSchemaTemplateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {

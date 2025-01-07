@@ -118,6 +118,7 @@ public class InMemoryTable {
         }
     }
 
+    @SuppressWarnings("deprecation") // replace protobuf data builder
     private byte[] getPrimaryKey(Map<String, Object> startKey) {
         DynamicMessageBuilder startDmb = new ProtobufDataBuilder(recordType.getDescriptor());
         startKey.forEach((key, value) -> {

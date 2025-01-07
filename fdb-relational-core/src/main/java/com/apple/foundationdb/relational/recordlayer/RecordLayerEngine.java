@@ -48,8 +48,7 @@ public class RecordLayerEngine {
                                                     @Nonnull StoreCatalog schemaCatalog,
                                                     @Nullable MetricRegistry metricsEngine,
                                                     @Nonnull RecordLayerMetadataOperationsFactory ddlFactory,
-                                                    @Nullable RelationalPlanCache planCache
-                                                    ) {
+                                                    @Nullable RelationalPlanCache planCache) {
 
         MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);
 

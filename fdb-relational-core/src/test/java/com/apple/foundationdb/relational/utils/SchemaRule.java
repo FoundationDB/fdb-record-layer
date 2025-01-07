@@ -31,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 @API(API.Status.EXPERIMENTAL)
@@ -48,7 +49,7 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     }
 
     @Override
-    public void afterEach(ExtensionContext context) throws Exception {
+    public void afterEach(ExtensionContext context) throws SQLException {
         tearDown();
     }
 
@@ -70,7 +71,7 @@ public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
         }
     }
 
-    private void tearDown() throws Exception {
+    private void tearDown() throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {

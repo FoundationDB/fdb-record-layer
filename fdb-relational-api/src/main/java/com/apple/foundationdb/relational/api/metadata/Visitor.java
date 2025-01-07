@@ -34,17 +34,17 @@ public interface Visitor {
         throw new RuntimeException("unexpected");
     }
 
-    void visit(@Nonnull final Table table);
+    void visit(@Nonnull Table table);
 
-    void visit(@Nonnull final Column column);
+    void visit(@Nonnull Column column);
 
-    void startVisit(@Nonnull final SchemaTemplate schemaTemplate);
+    void startVisit(@Nonnull SchemaTemplate schemaTemplate);
 
-    void visit(@Nonnull final SchemaTemplate schemaTemplate);
+    void visit(@Nonnull SchemaTemplate schemaTemplate);
 
-    void finishVisit(@Nonnull final SchemaTemplate schemaTemplate);
+    void finishVisit(@Nonnull SchemaTemplate schemaTemplate);
 
-    void visit(@Nonnull final Schema schema);
+    void visit(@Nonnull Schema schema);
 
-    void visit(@Nonnull final Index index);
+    void visit(@Nonnull Index index);
 }

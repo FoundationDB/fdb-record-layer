@@ -38,35 +38,35 @@ import javax.annotation.Nullable;
 public interface FluentVisitor<R, C> {
 
     @Nullable
-    R visit(@Nonnull final BooleanFunction booleanFunction, @Nonnull final C context);
+    R visit(@Nonnull BooleanFunction booleanFunction, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final NumericFunction<?> numericFunction, @Nonnull final C context);
+    R visit(@Nonnull NumericFunction<?> numericFunction, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final ComparableFunction<?, ?> comparableFunction, @Nonnull final C context);
+    R visit(@Nonnull ComparableFunction<?, ?> comparableFunction, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final FunctionLike<?> function, @Nonnull final C context);
+    R visit(@Nonnull FunctionLike<?> function, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final BooleanLiteral booleanLiteral, @Nonnull final C context);
+    R visit(@Nonnull BooleanLiteral booleanLiteral, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final NestedBooleanExpression nestedBooleanExpression, @Nonnull final C context);
+    R visit(@Nonnull NestedBooleanExpression nestedBooleanExpression, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final NumericLiteral<?, ?> numericLiteral, @Nonnull final C context);
+    R visit(@Nonnull NumericLiteral<?, ?> numericLiteral, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final StringLiteral stringLiteral, @Nonnull final C context);
+    R visit(@Nonnull StringLiteral stringLiteral, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final ExpressionFragment<?> expression, @Nonnull final C context);
+    R visit(@Nonnull ExpressionFragment<?> expression, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final Field<?> field, @Nonnull final C context);
+    R visit(@Nonnull Field<?> field, @Nonnull C context);
 
     @Nullable
-    R visit(@Nonnull final UserDefinedField<?> userDefinedField, @Nonnull final C context);
+    R visit(@Nonnull UserDefinedField<?> userDefinedField, @Nonnull C context);
 }

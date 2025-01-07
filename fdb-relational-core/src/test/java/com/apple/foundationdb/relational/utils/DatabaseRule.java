@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.utils;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
-
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -33,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 @API(API.Status.EXPERIMENTAL)
@@ -46,26 +46,26 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
     }
 
     @Override
-    public void afterAll(ExtensionContext context) throws Exception {
+    public void afterAll(ExtensionContext context) throws SQLException {
         tearDown();
     }
 
     @Override
-    public void afterEach(ExtensionContext context) throws Exception {
+    public void afterEach(ExtensionContext context) throws SQLException {
         tearDown();
     }
 
     @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
+    public void beforeAll(ExtensionContext context) throws SQLException {
         setup();
     }
 
     @Override
-    public void beforeEach(ExtensionContext context) throws Exception {
+    public void beforeEach(ExtensionContext context) throws SQLException {
         setup();
     }
 
-    private void setup() throws Exception {
+    private void setup() throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
@@ -75,7 +75,7 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
         }
     }
 
-    private void tearDown() throws Exception {
+    private void tearDown() throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {

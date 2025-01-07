@@ -70,6 +70,7 @@ public class ServerSideExceptionsOnClientSideTest {
         // DriverManager.deregisterDriver(driver);
     }
 
+    @SuppressWarnings("try") // auto-closeable objects are not expected to be created, but should be closed if they are
     @Test
     public void simpleStatementProvokesSQLException() throws SQLException {
         var jdbcStr = "jdbc:relational://localhost:" + relationalServer.getGrpcPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;

@@ -77,6 +77,7 @@ public class BackingLocatableResolverStore implements BackingStore {
 
     @Nullable
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context is not owned by this method should it should not be closed here
     public Row get(Row key, Options options) throws RelationalException {
         try {
             FDBRecordContext context = txn.unwrap(FDBRecordContext.class);
@@ -99,8 +100,9 @@ public class BackingLocatableResolverStore implements BackingStore {
 
     @Nullable
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context is not owned by this method should it should not be closed here
     public Row getFromIndex(Index index, Row key, Options options) throws RelationalException {
-        if (!index.getName().equals("reverse_interning")) {
+        if (!"reverse_interning".equals(index.getName())) {
             throw new InternalErrorException("invalid index for resolver store");
         }
         final FDBRecordContext context = txn.unwrap(FDBRecordContext.class);
@@ -127,6 +129,7 @@ public class BackingLocatableResolverStore implements BackingStore {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context is not owned by this method should it should not be closed here
     public boolean insert(String tableName, Message message, boolean replaceOnDuplicate) throws RelationalException {
         if (LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME.equals(tableName)) {
             // The "Interning" type is the main type mapping string keys to long values. Each key also can have an
@@ -193,6 +196,7 @@ public class BackingLocatableResolverStore implements BackingStore {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context is not owned by this method should it should not be closed here
     public RecordCursor<FDBStoredRecord<Message>> scanType(RecordType type, TupleRange range, @Nullable Continuation continuation, Options options) throws RelationalException {
         if (continuation != null && continuation.atEnd()) {
             return RecordCursor.empty();

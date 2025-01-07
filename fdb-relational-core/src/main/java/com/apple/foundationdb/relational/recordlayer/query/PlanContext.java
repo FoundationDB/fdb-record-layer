@@ -32,9 +32,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -248,7 +246,7 @@ public class PlanContext {
         }
 
         @Nonnull
-        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<Message> recordStore) {
+        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore) {
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes() :
                     PlannerConfiguration.from(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()));

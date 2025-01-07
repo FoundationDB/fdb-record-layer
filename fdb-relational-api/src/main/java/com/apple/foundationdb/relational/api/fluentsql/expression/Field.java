@@ -38,7 +38,7 @@ public interface Field<T extends DataType> extends ComparableExpressionTrait<T, 
     Iterable<String> getParts();
 
     @Nonnull
-    Field<?> subField(@Nonnull final String part);
+    Field<?> subField(@Nonnull String part);
 
     @Nonnull
     String getName();

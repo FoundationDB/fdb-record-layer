@@ -31,10 +31,12 @@ import java.util.Set;
 
 /**
  * This contains a set of configurations given to the planner that fine-tunes its behavior.
- * <br>
- * @implNote Currently this only contains a list of <u>readable</u> indexes, but in the future
+ *
+ * <p>
+ * Note: Currently this only contains a list of <em>readable</em> indexes, but in the future
  * more configurations will be added, mostly reflecting what is already defined in {@link RecordQueryPlannerConfiguration}
  * and consolidate some of the configurations defined in {@link com.apple.foundationdb.relational.api.Options}.
+ * </p>
  * <br>
  * Relevant Issues:
  * <ul>

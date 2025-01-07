@@ -115,7 +115,7 @@ public class Ddl implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() throws SQLException {
         connection.close();
         schemaRule.afterEach(extensionContext);
         databaseRule.afterEach(extensionContext);

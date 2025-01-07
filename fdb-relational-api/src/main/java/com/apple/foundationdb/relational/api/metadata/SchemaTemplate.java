@@ -72,7 +72,7 @@ public interface SchemaTemplate extends Metadata {
      * @return An {@link Optional} containing the {@link Table} if it is found, otherwise {@code Empty}.
      */
     @Nonnull
-    Optional<Table> findTableByName(@Nonnull final String tableName) throws RelationalException;
+    Optional<Table> findTableByName(@Nonnull String tableName) throws RelationalException;
 
     @Nonnull
     Multimap<String, String> getTableIndexMapping() throws RelationalException;
@@ -105,7 +105,7 @@ public interface SchemaTemplate extends Metadata {
      * {@link Table}s in {@code this} {@link SchemaTemplate}.
      */
     @Nonnull
-    Schema generateSchema(@Nonnull final String databaseId, @Nonnull final String schemaName);
+    Schema generateSchema(@Nonnull String databaseId, @Nonnull String schemaName);
 
     @Override
     default void accept(@Nonnull final Visitor visitor) {
@@ -115,5 +115,5 @@ public interface SchemaTemplate extends Metadata {
     }
 
     @Nonnull
-    <T extends SchemaTemplate> T unwrap(@Nonnull final Class<T> iface) throws RelationalException;
+    <T extends SchemaTemplate> T unwrap(@Nonnull Class<T> iface) throws RelationalException;
 }

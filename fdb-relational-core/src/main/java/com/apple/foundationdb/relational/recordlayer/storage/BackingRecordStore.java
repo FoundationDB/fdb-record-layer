@@ -108,12 +108,13 @@ public class BackingRecordStore implements BackingStore {
         ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(options);
         scanProperties = new ScanProperties(scanProperties.getExecuteProperties().setReturnedRowLimit(1), scanProperties.isReverse());
         try {
-            final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();
             IndexEntry entry;
-            if (!indexEntryRecordCursor.hasNext()) {
-                return null;
+            try (RecordCursorIterator<IndexEntry> indexEntryRecordCursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator()) {
+                if (!indexEntryRecordCursor.hasNext()) {
+                    return null;
+                }
+                entry = Objects.requireNonNull(indexEntryRecordCursor.next());
             }
-            entry = Objects.requireNonNull(indexEntryRecordCursor.next());
 
             //TODO(bfines) pull the orphan behavior from the options
             final CompletableFuture<FDBIndexedRecord<Message>> indexRecord = recordStore.loadIndexEntryRecord(entry, IndexOrphanBehavior.ERROR);

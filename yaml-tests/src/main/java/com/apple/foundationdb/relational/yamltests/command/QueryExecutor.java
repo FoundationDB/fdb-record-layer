@@ -106,6 +106,10 @@ public class QueryExecutor {
         return continuationAfter;
     }
 
+    @SuppressWarnings({
+            "PMD.CloseResource", // lifetime of autocloseable resource persists beyond current method
+            "PMD.CompareObjectsWithEquals" // pointer equality used on purpose
+    })
     private Object executeQueryAndCheckCacheIfNeeded(@Nonnull Statement s, @Nonnull RelationalConnection connection,
                                                      @Nullable String queryString, boolean checkCache)
             throws SQLException, RelationalException {

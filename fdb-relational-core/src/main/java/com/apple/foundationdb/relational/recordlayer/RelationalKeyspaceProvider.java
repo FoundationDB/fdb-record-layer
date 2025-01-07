@@ -152,7 +152,7 @@ public class RelationalKeyspaceProvider {
         @Override
         @Nonnull
         public RelationalSchemaPath schemaPath(String schemaName) {
-            Assert.thatUnchecked(schemaName.equals(CATALOG), ErrorCode.UNDEFINED_SCHEMA, "Unknown system schema name: " + schemaName);
+            Assert.thatUnchecked(CATALOG.equals(schemaName), ErrorCode.UNDEFINED_SCHEMA, "Unknown system schema name: " + schemaName);
             return (RelationalSchemaPath) inner.add(CATALOG);
         }
 
@@ -171,7 +171,7 @@ public class RelationalKeyspaceProvider {
 
         public String getSchemaName() {
             String directoryName = getDirectoryName();
-            if (directoryName.equals(SCHEMA_DIR)) {
+            if (SCHEMA_DIR.equals(directoryName)) {
                 return (String) getValue();
             } else {
                 return directoryName;
@@ -223,7 +223,7 @@ public class RelationalKeyspaceProvider {
             return (RelationalSystemDatabasePath) keySpacePath;
         }
         // KeySpacePath is to the domain-specific database directory
-        if (keySpacePath.getDirectoryName().equals(RelationalKeyspaceProvider.DB_NAME_DIR)) {
+        if (RelationalKeyspaceProvider.DB_NAME_DIR.equals(keySpacePath.getDirectoryName())) {
             return (RelationalKeyspaceProvider.RelationalDatabasePath) keySpacePath;
         }
         throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);

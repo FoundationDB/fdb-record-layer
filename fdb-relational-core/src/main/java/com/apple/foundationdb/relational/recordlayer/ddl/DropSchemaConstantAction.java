@@ -53,6 +53,7 @@ public class DropSchemaConstantAction implements ConstantAction {
         this.keySpace = keySpace;
     }
 
+    @SuppressWarnings("PMD.CloseResource") // context lifetime managed by transaction
     @Override
     public void execute(Transaction txn) throws RelationalException {
         if ("/__SYS".equals(dbUri.getPath())) {

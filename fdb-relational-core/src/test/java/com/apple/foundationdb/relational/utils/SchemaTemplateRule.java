@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
-
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -32,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -83,7 +83,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     }
 
     @Override
-    public void afterEach(ExtensionContext context) throws Exception {
+    public void afterEach(ExtensionContext context) throws SQLException {
         final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE \"").append(templateName).append("\"");
 
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
@@ -95,7 +95,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
     }
 
     @Override
-    public void beforeEach(ExtensionContext context) throws Exception {
+    public void beforeEach(ExtensionContext context) throws SQLException {
         final StringBuilder dropStatement = new StringBuilder("DROP SCHEMA TEMPLATE IF EXISTS\"").append(templateName).append("\"");
 
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {

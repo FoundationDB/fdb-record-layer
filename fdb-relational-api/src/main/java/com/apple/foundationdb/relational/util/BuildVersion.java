@@ -87,9 +87,14 @@ public class BuildVersion {
         // 2322B01
         int[] v = new int[3];
         try {
-            v[0] = Integer.parseInt(version.substring(0, 2)); // first two chars
-            v[1] = Integer.parseInt(version.substring(2, 4)); // second two chars
-            v[2] = Integer.parseInt(version.substring(version.indexOf("B") + 1).replace("-SNAPSHOT", "")); // all digits after the "B" and before the "-" of "-SNAPSHOT"
+            String[] splitVersion = version.split("[-.]");
+            v[0] = Integer.parseInt(splitVersion[0]);
+            v[1] = Integer.parseInt(splitVersion[1]);
+            if ("SNAPSHOT".equals(splitVersion[2])) {
+                v[2] = -1;
+            } else {
+                v[2] = Integer.parseInt(splitVersion[2]);
+            }
         } catch (RuntimeException ex) {
             throw new RelationalException("Cannot parse driver version: " + version, ErrorCode.INTERNAL_ERROR, ex);
         }

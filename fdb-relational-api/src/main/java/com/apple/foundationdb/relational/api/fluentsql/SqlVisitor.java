@@ -104,9 +104,10 @@ public class SqlVisitor implements FluentVisitor<Void, StringBuilder> {
                 int cnt = 0;
                 for (final var argument : function.getArguments()) {
                     argument.accept(this, context);
-                    if (cnt++ < size - 1) {
+                    if (cnt < size - 1) {
                         context.append(",");
                     }
+                    cnt++;
                 }
                 context.append(")");
             }
@@ -129,9 +130,10 @@ public class SqlVisitor implements FluentVisitor<Void, StringBuilder> {
                 int cnt = 0;
                 for (final var argument : function.getArguments()) {
                     argument.accept(this, context);
-                    if (cnt++ < size - 1) {
+                    if (cnt < size - 1) {
                         context.append(" ").append(operationSqlSymbols.get(function.getName())).append(" ");
                     }
+                    cnt++;
                 }
             }
                 break;

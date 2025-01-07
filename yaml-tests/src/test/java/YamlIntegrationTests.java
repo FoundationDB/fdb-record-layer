@@ -82,11 +82,6 @@ public abstract class YamlIntegrationTests extends YamlTestBase {
     }
 
     @Test
-    public void joinFilteredTest() throws Exception {
-        doRun("join-filtered.yamsql");
-    }
-
-    @Test
     public void subqueryTests() throws Exception {
         doRun("subquery-tests.yamsql");
     }

@@ -33,25 +33,25 @@ import org.junit.jupiter.api.Test;
 @API(API.Status.EXPERIMENTAL)
 public class ContinuationTest {
     @Test
-    public void testBegin() throws Exception {
-        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.BEGIN;
+    public void testBegin() {
+        ContinuationImpl continuation = ContinuationImpl.BEGIN;
         assertContinuation(continuation, true, false, null);
     }
 
     @Test
-    public void testEnd() throws Exception {
-        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.END;
+    public void testEnd() {
+        ContinuationImpl continuation = ContinuationImpl.END;
         assertContinuation(continuation, false, true, new byte[0]);
     }
 
     @Test
-    public void testBytes() throws Exception {
+    public void testBytes() {
         ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes("Hello".getBytes());
         assertContinuation(continuation, false, false, "Hello".getBytes());
     }
 
     @Test
-    public void testInt() throws Exception {
+    public void testInt() {
         ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromInt(5);
         assertContinuation(continuation, false, false, Ints.toByteArray(5));
     }
@@ -60,7 +60,7 @@ public class ContinuationTest {
     public void serializeAndRestore() throws Exception {
         ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes("Hello".getBytes());
         byte[] bytes = continuation.serialize();
-        continuation = (ContinuationImpl) ContinuationImpl.parseContinuation(bytes);
+        continuation = ContinuationImpl.parseContinuation(bytes);
         assertContinuation(continuation, false, false, "Hello".getBytes());
     }
 
@@ -71,7 +71,7 @@ public class ContinuationTest {
                 .setExecutionState(ByteString.copyFrom("Blah".getBytes()))
                 .setBindingHash(1234)
                 .build();
-        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.parseContinuation(proto.toByteArray());
+        ContinuationImpl continuation = ContinuationImpl.parseContinuation(proto.toByteArray());
         Assertions.assertThat(continuation.atBeginning()).isEqualTo(false);
         Assertions.assertThat(continuation.atEnd()).isEqualTo(false);
         Assertions.assertThat(continuation.getExecutionState()).isEqualTo("Blah".getBytes());
@@ -80,13 +80,13 @@ public class ContinuationTest {
     }
 
     @Test
-    public void testNullSameAsBegin() throws Exception {
+    public void testNullSameAsBegin() {
         ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes(null);
         assertContinuation(continuation, true, false, null);
     }
 
     @Test
-    public void invalidProtoFails() throws Exception {
+    public void invalidProtoFails() {
         Assertions.assertThatThrownBy(() -> ContinuationImpl.parseContinuation("Invalid".getBytes())).isInstanceOf(InvalidProtocolBufferException.class);
     }
 

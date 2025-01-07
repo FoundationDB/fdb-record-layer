@@ -22,9 +22,13 @@ package com.apple.foundationdb.relational.api.exceptions;
 
 import com.apple.foundationdb.annotation.API;
 
+/**
+ * Internal type of relational exception. Considered for removal to replace with using
+ * {@link RelationalException} directly.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class InternalErrorException extends RelationalException {
-    private static final int serialVersionUID = 1;
+    private static final long serialVersionUID = 1;
 
     public InternalErrorException(String message) {
         super(message, ErrorCode.INTERNAL_ERROR);

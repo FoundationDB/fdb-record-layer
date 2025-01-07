@@ -18,4 +18,10 @@
  * limitations under the License.
  */
 
+/**
+ * Exceptions thrown by the Relational packages. These should generally be wrapped by a
+ * {@link java.sql.SQLException} so that JDBC consumers don't need to know about our exception types.
+ *
+ * @see com.apple.foundationdb.relational.api.exceptions.ContextualSQLException
+ */
 package com.apple.foundationdb.relational.api.exceptions;

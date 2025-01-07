@@ -287,7 +287,7 @@ public class PlanGenerator {
         //
         // We know that the continuation must have a plan hash set and that the current runtime supports the request
         // to validate the plan hash using the mode given by the continuation. They must match!
-        if (Objects.requireNonNull(continuation.getPlanHash()) != recordQueryPlan.planHash(serializedPlanHashMode)) {
+        if (!Objects.requireNonNull(continuation.getPlanHash()).equals(recordQueryPlan.planHash(serializedPlanHashMode))) {
             throw new PlanValidator.PlanValidationException("cannot continue query due to mismatch between serialized and actual plan hash");
         }
 

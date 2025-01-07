@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
  * has native support for this.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings({"PMD.ForLoopVariableCount", "PMD.AvoidReassigningLoopVariables"})
 public class Hex {
     public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
     private static final char[] DIGITS_LOWER =

@@ -49,9 +49,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.common.testing.FakeTicker;
-import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.Assertions;
@@ -235,7 +233,7 @@ public class RelationalPlanCacheTests {
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(schemaTemplateVersion).setName(schemaTemplateName).build();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, readableIndexes.stream().map(index -> Pair.of(index, IndexState.READABLE)).collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
-        final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
+        final FDBRecordStoreBase<?> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)

@@ -35,7 +35,7 @@ public class ProtobufConversionTest {
     @Test
     public void testToColumnStringBiFunction() {
         BiFunction<String, Column.Builder, Column.Builder> biFunction =
-                (a, b) -> a == null ? b.clearString() : b.setString((String) a);
+                (a, b) -> a == null ? b.clearString() : b.setString(a);
         Column column = TypeConversion.toColumn(null, biFunction);
         Assertions.assertFalse(column.hasString());
         String a = "abc";
@@ -46,7 +46,7 @@ public class ProtobufConversionTest {
     @Test
     public void testToColumnBinaryBiFunction() {
         BiFunction<byte[], Column.Builder, Column.Builder> biFunction =
-                (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom((byte[]) a));
+                (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom(a));
         Column column = TypeConversion.toColumn(null, biFunction);
         Assertions.assertFalse(column.hasBinary());
         byte[] a = new byte[]{'a', 'b', 'c'};
@@ -59,7 +59,7 @@ public class ProtobufConversionTest {
     @Test
     public void testToColumnIntegerBiFunction() {
         BiFunction<Integer, Column.Builder, Column.Builder> biFunction =
-                (a, b) -> a == null ? b.clearInteger() : b.setInteger((Integer) a);
+                (a, b) -> a == null ? b.clearInteger() : b.setInteger(a);
         Column column = TypeConversion.toColumn(null, biFunction);
         Assertions.assertFalse(column.hasInteger());
         Integer a = 123;

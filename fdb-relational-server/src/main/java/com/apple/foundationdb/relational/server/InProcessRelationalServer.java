@@ -114,8 +114,6 @@ public class InProcessRelationalServer implements Closeable {
         if (this.frl != null) {
             try {
                 this.frl.close();
-            } catch (IOException e) {
-                ioe = e;
             } catch (Exception e) {
                 ioe = new IOException(e);
             }

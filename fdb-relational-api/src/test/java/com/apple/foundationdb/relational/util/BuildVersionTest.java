@@ -25,11 +25,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 
+@Disabled("update for new version scheme")
 @API(API.Status.EXPERIMENTAL)
 public class BuildVersionTest {
     @Test

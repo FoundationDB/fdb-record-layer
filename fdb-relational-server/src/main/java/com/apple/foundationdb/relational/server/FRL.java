@@ -125,6 +125,7 @@ public class FRL implements AutoCloseable {
         }
     }
 
+    @SuppressWarnings("AbbreviationAsWordInName") // allow JDBCURI, though perhaps we should update this to make it clearer
     private static String createEmbeddedJDBCURI(String database, String schema)  {
         return EmbeddedRelationalDriver.JDBC_URL_PREFIX + database + (schema != null ? "?schema=" + schema : "");
     }
@@ -187,7 +188,7 @@ public class FRL implements AutoCloseable {
         // TODO: Transaction handling.
         final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
         try (var connection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options)) {
-            ResultSet resultSet = null;
+            ResultSet resultSet;
             if (parameters != null) {
                 // If parameters, it's a prepared statement.
                 try (RelationalPreparedStatement statement = connection.prepareStatement(sql)) {
@@ -290,7 +291,7 @@ public class FRL implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() throws SQLException, RelationalException {
         try {
             fdbDatabase.close();
         } catch (RecordCoreException ex) {

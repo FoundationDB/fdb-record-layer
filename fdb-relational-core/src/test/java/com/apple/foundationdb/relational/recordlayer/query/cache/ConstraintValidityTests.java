@@ -38,8 +38,8 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
-import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
@@ -48,10 +48,8 @@ import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.FakeTicker;
-import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -113,7 +111,7 @@ public class ConstraintValidityTests {
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(42).setName("SCHEMA_TEMPLATE").build();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, readableIndexes.stream().map(index -> Pair.of(index, IndexState.READABLE)).collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
-        final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
+        final FDBRecordStoreBase<?> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)

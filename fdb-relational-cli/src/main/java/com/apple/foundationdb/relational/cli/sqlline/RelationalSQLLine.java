@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
+import com.apple.foundationdb.relational.recordlayer.FdbConnection;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
@@ -50,11 +51,11 @@ public class RelationalSQLLine {
 
     public static void main(String[] args) throws SQLException {
         FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
-        DirectFdbConnection fdbConnection = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
         RelationalKeyspaceProvider.instance().registerDomainIfNotExists("FRL");
         KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         StoreCatalog storeCatalog;
-        try (Transaction txn = fdbConnection.getTransactionManager().createTransaction(Options.NONE)) {
+        try (FdbConnection fdbConnection = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
+                 Transaction txn = fdbConnection.getTransactionManager().createTransaction(Options.NONE)) {
             storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
             txn.commit();
         } catch (RelationalException e) {

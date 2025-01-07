@@ -36,7 +36,7 @@ import javax.annotation.concurrent.Immutable;
 public interface Expression<T extends DataType> {
 
     @Nullable
-    <R, C> R accept(@Nonnull final FluentVisitor<R, C> visitor, @Nonnull final C context);
+    <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context);
 
     DataType getType();
 }

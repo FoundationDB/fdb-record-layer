@@ -35,8 +35,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import com.google.protobuf.Message;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -58,10 +56,11 @@ public class QueryExecutor {
         this.plan = plan;
     }
 
+    @SuppressWarnings("PMD.CloseResource") // cursor lifetime continues with iterator
     @Nonnull
     public ResumableIterator<Row> execute(@Nullable final Continuation continuation,
                                           @Nonnull final ExecuteProperties executeProperties) throws RelationalException {
-        final FDBRecordStoreBase<Message> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
+        final FDBRecordStoreBase<?> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
         final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
                 evaluationContext,
                 continuation == null ? null : continuation.getExecutionState(), executeProperties);

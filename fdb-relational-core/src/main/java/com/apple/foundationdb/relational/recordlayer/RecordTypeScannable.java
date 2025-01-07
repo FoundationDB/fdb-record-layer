@@ -34,6 +34,7 @@ import java.util.function.Function;
 
 public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
 
+    @SuppressWarnings("PMD.CloseResource") // cursor lifetime lasts into returned object's lifetime
     @Override
     public final ResumableIterator<Row> openScan(
             @Nullable Row keyPrefix,

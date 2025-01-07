@@ -43,7 +43,7 @@ import java.net.URI;
 import java.util.List;
 
 /**
- * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint
+ * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint.
  */
 @API(API.Status.EXPERIMENTAL)
 public class DeleteRangeTest {

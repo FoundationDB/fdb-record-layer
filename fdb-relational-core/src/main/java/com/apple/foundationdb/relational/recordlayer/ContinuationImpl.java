@@ -194,9 +194,9 @@ import com.apple.foundationdb.annotation.API;
             // ContinuationImpl is immutable, no need to actually copy
             return (ContinuationImpl) other;
         } else if (other.atBeginning()) {
-            return (ContinuationImpl) BEGIN;
+            return BEGIN;
         } else if (other.atEnd()) {
-            return (ContinuationImpl) END;
+            return END;
         } else {
             String message = String.format("programming error, extra logic required for copy-constructing from %s", other.getClass());
             assert false : message;

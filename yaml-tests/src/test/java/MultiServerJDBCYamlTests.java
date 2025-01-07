@@ -26,6 +26,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
@@ -78,6 +79,7 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
 
     @BeforeAll
     public static void startServer() throws IOException, InterruptedException {
+        Assumptions.abort(); // Will be able to re-enable when we have a published external server to use here
         final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
         final File[] externalServers = externalDirectory.listFiles(file -> file.getName().endsWith(".jar"));
         Assertions.assertEquals(1, externalServers.length);

@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 public interface Mixins {
 
     interface FieldEqualityTrait<T extends DataType> extends Field<T> {
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         default boolean equalsInternal(Object obj) {
             if (obj == this) {
                 return true;
@@ -436,6 +437,7 @@ public interface Mixins {
     }
 
     interface ExpressionFragmentEqualityTrait<T extends DataType> extends ExpressionFragment<T> {
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         default boolean equalsInternal(Object obj) {
             if (obj == this) {
                 return true;

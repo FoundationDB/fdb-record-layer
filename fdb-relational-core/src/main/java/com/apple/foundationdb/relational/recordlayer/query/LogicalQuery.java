@@ -39,7 +39,7 @@ public class LogicalQuery {
     private final long queryHash;
 
     //TODO(bfines) this is where we store the query literals
-//    private final Set<Object> queryLiterals;
+    // private final Set<Object> queryLiterals;
 
 
     public LogicalQuery(@Nonnull String query, long queryHash) {

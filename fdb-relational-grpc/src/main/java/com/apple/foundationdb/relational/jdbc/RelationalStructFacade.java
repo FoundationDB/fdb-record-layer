@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
@@ -443,9 +444,11 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
+        @SpotBugsSuppressWarnings("NP")
         public RelationalStructBuilder addString(String fieldName, @Nullable String s) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setJavaSqlTypesCode(Types.VARCHAR).build());
+            // TODO: setString requires a non-null string, but this method takes a nullable string
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setString(s).build());
             return this;
         }

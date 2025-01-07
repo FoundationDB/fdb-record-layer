@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -184,7 +185,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
         int index = 0;
         for (ColumnMetadata metadata : metadatas) {
             if (metadata.getName().equalsIgnoreCase(columnLabel)) {
-                return index + 1;/*1-based*/
+                return index + 1; // 1-based
             }
             index++;
         }
@@ -262,16 +263,18 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Override
     @ExcludeFromJacocoGeneratedReport
     @Nonnull
+    @SpotBugsSuppressWarnings("NP") // TODO: Will need to fix null handling
     public Continuation getContinuation() throws SQLException {
-        // Not implemented. Not throwing an exception though because usually null continuation is right answer. TODO.
+        // Not implemented. We need to thread through the continuation from the query response, but for now,
+        // returning "null" is enough for the existing tests to pass.
         return null;
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalStruct getStruct(String columnLabel) throws SQLException {
-        // Not implemented. Not throwing an exception though because usually null continuation is right answer. TODO.
-        return null;
+        // Not implemented
+        throw new SQLException("Not implemented getStruct");
     }
 
     @Override

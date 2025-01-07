@@ -35,7 +35,8 @@ import java.util.Map;
  * JDBC connection URI public utility and constants.
  */
 @API(API.Status.EXPERIMENTAL)
-public class JDBCURI {
+@SuppressWarnings("AbbreviationAsWordInName") // should consider revising
+public final class JDBCURI {
     public static final String JDBC_URL_PREFIX = "jdbc:";
     public static final String JDBC_URL_SCHEME = "relational";
 

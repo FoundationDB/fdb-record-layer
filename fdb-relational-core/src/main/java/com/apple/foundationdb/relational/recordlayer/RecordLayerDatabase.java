@@ -120,6 +120,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public void close() throws RelationalException {
         for (RecordLayerSchema schema : schemas.values()) {
             schema.close();
