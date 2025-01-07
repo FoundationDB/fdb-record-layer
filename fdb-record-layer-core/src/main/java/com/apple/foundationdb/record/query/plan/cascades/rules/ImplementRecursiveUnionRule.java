@@ -23,20 +23,15 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
@@ -52,43 +47,44 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementRecursiveUnionRule extends CascadesRule<RecursiveUnionExpression> {
-    @Nonnull
-    private static final BindingMatcher<PlanPartition> unionLegPlanPartitionsMatcher = anyPlanPartition();
 
     @Nonnull
-    private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(rollUp(any(unionLegPlanPartitionsMatcher)));
+    private static final BindingMatcher<PlanPartition> initialPlanPartitionsMatcher = anyPlanPartition();
 
     @Nonnull
-    private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
-            all(forEachQuantifierOverRef(unionLegReferenceMatcher));
+    private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher =
+            forEachQuantifierOverRef(planPartitions(rollUp(any(initialPlanPartitionsMatcher))));
 
     @Nonnull
-    private static final BindingMatcher<RecursiveUnionExpression> root =
-            recursiveUnionExpression(allForEachQuantifiersMatcher);
+    private static final BindingMatcher<PlanPartition> recursivePlanPartitionsMatcher = anyPlanPartition();
+
+    @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher =
+            forEachQuantifierOverRef(planPartitions(rollUp(any(recursivePlanPartitionsMatcher))));
+
+    @Nonnull
+    private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher);
 
     public ImplementRecursiveUnionRule() {
         super(root);
     }
 
     @Override
-    @SuppressWarnings("UnstableApiUsage")
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var recursiveUnionExpression = bindings.get(root);
-        final var planPartitions = bindings.getAll(unionLegPlanPartitionsMatcher);
-        final var allQuantifiers = bindings.get(allForEachQuantifiersMatcher);
 
-        final ImmutableList<Quantifier.Physical> quantifiers =
-                Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) ->
-                                        call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
-                        .map(Quantifier::physical)
-                        .collect(ImmutableList.toImmutableList());
+        final var initialPlanPartitions = bindings.get(initialPlanPartitionsMatcher);
+        final var initialQun = bindings.get(initialQunMatcher);
+        final var initialPhysicalQun = Quantifier.physical(call.memoizeMemberPlans(initialQun.getRangesOver(), initialPlanPartitions.getPlans()));
 
-        final var tempTableScanValueReference = recursiveUnionExpression.getTempTableScanReference();
-        final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertReference();
-        final var recursiveUnionPlan = new RecursiveUnionQueryPlan(quantifiers, tempTableScanValueReference, tempTableInsertValueReference);
+        final var recursivePlanPartitions = bindings.get(recursivePlanPartitionsMatcher);
+        final var recursiveQun = bindings.get(recursiveQunMatcher);
+        final var recursivePhysicalQun = Quantifier.physical(call.memoizeMemberPlans(recursiveQun.getRangesOver(), recursivePlanPartitions.getPlans()));
+
+        final var tempTableScanValueReference = recursiveUnionExpression.getTempTableScanAlias();
+        final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertAlias();
+        final var recursiveUnionPlan = new RecursiveUnionQueryPlan(initialPhysicalQun, recursivePhysicalQun, tempTableScanValueReference, tempTableInsertValueReference);
 
         call.yieldExpression(recursiveUnionPlan);
     }

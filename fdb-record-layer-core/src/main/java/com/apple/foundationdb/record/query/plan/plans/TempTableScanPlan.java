@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -140,21 +141,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public Value getResultValue() {
-        return tempTableReferenceValue;
+        return new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
-
-    @Nonnull
-    @Override
-    public Type.Relation getResultType() {
-        return (Type.Relation)tempTableReferenceValue.getResultType();
-    }
-
-    @Nonnull
-    @Override
-    public Set<Type> getDynamicTypes() {
-        return ImmutableSet.of(Objects.requireNonNull(getResultType().getInnerType()));
-    }
-
 
     @Nonnull
     @Override

@@ -295,4 +295,19 @@ public class RelationalExpressionMatchers {
     public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(RecursiveUnionExpression.class, downstream);
     }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(@Nonnull final BindingMatcher<? extends Quantifier> initialDownstream,
+                                                                                    @Nonnull final BindingMatcher<? extends Quantifier> recursiveDownstream) {
+        return typedWithDownstream(RecursiveUnionExpression.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(RecursiveUnionExpression.class,
+                        ImmutableList.of(
+                                typedWithDownstream(RecursiveUnionExpression.class,
+                                        Extractor.of(RecursiveUnionExpression::getInitialStateQuantifier, name -> "initial(" + name + ")"),
+                                        initialDownstream),
+                                typedWithDownstream(RecursiveUnionExpression.class,
+                                        Extractor.of(RecursiveUnionExpression::getRecursiveStateQuantifier, name -> "recursive(" + name + ")"),
+                                        recursiveDownstream))));
+    }
 }

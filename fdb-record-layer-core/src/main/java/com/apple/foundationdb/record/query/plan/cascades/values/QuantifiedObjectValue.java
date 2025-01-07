@@ -89,7 +89,11 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO this "if" can be encoded in encapsulation code implementing type promotion rules
-        final var binding = (QueryResult)context.getBinding(Bindings.Internal.CORRELATION, alias);
+        final var obj = context.getBinding(Bindings.Internal.CORRELATION, alias);
+        if (getResultType().isRelation()) {
+            return obj;
+        }
+        final var binding = (QueryResult)obj;
         if (resultType.isRecord()) {
             return binding.getDatum() == null ? null : binding.getMessage();
         } else {

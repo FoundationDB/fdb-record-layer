@@ -311,7 +311,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
      * Deserializer of {@link RecursiveUnionQueryPlan}.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecursiveUnionQueryPlan, RecursiveUnionQueryPlan> {
+    public static final class Deserializer implements PlanDeserializer<PRecursiveUnionQueryPlan, RecursiveUnionQueryPlan> {
         @Nonnull
         @Override
         public Class<PRecursiveUnionQueryPlan> getProtoMessageClass() {
@@ -330,7 +330,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
      * A reference implementation of {@link RecursiveStateManager} that orchestrates the recursive execution of
      * {@link RecursiveUnionQueryPlan}.
      */
-    static class RecursiveStateManagerImpl implements RecursiveStateManager<QueryResult> {
+    private static final class RecursiveStateManagerImpl implements RecursiveStateManager<QueryResult> {
 
         private boolean isInitialState;
 
@@ -379,7 +379,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
             this.baseContext = baseContext;
             this.insertTempTableReference = insertTempTableReference;
             this.scanTempTableReference = scanTempTableReference;
-            overridenEvaluationContext = withEmptyTempTable(insertTempTableReference, baseContext, tempTableFactory);
+            overridenEvaluationContext = withEmptyTempTable(baseContext, insertTempTableReference, tempTableFactory);
             if (continuationBytes == null) {
                 isInitialState = true;
                 recursiveUnionTempTable = tempTableFactory.createTempTable();
@@ -433,9 +433,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
          * Flips the runtime buffers by creating a nested {@link EvaluationContext} with reversed references to both
          * the insert {@link TempTable} that is initially used by the insert operators on top of the recursive union
          * legs, and the scan {@link TempTable} that is used by the underlying {@link TempTableScanPlan} and is
-         * maintained
-         * by the recursive union plan itself. Flipping the buffers is done everytime an underlying union cursor stops
-         * producing new results.
+         * maintained by the recursive union plan itself. Flipping the buffers is done everytime an underlying union
+         * cursor stops producing new results.
          * @param evaluationContext The evaluation context used to as basis for a nested {@link EvaluationContext} with
          * reversed references to {@link TempTable}s participating in the recursive execution.
          * @return A nested {@link EvaluationContext} with reversed referenced to {@link TempTable}s participating in
@@ -467,43 +466,36 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         }
 
         /**
-         * Creates a nested {@link EvaluationContext} that has a reference, implied by the {@code key}, to a new
-         * {@link TempTable} referred to by {@code value}.
+         * Creates a nested {@link EvaluationContext} that has a mapping between a {@code key} and a {@code TempTable}
+         * value.
          * @param context The {@link EvaluationContext} to override.
-         * @param key The new reference key, which is a simple {@code reference} {@link Value}.
-         * @param value The new reference value, which is a {@link TempTable}.
-         * @return A nested {@link EvaluationContext} that has a reference, implied by the {@code key}, to a new
-         * {@link TempTable} referred to by {@code value}.
+         * @param key The key used to reference the {@link TempTable}.
+         * @param value The {@link TempTable} value.
+         * @return A nested {@link EvaluationContext} that has a mapping between a {@code key} and a {@code TempTable}
+         * value.
          */
         @Nonnull
         private static EvaluationContext overrideTempTableBinding(@Nonnull final EvaluationContext context,
                                                                   @Nonnull final CorrelationIdentifier key,
                                                                   @Nonnull final TempTable value) {
-            return context.withBinding(key.getId(), value);
+            return context.withBinding(Bindings.Internal.CORRELATION.bindingName(key.getId()), value);
         }
 
         /**
-         * Returns a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
-         * @param tempTableReference The temp table reference.
+         * Creates a nested {@link EvaluationContext} that has a mapping between a {@code key} and an empty {@link TempTable}.
          * @param context The context to add the new binding to.
+         * @param key The temp table reference.
+         * @param tempTableFactory a {@link TempTable} factory.
          * @return a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
          */
         @Nonnull
-        private static EvaluationContext withEmptyTempTable(@Nonnull final CorrelationIdentifier tempTableReference,
-                                                            @Nonnull final EvaluationContext context,
+        private static EvaluationContext withEmptyTempTable(@Nonnull final EvaluationContext context,
+                                                            @Nonnull final CorrelationIdentifier key,
                                                             @Nonnull final TempTable.Factory tempTableFactory) {
-            return withTempTableBinding(context, Bindings.Internal.CORRELATION, tempTableReference,
-                    tempTableFactory.createTempTable());
-
-        }
-
-        @Nonnull
-        public static EvaluationContext withTempTableBinding(@Nonnull final EvaluationContext baseContext,
-                                                             @Nonnull final Bindings.Internal type,
-                                                             @Nonnull final CorrelationIdentifier alias,
-                                                             @Nonnull final TempTable tempTable) {
-            return baseContext.childBuilder().setBinding(type.bindingName(alias.getId()), tempTable)
-                    .build(baseContext.getTypeRepository());
+            return context
+                    .childBuilder()
+                    .setBinding(Bindings.Internal.CORRELATION.bindingName(key.getId()), tempTableFactory.createTempTable())
+                    .build(context.getTypeRepository());
         }
     }
 }

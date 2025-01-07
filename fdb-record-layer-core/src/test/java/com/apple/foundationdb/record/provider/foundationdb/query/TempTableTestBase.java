@@ -50,7 +50,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
@@ -256,7 +255,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     RecordQueryPlan createAndOptimizeTempTableScanPlan(@Nonnull final CorrelationIdentifier tempTableId) {
-        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), getTempTableType())));
+        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
         final var selectExpressionBuilder = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
                 .addQuantifier(tempTableScanQun);
@@ -278,9 +277,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
                                                    @Nonnull final TempTable tempTable,
                                                    @Nullable EvaluationContext parentContext) {
         final var actualParentContext = parentContext == null ? EvaluationContext.empty() : parentContext;
-        final ImmutableMap.Builder<String, Object> constants = ImmutableMap.builder();
-        constants.put(tempTableAlias.getId(), tempTable);
-        return actualParentContext.withBinding(Bindings.Internal.CONSTANT, tempTableAlias, constants.build());
+        return actualParentContext.withBinding(Bindings.Internal.CORRELATION, tempTableAlias, tempTable);
     }
 
     @Nonnull

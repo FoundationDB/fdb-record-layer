@@ -30,29 +30,37 @@ import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.recursiveUnionExpression;
 
 /**
- * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link RecursiveUnionExpression}.
+ * A rule that pushes an ordering {@link RequestedOrderingConstraint} through a {@link RecursiveUnionExpression}. Currently,
+ * it only allows pushing {@link RequestedOrdering#preserve()} type of ordering to both the {@code Initial} and {@code Recursive}
+ * legs.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushRequestedOrderingThroughRecursiveUnionRule extends CascadesRule<RecursiveUnionExpression> implements PreOrderRule {
-    private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    private static final BindingMatcher<RecursiveUnionExpression> root =
-            recursiveUnionExpression(all(innerQuantifierMatcher));
+
+    @Nonnull
+    private static final BindingMatcher<Reference> initialRefMatcher = anyRef();
+
+    @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher = forEachQuantifierOverRef(initialRefMatcher);
+
+    @Nonnull
+    private static final BindingMatcher<Reference> recursiveRefMatcher = anyRef();
+
+    @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher = forEachQuantifierOverRef(recursiveRefMatcher);
+
+    @Nonnull
+    private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher);
 
     public PushRequestedOrderingThroughRecursiveUnionRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
@@ -60,20 +68,27 @@ public class PushRequestedOrderingThroughRecursiveUnionRule extends CascadesRule
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final Optional<Set<RequestedOrdering>> requestedOrderingsOptional =
-                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
 
-        // push only exhaustive requested orderings
-        final PlannerBindings bindings = call.getBindings();
-        final List<? extends Quantifier.ForEach> rangesOverQuantifiers = bindings.getAll(innerQuantifierMatcher);
-
-        for (final Quantifier.ForEach rangesOverQuantifier : rangesOverQuantifiers) {
-            call.pushConstraint(rangesOverQuantifier.getRangesOver(),
-                    RequestedOrderingConstraint.REQUESTED_ORDERING,
-                    ImmutableSet.of(RequestedOrdering.preserve()));
+        // push only preserve requested ordering (if any).
+        final var requestedOrderings = requestedOrderingsOptional.get();
+        final var preserveOrderingMaybe =
+                requestedOrderings
+                        .stream()
+                        .filter(RequestedOrdering::isPreserve)
+                        .findFirst();
+        if (preserveOrderingMaybe.isEmpty()) {
+            return;
         }
+
+        final var toBePushedOrdering = ImmutableSet.of(preserveOrderingMaybe.get());
+        final var bindings = call.getBindings();
+        final var initialRef = bindings.get(initialRefMatcher);
+        call.pushConstraint(initialRef, RequestedOrderingConstraint.REQUESTED_ORDERING, toBePushedOrdering);
+        final var recursiveRef = bindings.get(recursiveRefMatcher);
+        call.pushConstraint(recursiveRef, RequestedOrderingConstraint.REQUESTED_ORDERING, toBePushedOrdering);
     }
 }

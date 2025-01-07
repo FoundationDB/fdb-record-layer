@@ -88,7 +88,7 @@ public class TempTableTest extends TempTableTestBase {
             final var tempTable = tempTableInstance();
             addSampleDataToTempTable(tempTable);
             final var tempTableId = CorrelationIdentifier.uniqueID();
-            final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofConstant(tempTableId, tempTableId.getId(), getTempTableType())));
+            final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
             final var selectExpressionBuilder = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
                     .addPredicate(new ValuePredicate(getIdField(tempTableScanQun), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))
@@ -113,8 +113,8 @@ public class TempTableTest extends TempTableTestBase {
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
-            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun,
-                    tempTableId, tempTableId.getId(), getInnerType(qun), false)));
+            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofCorrelated(qun,
+                    tempTableId, getInnerType(qun), false)));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
@@ -145,8 +145,7 @@ public class TempTableTest extends TempTableTestBase {
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
             var qun = Quantifier.forEach(Reference.of(explodeExpression));
 
-            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofConstant(qun, tempTableId, tempTableId.getId(),
-                    getInnerType(qun))));
+            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofCorrelated(qun, tempTableId, getInnerType(qun))));
             final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
