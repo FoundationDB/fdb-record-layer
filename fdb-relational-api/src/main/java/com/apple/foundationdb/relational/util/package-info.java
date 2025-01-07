@@ -18,4 +18,7 @@
  * limitations under the License.
  */
 
+/**
+ * Utility classes for the Relational API.
+ */
 package com.apple.foundationdb.relational.util;

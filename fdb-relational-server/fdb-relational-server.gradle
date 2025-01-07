@@ -1,0 +1,143 @@
+/*
+ * fdb-relational-server.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java-test-fixtures'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
+}
+
+apply from: rootProject.file('gradle/publishing.gradle')
+
+// Don't build a zip assembly, just the tar one.
+tasks.distZip.enabled = false
+build.dependsOn installDist
+
+distTar {
+    dependsOn "javadoc"
+    compression = Compression.GZIP
+    archiveExtension = "tar.gz"
+}
+
+installDist {
+    dependsOn "javadoc"
+}
+
+distZip {
+    dependsOn "javadoc"
+}
+
+def mainServerClass = "com.apple.foundationdb.relational.server.RelationalServer"
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': mainServerClass
+        )
+    }
+}
+
+// Task to build a fat jar, one w/ all dependencies
+shadowJar {
+    mainClassName = mainServerClass
+}
+
+build.dependsOn {
+    shadowJar
+}
+
+createDistribution.configure {
+    afterEvaluate {
+        dependsOn shadowJar
+        from tasks.shadowJar
+    }
+}
+
+publishing {
+    publications {
+        library {
+            pom {
+                description = 'Relational Layer server'
+            }
+        }
+    }
+}
+
+def coreProject = ":${ext.coreProjectName}"
+dependencies {
+    // TODO: Why I have to do this when I've included core below..Why is it not
+    // transitively included? Is this how gradle works?
+    implementation project(coreProject)
+    implementation project(":fdb-relational-api")
+    implementation project(":fdb-relational-core")
+    implementation project(":fdb-relational-grpc")
+    implementation "io.grpc:grpc-inprocess:${grpcVersion}"
+    implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    implementation "io.grpc:grpc-services:${grpcVersion}"
+    implementation "io.grpc:grpc-util:${grpcVersion}"
+    // https://mvnrepository.com/artifact/me.dinowernli/java-grpc-prometheus
+    implementation "me.dinowernli:java-grpc-prometheus:0.6.0"
+    // https://mvnrepository.com/artifact/io.prometheus/simpleclient
+    // Pull in the client for the fixture and httpserver
+    def prometheusVersion = '0.16.0'
+    implementation "io.prometheus:simpleclient_httpserver:${prometheusVersion}"
+    testFixturesImplementation "io.prometheus:simpleclient:${prometheusVersion}"
+    testImplementation "io.grpc:grpc-testing:${grpcVersion}"
+    implementation "io.dropwizard.metrics:metrics-core:${dropwizardVersion}"
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "commons-cli:commons-cli:1.5.0"
+    // See diagram on this page: https://logging.apache.org/log4j/2.x/faq.html#which_jars
+    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
+    runtimeOnly "org.apache.logging.log4j:log4j-jul:${log4jVersion}"
+    runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+
+    testFixturesImplementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testImplementation "org.apache.httpcomponents.client5:httpclient5:5.2.1"
+}
+
+application {
+    // https://docs.gradle.org/current/userguide/application_plugin.html
+    mainClass = mainServerClass
+    applicationName = "fdb-relational-server"
+    // JUL => log4j2 https://logging.apache.org/log4j/2.x/log4j-jul/index.html
+    // Allow overriding default fdb.cluster file with FDB_CLUSTER_FILE.
+    startScripts {
+        doLast {
+            // The gradle application defaultJvmOpts and applicationDefaultJvmArgs don't work if
+            // you try to pass more than one -D option and/or you want to use a variable from
+            // surrounding script. The value of the DEFAULT_JVM_OPTS has weird quoting that can't
+            // be worked around and that prevents environment variable interpolation working.
+            // So, we do the below crass substitution. It sets log4j as our log manager and it
+            // points at log4j2.xml in the `conf` dir copied from `src/main/conf` on assembly.
+            // We need to point at an explicit log configuration file because there are a bunch on
+            // the CLASSPATH as it is with recordlayer stealing the pole postion by bundling a
+            // `log4j2-test.properties` in its jar which log4j2 will favor over all others (this
+            // configuration sets the root logger to be DEBUG which spews loads of unrelated stuff
+            // on the console when shell is trying to start up).
+            unixScript.text = unixScript.text.replace('DEFAULT_JVM_OPTS=\"\"',
+                    'DEFAULT_JVM_OPTS=\"-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager -Dlog4j2.configurationFile=file:$APP_HOME/conf/log4j2.xml\"')
+        }
+    }
+}

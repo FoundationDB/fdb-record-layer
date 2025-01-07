@@ -211,6 +211,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
+    @SuppressWarnings("deprecation") // need to replace protobuf data builder
     public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
@@ -231,6 +232,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource") // lifetime of cursor extends into lifetime of returned result set
     @Override
     public RelationalResultSet listTemplates(@Nonnull Transaction txn) {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_TEMPLATE_RECORD_TYPE_KEY);
@@ -276,7 +278,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
                             ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);) {
-                RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
+                RecordCursorResult<FDBStoredRecord<Message>> cursorResult;
                 boolean deletedSomething = false;
                 do {
                     cursorResult = cursor.getNext();

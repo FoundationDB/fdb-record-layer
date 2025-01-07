@@ -125,6 +125,7 @@ public final class PlanValidator {
         return null;
     }
 
+    @SuppressWarnings("serial")
     public static class PlanValidationException extends RelationalException {
         public PlanValidationException(String message) {
             super(message, ErrorCode.INVALID_CONTINUATION);

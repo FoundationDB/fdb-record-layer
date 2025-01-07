@@ -172,7 +172,7 @@ public class ResultSetMetaDataAssert extends AbstractAssert<ResultSetMetaDataAss
         return this;
     }
 
-    public ResultSetMetaDataAssert hasColumnsExactlyInOrder(String...columnNames) {
+    public ResultSetMetaDataAssert hasColumnsExactlyInOrder(String... columnNames) {
         return hasColumnsExactlyInOrder(Arrays.asList(columnNames));
     }
 

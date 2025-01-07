@@ -18,4 +18,7 @@
  * limitations under the License.
  */
 
+/**
+ * Utility methods to use in Relational implementation classes.
+ */
 package com.apple.foundationdb.relational.util;

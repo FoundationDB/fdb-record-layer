@@ -254,6 +254,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         }
     }
 
+    @SuppressWarnings("deprecation") // need to replace protobuf data builder
     private void createDatabase(@Nonnull FDBRecordStoreBase<Message> recordStore, URI dbUri) throws RelationalException {
         try {
             ProtobufDataBuilder pmd = new ProtobufDataBuilder(catalogRecordMetaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
@@ -264,6 +265,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource") // cursor lifetime extends into lifetime of returned result set
     @Override
     public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
@@ -274,6 +276,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         return new RecordLayerResultSet(getMetaData(d), RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
     }
 
+    @SuppressWarnings("PMD.CloseResource") // cursor lifetime extends into lifetime of returned result set
     @Override
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
@@ -285,6 +288,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
                 RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
     }
 
+    @SuppressWarnings("PMD.CloseResource") // cursor lifetime extends into lifetime of returned result set
     @Override
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
@@ -369,7 +373,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
                 recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                 EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getExecutionState(),
                         ScanProperties.FORWARD_SCAN);) {
-            RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
+            RecordCursorResult<FDBStoredRecord<Message>> cursorResult;
             do {
                 cursorResult = cursor.getNext();
                 if (cursorResult.getContinuation().isEnd()) {
@@ -388,6 +392,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         return true;
     }
 
+    @SuppressWarnings("deprecation") // need to replace protobuf data builder
     private void putSchema(@Nonnull final RecordLayerSchema schema, @Nonnull final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
         try {
             @Nonnull final ProtobufDataBuilder pmd = new ProtobufDataBuilder(catalogRecordMetaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());

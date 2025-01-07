@@ -55,19 +55,19 @@ public interface UpdateStatement extends StructuredQuery {
         Map<Field<?>, Expression<?>> getSetClauses();
 
         @Nonnull
-        Builder addSetClause(@Nonnull final Field<?> field, @Nonnull final Expression<?> newValue);
+        Builder addSetClause(@Nonnull Field<?> field, @Nonnull Expression<?> newValue);
 
         @Nonnull
         Builder clearSetClauses();
 
         @Nonnull
-        Builder removeSetClause(@Nonnull final Field<?> field);
+        Builder removeSetClause(@Nonnull Field<?> field);
 
         @Nonnull
         List<Expression<?>> getReturning();
 
         @Nonnull
-        Builder addReturning(@Nonnull final Expression<?> expression);
+        Builder addReturning(@Nonnull Expression<?> expression);
 
         @Nonnull
         Builder clearReturning();
@@ -76,13 +76,13 @@ public interface UpdateStatement extends StructuredQuery {
         BooleanExpressionTrait getWhereClause();
 
         @Nonnull
-        Builder addWhereClause(@Nonnull final BooleanExpressionTrait expression);
+        Builder addWhereClause(@Nonnull BooleanExpressionTrait expression);
 
         @Nonnull
         Builder clearWhereClause();
 
         @Nonnull
-        Builder withOption(@Nonnull final QueryOptions... options);
+        Builder withOption(@Nonnull QueryOptions... options);
 
         @Nonnull
         Set<QueryOptions> getOptions();
@@ -91,10 +91,10 @@ public interface UpdateStatement extends StructuredQuery {
         String getTable();
 
         @Nonnull
-        Builder setTable(@Nonnull final String table);
+        Builder setTable(@Nonnull String table);
 
         @Nonnull
-        Builder resolveSetFields(@Nonnull final ExpressionFactory expressionFactory);
+        Builder resolveSetFields(@Nonnull ExpressionFactory expressionFactory);
 
         @Nonnull
         UpdateStatement build() throws RelationalException;

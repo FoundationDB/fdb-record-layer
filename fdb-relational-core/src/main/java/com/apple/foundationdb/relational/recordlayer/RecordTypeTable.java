@@ -151,6 +151,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
+    @Deprecated
     public boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException {
         BackingStore store = schema.loadStore();
         //TODO(bfines) maybe this should return something other than boolean?
@@ -158,6 +159,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
+    @Deprecated
     @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
     public boolean insertRecord(@Nonnull RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException {
         BackingStore store = schema.loadStore();

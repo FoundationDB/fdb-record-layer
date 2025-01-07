@@ -30,7 +30,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * assertj assertion for handling java.sql.Array objects
+ * assertj assertion for handling java.sql.Array objects.
  */
 public class ArrayAssert extends AbstractAssert<ArrayAssert, Array> {
     protected ArrayAssert(Array array) {

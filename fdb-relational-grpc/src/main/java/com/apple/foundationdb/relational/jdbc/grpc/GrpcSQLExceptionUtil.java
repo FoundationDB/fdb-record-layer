@@ -41,9 +41,9 @@ import java.sql.SQLException;
  * Utility for serializing SQLExceptions for passing over grpc.
  * Includes encoding and decoding into and out of standard 'ErrorInfo' protobuf.
  */
-public final class GrpcSQLException {
-    private static final Logger logger = LogManager.getLogger(GrpcSQLException.class.getName());
-    private static final String SQLEXCEPTION_ERRORINFO_DOMAIN = GrpcSQLException.class.getPackageName();
+public final class GrpcSQLExceptionUtil {
+    private static final Logger logger = LogManager.getLogger(GrpcSQLExceptionUtil.class.getName());
+    private static final String SQLEXCEPTION_ERRORINFO_DOMAIN = GrpcSQLExceptionUtil.class.getPackageName();
     private static final String SQLEXCEPTION_ERROR_CODE = "sqlExceptionErrorCode";
     private static final String SQLEXCEPTION_SQLSTATE = "sqlExceptionSQLState";
     private static final String SQLEXCEPTION_CAUSE = "sqlExceptionCause";
@@ -60,7 +60,7 @@ public final class GrpcSQLException {
      */
     private static final int CODE_ON_SQLEXCEPTION = Code.UNKNOWN.getNumber();
 
-    private GrpcSQLException() {
+    private GrpcSQLExceptionUtil() {
     }
 
     /**
@@ -143,7 +143,9 @@ public final class GrpcSQLException {
                 }
             } catch (InvalidProtocolBufferException e) {
                 // JUL won't let me log exception. TODO.
-                logger.warn(e.getMessage());
+                if (logger.isWarnEnabled()) {
+                    logger.warn(e.getMessage());
+                }
             }
         }
         return errorInfo == null ? null : map(status.getMessage(), errorInfo);
@@ -163,15 +165,18 @@ public final class GrpcSQLException {
         }
         String causeMessage = errorInfo.getMetadataOrDefault(SQLEXCEPTION_CAUSE_MESSAGE, null);
         try {
-            Class clazz = Class.forName(causeExceptionName);
+            Class<?> clazz = Class.forName(causeExceptionName);
             if (causeMessage == null) {
                 return (Throwable) clazz.getDeclaredConstructor().newInstance();
             }
-            Constructor constructor = clazz.getDeclaredConstructor(String.class);
+            Constructor<?> constructor = clazz.getDeclaredConstructor(String.class);
             return (Throwable) constructor.newInstance(causeMessage);
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException |
                 NoSuchMethodException e) {
-            logger.trace(e.getMessage());
+            // Suspicious. We probably shouldn't be swallowing this exception
+            if (logger.isTraceEnabled()) {
+                logger.trace(e.getMessage());
+            }
         }
         return null;
     }
@@ -200,7 +205,7 @@ public final class GrpcSQLException {
         String sqlExceptionName = errorInfo.getReason();
         if (sqlExceptionName != null && !sqlExceptionName.equals(SQLException.class.getName())) {
             try {
-                Class clazz = Class.forName(sqlExceptionName);
+                Class<?> clazz = Class.forName(sqlExceptionName);
                 Constructor<?> constructor =
                         clazz.getDeclaredConstructor(String.class, String.class, int.class, Throwable.class);
                 if (constructor != null) {
@@ -209,7 +214,9 @@ public final class GrpcSQLException {
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException |
                     NoSuchMethodException e) {
                 // Just fall through to plain-old sqlexception.
-                logger.trace(e.getMessage());
+                if (logger.isTraceEnabled()) {
+                    logger.trace(e.getMessage());
+                }
             }
             // Just fall through to plain-old sqlexception.
         }

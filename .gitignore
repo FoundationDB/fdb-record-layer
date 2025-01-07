@@ -60,6 +60,7 @@ atlassian-ide-plugin.xml
 protogen/
 /protogen/
 */protogen/*
+**/gen/*
 
 *.orig
 /.classpath*

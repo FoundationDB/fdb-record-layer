@@ -34,7 +34,7 @@ public interface StatementBuilderFactory {
     UpdateStatement.Builder updateStatementBuilder();
 
     @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull final String updateQuery);
+    UpdateStatement.Builder updateStatementBuilder(@Nonnull String updateQuery);
 
     /**
      * Generates an {@link UpdateStatement.Builder} from a given SQL statement using the provided map of column synonyms.
@@ -47,10 +47,10 @@ public interface StatementBuilderFactory {
      * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
      */
     @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull final String updateQuery, @Nonnull final Map<String, List<String>> columnSynonyms);
+    UpdateStatement.Builder updateStatementBuilder(@Nonnull String updateQuery, @Nonnull Map<String, List<String>> columnSynonyms);
 
     @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull final ParseTreeInfo parseTree);
+    UpdateStatement.Builder updateStatementBuilder(@Nonnull ParseTreeInfo parseTree);
 
     /**
      * Generates an {@link UpdateStatement.Builder} from a given update parse tree using the provided map of column synonyms.
@@ -63,5 +63,5 @@ public interface StatementBuilderFactory {
      * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
      */
     @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull final ParseTreeInfo parseTree, @Nonnull final Map<String, List<String>> columnSynonyms);
+    UpdateStatement.Builder updateStatementBuilder(@Nonnull ParseTreeInfo parseTree, @Nonnull Map<String, List<String>> columnSynonyms);
 }

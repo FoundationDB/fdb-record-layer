@@ -63,7 +63,7 @@ public interface SystemTable {
      *
      * @param schemaBuilder The current schema builder used to populate schema template information.
      */
-    void addDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaBuilder);
+    void addDefinition(@Nonnull RecordLayerSchemaTemplate.Builder schemaBuilder);
 
     RecordLayerTable getType();
 

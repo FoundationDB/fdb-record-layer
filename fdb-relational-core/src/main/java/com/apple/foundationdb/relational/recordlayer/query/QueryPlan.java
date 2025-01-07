@@ -216,6 +216,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
+        @SuppressWarnings("PMD.CloseResource") // Connection not owned by this method
         public RelationalResultSet executeInternal(@Nonnull final ExecutionContext executionContext) throws RelationalException {
             if (!(executionContext.connection instanceof EmbeddedRelationalConnection)) {
                 //this is required until TODO is resolved
@@ -278,8 +279,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     FieldDescription.primitive("PLAN_GML", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                     FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNullable, continuationMetadata)
             );
-            final Struct continuationInfo = parsedContinuation == ContinuationImpl.BEGIN ? null :
-                    new ImmutableRowStruct(new ArrayRow(
+            final Struct continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
+                                            new ImmutableRowStruct(new ArrayRow(
                             parsedContinuation.getExecutionState(),
                             parsedContinuation.getVersion(),
                             parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
@@ -295,6 +296,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
+        @SuppressWarnings("PMD.CloseResource") // cursor returned inside the ResultSet, Connection now owned by this method
         private RelationalResultSet executePhysicalPlan(@Nonnull final RecordLayerSchema recordLayerSchema,
                                                       @Nonnull final EvaluationContext evaluationContext,
                                                       @Nonnull final ExecutionContext executionContext,
@@ -303,7 +305,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             Type type = recordQueryPlan.getResultType().getInnerType();
             Assert.notNull(type);
             Assert.that(type instanceof Type.Record, ErrorCode.INTERNAL_ERROR, "unexpected plan returning top-level result of type %s", type.getTypeCode());
-            final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
+            final FDBRecordStoreBase<?> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
 
             final var options = executionContext.getOptions();
 

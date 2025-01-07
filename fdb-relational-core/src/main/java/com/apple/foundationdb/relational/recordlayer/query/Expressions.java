@@ -186,6 +186,7 @@ public final class Expressions implements Iterable<Expression> {
         return Expressions.of(underlying.stream().map(Expression::clearQualifier).collect(ImmutableList.toImmutableList()));
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // used as optimization
     public boolean isEmpty() {
         return this == empty() || Iterables.isEmpty(this);
     }

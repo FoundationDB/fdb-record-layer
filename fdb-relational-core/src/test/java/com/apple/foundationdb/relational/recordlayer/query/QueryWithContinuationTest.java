@@ -592,7 +592,7 @@ public class QueryWithContinuationTest {
         }
     }
 
-    private Continuation assertResult(RelationalPreparedStatement ps, Long ...values) throws SQLException {
+    private Continuation assertResult(RelationalPreparedStatement ps, Long... values) throws SQLException {
         Continuation continuation;
         try (final RelationalResultSet resultSet = ps.executeQuery()) {
             ResultSetAssert assertResult = ResultSetAssert.assertThat(resultSet);

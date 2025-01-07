@@ -31,8 +31,6 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.utils.Ddl;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -170,7 +168,7 @@ public class SqlVisitorTests {
         final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection) connection;
         embeddedConnection.createNewTransaction();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
-        final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
+        final FDBRecordStoreBase<?> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)

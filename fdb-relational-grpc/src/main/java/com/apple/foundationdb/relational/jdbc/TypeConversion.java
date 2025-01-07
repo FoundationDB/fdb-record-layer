@@ -106,10 +106,12 @@ public class TypeConversion {
      * @return List of {@link RelationalStruct}.
      * @see #toResultSetProtobuf(List)
      */
+    @SuppressWarnings("PMD.AvoidReassigningLoopVariables") // TODO: This may be mis-handling the variable. Needs follow-up/testing
     public static List<RelationalStruct> fromResultSetProtobuf(ResultSet data) {
         int rowCount = data.getRowCount();
         List<RelationalStruct> structs = new ArrayList<>(rowCount);
         for (int i = 0; i < rowCount; i++) {
+            // Suspicious update of i here. This is skipping every other row. May be intentional or not
             structs.add(new RelationalStructFacade(data.getMetadata().getColumnMetadata(), data.getRow(i++)));
         }
         return structs;
@@ -118,7 +120,7 @@ public class TypeConversion {
     static KeySet toProtobuf(com.apple.foundationdb.relational.api.KeySet keySet) {
         KeySet.Builder keySetBuilder = KeySet.newBuilder();
         for (Map.Entry<String, Object> entry : keySet.toMap().entrySet()) {
-            KeySetValue keySetValue = null;
+            KeySetValue keySetValue;
             // Currently we support a few types only.
             if (entry.getValue() instanceof String) {
                 keySetValue = KeySetValue.newBuilder().setStringValue((String) entry.getValue()).build();
@@ -236,32 +238,32 @@ public class TypeConversion {
 
     private static Column toColumn(RelationalStruct relationalStruct, int oneBasedIndex) throws SQLException {
         int columnType = relationalStruct.getMetaData().getColumnType(oneBasedIndex);
-        Column column = null;
+        Column column;
         switch (columnType) {
             case Types.STRUCT:
                 RelationalStruct struct = relationalStruct.getStruct(oneBasedIndex);
                 column = toColumn(struct == null ? null : toStruct(struct),
-                        (a, b) -> a == null ? b.clearStruct() : b.setStruct((Struct) a));
+                        (a, b) -> a == null ? b.clearStruct() : b.setStruct(a));
                 break;
             case Types.ARRAY:
                 RelationalArray array = relationalStruct.getArray(oneBasedIndex);
                 column = toColumn(array == null ? null : toArray(array),
-                        (a, b) -> a == null ? b.clearArray() : b.setArray((Array) a));
+                        (a, b) -> a == null ? b.clearArray() : b.setArray(a));
                 break;
             case Types.BIGINT:
                 long l = relationalStruct.getLong(oneBasedIndex);
                 column = toColumn(relationalStruct.wasNull() ? null : l,
-                        (a, b) -> a == null ? b.clearLong() : b.setLong((Long) a));
+                        (a, b) -> a == null ? b.clearLong() : b.setLong(a));
                 break;
             case Types.INTEGER:
                 int i = relationalStruct.getInt(oneBasedIndex);
                 column = toColumn(relationalStruct.wasNull() ? null : i,
-                        (a, b) -> a == null ? b.clearInteger() : b.setInteger((Integer) a));
+                        (a, b) -> a == null ? b.clearInteger() : b.setInteger(a));
                 break;
             case Types.BOOLEAN:
                 boolean bool = relationalStruct.getBoolean(oneBasedIndex);
                 column = toColumn(relationalStruct.wasNull() ? null : bool,
-                        (a, b) -> a == null ? b.clearBoolean() : b.setBoolean((Boolean) a));
+                        (a, b) -> a == null ? b.clearBoolean() : b.setBoolean(a));
                 break;
             case Types.VARCHAR:
                 column = toColumn(relationalStruct.getString(oneBasedIndex),
@@ -269,12 +271,12 @@ public class TypeConversion {
                 break;
             case Types.BINARY:
                 column = toColumn(relationalStruct.getBytes(oneBasedIndex),
-                        (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom((byte[]) a)));
+                        (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom(a)));
                 break;
             case Types.DOUBLE:
                 double d = relationalStruct.getDouble(oneBasedIndex);
                 column = toColumn(relationalStruct.wasNull() ? null : d,
-                        (a, b) -> a == null ? b.clearDouble() : b.setDouble((Double) a));
+                        (a, b) -> a == null ? b.clearDouble() : b.setDouble(a));
                 break;
             default:
                 throw new SQLException("java.sql.Type=" + columnType + " not supported",
@@ -287,8 +289,8 @@ public class TypeConversion {
      * Build a Column from <code>p</code>.
      * @param p Particular of the generic to build the Column with (can be null).
      * @param f BiFunction to build column.
-     * @return Column instance made from <code>p</code> whether null or not.
      * @param <P> Type we use building Column.
+     * @return Column instance made from <code>p</code> whether null or not.
      */
     @VisibleForTesting
     static <P> Column toColumn(P p, BiFunction<P, Column.Builder, Column.Builder> f) {

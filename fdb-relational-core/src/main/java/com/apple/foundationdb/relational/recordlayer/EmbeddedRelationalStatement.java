@@ -101,7 +101,9 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
-    public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource") // lifetimes are more complicated; perhaps we should be closing
+    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         checkOpen();
         final var finalOptions = this.options.withChild(options);
         try {
@@ -290,6 +292,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource") // lifetimes are more complicated; perhaps we should be closing
     private @Nonnull DirectScannable getSourceScannable(String indexName, @Nonnull Table table) throws RelationalException {
         if (indexName != null) {
             Index index = null;

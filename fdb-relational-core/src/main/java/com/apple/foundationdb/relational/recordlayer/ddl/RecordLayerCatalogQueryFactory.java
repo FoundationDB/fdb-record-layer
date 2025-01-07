@@ -76,7 +76,7 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                         tableNames,
                         indexNames);
 
-                final FieldDescription[] fields = new FieldDescription[]{
+                final FieldDescription[] fields = {
                         FieldDescription.primitive("DATABASE_PATH", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                         FieldDescription.primitive("SCHEMA_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
                         FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls)),

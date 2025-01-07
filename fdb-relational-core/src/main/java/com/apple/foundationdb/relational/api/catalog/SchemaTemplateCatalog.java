@@ -75,7 +75,8 @@ public interface SchemaTemplateCatalog {
      * @return whether the template exists.
      * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
      *                           or other error code if something else goes wrong.
-     */@Nonnull
+     */
+    @Nonnull
     SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
 
     /**

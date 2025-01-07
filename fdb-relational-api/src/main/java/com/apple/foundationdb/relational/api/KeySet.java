@@ -41,6 +41,7 @@ public class KeySet {
         }
     };
 
+    @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     private Map<String, Object> keySet;
 
     public Map<String, Object> toMap() {

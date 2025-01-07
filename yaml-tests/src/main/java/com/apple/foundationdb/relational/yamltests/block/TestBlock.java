@@ -200,15 +200,15 @@ public final class TestBlock extends Block {
 
         private void setWithPreset(@Nonnull String preset) {
             verifyPreset(preset);
-            if (preset.equals(PRESET_MULTI_REPETITION_ORDERED) || preset.equals(PRESET_MULTI_REPETITION_RANDOMIZED) || preset.equals(PRESET_MULTI_REPETITION_PARALLELIZED)) {
+            if (PRESET_MULTI_REPETITION_ORDERED.equals(preset) || PRESET_MULTI_REPETITION_RANDOMIZED.equals(preset) || PRESET_MULTI_REPETITION_PARALLELIZED.equals(preset)) {
                 repetition = 5;
             } else {
                 repetition = 1;
                 checkCache = false;
             }
-            if (preset.equals(PRESET_MULTI_REPETITION_PARALLELIZED) || preset.equals(PRESET_SINGLE_REPETITION_PARALLELIZED)) {
+            if (PRESET_MULTI_REPETITION_PARALLELIZED.equals(preset) || PRESET_SINGLE_REPETITION_PARALLELIZED.equals(preset)) {
                 mode = ExecutionMode.PARALLELIZED;
-            } else if (preset.equals(PRESET_MULTI_REPETITION_RANDOMIZED) || preset.equals(PRESET_SINGLE_REPETITION_RANDOMIZED)) {
+            } else if (PRESET_MULTI_REPETITION_RANDOMIZED.equals(preset) || PRESET_SINGLE_REPETITION_RANDOMIZED.equals(preset)) {
                 mode = ExecutionMode.RANDOMIZED;
             } else {
                 mode = ExecutionMode.ORDERED;

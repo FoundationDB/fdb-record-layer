@@ -36,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.sql.SQLException;
 import java.util.stream.Stream;
 
+@SuppressWarnings("deprecation") // this is a test of a deprecated class, ProtobufDataBuilder, so will need to be here until we remove it
 class ProtobufDataBuilderTest {
 
     private static Stream<Arguments> possibleFields() {

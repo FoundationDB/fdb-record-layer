@@ -90,13 +90,13 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
     @ExcludeFromJacocoGeneratedReport
     @Override
     @Deprecated
-    @SuppressWarnings("deprecation")
     default BigDecimal getBigDecimal(int columnIndex, int scale) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @ExcludeFromJacocoGeneratedReport
     @Override
+    @Deprecated
     default BigDecimal getBigDecimal(String columnLabel, int scale) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
@@ -200,13 +200,13 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
     @ExcludeFromJacocoGeneratedReport
     @Override
     @Deprecated
-    @SuppressWarnings("deprecation")
     default InputStream getUnicodeStream(int columnIndex) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @ExcludeFromJacocoGeneratedReport
     @Override
+    @Deprecated
     default InputStream getUnicodeStream(String columnLabel) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }

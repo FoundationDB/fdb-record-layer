@@ -41,7 +41,7 @@ import java.net.URI;
 import java.util.List;
 
 /**
- * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint
+ * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint.
  */
 public class DeleteRangeTest {
     private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b))";

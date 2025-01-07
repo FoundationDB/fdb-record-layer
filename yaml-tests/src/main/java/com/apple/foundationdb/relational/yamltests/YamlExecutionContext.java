@@ -53,6 +53,7 @@ public final class YamlExecutionContext {
     private final YamlRunner.YamlConnectionFactory connectionFactory;
     @Nonnull
     private final List<Block> finalizeBlocks = new ArrayList<>();
+    @SuppressWarnings("AbbreviationAsWordInName")
     private final List<String> connectionURIs = new ArrayList<>();
 
     public static class YamlExecutionError extends RuntimeException {
@@ -223,8 +224,7 @@ public final class YamlExecutionContext {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final List<String> inMemoryFile = new ArrayList<>();
         try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(classLoader.getResourceAsStream(resourcePath), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
+            for (String line = bufferedReader.readLine(); line != null; line = bufferedReader.readLine()) {
                 inMemoryFile.add(line);
             }
         } catch (IOException e) {

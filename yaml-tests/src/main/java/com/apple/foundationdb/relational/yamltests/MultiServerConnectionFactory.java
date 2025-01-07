@@ -101,6 +101,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     /**
      * A connection that wraps around multiple connections.
      */
+    @SuppressWarnings("PMD.CloseResource") // false-positive as constituent connections are closed when object is closed
     public static class MultiServerRelationalConnection implements RelationalConnection {
         private static final Logger logger = LogManager.getLogger(MultiServerRelationalConnection.class);
 

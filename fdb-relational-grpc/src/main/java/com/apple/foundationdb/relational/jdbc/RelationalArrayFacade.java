@@ -219,7 +219,7 @@ class RelationalArrayFacade implements RelationalArray {
         }
 
         @Override
-        public RelationalArrayBuilder addAll(@Nonnull Object[] value) throws SQLException {
+        public RelationalArrayBuilder addAll(@Nonnull Object... value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 
@@ -249,7 +249,7 @@ class RelationalArrayFacade implements RelationalArray {
         private void initOrCheckMetadata(ListColumnMetadata innerMetadata) {
             if (metadata == null) {
                 final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setJavaSqlTypesCode(Types.STRUCT);
-                builder.setStructMetadata((ListColumnMetadata) innerMetadata);
+                builder.setStructMetadata(innerMetadata);
                 metadata = builder.build();
             } else {
                 Assert.thatUnchecked(metadata.getJavaSqlTypesCode() == Types.STRUCT, ErrorCode.DATATYPE_MISMATCH, "dataType mismatch!");

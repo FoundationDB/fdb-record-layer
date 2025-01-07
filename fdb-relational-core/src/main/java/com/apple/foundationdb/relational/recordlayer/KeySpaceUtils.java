@@ -103,6 +103,7 @@ public final class KeySpaceUtils {
     /* ****************************************************************************************************************/
     /*private helper methods*/
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static KeySpacePath uriToPathRecursive(@Nonnull KeySpace keySpace,
                                     @Nonnull KeySpaceDirectory directory,
                                     KeySpacePath parentPath,
@@ -159,6 +160,7 @@ public final class KeySpaceUtils {
         }
 
         try {
+            // Deliberate pointer-equality check here
             if (directory.getParent() == keySpace.getRoot()) {
                 parentPath = keySpace.path(pathName, pathValue);
             } else {

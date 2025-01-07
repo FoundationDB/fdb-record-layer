@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
  * This is forked from apache-commons-codec as it shouldn't ever change. This should go away once we move to JDK17 which
  * has native support for this.
  */
+@SuppressWarnings({"PMD.ForLoopVariableCount", "PMD.AvoidReassigningLoopVariables"})
 public class Hex {
     public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
     private static final char[] DIGITS_LOWER =

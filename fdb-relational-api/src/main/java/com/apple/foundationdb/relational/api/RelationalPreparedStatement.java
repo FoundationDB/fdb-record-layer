@@ -223,6 +223,7 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
 
     @Override
     @ExcludeFromJacocoGeneratedReport
+    @Deprecated
     default void setUnicodeStream(int parameterIndex, InputStream x, int length) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }

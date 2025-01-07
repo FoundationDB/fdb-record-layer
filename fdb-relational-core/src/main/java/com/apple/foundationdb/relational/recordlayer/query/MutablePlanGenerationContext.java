@@ -249,8 +249,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      * AST into a {@link ConstantObjectValue}. This is necessary in cases where the literal is found
      * in a context that does not contribute to the logical plan such as {@code limit} and {@code continuation}.
      * @param supplier The closure to run with literal processing disabled.
-     * @return The result of the closure
      * @param <T> The type of the closure result.
+     * @return The result of the closure
      */
     @Nonnull
     public <T> T withDisabledLiteralProcessing(@Nonnull Supplier<T> supplier) {

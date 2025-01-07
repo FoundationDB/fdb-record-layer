@@ -212,4 +212,11 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @throws SQLException if something goes wrong. Use the error code to determine exactly what.
      */
     void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException;
+
+    /**
+     * Close method to free up resources managed by this statement.
+     * @throws SQLException for errors encountered while closing
+     */
+    @Override
+    void close() throws SQLException;
 }

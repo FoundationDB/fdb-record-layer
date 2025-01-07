@@ -43,11 +43,13 @@ import java.util.Optional;
  * Therefore, this class accepts _either_ an {@link EvaluationContext} or a {@link QueryPlanConstraint} as a member.
  * <br>
  *
- * @implNote I think a class similar to Scala's {@code Either} would serve us well in this case. Unfortunately, standard
+ * <p>
+ * Note: I think a class similar to Scala's {@code Either} would serve us well in this case. Unfortunately, standard
  * Java libraries do not have (yet) an {@code Either} implementation. Moreover, due to the special equality behavior
  * it is not recommended to use this class outside the current scope of it acting as a key in the secondary cache.
  * For more information about the cache structure, see {@link MultiStageCache} and examine the unit tests of this class
  * in {@code PhysicalPlanEquivalenceTests}.
+ * </p>
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class PhysicalPlanEquivalence {

@@ -51,6 +51,7 @@ public final class OrderByExpression {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private OrderByExpression withExpression(@Nonnull Expression expression) {
         if (this.expression == expression) {
             return this;

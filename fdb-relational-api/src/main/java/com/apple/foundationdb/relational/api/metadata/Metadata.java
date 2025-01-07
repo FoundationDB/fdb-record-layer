@@ -36,5 +36,5 @@ public interface Metadata {
     @Nonnull
     String getName();
 
-    void accept(@Nonnull final Visitor visitor);
+    void accept(@Nonnull Visitor visitor);
 }
