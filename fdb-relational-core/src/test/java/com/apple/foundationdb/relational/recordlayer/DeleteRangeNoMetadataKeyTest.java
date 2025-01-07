@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -46,6 +48,7 @@ import java.util.List;
  * Basic tests for {@link RelationalStatement#executeDeleteRange(String, KeySet, Options)} when the schema template
  * has records that share a single primary key extent.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DeleteRangeNoMetadataKeyTest {
     private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b)) " +
             "CREATE TABLE t2 (id bigint, a string, b string, e bigint, f boolean, PRIMARY KEY(id, a, b))";

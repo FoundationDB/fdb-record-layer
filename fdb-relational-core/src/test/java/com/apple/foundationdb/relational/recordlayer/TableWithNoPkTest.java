@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -45,6 +47,7 @@ import java.util.Collections;
 /**
  * A table with no primary key (but with a record-type key can contain only one row.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TableWithNoPkTest {
     @RegisterExtension
     @Order(0)

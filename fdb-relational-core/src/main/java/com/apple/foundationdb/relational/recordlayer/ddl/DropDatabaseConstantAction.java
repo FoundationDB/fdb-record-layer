@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -33,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import java.net.URI;
 import java.sql.SQLException;
 
+@API(API.Status.EXPERIMENTAL)
 public class DropDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
     private final boolean throwIfDoesNotExist;

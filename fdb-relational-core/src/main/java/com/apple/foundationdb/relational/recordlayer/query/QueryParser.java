@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
@@ -46,6 +48,7 @@ import java.util.List;
 /**
  * This parses a given SQL statement and returns an abstract syntax tree.
  */
+@API(API.Status.EXPERIMENTAL)
 public class QueryParser {
 
     @VisibleForTesting

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.ByteScanLimiterFactory;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -50,6 +52,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class QueryPropertiesTest {
     @RegisterExtension
     @Order(0)

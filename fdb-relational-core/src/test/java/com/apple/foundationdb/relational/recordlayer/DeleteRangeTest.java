@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -43,6 +45,7 @@ import java.util.List;
 /**
  * Basic tests for the RelationalDirectAccessStatement.executeDeleteRange endpoint
  */
+@API(API.Status.EXPERIMENTAL)
 public class DeleteRangeTest {
     private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b))";
 

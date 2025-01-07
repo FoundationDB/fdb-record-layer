@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 
@@ -35,7 +37,8 @@ import java.util.Set;
  * accidentally reusing a hinted {@link LogicalOperator} somewhere else in the plan where it hinted differently (or not
  * hinted at all).
  */
-public final class CatalogKey {
+@API(API.Status.EXPERIMENTAL)
+public class CatalogKey {
     @Nonnull
     private final Identifier identifier;
 

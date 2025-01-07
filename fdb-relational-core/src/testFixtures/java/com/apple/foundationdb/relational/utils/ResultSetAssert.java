@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.MutableRowStruct;
@@ -50,6 +52,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalResultSet> {
 
     public static ResultSetAssert assertThat(RelationalResultSet resultSet) {

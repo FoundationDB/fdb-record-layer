@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -43,6 +45,7 @@ import java.net.URI;
 import java.sql.SQLException;
 
 @NotThreadSafe
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerDatabase extends AbstractDatabase {
     private final FdbConnection fdbDb;
     private final RecordMetaDataStore metaDataStore;

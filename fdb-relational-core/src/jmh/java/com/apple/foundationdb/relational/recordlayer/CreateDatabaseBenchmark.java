@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -50,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Benchmark)
+@API(API.Status.EXPERIMENTAL)
 public class CreateDatabaseBenchmark extends EmbeddedRelationalBenchmark {
     static final String schema = "schema";
 

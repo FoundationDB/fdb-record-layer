@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -30,6 +32,7 @@ import java.util.Objects;
 /**
  * An implementation of {@link RelationalStruct} which is backed by a {@link Row} object.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ImmutableRowStruct extends RowStruct {
 
     private final Row theRow;

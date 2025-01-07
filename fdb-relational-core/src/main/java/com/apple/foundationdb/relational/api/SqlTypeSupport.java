@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -34,7 +36,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public final class SqlTypeSupport {
+@API(API.Status.EXPERIMENTAL)
+public class SqlTypeSupport {
     //TODO(bfines) eventually this should move into the Planner (or closer to there, anyway), but for now
     //we will hold on to it here
     private static final Set<String> KNOWN_PHANTOM_COLUMNS = Set.of("__TYPE_KEY");

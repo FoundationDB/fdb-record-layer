@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli.sqlline;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
@@ -43,6 +45,7 @@ import java.sql.SQLException;
 import java.util.Collections;
 
 @SuppressWarnings("PMD.AvoidPrintStackTrace")
+@API(API.Status.EXPERIMENTAL)
 public class RelationalSQLLine {
 
     public static void main(String[] args) throws SQLException {

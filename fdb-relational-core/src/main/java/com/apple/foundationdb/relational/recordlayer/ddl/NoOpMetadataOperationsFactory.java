@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -32,7 +34,8 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport //nothing to test
-public final class NoOpMetadataOperationsFactory implements MetadataOperationsFactory {
+@API(API.Status.EXPERIMENTAL)
+public class NoOpMetadataOperationsFactory implements MetadataOperationsFactory {
     public static final NoOpMetadataOperationsFactory INSTANCE = new NoOpMetadataOperationsFactory();
 
     private NoOpMetadataOperationsFactory() {

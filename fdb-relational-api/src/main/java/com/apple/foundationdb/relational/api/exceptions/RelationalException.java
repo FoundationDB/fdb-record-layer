@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalException extends Exception {
     private static final long serialVersionUID = 1L;
     private final ErrorCode errorCode;

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
@@ -37,7 +39,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public final class RecordLayerEngine {
+@API(API.Status.EXPERIMENTAL)
+public class RecordLayerEngine {
 
     public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
                                                     @Nonnull List<FDBDatabase> databases,

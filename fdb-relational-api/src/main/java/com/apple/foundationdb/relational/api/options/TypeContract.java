@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.api.options;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
+@API(API.Status.EXPERIMENTAL)
 public class TypeContract<T> implements OptionContract {
 
     @Nonnull

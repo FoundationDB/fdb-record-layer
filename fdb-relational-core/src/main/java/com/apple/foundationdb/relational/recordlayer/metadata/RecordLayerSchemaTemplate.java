@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -57,7 +59,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
 
-public final class RecordLayerSchemaTemplate implements SchemaTemplate {
+@API(API.Status.EXPERIMENTAL)
+public class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     private final String name;

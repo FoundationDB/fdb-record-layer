@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
@@ -43,7 +45,8 @@ import java.util.stream.IntStream;
 /**
  * set of utility functions to generate PB objects for testing.
  */
-public final class Utils {
+@API(API.Status.EXPERIMENTAL)
+public class Utils {
 
     static Random r = new Random(42);
 

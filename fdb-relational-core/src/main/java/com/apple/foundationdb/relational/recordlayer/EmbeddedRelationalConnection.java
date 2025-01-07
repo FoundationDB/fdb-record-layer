@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -87,6 +89,7 @@ import java.util.stream.Collectors;
  *     {@link EmbeddedRelationalConnection#canCommit()} to see if they are allowed to manage a transaction.</li>
  * </ul>
  */
+@API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalConnection implements RelationalConnection {
 
     /**

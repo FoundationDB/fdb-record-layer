@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -40,6 +42,7 @@ import java.sql.SQLException;
  * but they are included here as a kind of smoke test that runs earlier in the build that also can be more easily
  * run with a debugger.
  */
+@API(API.Status.EXPERIMENTAL)
 public class CountQueryTest {
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1 (id bigint, a string, b bigint, primary key (id)) " +

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.udf;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -34,9 +36,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public final class SumUdf extends UdfFunction {
+@API(API.Status.EXPERIMENTAL)
+public class SumUdf extends UdfFunction {
 
-    public final class SumUdfValue extends UdfValue {
+    @API(API.Status.EXPERIMENTAL)
+public class SumUdfValue extends UdfValue {
         public SumUdfValue(@Nonnull final Iterable<? extends Value> children, @Nonnull final Type resultType) {
             super(children, resultType);
         }

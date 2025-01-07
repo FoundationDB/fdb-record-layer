@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.transactionbound;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.TransactionManager;
@@ -37,6 +39,7 @@ import java.net.URI;
  * A thin implementation of {@link StorageCluster} creates a new {@link TransactionBoundDatabase}
  * when {@link #loadDatabase(URI, Options)} is called.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TransactionBoundStorageCluster implements StorageCluster {
     @Nullable
     private final RelationalPlanCache planCache;

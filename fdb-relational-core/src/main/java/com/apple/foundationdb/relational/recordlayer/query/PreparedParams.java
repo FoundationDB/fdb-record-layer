@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -33,7 +35,8 @@ import java.util.Map;
  * Warn: this class is stateful.
  * TODO (Make prepared statement parameters stateless)
  */
-public final class PreparedParams {
+@API(API.Status.EXPERIMENTAL)
+public class PreparedParams {
 
     @Nonnull
     private static final PreparedParams EMPTY_PARAMETERS = new PreparedParams(Map.of(), Map.of());

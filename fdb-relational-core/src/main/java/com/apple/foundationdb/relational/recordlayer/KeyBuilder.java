@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -47,6 +49,7 @@ import java.util.Objects;
 import java.util.Stack;
 import java.util.stream.IntStream;
 
+@API(API.Status.EXPERIMENTAL)
 public class KeyBuilder {
     private final RecordType typeForKey;
     private final KeyExpression key;

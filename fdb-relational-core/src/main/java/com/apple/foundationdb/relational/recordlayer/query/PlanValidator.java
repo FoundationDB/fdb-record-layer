@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
@@ -41,7 +43,8 @@ import java.util.Objects;
 import java.util.Set;
 
 @SuppressWarnings("PMD.MissingSerialVersionUID")
-public final class PlanValidator {
+@API(API.Status.EXPERIMENTAL)
+public class PlanValidator {
 
     private PlanValidator() {
     }

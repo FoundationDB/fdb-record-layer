@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -34,6 +36,7 @@ import java.nio.charset.StandardCharsets;
  * This is forked from apache-commons-codec as it shouldn't ever change. This should go away once we move to JDK17 which
  * has native support for this.
  */
+@API(API.Status.EXPERIMENTAL)
 public class Hex {
     public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
     private static final char[] DIGITS_LOWER =

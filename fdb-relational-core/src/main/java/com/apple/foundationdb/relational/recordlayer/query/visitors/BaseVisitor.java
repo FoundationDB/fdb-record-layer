@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -61,6 +63,7 @@ import java.util.Set;
  * cross-functional state.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@API(API.Status.EXPERIMENTAL)
 public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements TypedVisitor {
 
     private final boolean caseSensitive;

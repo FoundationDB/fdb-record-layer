@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -46,7 +48,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Optional;
 
-public final class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
+@API(API.Status.EXPERIMENTAL)
+public class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tautological-Value");
 

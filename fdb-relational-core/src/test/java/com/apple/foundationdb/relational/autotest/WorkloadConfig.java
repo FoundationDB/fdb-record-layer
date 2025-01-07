@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.autotest;
 
+import com.apple.foundationdb.annotation.API;
+
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import java.util.HashMap;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class WorkloadConfig implements ParameterResolver {
     public static final String SEED_KEY = "seed";
     public static final String SAMPLE_SIZE = "sampleSize";

@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class TypeDefinition {
     private final String name;
     //written this way rather than a map in order to preserve the order of columns in the specified list field

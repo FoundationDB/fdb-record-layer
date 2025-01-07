@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -32,6 +34,7 @@ import java.util.Objects;
  * This represents a string literal.
  */
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public class StringLiteral implements Literal<String, DataType.StringType> {
 
     @Nullable

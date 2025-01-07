@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -34,7 +36,8 @@ import java.util.function.Supplier;
 /**
  * Metadata describing what is in a {@link RelationalArray}.
  */
-public final class RelationalArrayMetaData implements ArrayMetaData {
+@API(API.Status.EXPERIMENTAL)
+public class RelationalArrayMetaData implements ArrayMetaData {
 
     private final FieldDescription element;
 

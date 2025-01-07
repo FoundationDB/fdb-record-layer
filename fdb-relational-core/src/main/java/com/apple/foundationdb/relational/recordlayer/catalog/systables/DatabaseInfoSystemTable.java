@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -37,6 +39,7 @@ import java.util.List;
  * This class represents the {@code DatabaseInfo} system table. This system table contains information
  * about all available databases.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DatabaseInfoSystemTable implements SystemTable {
     public static final String TABLE_NAME = SystemTableRegistry.DATABASE_TABLE_NAME;
 

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.metadata.Column;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.Schema;
@@ -33,6 +35,7 @@ import javax.annotation.Nonnull;
  * This is a no-op {@link Visitor} added to make convenient to implement other visitors
  * targeting specific {@link com.apple.foundationdb.relational.api.metadata.Metadata} artifacts.
  */
+@API(API.Status.EXPERIMENTAL)
 public class SkeletonVisitor implements Visitor {
     @Override
     public void visit(@Nonnull final Table table) {

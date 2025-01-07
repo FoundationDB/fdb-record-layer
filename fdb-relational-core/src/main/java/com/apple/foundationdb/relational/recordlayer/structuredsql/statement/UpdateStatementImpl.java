@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql.statement;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -69,6 +71,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class UpdateStatementImpl implements UpdateStatement {
 
     @Nonnull

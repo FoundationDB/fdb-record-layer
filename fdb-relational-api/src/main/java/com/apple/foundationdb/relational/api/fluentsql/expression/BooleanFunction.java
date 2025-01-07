@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -35,6 +37,7 @@ import java.util.stream.Collectors;
  * This represents a boolean function.
  */
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public class BooleanFunction implements BooleanExpressionTrait, FunctionLike<DataType.BooleanType> {
 
     @Nonnull

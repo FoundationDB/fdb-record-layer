@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -44,6 +46,7 @@ import javax.annotation.Nonnull;
  *   <li> Loads the schema template for a given (name, version) with a NoOpSchemaTemplate with the (name, version).</li>
  * </ul>
  */
+@API(API.Status.EXPERIMENTAL)
 public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
     @Override

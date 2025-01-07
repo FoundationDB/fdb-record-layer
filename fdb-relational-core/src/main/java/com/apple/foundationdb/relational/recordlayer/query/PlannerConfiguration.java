@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
@@ -41,7 +43,8 @@ import java.util.Set;
  * </ul>
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public final class PlannerConfiguration {
+@API(API.Status.EXPERIMENTAL)
+public class PlannerConfiguration {
 
     @Nonnull
     private static final PlannerConfiguration ALL_AVAILABLE_INDEXES = new PlannerConfiguration(Optional.empty());

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -47,6 +49,7 @@ import static org.assertj.core.api.Assertions.atIndex;
 /**
  * Tests for our basic ability to get Table and Database Metadata from the Connection.
  */
+@API(API.Status.EXPERIMENTAL)
 public class BasicMetadataTest {
     @RegisterExtension
     @Order(0)

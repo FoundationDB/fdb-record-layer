@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -52,6 +54,7 @@ import java.util.Map;
  * copying of test extension Rule logic. We copy because test Rules expect embedded jdbc driver where here we want to
  * exercise the remote jdbc client.
  */
+@API(API.Status.EXPERIMENTAL)
 public class SimpleDirectAccessInsertionTests {
     private static RelationalServer relationalServer;
     private static final String SCHEMA_NAME = "TEST_SCHEMA";

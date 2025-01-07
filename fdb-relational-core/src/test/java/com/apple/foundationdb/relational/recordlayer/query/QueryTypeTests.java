@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 
 import org.junit.jupiter.api.Assertions;
@@ -36,6 +38,7 @@ import java.util.stream.Stream;
 /**
  * Verifies that {@link QueryParser#parse(String)} returns the correct query type.
  */
+@API(API.Status.EXPERIMENTAL)
 public class QueryTypeTests {
 
     static class QueriesProvider implements ArgumentsProvider {

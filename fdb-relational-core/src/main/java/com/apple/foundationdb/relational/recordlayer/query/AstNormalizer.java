@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -92,7 +94,8 @@ import java.util.function.Supplier;
 @SuppressWarnings({"UnstableApiUsage", "PMD.AvoidStringBufferField"})
 // AstHasher is short-lived, therefore, using StringBuilder is ok.
 @NotThreadSafe
-public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
+@API(API.Status.EXPERIMENTAL)
+public class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     private final Hasher hashFunction;

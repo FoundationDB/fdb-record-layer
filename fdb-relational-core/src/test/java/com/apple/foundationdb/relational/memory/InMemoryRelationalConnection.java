@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.memory;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
@@ -45,6 +47,7 @@ import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Struct;
 
+@API(API.Status.EXPERIMENTAL)
 public class InMemoryRelationalConnection implements RelationalConnection {
     final InMemoryCatalog catalog;
 

@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
+@API(API.Status.EXPERIMENTAL)
 public class ValueTuple extends AbstractRow {
     private Object obj;
 

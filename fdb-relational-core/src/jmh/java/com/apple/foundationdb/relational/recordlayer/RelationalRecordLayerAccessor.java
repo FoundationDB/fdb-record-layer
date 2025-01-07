@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
 
 import java.net.URI;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalRecordLayerAccessor {
 
     private final URI dbName;

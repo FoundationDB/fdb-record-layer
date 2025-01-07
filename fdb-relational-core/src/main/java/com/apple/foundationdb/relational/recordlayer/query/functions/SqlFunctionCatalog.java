@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -37,7 +39,8 @@ import static java.util.stream.Collectors.toList;
 /**
  * A catalog of built-in SQL functions.
  */
-public final class SqlFunctionCatalog implements FunctionCatalog {
+@API(API.Status.EXPERIMENTAL)
+public class SqlFunctionCatalog implements FunctionCatalog {
 
     @Nonnull
     private static final AutoServiceFunctionCatalog underlying = AutoServiceFunctionCatalog.instance();

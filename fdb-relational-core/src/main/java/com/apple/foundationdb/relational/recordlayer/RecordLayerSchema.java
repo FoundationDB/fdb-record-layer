@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
@@ -35,6 +37,7 @@ import java.util.Map;
 
 @NotThreadSafe
 @ConnectionScoped
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerSchema implements DatabaseSchema {
     private final AbstractDatabase db;
     //could be accessed through the database, but this seems convenient

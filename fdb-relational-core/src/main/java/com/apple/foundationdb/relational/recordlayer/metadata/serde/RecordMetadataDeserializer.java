@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -36,6 +38,7 @@ import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class RecordMetadataDeserializer {
 
     @Nonnull

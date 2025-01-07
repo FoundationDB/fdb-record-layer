@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -31,6 +33,7 @@ import java.net.URI;
 /**
  * A RecordMetaDataStore that relies on the StoreCatalog to provide it with information.
  */
+@API(API.Status.EXPERIMENTAL)
 public class CatalogMetaDataStore implements RecordMetaDataStore {
     private final StoreCatalog storeCatalog;
 

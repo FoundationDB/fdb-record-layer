@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.util.Assert;
@@ -33,6 +35,7 @@ import java.net.URISyntaxException;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+@API(API.Status.EXPERIMENTAL)
 public class Ddl implements AutoCloseable {
     @Nonnull
     private final SchemaTemplateRule templateRule;

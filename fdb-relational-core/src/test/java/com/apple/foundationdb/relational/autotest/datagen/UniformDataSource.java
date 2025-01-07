@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
+import com.apple.foundationdb.annotation.API;
+
 import java.util.Random;
 
 /**
  * A uniformly-distributed random data source based on java.util.Random.
  */
+@API(API.Status.EXPERIMENTAL)
 public class UniformDataSource implements RandomDataSource {
     private final Random random;
     private final int maxStringLength;

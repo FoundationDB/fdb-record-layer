@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -38,6 +40,7 @@ import java.sql.Types;
 import java.util.Iterator;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalStructAssert extends AbstractAssert<RelationalStructAssert, RelationalStruct> {
     RelationalStructAssert(RelationalStruct row) {
         super(row, RelationalStructAssert.class);

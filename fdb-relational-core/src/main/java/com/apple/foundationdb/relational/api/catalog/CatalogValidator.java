@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
 import javax.annotation.Nonnull;
 
-public final class CatalogValidator {
+@API(API.Status.EXPERIMENTAL)
+public class CatalogValidator {
 
     // this seems superfluous, it can be replaced with proper checks in {@link Schema} constructor.
     public static void validateSchema(@Nonnull Schema schema) throws RelationalException {

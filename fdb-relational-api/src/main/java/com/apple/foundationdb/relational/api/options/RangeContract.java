@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.relational.api.options;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
-public final class RangeContract<T extends Comparable<T>> implements OptionContract {
+@API(API.Status.EXPERIMENTAL)
+public class RangeContract<T extends Comparable<T>> implements OptionContract {
     private final T min;
     private final T max;
 

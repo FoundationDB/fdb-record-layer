@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -44,6 +46,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 
+@API(API.Status.EXPERIMENTAL)
 public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull

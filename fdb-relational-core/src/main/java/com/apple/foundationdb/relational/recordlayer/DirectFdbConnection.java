@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -30,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.codahale.metrics.MetricRegistry;
 
+@API(API.Status.EXPERIMENTAL)
 public class DirectFdbConnection implements FdbConnection {
     private final FDBDatabase fdb;
     private final TransactionManager txnManager;

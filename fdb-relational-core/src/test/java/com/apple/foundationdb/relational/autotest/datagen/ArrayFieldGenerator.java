@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
@@ -27,6 +29,7 @@ import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
+@API(API.Status.EXPERIMENTAL)
 public class ArrayFieldGenerator implements FieldGenerator {
     private final String fieldName;
     private final FieldGenerator arrayGenerator;

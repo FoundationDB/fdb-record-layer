@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -36,6 +38,7 @@ import java.util.Iterator;
  * Placeholder result set until better generic abstractions come along.
  */
 @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentionally exposed for performance reasons")
+@API(API.Status.EXPERIMENTAL)
 public class IteratorResultSet extends AbstractRecordLayerResultSet {
 
     private final Iterator<? extends Row> rowIter;

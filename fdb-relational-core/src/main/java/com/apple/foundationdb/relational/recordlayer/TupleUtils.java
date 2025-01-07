@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-public final class TupleUtils {
+@API(API.Status.EXPERIMENTAL)
+public class TupleUtils {
 
     public static Tuple toFDBTuple(Row relationalTuple) throws RelationalException {
         if (!(relationalTuple instanceof FDBTuple)) {

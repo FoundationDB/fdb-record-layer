@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
@@ -41,6 +43,7 @@ import java.sql.Statement;
 /**
  * Run some simple Statement updates/executes against a remote Relational DB.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ServerSideExceptionsOnClientSideTest {
     private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
     private static final String TESTDB = "/test_db";

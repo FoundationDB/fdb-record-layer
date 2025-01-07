@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
@@ -33,6 +35,7 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
 
+@API(API.Status.EXPERIMENTAL)
 public class ArrayMetaDataAssert extends AbstractAssert<ArrayMetaDataAssert, ArrayMetaData> {
 
     public static ArrayMetaDataAssert assertThat(ArrayMetaData actual) {

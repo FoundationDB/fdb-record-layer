@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 
 import java.sql.SQLException;
 import java.sql.Types;
 
+@API(API.Status.EXPERIMENTAL)
 public class PrimitiveFieldGenerator implements FieldGenerator {
     private final String fieldName;
     private final int fieldSqlType;

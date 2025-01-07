@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -34,7 +36,8 @@ import java.util.function.Supplier;
  * Note that this representation is indicative of JDBC-API level information. That is, it is used to hold
  * information that is necessary to represent a given column field in a JDBC MetaData API.
  */
-public final class FieldDescription {
+@API(API.Status.EXPERIMENTAL)
+public class FieldDescription {
     private final String fieldName;
     private final int sqlTypeCode; //taken from java.sql.Types
 

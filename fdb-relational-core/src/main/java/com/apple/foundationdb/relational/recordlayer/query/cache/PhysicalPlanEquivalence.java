@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -50,7 +52,8 @@ import java.util.Optional;
  * in {@code PhysicalPlanEquivalenceTests}.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public final class PhysicalPlanEquivalence {
+@API(API.Status.EXPERIMENTAL)
+public class PhysicalPlanEquivalence {
 
     @Nonnull
     private final Optional<QueryPlanConstraint> constraint;

@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalArrayFacadeTest {
     @Test
     public void testAddBasicStruct() throws SQLException {

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -71,6 +73,7 @@ import java.util.stream.IntStream;
 @BenchmarkMode({Mode.AverageTime, Mode.SampleTime})
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
+@API(API.Status.EXPERIMENTAL)
 public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
     static final String dbName = "/BENCHMARKS/SimplePlanCaching";
 

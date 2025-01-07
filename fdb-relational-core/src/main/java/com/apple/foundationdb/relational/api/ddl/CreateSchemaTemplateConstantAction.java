@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -27,6 +29,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
 
+@API(API.Status.EXPERIMENTAL)
 public class CreateSchemaTemplateConstantAction implements ConstantAction {
     private final SchemaTemplate template;
     private final SchemaTemplateCatalog catalog;

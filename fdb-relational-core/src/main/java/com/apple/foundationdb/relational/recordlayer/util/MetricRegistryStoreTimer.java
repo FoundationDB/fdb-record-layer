@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.util.MapUtils;
 
@@ -40,6 +42,7 @@ import java.util.concurrent.TimeUnit;
  * StoreTimer instance that will pass through the StoreTimer metrics to the MetricRegistry. This class provides
  * that adaptation.
  */
+@API(API.Status.EXPERIMENTAL)
 public class MetricRegistryStoreTimer extends FDBStoreTimer {
     private final MetricRegistry registry;
 

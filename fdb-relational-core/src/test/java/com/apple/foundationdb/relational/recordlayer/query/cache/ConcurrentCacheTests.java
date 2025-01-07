@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -49,6 +51,7 @@ import static com.apple.foundationdb.relational.recordlayer.query.QueryExecution
 /**
  * This tests concurrent behavior of the tertiary cache.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ConcurrentCacheTests {
 
     @Nonnull

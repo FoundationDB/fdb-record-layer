@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -35,7 +37,8 @@ import java.sql.SQLException;
 /**
  * A collection of entry points for various Relational-specific assertJ assertion matchers.
  */
-public final class RelationalAssertions {
+@API(API.Status.EXPERIMENTAL)
+public class RelationalAssertions {
 
     public static RelationalAssert assertThat(Object o) {
         return new RelationalAssert(o);

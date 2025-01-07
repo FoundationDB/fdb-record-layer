@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import org.assertj.core.api.AbstractAssert;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalAssert extends AbstractAssert<RelationalAssert, Object> {
     protected RelationalAssert(Object o) {
         super(o, Object.class);

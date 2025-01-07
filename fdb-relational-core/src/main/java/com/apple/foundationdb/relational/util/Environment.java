@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
+@API(API.Status.EXPERIMENTAL)
 public class Environment {
 
     /**

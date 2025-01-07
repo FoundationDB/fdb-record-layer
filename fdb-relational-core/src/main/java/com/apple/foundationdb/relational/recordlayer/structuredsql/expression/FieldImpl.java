@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -33,6 +35,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+@API(API.Status.EXPERIMENTAL)
 public class FieldImpl<T extends DataType> implements Field<T> {
     @Nonnull
     private final Iterable<String> parts;

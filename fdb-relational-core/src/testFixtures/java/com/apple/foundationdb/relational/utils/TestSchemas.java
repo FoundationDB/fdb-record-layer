@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 
 /**
  * A Set of commonly used schema template configurations, so that we aren't copy-and-pasting the same DDL logic
  * everywhere.
  */
-public final class TestSchemas {
+@API(API.Status.EXPERIMENTAL)
+public class TestSchemas {
 
     private TestSchemas() {
     }

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
@@ -45,6 +47,7 @@ import java.util.stream.Stream;
  *
  * @param <T> the type of the field.
  */
+@API(API.Status.EXPERIMENTAL)
 public class UserDefinedField<T extends DataType> implements Field<T> {
 
     @Nonnull

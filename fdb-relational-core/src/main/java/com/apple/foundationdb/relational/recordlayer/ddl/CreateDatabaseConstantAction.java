@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -31,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import javax.annotation.Nonnull;
 import java.net.URI;
 
+@API(API.Status.EXPERIMENTAL)
 public class CreateDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
 

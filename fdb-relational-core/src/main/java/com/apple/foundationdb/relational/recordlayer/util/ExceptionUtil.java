@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -35,7 +37,8 @@ import com.google.common.base.VerifyException;
 import java.sql.SQLException;
 import java.util.Map;
 
-public final class ExceptionUtil {
+@API(API.Status.EXPERIMENTAL)
+public class ExceptionUtil {
     public static RelationalException toRelationalException(Throwable re) {
         if (re instanceof RelationalException) {
             return (RelationalException) re;

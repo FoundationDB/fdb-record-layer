@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql.statement;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.fluentsql.statement.StatementBuilderFactory;
@@ -32,6 +34,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class StatementBuilderFactoryImpl implements StatementBuilderFactory {
 
     @Nonnull

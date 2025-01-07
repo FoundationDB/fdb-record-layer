@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 
@@ -39,6 +41,7 @@ import java.time.Instant;
  * @see RelationalServer
  */
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})
+@API(API.Status.EXPERIMENTAL)
 public class InProcessRelationalServer implements Closeable {
     private Server grpcInProcessServer;
     private FRL frl;

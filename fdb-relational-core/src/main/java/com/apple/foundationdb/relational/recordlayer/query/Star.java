@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -43,7 +45,8 @@ import java.util.stream.Collectors;
  * (in terms of other {@link Expression}(s).
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public final class Star extends Expression {
+@API(API.Status.EXPERIMENTAL)
+public class Star extends Expression {
 
     @Nonnull
     private final List<Expression> expansion;

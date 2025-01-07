@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.metrics;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.codahale.metrics.MetricRegistry;
@@ -35,7 +37,8 @@ import javax.annotation.Nonnull;
  * to translate at all). What is the story for clients? RL is codahale?
  */
 @ExcludeFromJacocoGeneratedReport //it doesn't do anything to be tested
-public final class NoOpMetricRegistry {
+@API(API.Status.EXPERIMENTAL)
+public class NoOpMetricRegistry {
 
     @Nonnull
     public static final MetricRegistry INSTANCE = new NoopMetricRegistry();

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -44,6 +46,7 @@ import java.sql.SQLException;
 /**
  * Test case-sensitive db object connection option.
  */
+@API(API.Status.EXPERIMENTAL)
 public class CaseSensitiveDbObjectsTest {
     private static final String SCHEMA_TEMPLATE = " " +
             "CREATE TABLE \"t1\" (\"group\" bigint, \"id\" string, \"val\" bigint, PRIMARY KEY(\"group\", \"id\")) ";

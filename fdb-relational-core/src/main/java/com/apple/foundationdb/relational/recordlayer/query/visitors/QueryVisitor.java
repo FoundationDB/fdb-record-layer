@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
@@ -61,7 +63,8 @@ import java.util.Set;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
-public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
+@API(API.Status.EXPERIMENTAL)
+public class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private QueryVisitor(@Nonnull BaseVisitor baseVisitor) {
         super(baseVisitor);
@@ -412,6 +415,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         // TODO (Rethink how execute continuation works)
         throw Assert.failUnchecked("execute package should not be handled here");
+
+import com.apple.foundationdb.annotation.API;
     }
 
     @Nonnull

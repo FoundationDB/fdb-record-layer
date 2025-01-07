@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -42,6 +44,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSetAssert, RelationalResultSet> {
     protected RelationalResultSetAssert(RelationalResultSet relationalResultSet) {
         super(relationalResultSet, RelationalResultSetAssert.class);

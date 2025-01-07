@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -63,7 +65,8 @@ import java.util.stream.Stream;
 /**
  * This visits expression tree parse nodes and generates a corresponding {@link Expression}.
  */
-public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
+@API(API.Status.EXPERIMENTAL)
+public class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private ExpressionVisitor(@Nonnull BaseVisitor baseVisitor) {
         super(baseVisitor);

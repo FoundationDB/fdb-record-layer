@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.relational.util.Assert;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
+@API(API.Status.EXPERIMENTAL)
 public class LogicalOperators implements Iterable<LogicalOperator> {
 
     @Nonnull

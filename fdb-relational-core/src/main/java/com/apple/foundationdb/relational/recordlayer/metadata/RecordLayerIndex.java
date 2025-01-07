@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -33,7 +35,8 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 
-public final class RecordLayerIndex implements Index  {
+@API(API.Status.EXPERIMENTAL)
+public class RecordLayerIndex implements Index  {
 
     @Nonnull
     private final String tableName;

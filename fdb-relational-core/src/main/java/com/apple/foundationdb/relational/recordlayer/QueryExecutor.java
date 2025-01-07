@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
@@ -41,6 +43,7 @@ import javax.annotation.Nullable;
 /**
  * A query executor that executes a plan and returns its results.
  */
+@API(API.Status.EXPERIMENTAL)
 public class QueryExecutor {
     private final RecordLayerSchema schema;
     private final RecordQueryPlan plan;

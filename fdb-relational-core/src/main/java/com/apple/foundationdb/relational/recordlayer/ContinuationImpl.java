@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -35,7 +37,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 
-public final class ContinuationImpl implements Continuation {
+@API(API.Status.EXPERIMENTAL)
+public class ContinuationImpl implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
     public static final ContinuationImpl BEGIN = new ContinuationImpl((byte[]) null);
@@ -124,6 +127,8 @@ public final class ContinuationImpl implements Continuation {
 
     /**
      * Return the compiled statement proto if a package is contained inside the continuation.
+
+import com.apple.foundationdb.annotation.API;
      * @return the {@link CompiledStatement}.
      */
     @Nullable

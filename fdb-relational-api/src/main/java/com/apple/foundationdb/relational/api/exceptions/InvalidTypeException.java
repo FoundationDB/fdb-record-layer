@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
+import com.apple.foundationdb.annotation.API;
+
+@API(API.Status.EXPERIMENTAL)
 public class InvalidTypeException extends RelationalException {
     private static final long serialVersionUID = 1L;
 

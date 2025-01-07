@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli.sqlline;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import sqlline.BuiltInProperty;
@@ -45,6 +47,7 @@ import java.util.Map;
  // Overriding {@link #getDefaultInteractiveMode()}, and {@link #getConnectInteractiveModes()} doesn't work -- bug
  // because sqlline does this <code>new HashSet<>(new Application().getConnectInteractiveModes()))</code> -- so we have
  // an ugly workaround in the below to avoid folks have to supply name and password every time (the default).
+@API(API.Status.EXPERIMENTAL)
 public class Customize extends sqlline.Application {
     /**
      * Override to fix a bug in sqlline customization; an oversight prevents us being able to set the

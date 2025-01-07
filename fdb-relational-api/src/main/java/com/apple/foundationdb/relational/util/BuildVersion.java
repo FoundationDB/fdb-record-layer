@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -43,7 +45,8 @@ import java.util.Properties;
  * major or minor parts of version string.
  * Obtain the singleton instance by calling {@link #getInstance()}}
  */
-public final class BuildVersion {
+@API(API.Status.EXPERIMENTAL)
+public class BuildVersion {
     private static BuildVersion instance;
     private static final String VERSIONS_PROPERTIES_FILENAME = "version.properties";
     private final Properties versionProperties = new Properties();

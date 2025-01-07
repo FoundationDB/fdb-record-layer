@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -48,6 +50,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Basic integration tests outlining the full process of using Relational to insert and scan records from a database.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TableTest {
     @RegisterExtension
     @Order(0)

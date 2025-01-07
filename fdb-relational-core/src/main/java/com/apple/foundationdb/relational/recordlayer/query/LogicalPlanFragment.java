@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.util.Assert;
@@ -36,7 +38,8 @@ import java.util.Set;
  * This represents an SQL fragment that comprises one or more {@link LogicalOperator}(s).
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public final class LogicalPlanFragment {
+@API(API.Status.EXPERIMENTAL)
+public class LogicalPlanFragment {
 
     @Nonnull
     private final Optional<LogicalPlanFragment> parent;

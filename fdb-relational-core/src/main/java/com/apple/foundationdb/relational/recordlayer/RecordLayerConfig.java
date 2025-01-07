@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
@@ -35,7 +37,8 @@ import java.util.zip.Deflater;
 /**
  * Holder object for RecordLayer-specific stuff that isn't directly tied to an actual FDB StorageCluster.
  */
-public final class RecordLayerConfig {
+@API(API.Status.EXPERIMENTAL)
+public class RecordLayerConfig {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final RecordSerializer<Message> serializer;
     private final int formatVersion;

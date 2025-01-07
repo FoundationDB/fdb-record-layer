@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
@@ -43,6 +45,7 @@ import java.util.Set;
 /**
  * Tests around using Struct data types in Returned ResultSets.
  */
+@API(API.Status.EXPERIMENTAL)
 public class StructDataMetadataTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();

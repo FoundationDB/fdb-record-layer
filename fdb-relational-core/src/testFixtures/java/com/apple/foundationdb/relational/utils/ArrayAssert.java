@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 
 import org.assertj.core.api.AbstractAssert;
@@ -32,6 +34,7 @@ import java.sql.SQLException;
 /**
  * assertj assertion for handling java.sql.Array objects
  */
+@API(API.Status.EXPERIMENTAL)
 public class ArrayAssert extends AbstractAssert<ArrayAssert, Array> {
     protected ArrayAssert(Array array) {
         super(array, ArrayAssert.class);

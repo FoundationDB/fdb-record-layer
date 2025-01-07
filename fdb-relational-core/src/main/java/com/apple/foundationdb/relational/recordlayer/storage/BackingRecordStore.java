@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.storage;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -68,7 +70,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-public final class BackingRecordStore implements BackingStore {
+@API(API.Status.EXPERIMENTAL)
+public class BackingRecordStore implements BackingStore {
     private final Transaction transaction;
     private final FDBRecordStoreBase<Message> recordStore;
 

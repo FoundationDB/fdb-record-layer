@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+@API(API.Status.EXPERIMENTAL)
 public class TransactionConfigTest {
     @RegisterExtension
     @Order(0)

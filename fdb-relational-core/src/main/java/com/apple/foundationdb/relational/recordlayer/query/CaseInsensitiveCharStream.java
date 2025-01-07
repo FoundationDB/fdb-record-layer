@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.IntStream;
@@ -31,6 +33,7 @@ import javax.annotation.Nonnull;
  * A {@link IntStream} stream, that enables allows a case-sensitive {@link org.antlr.v4.runtime.Lexer}
  * to become case-insensitive by upper-casing the stream of symbols arriving to it.
  */
+@API(API.Status.EXPERIMENTAL)
 public class CaseInsensitiveCharStream implements CharStream {
 
     /** Character stream. */

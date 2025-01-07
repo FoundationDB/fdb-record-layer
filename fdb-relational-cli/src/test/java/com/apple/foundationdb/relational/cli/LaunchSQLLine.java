@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import java.io.IOException;
@@ -31,6 +33,7 @@ import java.io.IOException;
  * To run statements, you will need to copy and paste your statements into the intellij terminal window.
  */
 @ExcludeFromJacocoGeneratedReport // Test utility only.
+@API(API.Status.EXPERIMENTAL)
 public class LaunchSQLLine {
     public static void main(String[] args/*Ignored*/) throws IOException {
         // Read [SQLLINE-80] to see why maxWidth must be set

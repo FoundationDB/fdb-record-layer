@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -30,6 +32,7 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalLoggingUtil {
     public static void publishPlanGenerationLogs(Logger logger, KeyValueLogMessage message, @Nullable Plan<?> plan,
                                                  @Nullable RelationalException e, long totalTime, Options options) {

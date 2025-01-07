@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 /**
  * The field positional offset/index is zero-based in protobuf but one-based in JDBC. Below is small utility
  * for going between the different indexing modes.
  */
+@API(API.Status.EXPERIMENTAL)
 public class PositionalIndex {
     /**
      * Adjust 'oneBasedIndex' so can be used as a zero-based protobuf index.

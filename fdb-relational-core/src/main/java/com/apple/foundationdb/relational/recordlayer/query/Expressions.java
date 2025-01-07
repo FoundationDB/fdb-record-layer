@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
@@ -44,7 +46,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public final class Expressions implements Iterable<Expression> {
+@API(API.Status.EXPERIMENTAL)
+public class Expressions implements Iterable<Expression> {
 
     @Nonnull
     private static final Expressions EMPTY = new Expressions(ImmutableList.of());

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -58,6 +60,7 @@ import java.util.Collections;
  * the setup and teardown and less stringent since lots of JDBC is not implemented in
  * the fdb-relational-core.
  */
+@API(API.Status.EXPERIMENTAL)
 public class JDBCEmbedDriverTest {
 
     private static RelationalDriver driver;

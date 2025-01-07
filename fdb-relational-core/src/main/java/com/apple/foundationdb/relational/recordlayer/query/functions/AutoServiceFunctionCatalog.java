@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
@@ -32,7 +34,8 @@ import com.google.common.collect.ImmutableBiMap;
 import javax.annotation.Nonnull;
 import java.util.Locale;
 
-public final class AutoServiceFunctionCatalog implements FunctionCatalog {
+@API(API.Status.EXPERIMENTAL)
+public class AutoServiceFunctionCatalog implements FunctionCatalog {
 
     @Nonnull
     private static final AutoServiceFunctionCatalog INSTANCE = new AutoServiceFunctionCatalog();

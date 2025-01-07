@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.relational.api.metrics;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalMetric {
 
     private static final String RELATIONAL_TITLE_PREFIX = "Relational";

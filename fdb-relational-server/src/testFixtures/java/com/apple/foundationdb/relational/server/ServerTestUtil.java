@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.annotation.API;
+
 import io.prometheus.client.CollectorRegistry;
 
 import java.io.IOException;
@@ -30,7 +32,8 @@ import org.apache.logging.log4j.Logger;
 /**
  * Stand up a server for downstream modules to use in test.
  */
-public final class ServerTestUtil {
+@API(API.Status.EXPERIMENTAL)
+public class ServerTestUtil {
     private static final Logger logger = LogManager.getLogger(ServerTestUtil.class.getName());
     private static final int PORT_RETRY_MAX = 100;
 

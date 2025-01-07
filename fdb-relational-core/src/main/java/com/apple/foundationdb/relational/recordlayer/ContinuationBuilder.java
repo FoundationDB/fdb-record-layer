@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.ContinuationProto;
@@ -33,6 +35,7 @@ import javax.annotation.Nonnull;
  * The {@link ContinuationImpl} is immutable. This builder class allows a continuation to be built from scratch as well
  * mutated (via creating a builder from an existing continuation and then modifying).
  */
+@API(API.Status.EXPERIMENTAL)
 public class ContinuationBuilder {
     @Nonnull
     private final ContinuationProto.Builder proto;

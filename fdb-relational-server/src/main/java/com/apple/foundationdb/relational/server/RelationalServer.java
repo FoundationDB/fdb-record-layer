@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
@@ -73,6 +75,7 @@ import java.util.stream.Collectors;
 // We now have an httpserver for metrics; could use it for REST commands and exposing current configuration.
 // TODO: Update health service state as we go; i.e. make it 'live'.
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})
+@API(API.Status.EXPERIMENTAL)
 public class RelationalServer implements Closeable {
     // GRPC uses JUL.
     private static final Logger logger = LogManager.getLogger(RelationalServer.class.getName());

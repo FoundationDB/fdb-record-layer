@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metric;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import javax.annotation.Nonnull;
 import java.net.URI;
 
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerMetricCollectorTest {
 
     private static final String schemaTemplate =

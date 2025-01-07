@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -45,7 +47,8 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INTERNAL_ERROR;
 
-public final class LiteralsUtils {
+@API(API.Status.EXPERIMENTAL)
+public class LiteralsUtils {
     private LiteralsUtils() {
         // prevent instantiation
     }

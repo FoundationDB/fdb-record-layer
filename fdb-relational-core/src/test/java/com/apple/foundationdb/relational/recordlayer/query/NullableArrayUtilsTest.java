@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class NullableArrayUtilsTest {
     @Test
     void testGetRepeatedFieldName() {

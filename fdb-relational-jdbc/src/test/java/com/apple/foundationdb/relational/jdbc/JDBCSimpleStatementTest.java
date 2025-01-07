@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -41,6 +43,7 @@ import java.sql.Types;
 /**
  * Run some simple Statement updates/executes against a remote Relational DB.
  */
+@API(API.Status.EXPERIMENTAL)
 public class JDBCSimpleStatementTest {
     private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
     private static final String TESTDB = "/FRL/jdbc_test_db";

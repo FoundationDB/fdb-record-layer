@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
@@ -79,6 +81,7 @@ import java.util.stream.Stream;
  * Tests that verify that the language behaves correctly and has nice features and stuff. It does _not_ verify
  * that the underlying execution is correct, only that the language is parsed as expected.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DdlStatementParsingTest {
     @RegisterExtension
     @Order(0)

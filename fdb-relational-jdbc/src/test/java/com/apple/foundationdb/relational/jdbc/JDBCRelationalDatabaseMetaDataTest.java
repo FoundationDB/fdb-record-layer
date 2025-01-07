@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.SQLException;
 import java.util.Properties;
 
+@API(API.Status.EXPERIMENTAL)
 public class JDBCRelationalDatabaseMetaDataTest {
     private static RelationalDatabaseMetaData databaseMetaData;
     private static RelationalConnection connection;

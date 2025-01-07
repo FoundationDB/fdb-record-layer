@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -37,7 +39,8 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Objects;
 
-public final class KeySpaceUtils {
+@API(API.Status.EXPERIMENTAL)
+public class KeySpaceUtils {
 
     @Nonnull
     public static URI pathToUri(@Nonnull KeySpacePath dbPath) {

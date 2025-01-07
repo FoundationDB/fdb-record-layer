@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -34,6 +36,7 @@ import java.util.Objects;
  * @param <D> The type of the expression.
  */
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public class NumericLiteral<N extends Number, D extends DataType.NumericType> implements Literal<N, D>, NumericExpressionTrait<D> {
 
     @Nonnull

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.compare;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -34,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalStructure {
     private final Map<String, Table> tables;
     private final Map<String, AtomicLong> recordIdCounters = new HashMap<>();

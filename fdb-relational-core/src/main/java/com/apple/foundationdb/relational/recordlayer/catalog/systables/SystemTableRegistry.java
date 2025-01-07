@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
@@ -31,7 +33,8 @@ import java.util.Map;
  * bootstrapping.
  */
 @ExcludeFromJacocoGeneratedReport //We don't need to test map accesses
-public final class SystemTableRegistry {
+@API(API.Status.EXPERIMENTAL)
+public class SystemTableRegistry {
 
     public static final long SCHEMA_RECORD_TYPE_KEY = 0L;
     public static final long DATABASE_INFO_RECORD_TYPE_KEY = 1L;

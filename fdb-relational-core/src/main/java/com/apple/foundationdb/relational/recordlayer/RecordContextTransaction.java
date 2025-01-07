@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -40,6 +42,7 @@ import java.util.List;
  * no longer valid
  */
 @ConnectionScoped
+@API(API.Status.EXPERIMENTAL)
 public class RecordContextTransaction implements Transaction {
 
     /*

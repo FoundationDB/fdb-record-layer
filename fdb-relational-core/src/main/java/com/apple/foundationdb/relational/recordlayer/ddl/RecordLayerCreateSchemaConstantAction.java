@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -43,6 +45,7 @@ import java.net.URI;
 /**
  * Will eventually remove CreateSchemaConstantAction and replace it with this.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
     private final StoreCatalog catalog;
     private final RecordLayerConfig rlConfig;

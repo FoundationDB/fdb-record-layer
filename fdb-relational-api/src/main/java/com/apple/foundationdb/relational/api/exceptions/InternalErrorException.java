@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
+import com.apple.foundationdb.annotation.API;
+
+@API(API.Status.EXPERIMENTAL)
 public class InternalErrorException extends RelationalException {
     private static final int serialVersionUID = 1;
 
