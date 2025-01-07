@@ -48,7 +48,7 @@ import java.util.Set;
 /**
  * {@link ScanComparisons} for use in an index scan.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final IndexScanType scanType;

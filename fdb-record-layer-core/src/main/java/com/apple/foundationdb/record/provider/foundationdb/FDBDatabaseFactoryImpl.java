@@ -39,7 +39,7 @@ import java.util.function.Supplier;
 /**
  * A singleton maintaining a list of {@link FDBDatabase} instances, indexed by their cluster file location.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);

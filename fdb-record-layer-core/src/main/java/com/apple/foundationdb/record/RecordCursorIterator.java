@@ -39,7 +39,7 @@ import java.util.concurrent.ExecutionException;
  *
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable {
     @Nonnull
     private final RecordCursor<T> cursor;

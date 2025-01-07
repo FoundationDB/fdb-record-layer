@@ -37,7 +37,7 @@ import java.util.concurrent.ScheduledExecutorService;
  *
  * @see FDBRecordContext
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class FDBTransactionContext {
     private final Executor executor;
 

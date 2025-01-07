@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
  * initialized record store.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class UninitializedRecordStoreException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 

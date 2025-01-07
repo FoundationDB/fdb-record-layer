@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.PipelineSizer
  * @see RecordCursor#mapPipelined
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class PipelineOperation {
     @Nonnull
     public static final PipelineOperation INDEX_TO_RECORD = new PipelineOperation("INDEX_TO_RECORD");

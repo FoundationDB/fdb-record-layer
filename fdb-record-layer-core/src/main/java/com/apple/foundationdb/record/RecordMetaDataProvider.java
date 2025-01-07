@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  *
  * If getting meta-data is expensive, implementations should assume that {@link #getRecordMetaData} will be called frequently and cache the result.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface RecordMetaDataProvider {
 
     /**

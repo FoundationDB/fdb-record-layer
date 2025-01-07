@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
  * A registry of {@link IndexValidator}s.
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface IndexValidatorRegistry {
     @Nonnull
     IndexValidator getIndexValidator(@Nonnull Index index);

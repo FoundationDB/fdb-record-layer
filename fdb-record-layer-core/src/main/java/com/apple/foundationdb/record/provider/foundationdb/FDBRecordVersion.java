@@ -46,7 +46,7 @@ import java.util.Arrays;
  * combined into a {@value VERSION_LENGTH} byte array that can be used to impose a total order
  * across all records.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
 
     private static final byte[] INCOMPLETE_GLOBAL_VERSION = {(byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff,

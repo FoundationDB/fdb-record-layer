@@ -25,6 +25,6 @@ import com.apple.foundationdb.annotation.API;
 /**
  * A {@link QueryComponent} that does not have any child components.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface ComponentWithNoChildren extends QueryComponent {
 }

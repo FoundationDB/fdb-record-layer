@@ -96,7 +96,7 @@ import java.util.stream.Collectors;
  *
  * @see FDBRecordStore
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class FDBRecordContext extends FDBTransactionContext implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
     private static final byte[] META_DATA_VERSION_STAMP_VALUE = new byte[FDBRecordVersion.GLOBAL_VERSION_LENGTH + Integer.BYTES];

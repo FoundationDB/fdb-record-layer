@@ -37,7 +37,7 @@ import java.util.Objects;
  * A record that has been loaded via an index.
  * @param <M> type used to represent stored records
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
     @Nonnull
     private final IndexEntry indexEntry;

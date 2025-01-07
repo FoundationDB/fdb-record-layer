@@ -47,7 +47,7 @@ import java.util.function.Function;
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function and completing the future it returns
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     private static final CompletableFuture<Boolean> ALREADY_CANCELLED = MoreAsyncUtil.alreadyCancelled();

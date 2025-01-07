@@ -38,7 +38,7 @@ import java.util.concurrent.ExecutionException;
  * in an appropriate subclass of {@link com.apple.foundationdb.record.RecordCoreException}, so that
  * is returned, after remembering the original exception as a suppressed exception.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class CompletionExceptionLogHelper {
 
     private static boolean addSuppressed = true;

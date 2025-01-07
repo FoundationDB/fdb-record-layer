@@ -37,7 +37,7 @@ import java.util.List;
  * <li>limit on number of key-value pairs scanned</li>
  * </ul>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ExecuteProperties {
     /**
      * A constant representing that no time limit is set.

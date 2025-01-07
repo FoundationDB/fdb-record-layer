@@ -46,7 +46,7 @@ import java.util.List;
  * be contained within the key. This should then be used within version indexes to include data
  * sorted by version.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
     public static final VersionKeyExpression VERSION = new VersionKeyExpression();
     public static final RecordMetaDataProto.KeyExpression VERSION_PROTO =

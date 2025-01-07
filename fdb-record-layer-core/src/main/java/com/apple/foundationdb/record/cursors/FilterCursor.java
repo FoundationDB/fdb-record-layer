@@ -36,7 +36,7 @@ import java.util.function.Function;
  * A cursor that filters elements using a predicate.
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FilterCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> inner;

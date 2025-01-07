@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
  * There is also a special type for the range of values where a string element of a {@code Tuple} begins with a given string.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public enum EndpointType {
     TREE_START,
     TREE_END,

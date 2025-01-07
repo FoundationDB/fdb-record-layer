@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * An exception that can be thrown by {@link FDBRecordStore}s if they are scanning non-readable indexes.
  */
 @SuppressWarnings("serial")
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ScanNonReadableIndexException extends RecordCoreException {
     ScanNonReadableIndexException(@Nonnull String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);

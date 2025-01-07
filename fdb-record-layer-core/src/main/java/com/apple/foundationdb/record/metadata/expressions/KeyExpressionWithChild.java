@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * A {@link KeyExpression} with exactly one child expression.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface KeyExpressionWithChild extends KeyExpressionWithChildren {
     @Nonnull
     KeyExpression getChild();

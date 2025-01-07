@@ -47,7 +47,7 @@ import java.util.concurrent.Executor;
  * about the state of the cursor until <code>onNext()</code> has been called.
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class LazyCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final CompletableFuture<RecordCursor<T>> futureCursor;

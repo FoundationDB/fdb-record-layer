@@ -40,7 +40,7 @@ import java.util.function.Function;
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class MapWhileCursor<T, V> implements RecordCursor<V> {
     /**
      * What to return for {@link RecordCursorResult#getContinuation()} after stopping.

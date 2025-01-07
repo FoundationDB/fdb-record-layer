@@ -25,6 +25,6 @@ import com.apple.foundationdb.annotation.API;
 /**
  * A {@link KeyExpression} with no children.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface KeyExpressionWithoutChildren extends KeyExpression {
 }

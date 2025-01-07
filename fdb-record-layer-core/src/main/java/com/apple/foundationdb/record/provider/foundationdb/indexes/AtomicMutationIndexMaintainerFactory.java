@@ -57,7 +57,7 @@ import java.util.List;
  * </ul>
  */
 @AutoService(IndexMaintainerFactory.class)
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFactory {
     @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"}) // Support the deprecated names for compatibility.
     static final String[] TYPES = {

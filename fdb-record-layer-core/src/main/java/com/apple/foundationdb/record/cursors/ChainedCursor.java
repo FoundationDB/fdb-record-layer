@@ -98,7 +98,7 @@ import java.util.function.Function;
  *
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ChainedCursor<T> implements BaseCursor<T> {
     @Nonnull
     private final Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator;

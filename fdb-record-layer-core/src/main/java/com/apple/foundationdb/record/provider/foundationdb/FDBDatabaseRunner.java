@@ -63,7 +63,7 @@ import java.util.function.Function;
  *
  * @see FDBDatabase
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Get the database against which functions are run.

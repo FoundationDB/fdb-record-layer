@@ -125,7 +125,7 @@ import java.util.function.Supplier;
  * @see FDBRecordStore
  * @see FDBTypedRecordStore
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataProvider {
 
     Logger LOGGER = LoggerFactory.getLogger(FDBRecordStoreBase.class);

@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * Exception thrown when there is a problem with something in the {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}.
  */
 @SuppressWarnings("serial")
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class MetaDataException extends RecordCoreException {
     public MetaDataException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

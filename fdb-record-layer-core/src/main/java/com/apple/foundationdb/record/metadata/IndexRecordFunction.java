@@ -36,7 +36,7 @@ import java.util.Objects;
  * @param <T> the result type of the function
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#evaluateRecordFunction
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexRecordFunction<T> extends RecordFunction<T> {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Record-Function");
 

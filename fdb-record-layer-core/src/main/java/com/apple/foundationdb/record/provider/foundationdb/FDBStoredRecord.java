@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStoreBase#saveRecord
  * @see FDBRecordStoreBase#loadRecord
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M> {
     @Nonnull
     private final Tuple primaryKey;

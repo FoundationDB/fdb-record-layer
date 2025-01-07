@@ -796,7 +796,7 @@ public class MoreAsyncUtil {
      * @param future the future to check for normal completion
      * @return whether the future has completed without exception
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public static boolean isCompletedNormally(@Nonnull CompletableFuture<?> future) {
         return future.isDone() && !future.isCompletedExceptionally();
     }
@@ -831,7 +831,7 @@ public class MoreAsyncUtil {
      * @return a future that will be ready after the given delay
      * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     @Nonnull
     public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit) {
         return delayedFuture(delay, unit, getDefaultScheduledExecutor());
@@ -850,7 +850,7 @@ public class MoreAsyncUtil {
      * @param scheduledExecutor executor service used to complete the returned future and run any same-thread callbacks
      * @return a {@link CompletableFuture} that will fire after the given delay
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     @Nonnull
     public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit, @Nonnull ScheduledExecutorService scheduledExecutor) {
         if (delay <= 0) {
@@ -895,7 +895,7 @@ public class MoreAsyncUtil {
      * Close the given iterator, or at least cancel it.
      * @param iterator iterator to close
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public static void closeIterator(@Nonnull Iterator<?> iterator) {
         if (iterator instanceof CloseableAsyncIterator) {
             ((CloseableAsyncIterator<?>)iterator).close();

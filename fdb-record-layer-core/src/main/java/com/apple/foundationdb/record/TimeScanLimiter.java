@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  *
  * @see com.apple.foundationdb.record.cursors.CursorLimitManager
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class TimeScanLimiter {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeScanLimiter.class);
 

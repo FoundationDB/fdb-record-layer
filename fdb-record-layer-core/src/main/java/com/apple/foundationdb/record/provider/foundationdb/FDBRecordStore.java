@@ -165,7 +165,7 @@ import java.util.stream.Collectors;
  *
  * @see FDBRecordStoreBase
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<Message> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStore.class);
 
@@ -5078,7 +5078,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * </code></pre>
      *
      */
-    @API(API.Status.STABLE)
+    @API(API.Status.UNSTABLE)
     public static class Builder implements BaseBuilder<Message, FDBRecordStore> {
         @Nullable
         private RecordSerializer<Message> serializer = DynamicMessageRecordSerializer.instance();

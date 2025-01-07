@@ -47,7 +47,7 @@ import java.util.function.Supplier;
  * {@link #validate(Descriptors.Descriptor)} must be called before calling {@link #eval(FDBRecordStoreBase, EvaluationContext, FDBRecord)}, or bad
  * things may happen.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface QueryComponent extends PlanHashable, QueryHashable {
     /**
      * Return whether or not the given record matches this component.

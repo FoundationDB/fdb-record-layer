@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
  * A function to be applied to a record as part of query execution.
  * @param <T> the result type of the function
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public abstract class RecordFunction<T> implements PlanHashable, QueryHashable {
 
     @Nonnull

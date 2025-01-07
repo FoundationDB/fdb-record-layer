@@ -35,7 +35,7 @@ import java.util.concurrent.TimeoutException;
  * to provide context-specific details that can be logged in a way that better supports troubleshooting later.
  */
 @SuppressWarnings("serial")
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class LoggableTimeoutException extends TimeoutException implements LoggableKeysAndValues<LoggableTimeoutException> {
     @Nonnull
     private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();

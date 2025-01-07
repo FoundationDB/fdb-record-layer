@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStore#getFormatVersion
  */
 @SuppressWarnings("serial")
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class UnsupportedFormatVersionException extends RecordCoreException {
     public UnsupportedFormatVersionException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
