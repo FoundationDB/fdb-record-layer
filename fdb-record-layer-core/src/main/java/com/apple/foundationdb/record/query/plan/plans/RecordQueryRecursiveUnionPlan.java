@@ -66,11 +66,12 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * This is a physical representation of a recursive union, as with any other plan operator, its creates a {@link RecordCursor}
- * upon execution, however it is heavily involved in the execution orchestration of the created cursor due to the recursive
- * nature of execution and the necessity of mutating the execution state at its own level by means of overriding the
- * {@link EvaluationContext}'s reference to read and write {@link TempTable} used to execute current recursive step {@code n}
- * while preparing at the same time the state required to execute next recursive step {@code n+1}.
+ * A physical representation of a recursive union. As with other operators, it delegates the execution to a corresponding
+ * {@link RecordCursor}, but unlike most operators, it heavily involved in orchestrating the execution of the cursor
+ * itself due to the recursive nature of the union.
+ * <br>
+ * The orchestration involves, for example, overriding the {@link EvaluationContext} references to flip the read- and write-
+ * {@link TempTable}s when moving to a new recursive step.
  * <br>
  * The recursive state is abstracted by the interface {@link RecursiveStateManager} which is implemented internally by
  * {@link RecursiveStateManagerImpl}.
@@ -78,7 +79,7 @@ import java.util.function.Supplier;
  * for more information see {@link RecursiveUnionCursor}.
  */
 @API(API.Status.INTERNAL)
-public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
+public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildren {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Recursive-Union-Query-Plan");
@@ -107,10 +108,10 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     @Nonnull
     private final Supplier<Integer> computeComplexity;
 
-    public RecursiveUnionQueryPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
-                                   @Nonnull final Quantifier.Physical recursiveStateQuantifier,
-                                   @Nonnull final CorrelationIdentifier tempTableScanAlias,
-                                   @Nonnull final CorrelationIdentifier tempTableInsertAlias) {
+    public RecordQueryRecursiveUnionPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
+                                         @Nonnull final Quantifier.Physical recursiveStateQuantifier,
+                                         @Nonnull final CorrelationIdentifier tempTableScanAlias,
+                                         @Nonnull final CorrelationIdentifier tempTableInsertAlias) {
         this.initialStateQuantifier = initialStateQuantifier;
         this.recursiveStateQuantifier = recursiveStateQuantifier;
         this.tempTableScanAlias = tempTableScanAlias;
@@ -202,11 +203,11 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
     }
 
     @Nonnull
-    public static RecursiveUnionQueryPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PRecursiveUnionQueryPlan recordQueryUnorderedDistinctPlanProto) {
+    public static RecordQueryRecursiveUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                          @Nonnull final PRecursiveUnionQueryPlan recordQueryUnorderedDistinctPlanProto) {
         final var initialStateQuantifier = Quantifier.Physical.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto.getInitialStateQuantifier());
         final var recursiveStateQuantifier = Quantifier.Physical.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto.getRecursiveStateQuantifier());
-        return new RecursiveUnionQueryPlan(initialStateQuantifier, recursiveStateQuantifier,
+        return new RecordQueryRecursiveUnionPlan(initialStateQuantifier, recursiveStateQuantifier,
                 CorrelationIdentifier.of(recordQueryUnorderedDistinctPlanProto.getInitialTempTableAlias()),
                 CorrelationIdentifier.of(recordQueryUnorderedDistinctPlanProto.getRecursiveTempTableAlias()));
     }
@@ -227,7 +228,7 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
     @Override
     public boolean isReverse() {
-        return false; // todo: improve
+        return false;
     }
 
     @Override
@@ -267,11 +268,11 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         if (this == otherExpression) {
             return true;
         }
-        if (!(otherExpression instanceof RecursiveUnionQueryPlan)) {
+        if (!(otherExpression instanceof RecordQueryRecursiveUnionPlan)) {
             return false;
         }
 
-        final var otherRecursiveUnionQueryPlan = (RecursiveUnionQueryPlan)otherExpression;
+        final var otherRecursiveUnionQueryPlan = (RecordQueryRecursiveUnionPlan)otherExpression;
 
         return tempTableScanAlias.equals(otherRecursiveUnionQueryPlan.tempTableScanAlias)
                 && tempTableInsertAlias.equals(otherRecursiveUnionQueryPlan.tempTableInsertAlias);
@@ -293,25 +294,21 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
-    public RecursiveUnionQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryRecursiveUnionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         Verify.verify(!translationMap.containsSourceAlias(tempTableScanAlias));
         Verify.verify(!translationMap.containsSourceAlias(tempTableInsertAlias));
-        Verify.verify(translatedQuantifiers.size() == 2);
-        final var translatedInitialQuantifier = translatedQuantifiers.get(0);
-        final var translatedRecursiveQuantifier = translatedQuantifiers.get(1);
-        return new RecursiveUnionQueryPlan(translatedInitialQuantifier.narrow(Quantifier.Physical.class),
-                translatedRecursiveQuantifier.narrow(Quantifier.Physical.class),
-                tempTableScanAlias, tempTableInsertAlias);
+        final var translatedInitialQuantifier = translatedQuantifiers.get(0).narrow(Quantifier.Physical.class);
+        final var translatedRecursiveQuantifier = translatedQuantifiers.get(1).narrow(Quantifier.Physical.class);
+        return new RecordQueryRecursiveUnionPlan(translatedInitialQuantifier, translatedRecursiveQuantifier, tempTableScanAlias, tempTableInsertAlias);
     }
 
     /**
-     * Deserializer of {@link RecursiveUnionQueryPlan}.
+     * Deserializer of {@link RecordQueryRecursiveUnionPlan}.
      */
     @AutoService(PlanDeserializer.class)
-    public static final class Deserializer implements PlanDeserializer<PRecursiveUnionQueryPlan, RecursiveUnionQueryPlan> {
+    public static final class Deserializer implements PlanDeserializer<PRecursiveUnionQueryPlan, RecordQueryRecursiveUnionPlan> {
         @Nonnull
         @Override
         public Class<PRecursiveUnionQueryPlan> getProtoMessageClass() {
@@ -320,15 +317,15 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
 
         @Nonnull
         @Override
-        public RecursiveUnionQueryPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PRecursiveUnionQueryPlan recordQueryUnorderedDistinctPlanProto) {
-            return RecursiveUnionQueryPlan.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto);
+        public RecordQueryRecursiveUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PRecursiveUnionQueryPlan recordQueryUnorderedDistinctPlanProto) {
+            return RecordQueryRecursiveUnionPlan.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto);
         }
     }
 
     /**
      * A reference implementation of {@link RecursiveStateManager} that orchestrates the recursive execution of
-     * {@link RecursiveUnionQueryPlan}.
+     * {@link RecordQueryRecursiveUnionPlan}.
      */
     private static final class RecursiveStateManagerImpl implements RecursiveStateManager<QueryResult> {
 
@@ -344,10 +341,10 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         private final EvaluationContext baseContext;
 
         @Nonnull
-        private final CorrelationIdentifier insertTempTableReference;
+        private final CorrelationIdentifier insertTempTableAlias;
 
         @Nonnull
-        private final CorrelationIdentifier scanTempTableReference;
+        private final CorrelationIdentifier scanTempTableAlias;
 
         @Nonnull
         private RecordCursor<QueryResult> activeCursor;
@@ -361,8 +358,8 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
          * @param initialCursorCreator a creator of the {@code initial} state cursor.
          * @param recursiveCursorCreator a creator of the {@code recursive} state cursor.
          * @param baseContext the initial {@link EvaluationContext} used to execute the plan.
-         * @param scanTempTableReference a {@link Value} reference to the {@link TempTable} used in recursive scan.
-         * @param insertTempTableReference a {@link Value} reference to the {@link TempTable} used by insert operator(s).
+         * @param scanTempTableAlias a reference to the {@link TempTable} used in recursive scan.
+         * @param insertTempTableAlias a reference to the {@link TempTable} used by insert operator(s).
          * @param tempTableDeserializer a deserializer of {@link TempTable} used by the recursive scan.
          * @param tempTableFactory the {@link TempTable} factory.
          * @param continuationBytes optional continuation of the {@link RecursiveUnionCursor}.
@@ -370,26 +367,26 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         RecursiveStateManagerImpl(@Nonnull final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
                                   @Nonnull final BiFunction<ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
                                   @Nonnull final EvaluationContext baseContext,
-                                  @Nonnull final CorrelationIdentifier scanTempTableReference,
-                                  @Nonnull final CorrelationIdentifier insertTempTableReference,
+                                  @Nonnull final CorrelationIdentifier scanTempTableAlias,
+                                  @Nonnull final CorrelationIdentifier insertTempTableAlias,
                                   @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer,
                                   @Nonnull final TempTable.Factory tempTableFactory,
                                   @Nullable byte[] continuationBytes) {
             this.recursiveCursorCreator = recursiveCursorCreator;
             this.baseContext = baseContext;
-            this.insertTempTableReference = insertTempTableReference;
-            this.scanTempTableReference = scanTempTableReference;
-            overridenEvaluationContext = withEmptyTempTable(baseContext, insertTempTableReference, tempTableFactory);
+            this.insertTempTableAlias = insertTempTableAlias;
+            this.scanTempTableAlias = scanTempTableAlias;
+            overridenEvaluationContext = withEmptyTempTable(baseContext, insertTempTableAlias, tempTableFactory);
             if (continuationBytes == null) {
                 isInitialState = true;
                 recursiveUnionTempTable = tempTableFactory.createTempTable();
-                overridenEvaluationContext = overrideTempTableBinding(overridenEvaluationContext, scanTempTableReference, recursiveUnionTempTable);
+                overridenEvaluationContext = withTempTable(overridenEvaluationContext, scanTempTableAlias, recursiveUnionTempTable);
                 activeCursor = initialCursorCreator.apply(null, overridenEvaluationContext);
             } else {
                 final var continuation = RecursiveUnionCursor.Continuation.from(continuationBytes, tempTableDeserializer);
                 isInitialState = continuation.isInitialState();
                 recursiveUnionTempTable = continuation.getTempTable();
-                overridenEvaluationContext = overrideTempTableBinding(overridenEvaluationContext, scanTempTableReference, recursiveUnionTempTable);
+                overridenEvaluationContext = withTempTable(overridenEvaluationContext, scanTempTableAlias, recursiveUnionTempTable);
                 if (isInitialState) {
                     activeCursor = initialCursorCreator.apply(continuation.getActiveStateContinuation().toByteString(), overridenEvaluationContext);
                 } else {
@@ -443,20 +440,20 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
         @Nonnull
         @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
         private EvaluationContext flipBuffers(@Nonnull final EvaluationContext evaluationContext) {
-            final var insertTempTable = getTempTable(evaluationContext, insertTempTableReference);
-            final var scanTempTable = getTempTable(evaluationContext, scanTempTableReference);
+            final var insertTempTable = getTempTable(evaluationContext, insertTempTableAlias);
+            final var scanTempTable = getTempTable(evaluationContext, scanTempTableAlias);
             if (recursiveUnionTempTable == insertTempTable) {
                 recursiveUnionTempTable = scanTempTable;
                 insertTempTable.clear();
-                return overrideTempTableBinding(
-                        overrideTempTableBinding(baseContext, insertTempTableReference, insertTempTable),
-                        scanTempTableReference, scanTempTable);
+                return withTempTable(
+                        withTempTable(baseContext, insertTempTableAlias, insertTempTable),
+                        scanTempTableAlias, scanTempTable);
             } else {
                 recursiveUnionTempTable = insertTempTable;
                 scanTempTable.clear();
-                return overrideTempTableBinding(
-                        overrideTempTableBinding(baseContext, insertTempTableReference, scanTempTable),
-                        scanTempTableReference, insertTempTable);
+                return withTempTable(
+                        withTempTable(baseContext, insertTempTableAlias, scanTempTable),
+                        scanTempTableAlias, insertTempTable);
             }
         }
 
@@ -475,9 +472,9 @@ public class RecursiveUnionQueryPlan implements RecordQueryPlanWithChildren {
          * value.
          */
         @Nonnull
-        private static EvaluationContext overrideTempTableBinding(@Nonnull final EvaluationContext context,
-                                                                  @Nonnull final CorrelationIdentifier key,
-                                                                  @Nonnull final TempTable value) {
+        private static EvaluationContext withTempTable(@Nonnull final EvaluationContext context,
+                                                       @Nonnull final CorrelationIdentifier key,
+                                                       @Nonnull final TempTable value) {
             return context.withBinding(Bindings.Internal.CORRELATION.bindingName(key.getId()), value);
         }
 

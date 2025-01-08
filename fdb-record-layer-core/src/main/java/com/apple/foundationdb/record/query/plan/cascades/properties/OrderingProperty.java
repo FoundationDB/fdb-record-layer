@@ -58,7 +58,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
@@ -225,12 +225,6 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan recursiveUnionQueryPlan) {
-            return Ordering.empty();
-        }
-
-        @Nonnull
-        @Override
         public Ordering visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             return visit(aggregateIndexPlan.getIndexPlan());
         }
@@ -335,6 +329,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             return indexPlan.getMatchCandidateMaybe()
                     .map(matchCandidate -> matchCandidate.computeOrderingFromScanComparisons(scanComparisons, indexPlan.isReverse(), indexPlan.isStrictlySorted()))
                     .orElse(Ordering.empty());
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
+            return Ordering.empty();
         }
 
         @Nonnull

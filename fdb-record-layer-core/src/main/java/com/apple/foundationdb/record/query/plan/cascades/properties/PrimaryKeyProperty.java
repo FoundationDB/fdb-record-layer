@@ -47,7 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
@@ -137,12 +137,6 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
-        }
-
-        @Nonnull
-        @Override
-        public Optional<List<Value>> visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan recursiveUnionQueryPlan) {
-            return commonPrimaryKeyFromChildren(recursiveUnionQueryPlan);
         }
 
         @Nonnull
@@ -245,6 +239,12 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
             return Optional.of(ScalarTranslationVisitor.translateKeyExpression(indexPlan.getCommonPrimaryKey(), Objects.requireNonNull(indexPlan.getResultType().getInnerType())));
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan recursiveUnionPlan) {
+            return commonPrimaryKeyFromChildren(recursiveUnionPlan);
         }
 
         @Nonnull

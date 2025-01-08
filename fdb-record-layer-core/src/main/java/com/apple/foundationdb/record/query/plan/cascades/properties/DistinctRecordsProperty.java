@@ -46,7 +46,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -128,12 +128,6 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
-        }
-
-        @Nonnull
-        @Override
-        public Boolean visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan element) {
-            return false;
         }
 
         @Nonnull
@@ -249,6 +243,12 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
             final var matchCandidate = matchCandidateOptional.get();
             return !matchCandidate.createsDuplicates();
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
+            return false;
         }
 
         @Nonnull

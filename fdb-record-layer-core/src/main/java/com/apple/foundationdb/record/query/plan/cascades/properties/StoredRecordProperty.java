@@ -44,7 +44,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -129,12 +129,6 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
-        }
-
-        @Nonnull
-        @Override
-        public Boolean visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan recursiveUnionQueryPlan) {
-            return storedRecordsFromChildren(recursiveUnionQueryPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull
@@ -231,6 +225,12 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitIndexPlan(@Nonnull final RecordQueryIndexPlan element) {
             return true;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan recursiveUnionPlan) {
+            return storedRecordsFromChildren(recursiveUnionPlan).stream().allMatch(s -> s);
         }
 
         @Nonnull

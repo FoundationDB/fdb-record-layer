@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Verify;
@@ -72,7 +73,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Test suite for {@link com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan} planning and execution.
+ * Test suite for {@link RecordQueryRecursiveUnionPlan} planning and execution.
  */
 public class RecursiveUnionTest extends TempTableTestBase {
 

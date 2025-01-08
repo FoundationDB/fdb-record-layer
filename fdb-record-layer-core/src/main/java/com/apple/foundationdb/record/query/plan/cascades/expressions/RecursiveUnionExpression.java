@@ -36,7 +36,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * This is a logical representation of a recursive union, a recursive union is similar to a normal union all, however
+ * This is a logical representation of a recursive union, a recursive union is similar to a normal unordered union, however
  * its legs have special execution semantics; just like a union, it returns the results verbatim of one particular
  * leg called the "initial state" leg. This leg provides the results required to seed the recursion happening during
  * the execution of the other leg, the "recursive state" leg. The recursive unions repeatedly executes the recursive
@@ -61,12 +61,12 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     public RecursiveUnionExpression(@Nonnull final Quantifier initialState,
                                     @Nonnull final Quantifier recursiveState,
-                                    @Nonnull final CorrelationIdentifier tempTableScanReference,
-                                    @Nonnull final CorrelationIdentifier tempTableInsertReference) {
+                                    @Nonnull final CorrelationIdentifier tempTableScanAlias,
+                                    @Nonnull final CorrelationIdentifier tempTableInsertAlias) {
         this.initialStateQuantifier = initialState;
         this.recursiveStateQuantifier = recursiveState;
-        this.tempTableScanAlias = tempTableScanReference;
-        this.tempTableInsertAlias = tempTableInsertReference;
+        this.tempTableScanAlias = tempTableScanAlias;
+        this.tempTableInsertAlias = tempTableInsertAlias;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier));
     }
 
@@ -136,10 +136,10 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
-        Verify.verify(!translationMap.containsSourceAlias(tempTableScanAlias) && !translationMap.containsSourceAlias(tempTableInsertAlias));
+        Verify.verify(!translationMap.containsSourceAlias(tempTableScanAlias)
+                && !translationMap.containsSourceAlias(tempTableInsertAlias));
         final var translatedInitialStateQun = translatedQuantifiers.get(0);
         final var translatedRecursiveStateQun = translatedQuantifiers.get(1);
-
         if (translatedInitialStateQun == initialStateQuantifier && translatedRecursiveStateQun == recursiveStateQuantifier) {
             return this;
         }

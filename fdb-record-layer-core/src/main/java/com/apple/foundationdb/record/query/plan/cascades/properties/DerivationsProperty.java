@@ -59,7 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecursiveUnionQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -231,12 +231,6 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
 
         @Nonnull
         @Override
-        public Derivations visitRecursiveUnionQueryPlan(@Nonnull final RecursiveUnionQueryPlan element) {
-            return Derivations.EMPTY; // todo https://github.com/FoundationDB/fdb-record-layer/issues/2974
-        }
-
-        @Nonnull
-        @Override
         public Derivations visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             final var matchCandidate = aggregateIndexPlan.getMatchCandidate();
             return visitPlanWithComparisons(aggregateIndexPlan, matchCandidate.getQueriedRecordTypeNames());
@@ -370,6 +364,12 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         public Derivations visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
             final var matchCandidate = indexPlan.getMatchCandidate();
             return visitPlanWithComparisons(indexPlan, matchCandidate.getQueriedRecordTypeNames());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
+            return Derivations.EMPTY; // todo https://github.com/FoundationDB/fdb-record-layer/issues/2974
         }
 
         @Nonnull
