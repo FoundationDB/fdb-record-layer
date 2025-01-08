@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 import com.apple.foundationdb.relational.autotest.TableDescription;
 
@@ -34,7 +32,6 @@ import java.util.List;
  * this inherits the same logic as the StructFieldGenerator does, but does a little extra work
  * to ensure that we aren't acting like a struct.
  */
-@API(API.Status.EXPERIMENTAL)
 public class TableDataGenerator extends StructFieldGenerator {
     public TableDataGenerator(List<FieldGenerator> nestedFieldGenerators,
                               RandomDataSource randomSource,

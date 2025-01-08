@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -37,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-@API(API.Status.EXPERIMENTAL)
 public class ExpressionTests {
 
     @Nonnull

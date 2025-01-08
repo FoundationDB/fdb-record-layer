@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.util;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.assertj.core.api.Assertions;
@@ -32,7 +30,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 @Disabled("update for new version scheme")
-@API(API.Status.EXPERIMENTAL)
 public class BuildVersionTest {
     @Test
     public void testGetURL() throws URISyntaxException {

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -67,7 +65,6 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
 
-@API(API.Status.EXPERIMENTAL)
 public class ConstraintValidityTests {
 
     @RegisterExtension

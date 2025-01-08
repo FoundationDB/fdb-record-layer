@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -45,7 +43,6 @@ import static com.apple.foundationdb.relational.recordlayer.query.QueryExecution
  * This contains a set of tests the verify equality semantics which is necessary for secondary cache load, lookup,
  * and eviction behavior.
  */
-@API(API.Status.EXPERIMENTAL)
 public class PhysicalPlanEquivalenceTests {
 
     @Nonnull

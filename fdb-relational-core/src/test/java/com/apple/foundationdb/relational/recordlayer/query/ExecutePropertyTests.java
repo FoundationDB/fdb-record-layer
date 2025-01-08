@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
@@ -45,7 +43,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.sql.DriverManager;
 import java.util.List;
 
-@API(API.Status.EXPERIMENTAL)
 public class ExecutePropertyTests {
 
     /**

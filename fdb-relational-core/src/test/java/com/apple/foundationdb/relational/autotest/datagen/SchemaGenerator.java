@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -49,7 +47,6 @@ import java.util.stream.Collectors;
  * varying the columns, indexes (eventually), and primary keys. It's useful for creating a large variety
  * of different data layouts.
  */
-@API(API.Status.EXPERIMENTAL)
 public class SchemaGenerator {
 
     private static final List<NonnullPair<String, Integer>> primitiveDataTypes = List.of(

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
@@ -40,7 +38,6 @@ import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 
-@API(API.Status.EXPERIMENTAL)
 public class JDBCRelationalDriverTest {
     /**
      * Set by beforeAll initialization.

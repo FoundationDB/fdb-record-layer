@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.compare;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -37,7 +35,6 @@ import java.util.Random;
  *  values to fill nested fields. You can use `numRepeatedFields` to set a limit on how many repeated entries
  *  will be randomly generated
  */
-@API(API.Status.EXPERIMENTAL)
 public class RandomDataGenerator implements DataGenerator {
     private final Random random;
     private final Descriptors.Descriptor dataType;

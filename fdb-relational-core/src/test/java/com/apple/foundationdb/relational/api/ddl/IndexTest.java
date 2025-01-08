@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
@@ -75,7 +73,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED_FIELD_NAME;
 
-@API(API.Status.EXPERIMENTAL)
 public class IndexTest {
     @RegisterExtension
     @Order(0)

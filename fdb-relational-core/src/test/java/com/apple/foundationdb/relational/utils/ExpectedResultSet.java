@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.annotation.API;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -31,7 +29,6 @@ import java.util.Map;
 /**
  * Class to make building expected result sets easier in tests.
  */
-@API(API.Status.EXPERIMENTAL)
 public class ExpectedResultSet {
     private int[] columnTypes;
     private String[] columnNames;

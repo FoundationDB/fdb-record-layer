@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 
 import com.google.protobuf.ByteString;
@@ -30,7 +28,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.function.BiFunction;
 
-@API(API.Status.EXPERIMENTAL)
 public class ProtobufConversionTest {
     @Test
     public void testToColumnStringBiFunction() {

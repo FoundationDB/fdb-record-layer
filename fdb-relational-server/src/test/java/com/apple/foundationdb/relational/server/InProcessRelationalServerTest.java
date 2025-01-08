@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.server;
 
-import com.apple.foundationdb.annotation.API;
-
 import io.grpc.ManagedChannel;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import org.junit.jupiter.api.AfterAll;
@@ -33,7 +31,6 @@ import java.io.IOException;
 /**
  * Test server instance that runs inprocess.
  */
-@API(API.Status.EXPERIMENTAL)
 public class InProcessRelationalServerTest {
     private static InProcessRelationalServer server;
 

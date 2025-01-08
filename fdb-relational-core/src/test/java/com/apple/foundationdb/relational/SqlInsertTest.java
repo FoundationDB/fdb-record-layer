@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -41,7 +39,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.sql.DriverManager;
 import java.util.Map;
 
-@API(API.Status.EXPERIMENTAL)
 public class SqlInsertTest {
 
     @RegisterExtension

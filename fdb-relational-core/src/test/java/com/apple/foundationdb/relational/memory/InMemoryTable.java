@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.memory;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilder;
@@ -54,7 +52,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@API(API.Status.EXPERIMENTAL)
 public class InMemoryTable {
     private final RecordType recordType;
     private final ConcurrentNavigableMap<byte[], Message> data = new ConcurrentSkipListMap<>(ByteArrayUtil.comparator());

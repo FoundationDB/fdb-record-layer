@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.annotation.API;
-
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Random;
@@ -36,7 +34,6 @@ import java.util.stream.StreamSupport;
  *
  * @param <T> the type of data held in the sample.
  */
-@API(API.Status.EXPERIMENTAL)
 public class ReservoirSample<T> {
     private final Object[] data;
     private final Random random;

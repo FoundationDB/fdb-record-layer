@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -53,7 +51,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 
-@API(API.Status.EXPERIMENTAL)
 public class UpdateTest {
 
     private static final String schemaTemplate =

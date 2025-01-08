@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.cli;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
 import org.junit.jupiter.api.Test;
@@ -39,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * See this old doc on it that is outdated but basic point stands:
  * https://github.com/julianhyde/sqlline/blob/main/HOWTO.md#running-sqlline-inside-intellij-ideas-console-on-windows
  */
-@API(API.Status.EXPERIMENTAL)
 public class SQLLineTest {
     /**
      * Simple test that launches sqlline, connects to our jdbc:embed driver and then run simple

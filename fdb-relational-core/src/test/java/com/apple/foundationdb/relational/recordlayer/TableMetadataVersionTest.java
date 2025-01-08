@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -37,7 +35,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Collections;
 
-@API(API.Status.EXPERIMENTAL)
 public class TableMetadataVersionTest {
 
     @RegisterExtension

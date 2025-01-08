@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -41,7 +39,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-@API(API.Status.EXPERIMENTAL)
 public class OptionScopeTest {
 
     private static final String INSERT_QUERY = "INSERT INTO BOOKS VALUES (1, 'Iliad', -750)";

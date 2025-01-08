@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -81,7 +79,6 @@ import static com.apple.foundationdb.relational.recordlayer.query.QueryExecution
  * value reduction operations. The only difference between this test and a production setup is that the cache uses a logical
  * timer and same-thread executor, so we can produce deterministic test results.
  */
-@API(API.Status.EXPERIMENTAL)
 public class RelationalPlanCacheTests {
     @RegisterExtension
     @Order(0)

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -49,7 +47,6 @@ import java.util.List;
 /**
  * Simple unit tests around direct-access insertion tests.
  */
-@API(API.Status.EXPERIMENTAL)
 public class SimpleDirectAccessInsertionTests {
     @RegisterExtension
     @Order(0)

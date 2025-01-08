@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -39,7 +37,6 @@ import java.util.stream.Stream;
 /**
  * Generates DDL definitions for tables and types using permutative exhaustion.
  */
-@API(API.Status.EXPERIMENTAL)
 public final class DdlPermutationGenerator {
     private static final String[] validPrimitiveDataTypes = new String[]{
             "bigint", "double", "boolean", "string", "bytes"

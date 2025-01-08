@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.autotest.cases;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -58,7 +56,6 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 @AutomatedTest
-@API(API.Status.EXPERIMENTAL)
 public class DirectPrimaryKeyScanTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();

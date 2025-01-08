@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
@@ -72,7 +70,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-@API(API.Status.EXPERIMENTAL)
 public class TransactionBoundQueryTest {
     @Nonnull
     private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1(id bigint, a bigint, b string, PRIMARY KEY(id)) " +

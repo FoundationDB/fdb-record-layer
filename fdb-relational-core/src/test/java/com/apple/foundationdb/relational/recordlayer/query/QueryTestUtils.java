@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -31,7 +29,6 @@ import org.junit.jupiter.api.Assertions;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
-@API(API.Status.EXPERIMENTAL)
 public class QueryTestUtils {
 
     public static RelationalStruct insertT1Record(@Nonnull final RelationalStatement statement, long pk, long a, long b, long c) throws SQLException {

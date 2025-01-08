@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -52,7 +50,6 @@ import static com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySp
 import static com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType.NULL;
 import static com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType.STRING;
 
-@API(API.Status.EXPERIMENTAL)
 public class KeySpacePathParsingTest {
     private final KeySpace testSpace = getKeySpaceForTesting();
 

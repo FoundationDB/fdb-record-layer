@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -57,7 +55,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  *     <li>Physical plan generation</li>
  * </ul>
  */
-@API(API.Status.EXPERIMENTAL)
 public class PlanGenerationStackTest {
     @RegisterExtension
     @Order(0)

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -58,7 +56,6 @@ import java.util.stream.Stream;
  * <b>Note:</b> this test suite has side effects, FDB should be manually cleaned up after running this test.
  *
  */
-@API(API.Status.EXPERIMENTAL)
 public class DdlRecordLayerSchemaTemplateTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
