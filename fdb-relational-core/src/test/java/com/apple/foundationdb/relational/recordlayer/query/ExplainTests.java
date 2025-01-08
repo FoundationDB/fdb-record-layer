@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -42,6 +44,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class ExplainTests {
 
     private static final String schemaTemplate =

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
@@ -32,6 +34,7 @@ import javax.annotation.Nonnull;
 /**
  * this holds query parsing information.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class ParseTreeInfoImpl implements ParseTreeInfo {
 
     @Nonnull

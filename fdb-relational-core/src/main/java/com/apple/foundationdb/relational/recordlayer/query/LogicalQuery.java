@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
@@ -31,6 +33,7 @@ import java.util.Objects;
  * This is primarily used as a partial key in the plan cache, so it needs to be immutable _and_ a representation
  * of the logical structure of a plan.
  */
+@API(API.Status.EXPERIMENTAL)
 public class LogicalQuery {
     private final String query;
     private final long queryHash;

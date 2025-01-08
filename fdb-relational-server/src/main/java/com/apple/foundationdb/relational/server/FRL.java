@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -71,6 +73,7 @@ import java.util.Optional;
  * and connection stuff behind here?
  */
 // Needs to be public so can be used by sub-packages; i.e. the JDBCService
+@API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
     private final FdbConnection fdbDatabase;
     private final RelationalDriver driver;

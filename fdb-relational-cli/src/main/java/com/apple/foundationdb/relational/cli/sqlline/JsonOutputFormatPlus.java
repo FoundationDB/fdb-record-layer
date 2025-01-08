@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.cli.sqlline;
 
+import com.apple.foundationdb.annotation.API;
+
 import sqlline.JsonOutputFormat;
 import sqlline.SqlLine;
 
 /**
  * Add support for Relational STRUCT and ARRAY to JSON processing.
  */
+@API(API.Status.EXPERIMENTAL)
 public class JsonOutputFormatPlus extends JsonOutputFormat {
     public JsonOutputFormatPlus(SqlLine sqlLine) {
         super(sqlLine);

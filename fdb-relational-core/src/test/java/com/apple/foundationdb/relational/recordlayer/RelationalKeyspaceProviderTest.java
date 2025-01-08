@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import org.assertj.core.api.Assertions;
@@ -32,6 +34,7 @@ import java.net.URI;
  * Tests of the {@link RelationalKeyspaceProvider} ensuring that database URIs can be turned into key space paths
  * that make sense.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RelationalKeyspaceProviderTest {
     @Nonnull
     private static final String defaultDomain = "DEFAULT_DOMAIN";

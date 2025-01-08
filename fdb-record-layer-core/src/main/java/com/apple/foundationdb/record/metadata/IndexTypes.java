@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.FunctionNames;
  * The type of an {@link Index} is just a string, so that new ones can be defined outside the Record Layer core.
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexTypes {
 
     /**

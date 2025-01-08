@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -32,6 +34,7 @@ import java.util.Objects;
  * This represents a boolean literal.
  */
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public final class BooleanLiteral implements Literal<Boolean, DataType.BooleanType>, BooleanExpressionTrait {
     @Nonnull
     private static final BooleanLiteral TRUE = new BooleanLiteral(DataType.BooleanType.notNullable(), true);

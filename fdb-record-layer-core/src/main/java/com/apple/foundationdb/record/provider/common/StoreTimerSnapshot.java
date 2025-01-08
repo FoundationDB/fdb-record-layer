@@ -35,7 +35,7 @@ import java.util.UUID;
  * been performed and timed can provide useful metrics as to the cost of those subsequent operations.
  * See {@link StoreTimer#getDifference(StoreTimer, StoreTimerSnapshot)}.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public final class StoreTimerSnapshot {
     @Nonnull
     private final ImmutableMap<StoreTimer.Event, CounterSnapshot> counters;

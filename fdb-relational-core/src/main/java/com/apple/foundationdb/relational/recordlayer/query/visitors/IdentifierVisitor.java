@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -31,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private IdentifierVisitor(BaseVisitor baseVisitor) {

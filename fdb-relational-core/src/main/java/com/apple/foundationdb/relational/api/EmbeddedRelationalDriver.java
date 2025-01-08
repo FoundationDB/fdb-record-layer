@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -31,6 +33,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
 
+@API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalDriver implements RelationalDriver {
 
     public static final String DRIVER_NAME = "Relational Embedded/Local JDBC Driver";

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.autotest.DataSet;
@@ -32,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
+@API(API.Status.EXPERIMENTAL)
 public class RandomDataSet implements DataSet {
     private final long seed;
     private final int maxArraySize;

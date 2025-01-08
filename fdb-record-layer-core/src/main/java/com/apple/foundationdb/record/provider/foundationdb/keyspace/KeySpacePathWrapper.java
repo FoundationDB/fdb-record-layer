@@ -86,7 +86,7 @@ import java.util.concurrent.CompletableFuture;
  *     PhonePath phonePath = root.employee(myUuid).phone(PhoneType.WORK);
  * </pre>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeySpacePathWrapper implements KeySpacePath {
     protected KeySpacePath inner;
 

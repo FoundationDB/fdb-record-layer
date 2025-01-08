@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
@@ -44,6 +46,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.function.Function;
 
+@API(API.Status.EXPERIMENTAL)
 public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements Index {
     private final com.apple.foundationdb.record.metadata.Index index;
     private final RecordTypeTable table;

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
@@ -46,6 +48,7 @@ import java.util.Map;
 /**
  * Represents a single FDBCluster, and all of it's associated logical components (Catalog, TransactionManager, etc).
  */
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerStorageCluster implements StorageCluster {
     private final StoreCatalog catalog;
     private final RecordLayerConfig rlConfiguration;

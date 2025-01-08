@@ -57,7 +57,7 @@ import java.util.stream.Stream;
  * If a context has a store timer, various operations will record timing information in it. It is up to the caller to
  * provide the necessary integration between this information and any system monitoring tools.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class StoreTimer {
     @Nonnull
     private static final Counter ZERO_COUNTER = new Counter(true);

@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
+@API(API.Status.EXPERIMENTAL)
 public class MessageTuple extends AbstractRow {
     private final Message message;
 

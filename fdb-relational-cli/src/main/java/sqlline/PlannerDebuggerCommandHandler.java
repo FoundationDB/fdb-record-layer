@@ -20,6 +20,8 @@
 
 package sqlline;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.PlannerRepl;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
@@ -36,7 +38,9 @@ import java.util.Collections;
  * e.g. <code>!pd select * from databases;</code>.
  */
 // This command is in same package as sqlline to get access to package private resources.
+
 @SuppressWarnings("PMD.GuardLogStatement")
+@API(API.Status.EXPERIMENTAL)
 public class PlannerDebuggerCommandHandler extends AbstractCommandHandler {
     @ExcludeFromJacocoGeneratedReport // Hard to make a test that makes sense given this an sqlline internal.
     public PlannerDebuggerCommandHandler(SqlLine sqlLine) {

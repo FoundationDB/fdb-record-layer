@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 /**
  * Functional equivalent of <code>IllegalArgumentException</code>.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordCoreArgumentException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 

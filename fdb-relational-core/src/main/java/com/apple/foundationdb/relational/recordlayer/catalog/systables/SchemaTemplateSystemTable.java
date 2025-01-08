@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -30,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import javax.annotation.Nonnull;
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class SchemaTemplateSystemTable implements SystemTable {
     /**
      * Name of this catalog system table.

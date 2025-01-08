@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
@@ -90,6 +92,7 @@ import java.util.stream.Stream;
  * @param <T> The type of the tertiary cache key.
  * @param <V> The value stored in the secondary cache.
  */
+@API(API.Status.EXPERIMENTAL)
 public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
     @Nonnull

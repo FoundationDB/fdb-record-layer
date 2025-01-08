@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -77,6 +79,7 @@ import java.util.stream.Collectors;
  * [1] see {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@API(API.Status.EXPERIMENTAL)
 public class LogicalOperator {
 
     @Nonnull

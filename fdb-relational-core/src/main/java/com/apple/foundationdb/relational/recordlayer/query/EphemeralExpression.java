@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -29,6 +31,7 @@ import java.util.Optional;
 /**
  * An expression that is used mainly for alias resolution and does not materialize into an operator output.
  */
+@API(API.Status.EXPERIMENTAL)
 public class EphemeralExpression extends Expression {
 
     public EphemeralExpression(@Nonnull Identifier name, @Nonnull DataType dataType, @Nonnull Value expression) {

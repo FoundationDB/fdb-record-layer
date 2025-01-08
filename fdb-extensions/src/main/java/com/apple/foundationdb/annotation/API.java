@@ -79,19 +79,9 @@ public @interface API {
 
         /**
          * Used by APIs that may change in the next minor release without prior notice. In contrast to those marked
-         * {@code EXPERIMENTAL}, this API shall not be changed or be removed until the next minor release. In contrast
-         * to {@code MAINTAINED} code, there may not be advance notification (such as deprecation) before the API is
-         * changed or removed. May become less stable in the next minor release.
+         * {@code EXPERIMENTAL}, this API shall not be changed or be removed until the next minor release.
          */
         UNSTABLE,
-
-        /**
-         * Used for APIs that shall not be changed or removed in the next minor release. May become less stable in
-         * the next minor release. Generally, if this API is to be changed or removed, the status changes first to
-         * a lower stability (such as {@code UNSTABLE} or {@code DEPRECATED}) in the next minor release. This status
-         * change serves as a notification of the potential upcoming change.
-         */
-        MAINTAINED,
 
         /**
          * Used for APIs that shall not be changed in a backwards-incompatible way or removed until the next major release.

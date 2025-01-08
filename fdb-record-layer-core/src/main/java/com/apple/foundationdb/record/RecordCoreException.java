@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 /**
  * An exception thrown by the core of the Record Layer.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordCoreException extends LoggableException {
     public RecordCoreException(@Nonnull String msg, @Nullable Object ... keyValues) {

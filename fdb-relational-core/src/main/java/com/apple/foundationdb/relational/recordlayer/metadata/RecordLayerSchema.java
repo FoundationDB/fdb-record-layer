@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
 
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerSchema implements Schema {
 
     @Nonnull

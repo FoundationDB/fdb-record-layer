@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -30,6 +32,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@API(API.Status.EXPERIMENTAL)
 public final class LogicalOperatorCatalog {
 
     @Nonnull

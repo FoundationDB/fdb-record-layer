@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -34,6 +36,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import javax.annotation.Nonnull;
 import java.net.URI;
 
+@API(API.Status.EXPERIMENTAL)
 public class CatalogMetaDataProvider implements RecordMetaDataProvider {
     //TODO(bfines) there should probably be a cleaner way to deal with this
 

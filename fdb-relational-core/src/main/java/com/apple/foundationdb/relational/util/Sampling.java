@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import java.util.concurrent.TimeUnit;
 
 /**
  * Utility methods and classes to improve the construction of various different sampling methods.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class Sampling {
 
     private Sampling() {

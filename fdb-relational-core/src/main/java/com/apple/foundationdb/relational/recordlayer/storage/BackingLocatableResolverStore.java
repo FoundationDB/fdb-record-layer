@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.storage;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -59,6 +61,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 
+@API(API.Status.EXPERIMENTAL)
 public final class BackingLocatableResolverStore implements BackingStore {
     private final LocatableResolver locatableResolver;
     private final Transaction txn;

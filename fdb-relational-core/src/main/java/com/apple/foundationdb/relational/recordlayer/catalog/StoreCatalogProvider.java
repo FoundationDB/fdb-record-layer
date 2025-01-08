@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.NoOpSchemaTemplateCatalog;
@@ -38,6 +40,7 @@ import javax.annotation.Nonnull;
  * a {@link StoreCatalog} that does no {@link com.apple.foundationdb.relational.api.metadata.SchemaTemplate}'ing.
  * @see StoreCatalog
  */
+@API(API.Status.EXPERIMENTAL)
 public class StoreCatalogProvider {
     /**
      * Get {@link StoreCatalog} instance.

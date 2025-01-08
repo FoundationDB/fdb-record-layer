@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -34,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * is typically sensitive to the clock used in computing the interval--the refresh interval typically cannot
  * be smaller than the resolution of the system clock used.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TokenBucketSampler implements Sampler {
     private final int maxTokens;
 

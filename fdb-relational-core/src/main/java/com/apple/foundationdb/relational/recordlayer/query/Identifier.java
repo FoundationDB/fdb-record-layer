@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
+@API(API.Status.EXPERIMENTAL)
 public class Identifier {
     @Nonnull
     private final String name;

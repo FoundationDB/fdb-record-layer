@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -43,6 +45,7 @@ import java.util.Objects;
  * </ul>
  * @param <T> The type of the fragment.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ParsingFragment<T extends DataType> implements ExpressionFragment<T> {
     @Nonnull
     private final String fragment;

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -44,6 +46,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
+@API(API.Status.EXPERIMENTAL)
 public class DdlRecordLayerSchemaTest {
     @RegisterExtension
     @Order(0)

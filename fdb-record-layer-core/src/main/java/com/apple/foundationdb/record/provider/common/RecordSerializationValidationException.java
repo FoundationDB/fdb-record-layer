@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
  * that there is some kind of corruption during the serialization process, either because the serialized form is not
  * parseable or because the serialization process leads to fields being modified in unexpected ways.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordSerializationValidationException extends RecordCoreException {
     RecordSerializationValidationException(@Nonnull String message, @Nonnull RecordType recordType, @Nullable Tuple primaryKey, @Nullable Throwable cause) {

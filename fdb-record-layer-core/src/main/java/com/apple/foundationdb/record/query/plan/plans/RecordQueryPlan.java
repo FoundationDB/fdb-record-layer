@@ -60,7 +60,7 @@ import java.util.Objects;
  * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(com.apple.foundationdb.record.query.RecordQuery)
  *
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @GenerateVisitor(stripPrefix = "RecordQuery")
 public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable, PlanSerializable {
 

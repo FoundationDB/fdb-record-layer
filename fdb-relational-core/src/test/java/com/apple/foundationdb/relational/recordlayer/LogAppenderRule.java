@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
@@ -35,6 +37,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, AutoCloseable {
 
     private LogAppender logAppender;

@@ -56,7 +56,7 @@ import java.util.function.Supplier;
  * A {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} whose value from the record,
  * to be compared with the comparison's value, is the result of applying a {@link RecordFunction} to the record.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class QueryRecordFunctionWithComparison implements ComponentWithComparison {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Query-Record-Function-With-Comparison");
 

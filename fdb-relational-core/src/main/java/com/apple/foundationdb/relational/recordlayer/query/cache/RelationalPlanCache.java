@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
@@ -35,6 +37,7 @@ import java.util.concurrent.TimeUnit;
  * This is just a specialization of {@link MultiStageCache} with concrete types specific to plan caching.
  */
 @ExcludeFromJacocoGeneratedReport
+@API(API.Status.EXPERIMENTAL)
 public final class RelationalPlanCache extends MultiStageCache<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
 
     @Nonnull

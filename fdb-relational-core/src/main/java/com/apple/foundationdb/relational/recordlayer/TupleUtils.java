@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+@API(API.Status.EXPERIMENTAL)
 public final class TupleUtils {
 
     public static Tuple toFDBTuple(Row relationalTuple) throws RelationalException {

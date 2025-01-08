@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalStructMetaData implements StructMetaData {
 
     @Nonnull

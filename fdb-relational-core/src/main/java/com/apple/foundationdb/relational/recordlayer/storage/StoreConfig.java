@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.storage;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -39,6 +41,7 @@ import com.google.protobuf.Message;
 
 import java.net.URI;
 
+@API(API.Status.EXPERIMENTAL)
 public final class StoreConfig {
     private final RecordLayerConfig recordLayerConfig;
     private final String schemaName;

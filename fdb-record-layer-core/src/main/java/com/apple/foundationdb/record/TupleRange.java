@@ -38,7 +38,7 @@ import java.util.Objects;
 /**
  * A range within a subspace specified by two {@link Tuple} endpoints.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class TupleRange {
     public static final TupleRange ALL = new TupleRange(null, null, EndpointType.TREE_START, EndpointType.TREE_END);
     @Nullable

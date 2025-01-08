@@ -40,7 +40,7 @@ import java.util.Set;
 /**
  * A set of configuration options for the {@link RecordQueryPlanner}.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordQueryPlannerConfiguration {
     @Nonnull
     private static final BiMap<QueryPlanner.IndexScanPreference, RecordPlannerConfigurationProto.PlannerConfiguration.IndexScanPreference> SCAN_PREFERENCE_BI_MAP =

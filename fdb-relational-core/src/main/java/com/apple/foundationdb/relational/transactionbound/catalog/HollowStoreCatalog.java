@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.transactionbound.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -35,6 +37,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport
+@API(API.Status.EXPERIMENTAL)
 public class HollowStoreCatalog implements StoreCatalog {
 
     @Nonnull

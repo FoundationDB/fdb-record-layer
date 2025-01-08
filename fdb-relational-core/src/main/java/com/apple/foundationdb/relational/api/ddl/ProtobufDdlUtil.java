@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -34,6 +36,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public final class ProtobufDdlUtil {
 
     private ProtobufDdlUtil() {

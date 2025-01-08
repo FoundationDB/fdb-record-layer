@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -32,6 +34,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+@API(API.Status.EXPERIMENTAL)
 public class SchemaRule implements BeforeEachCallback, AfterEachCallback {
     private final String schemaName;
     private final URI dbUri;

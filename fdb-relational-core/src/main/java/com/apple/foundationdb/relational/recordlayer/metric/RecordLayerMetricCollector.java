@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metric;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -40,6 +42,7 @@ import java.util.concurrent.TimeUnit;
  * The RecordLayerMetricCollector is an implementation of MetricCollector that is bound to a {@link FDBRecordContext}
  * object and hence scoped to a single transaction. It hence maintains metrics pertaining to a single ongoing txn.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerMetricCollector implements MetricCollector {
 
     @Nonnull

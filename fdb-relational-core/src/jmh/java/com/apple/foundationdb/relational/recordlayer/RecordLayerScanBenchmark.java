@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -62,6 +64,7 @@ import java.util.concurrent.TimeUnit;
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Benchmark)
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerScanBenchmark extends RelationalScanBenchmark {
 
     @Override

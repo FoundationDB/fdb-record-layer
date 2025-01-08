@@ -35,7 +35,7 @@ import java.util.TreeMap;
  *
  * A {@code KeyValueLogMessage} has an associated set of key-value pairs, which are output after the static portion of the message in {@code key=value} form.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeyValueLogMessage {
     @Nonnull
     private final long timestamp;

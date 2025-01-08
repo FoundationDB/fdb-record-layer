@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
@@ -43,6 +45,7 @@ import java.util.Set;
  * </ul>
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@API(API.Status.EXPERIMENTAL)
 public final class PlannerConfiguration {
 
     @Nonnull

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
@@ -107,6 +109,7 @@ import static java.util.stream.Collectors.toList;
  * Generates a {@link KeyExpression} from a given query plan.
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "OptionalUsedAsFieldOrParameterType"})
+@API(API.Status.EXPERIMENTAL)
 public final class IndexGenerator {
 
     private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";

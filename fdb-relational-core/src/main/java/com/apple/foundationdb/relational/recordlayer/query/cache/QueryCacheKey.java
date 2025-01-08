@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 
 import javax.annotation.Nonnull;
@@ -94,6 +96,7 @@ import java.util.Objects;
  * </table>
  * For more information, examine the unit tests of {@link AstNormalizer}.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class QueryCacheKey {
 
     @Nonnull

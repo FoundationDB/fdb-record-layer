@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
@@ -53,6 +55,7 @@ import java.util.Enumeration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalServerTest {
     private static final Logger logger = LogManager.getLogger(RelationalServerTest.class.getName());
     private static RelationalServer relationalServer;

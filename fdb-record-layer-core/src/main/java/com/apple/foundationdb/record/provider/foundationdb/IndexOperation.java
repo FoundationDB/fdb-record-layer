@@ -27,7 +27,7 @@ import com.apple.foundationdb.annotation.API;
  *
  * For example, an index that adds time-related entries might expire old ones occasionally.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class IndexOperation {
 }

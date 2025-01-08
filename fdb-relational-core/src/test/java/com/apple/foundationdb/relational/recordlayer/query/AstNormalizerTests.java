@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -65,6 +67,7 @@ import static com.apple.foundationdb.relational.recordlayer.query.QueryExecution
  *     <li>documentation of handling IN predicate with all-const in-list and  some-const in-list</li>
  * </ul>
  */
+@API(API.Status.EXPERIMENTAL)
 public class AstNormalizerTests {
 
     @Nonnull

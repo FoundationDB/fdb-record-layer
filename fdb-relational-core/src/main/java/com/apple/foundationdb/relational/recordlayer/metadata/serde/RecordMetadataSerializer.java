@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
@@ -38,6 +40,7 @@ import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 
+@API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
 
     @Nonnull

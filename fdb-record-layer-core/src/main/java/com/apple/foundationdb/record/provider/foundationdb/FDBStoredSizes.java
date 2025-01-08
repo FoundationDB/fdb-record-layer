@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
  * Information about how a record is stored in the database.
  * @see FDBStoredRecord
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface FDBStoredSizes {
     /**
      * Get the number of keys used to store this record.

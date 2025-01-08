@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -35,6 +37,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.sql.SQLException;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class JoinWithLimitTest {
 
     @RegisterExtension

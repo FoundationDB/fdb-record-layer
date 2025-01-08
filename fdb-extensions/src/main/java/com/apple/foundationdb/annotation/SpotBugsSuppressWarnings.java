@@ -25,7 +25,7 @@ package com.apple.foundationdb.annotation;
  *
  * Avoids introducing another transitive dependency.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public @interface SpotBugsSuppressWarnings {
     String[] value();
     String justification() default "";

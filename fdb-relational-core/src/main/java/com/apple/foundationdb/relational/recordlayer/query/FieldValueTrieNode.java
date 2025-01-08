@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -44,6 +46,7 @@ import java.util.function.BiFunction;
 /**
  * a {@link TrieNode} implementation having a {@link FieldValue.ResolvedAccessor} as key.
  */
+@API(API.Status.EXPERIMENTAL)
 public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.ResolvedAccessor, Value, FieldValueTrieNode> {
 
     public FieldValueTrieNode(@Nonnull final Value value, @Nullable final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> childrenMap) {

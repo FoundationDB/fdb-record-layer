@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
@@ -47,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
     public RecordLayerCatalogQueryFactory(StoreCatalog catalog) {
         super(catalog);

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -43,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+@API(API.Status.EXPERIMENTAL)
 public class SqlVisitorTests {
 
     @RegisterExtension

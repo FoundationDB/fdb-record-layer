@@ -39,7 +39,7 @@ import java.util.concurrent.Executor;
  *
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class AsyncLockCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final AsyncLock lock;

@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 /**
  * Exceptions due to problems with the state of or connection to a particular record store.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordCoreStorageException extends RecordCoreException {
     public RecordCoreStorageException(@Nonnull String msg) {

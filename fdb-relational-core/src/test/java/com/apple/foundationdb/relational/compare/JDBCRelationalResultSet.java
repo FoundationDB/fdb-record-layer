@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.compare;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -50,6 +52,7 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class JDBCRelationalResultSet implements RelationalResultSet {
     private final ResultSet delegate;
 

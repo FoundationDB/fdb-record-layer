@@ -75,14 +75,11 @@ Classes and methods annotations using `@API` determine when they can be changed 
 
 * `STABLE` will not change until the major version is incremented. At that time, they may also change status to something less stable.
 
-* `MAINTAINED` will not change until the minor version is incremented. At that time, only the status changes to `UNSTABLE` or `DEPRECATED`. This indicates that in the *next* minor version they will change / be removed.
-
 * `UNSTABLE` can change in a minor release without other advance notice.
 
 * `DEPRECATED` can be removed in a minor release without other advance notice.
 
 * `EXPERIMENTAL` can change / be removed in any build without notice.
-
 
 ## Creating a Patch Branch
 

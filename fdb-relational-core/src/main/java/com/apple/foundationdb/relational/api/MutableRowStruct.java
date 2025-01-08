@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
 import java.sql.SQLException;
 import java.util.Objects;
 
+@API(API.Status.EXPERIMENTAL)
 public class MutableRowStruct extends RowStruct {
 
     private Row row;

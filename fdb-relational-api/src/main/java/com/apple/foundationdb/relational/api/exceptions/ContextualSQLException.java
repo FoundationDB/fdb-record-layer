@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
@@ -31,6 +33,7 @@ import java.util.Map;
  * An exception intended to carry over additional context within a SQLException.
  */
 @SuppressWarnings("PMD.FormalParameterNamingConventions")
+@API(API.Status.EXPERIMENTAL)
 public class ContextualSQLException extends SQLException {
     private static final long serialVersionUID = 2135244094396331484L;
     @Nonnull

@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * A {@link QueryComponent} that uses a {@link Comparisons.Comparison} on the record.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface ComponentWithComparison extends ComponentWithNoChildren {
     @Nonnull
     Comparisons.Comparison getComparison();

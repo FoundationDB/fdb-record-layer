@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import java.sql.SQLException;
@@ -27,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class KeySet {
     public static final KeySet EMPTY = new KeySet() {
         @Override

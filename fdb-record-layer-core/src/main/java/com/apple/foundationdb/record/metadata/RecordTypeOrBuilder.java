@@ -33,7 +33,7 @@ import java.util.List;
  * classes that contains accessors that they are both expected to have. This includes
  * the data necessary to know what is in a record and what indexes are associated with it.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface RecordTypeOrBuilder {
     /**
      * Get the name of the record type. This is the same as the name of the underlying

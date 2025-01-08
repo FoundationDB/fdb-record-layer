@@ -122,7 +122,7 @@ import java.util.function.Function;
  * <li>Return a {@code BY_VALUE} scan between those grouped score endpoints.</li>
  * </ol>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RankIndexMaintainer extends StandardIndexMaintainer {
     private final RankedSet.Config config;
 

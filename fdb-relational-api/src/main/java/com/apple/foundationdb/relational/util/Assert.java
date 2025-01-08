@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -31,6 +33,7 @@ import java.util.function.Supplier;
  * A set of helper methods for validating input, pre-conditions, ... etc.
  */
 @ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
+@API(API.Status.EXPERIMENTAL)
 public final class Assert {
 
     public static void that(boolean mustBeTrue) throws RelationalException {

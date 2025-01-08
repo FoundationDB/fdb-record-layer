@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fluentsql.expression.BooleanFunction;
@@ -46,6 +48,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public class SqlVisitor implements FluentVisitor<Void, StringBuilder> {
 
     private static final Map<Operation, String> operationSqlSymbols;

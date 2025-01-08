@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.memory;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -56,6 +58,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+@API(API.Status.EXPERIMENTAL)
 public class InMemoryRelationalStatement implements RelationalStatement {
 
     final InMemoryTransactionManager inMemoryTransactionManager = new InMemoryTransactionManager();

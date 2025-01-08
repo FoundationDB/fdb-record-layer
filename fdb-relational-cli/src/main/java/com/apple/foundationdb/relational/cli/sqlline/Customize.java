@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.cli.sqlline;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import sqlline.BuiltInProperty;
@@ -42,6 +44,7 @@ import java.util.Map;
  * <a href="https://github.com/julianhyde/sqlline/blob/main/src/main/java/sqlline/Application.java#L38">Application.java</a>
  * on how this works. The main thing we add is output of Relational STRUCT and ARRAY missing from basic sqlline.
  */
+@API(API.Status.EXPERIMENTAL)
 public class Customize extends sqlline.Application {
     // Overriding {@link #getDefaultInteractiveMode()}, and {@link #getConnectInteractiveModes()} doesn't work -- bug
     // because sqlline does this <code>new HashSet<>(new Application().getConnectInteractiveModes()))</code> -- so we have

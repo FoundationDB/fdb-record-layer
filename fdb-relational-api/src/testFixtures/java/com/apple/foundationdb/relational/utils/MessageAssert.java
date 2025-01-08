@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.assertj.core.api.AbstractObjectAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
 
+@API(API.Status.EXPERIMENTAL)
 public class MessageAssert extends AbstractObjectAssert<MessageAssert, Message> {
 
     protected MessageAssert(Message message) {

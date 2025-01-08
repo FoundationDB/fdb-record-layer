@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -33,6 +35,7 @@ import javax.annotation.Nonnull;
  * Nullable Arrays are arrays that, if unset, will be NULL.
  * Non-nullable arrays are arrays that, if unset, will be empty list.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class NullableArrayUtils {
     public static final String REPEATED_FIELD_NAME = "values";
 

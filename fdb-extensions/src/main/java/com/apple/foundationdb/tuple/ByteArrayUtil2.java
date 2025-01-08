@@ -77,7 +77,7 @@ public class ByteArrayUtil2 {
      * @return a hex representation of {@code bytes}
      * @see ByteArrayUtil#printable(byte[])
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     @Nullable
     public static String loggable(@Nullable byte[] bytes) {
         if (bytes == null) {
@@ -111,7 +111,7 @@ public class ByteArrayUtil2 {
      *     returned by {@link ByteArrayUtil#printable(byte[])}
      * @return a byte array parsed from {@code loggedBytes}
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     @Nullable
     public static byte[] unprint(@Nullable String loggedBytes) {
         if (loggedBytes == null) {

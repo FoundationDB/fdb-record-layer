@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc.grpc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
@@ -41,6 +43,7 @@ import java.sql.SQLException;
  * Utility for serializing SQLExceptions for passing over grpc.
  * Includes encoding and decoding into and out of standard 'ErrorInfo' protobuf.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class GrpcSQLExceptionUtil {
     private static final Logger logger = LogManager.getLogger(GrpcSQLExceptionUtil.class.getName());
     private static final String SQLEXCEPTION_ERRORINFO_DOMAIN = GrpcSQLExceptionUtil.class.getPackageName();

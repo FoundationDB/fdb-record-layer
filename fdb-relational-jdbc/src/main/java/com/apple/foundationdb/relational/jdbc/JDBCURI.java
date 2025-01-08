@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -32,6 +34,7 @@ import java.util.Map;
 /**
  * JDBC connection URI public utility and constants.
  */
+@API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("AbbreviationAsWordInName") // should consider revising
 public final class JDBCURI {
     public static final String JDBC_URL_PREFIX = "jdbc:";

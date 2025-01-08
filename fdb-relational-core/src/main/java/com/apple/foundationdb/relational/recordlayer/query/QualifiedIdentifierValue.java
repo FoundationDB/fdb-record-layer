@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
@@ -29,6 +31,7 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 // todo (yhatem) remove this class.
+@API(API.Status.EXPERIMENTAL)
 public final class QualifiedIdentifierValue extends LiteralValue<String> {
     @Nonnull
     private final String[] parts;

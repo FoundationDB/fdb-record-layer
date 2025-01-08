@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -40,6 +42,7 @@ import java.util.Map;
  * This is intended to be scoped to a single connection space, and so it is _not_ thread safe.
  */
 @NotThreadSafe
+@API(API.Status.EXPERIMENTAL)
 public class CachedMetaDataStore implements RecordMetaDataStore {
     private final Map<String, CacheCell> cachedProviders = new HashMap<>();
     private final RecordMetaDataStore backingStore;

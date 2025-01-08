@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -33,6 +35,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.function.Function;
 
+@API(API.Status.EXPERIMENTAL)
 public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private final RecordCursor<T> recordCursor;
     private final Function<T, Row> transform;

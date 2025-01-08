@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.google.protobuf.Descriptors;
 import org.assertj.core.api.AbstractObjectAssert;
 
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class FieldDescriptorAssert extends AbstractObjectAssert<FieldDescriptorAssert, Descriptors.FieldDescriptor> {
     public FieldDescriptorAssert(Descriptors.FieldDescriptor fieldDescriptor) {
         super(fieldDescriptor, FieldDescriptorAssert.class);

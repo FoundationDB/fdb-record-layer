@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -37,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+@API(API.Status.EXPERIMENTAL)
 public class FileDescriptorSerializer extends SkeletonVisitor {
 
     @Nonnull

@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
  * result as if the field were set to the empty message. If this expression is evaluated on the <code>null</code>
  * record, then it will evaluate the same as if the parent field is unset or empty (depending on the fan type).
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class NestingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild, AtomKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Nesting-Key-Expression");
 

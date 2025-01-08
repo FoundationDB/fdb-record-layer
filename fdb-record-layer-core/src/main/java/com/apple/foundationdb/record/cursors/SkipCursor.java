@@ -35,7 +35,7 @@ import java.util.concurrent.Executor;
  * A cursor that skips a specified number of initial elements.
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class SkipCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> inner;

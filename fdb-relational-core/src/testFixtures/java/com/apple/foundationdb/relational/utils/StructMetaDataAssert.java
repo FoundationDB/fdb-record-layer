@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -31,6 +33,7 @@ import org.assertj.core.api.SoftAssertions;
 import java.sql.SQLException;
 import java.sql.Types;
 
+@API(API.Status.EXPERIMENTAL)
 public class StructMetaDataAssert extends AbstractAssert<StructMetaDataAssert, StructMetaData> {
 
     public static StructMetaDataAssert assertThat(StructMetaData actual) {

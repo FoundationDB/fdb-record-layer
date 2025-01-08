@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.FieldDescription;
@@ -49,6 +51,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Map;
 
+@API(API.Status.EXPERIMENTAL)
 public class InsertTest {
     @RegisterExtension
     @Order(0)

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
@@ -56,6 +58,7 @@ import java.util.function.BiFunction;
  * Utility is mostly into and out-of generated protobufs and type convertions such as a list of RelationalStructs to
  * ResultSet. Used in client and server.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TypeConversion {
     /**
      * Return {@link RelationalStruct} instance found at <code>rowIndex</code> and <code>oneBasedColumn</code> offsets.

@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStoreBase.StoreExistenceCheck#ERROR_IF_EXISTS
  */
 @SuppressWarnings("serial")
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordStoreAlreadyExistsException extends RecordCoreStorageException {
     public RecordStoreAlreadyExistsException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

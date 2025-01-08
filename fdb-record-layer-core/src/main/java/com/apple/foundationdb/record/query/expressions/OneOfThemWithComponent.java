@@ -44,7 +44,7 @@ import java.util.function.Supplier;
 /**
  * A {@link QueryComponent} that evaluates a nested component against each of the values of a repeated field and is satisfied if any of those are.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class OneOfThemWithComponent extends BaseRepeatedField implements ComponentWithSingleChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("One-Of-Them-With-Component");
 

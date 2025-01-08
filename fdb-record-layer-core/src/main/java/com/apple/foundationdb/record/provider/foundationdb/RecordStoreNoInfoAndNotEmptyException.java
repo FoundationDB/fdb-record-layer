@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStoreBase.StoreExistenceCheck#ERROR_IF_NO_INFO_AND_NOT_EMPTY
  */
 @SuppressWarnings("serial")
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordStoreNoInfoAndNotEmptyException extends RecordCoreStorageException {
     public RecordStoreNoInfoAndNotEmptyException(@Nonnull String msg, @Nullable Throwable cause) {
         super(msg, cause);

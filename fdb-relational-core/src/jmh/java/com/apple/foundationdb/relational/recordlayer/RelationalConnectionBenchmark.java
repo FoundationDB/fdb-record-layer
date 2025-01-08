@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -55,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Benchmark)
+@API(API.Status.EXPERIMENTAL)
 public class RelationalConnectionBenchmark extends EmbeddedRelationalBenchmark {
 
     Driver driver = new Driver(); //use the default benchmark template, cause we don't care what our data is here

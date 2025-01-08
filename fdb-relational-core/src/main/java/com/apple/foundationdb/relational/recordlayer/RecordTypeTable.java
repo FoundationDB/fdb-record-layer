@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -65,6 +67,7 @@ import java.util.stream.Collectors;
 /**
  * A table implementation based on a specific record type.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message>> implements Table {
     private final RecordLayerSchema schema;
     private final String tableName;

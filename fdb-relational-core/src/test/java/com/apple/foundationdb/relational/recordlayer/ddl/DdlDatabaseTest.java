@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -46,6 +48,7 @@ import java.util.Set;
 /**
  * End-to-end unit tests for the database ddl language built over RecordLayer.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DdlDatabaseTest {
     @RegisterExtension
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();

@@ -54,7 +54,7 @@ import java.util.function.Supplier;
  * A {@link QueryComponent} that implements checking for a given record type.
  * Not normally used in queries.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordTypeKeyComparison implements ComponentWithComparison {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Key-Comparison");
 

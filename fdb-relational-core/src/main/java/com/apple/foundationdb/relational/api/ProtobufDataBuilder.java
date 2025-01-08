@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
@@ -37,6 +39,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Deprecated
+@API(API.Status.EXPERIMENTAL)
 public class ProtobufDataBuilder implements DynamicMessageBuilder {
     private final Descriptors.Descriptor typeDescriptor;
 

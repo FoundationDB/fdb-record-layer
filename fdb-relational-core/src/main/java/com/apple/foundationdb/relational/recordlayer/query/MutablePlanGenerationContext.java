@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
@@ -62,6 +64,7 @@ import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYP
  * Context keeping state related to plan generation, it also captures execution-specific attributes that influences
  * how the physical plan is handled at runtime, such as continuation, limit, and offset.
  */
+@API(API.Status.EXPERIMENTAL)
 public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     private final PreparedParams preparedParams;

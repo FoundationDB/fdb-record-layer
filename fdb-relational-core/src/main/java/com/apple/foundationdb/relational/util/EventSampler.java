@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -38,6 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * If you are interested in a sampling method that captures time-irregular traffic patterns, then you should be
  * sampling according to time-rates, rather than even rates.
  */
+@API(API.Status.EXPERIMENTAL)
 public class EventSampler implements Sampler {
 
     private final AtomicLong eventCounter = new AtomicLong(0L);

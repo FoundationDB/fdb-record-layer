@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  * A hook for suppressing secondary indexing of some records.
  * @see FDBRecordStore#indexMaintenanceFilter
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface IndexMaintenanceFilter {
 
     /**

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.StructResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
@@ -40,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class ResultSetMetaDataAssert extends AbstractAssert<ResultSetMetaDataAssert, RelationalResultSetMetaData> {
 
     public static ResultSetMetaDataAssert assertThat(RelationalResultSetMetaData actual) {

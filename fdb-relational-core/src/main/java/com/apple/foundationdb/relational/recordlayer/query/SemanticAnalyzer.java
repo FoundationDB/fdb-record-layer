@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
@@ -78,6 +80,7 @@ import java.util.stream.StreamSupport;
  * Performs basic semantic analysis and resolution legwork.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@API(API.Status.EXPERIMENTAL)
 public class SemanticAnalyzer {
 
     private static final int BITMAP_DEFAULT_ENTRY_SIZE = 10_000;

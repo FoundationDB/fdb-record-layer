@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.relational.api.Options;
@@ -32,6 +34,7 @@ import com.codahale.metrics.MetricRegistry;
 
 import javax.annotation.Nonnull;
 
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerTransactionManager implements TransactionManager {
     private final FDBDatabase fdbDb;
     private final MetricRegistry metricRegistry;

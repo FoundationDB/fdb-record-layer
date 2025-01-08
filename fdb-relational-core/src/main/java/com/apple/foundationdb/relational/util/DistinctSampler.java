@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -37,6 +39,7 @@ import java.util.function.Predicate;
  *
  * @param <K> the type of item to sample.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DistinctSampler<K> implements Predicate<K> {
     private static final long NANOS_PER_SECOND = TimeUnit.SECONDS.toNanos(1);
     private final LoadingCache<K, Sampler> cache;

@@ -28,7 +28,7 @@ import com.apple.foundationdb.annotation.API;
  * should only arrive in indexes in which the maintenance of a delete is too expensive and must be
  * deferred to some kind of external support job.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public enum IndexOrphanBehavior {
     /**
      * Throw an exception when an orphaned entry is hit. This is the default behavior for most

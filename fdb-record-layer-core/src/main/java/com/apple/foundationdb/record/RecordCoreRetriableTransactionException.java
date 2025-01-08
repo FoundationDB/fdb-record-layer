@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 /**
  * An exception from transaction processing that ought to be retried.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordCoreRetriableTransactionException extends RecordCoreStorageException {
     public RecordCoreRetriableTransactionException(@Nonnull String msg) {

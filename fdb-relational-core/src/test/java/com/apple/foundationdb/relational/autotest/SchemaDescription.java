@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.relational.autotest;
 
+import com.apple.foundationdb.annotation.API;
+
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class SchemaDescription {
     private final String templateName;
     private final String templateDescription;

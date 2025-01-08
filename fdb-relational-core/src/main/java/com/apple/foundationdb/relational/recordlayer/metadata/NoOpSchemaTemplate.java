@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
@@ -36,6 +38,7 @@ import java.util.Set;
 /**
  * Implementation of Schema template that holds (name, version) and no tables.
  */
+@API(API.Status.EXPERIMENTAL)
 public class NoOpSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final String name;

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
  * @param <N> The type of the function.
  */
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public class NumericFunction<N extends DataType.NumericType> implements NumericExpressionTrait<N>, FunctionLike<N> {
 
     @Nonnull

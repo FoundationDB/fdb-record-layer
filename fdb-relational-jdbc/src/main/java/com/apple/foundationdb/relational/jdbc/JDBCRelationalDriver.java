@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
@@ -42,6 +44,7 @@ import java.util.Properties;
  */
 @SuppressWarnings({"PMD.SystemPrintln"}) // Used in extreme when a failure to register Driver
 // TODO: Implement RelationalDriver after it inherits from Driver.
+@API(API.Status.EXPERIMENTAL)
 public class JDBCRelationalDriver implements RelationalDriver {
     /**
      * Needed by {@link JDBCRelationalDatabaseMetaData#getDriverName()}.

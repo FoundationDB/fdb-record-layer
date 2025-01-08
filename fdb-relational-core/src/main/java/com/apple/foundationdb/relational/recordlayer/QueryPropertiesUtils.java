@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.relational.api.Options;
 
 import javax.annotation.Nonnull;
 
+@API(API.Status.EXPERIMENTAL)
 public final class QueryPropertiesUtils {
     static ExecuteProperties getExecuteProperties(@Nonnull Options options) {
         ExecuteProperties.Builder builder = ExecuteProperties.newBuilder();

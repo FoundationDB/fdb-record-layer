@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  * @see ExecuteProperties.Builder#setFailOnScanLimitReached(boolean)
  * @see CursorLimitManager#tryRecordScan()
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class ScanLimitReachedException extends RecordCoreException {
     public ScanLimitReachedException(@Nonnull String msg) {

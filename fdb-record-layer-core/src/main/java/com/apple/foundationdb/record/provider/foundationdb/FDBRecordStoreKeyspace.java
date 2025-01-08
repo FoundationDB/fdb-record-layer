@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * Unique integers used as the first tuple item within a record store's subspace.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public enum FDBRecordStoreKeyspace {
     STORE_INFO(0L),
     RECORD(1L),

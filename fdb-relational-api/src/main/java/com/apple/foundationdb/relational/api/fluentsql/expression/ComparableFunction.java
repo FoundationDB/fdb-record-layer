@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -38,6 +40,7 @@ import java.util.stream.Collectors;
  * @param <T> The type of argument expression(s).
  */
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public class ComparableFunction<P extends DataType, T extends Expression<P>> implements ComparableExpressionTrait<P, T>, FunctionLike<P> {
 
     @Nonnull

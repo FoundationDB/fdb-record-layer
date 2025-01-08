@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Utility class for creating different clock instances.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class Clocks {
 
     private static final Clock SYSTEM_CLOCK = System::nanoTime;

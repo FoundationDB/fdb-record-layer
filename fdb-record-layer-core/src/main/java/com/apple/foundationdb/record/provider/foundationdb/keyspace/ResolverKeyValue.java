@@ -29,7 +29,7 @@ import java.util.Objects;
 /**
  * Encapsulates both the key and its resolved value from a {@link LocatableResolver}.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ResolverKeyValue {
     @Nonnull
     private final String key;

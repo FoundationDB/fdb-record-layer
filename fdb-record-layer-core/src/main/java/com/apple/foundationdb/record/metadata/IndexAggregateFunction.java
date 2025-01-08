@@ -41,7 +41,7 @@ import java.util.Objects;
  * @see com.apple.foundationdb.record.FunctionNames
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#evaluateAggregateFunction
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexAggregateFunction implements PlanHashable, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Aggregate-Function");
 

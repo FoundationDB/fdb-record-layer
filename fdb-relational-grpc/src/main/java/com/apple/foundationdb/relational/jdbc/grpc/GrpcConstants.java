@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.relational.jdbc.grpc;
 
+import com.apple.foundationdb.annotation.API;
+
 /**
  * Constants for consumers of GRPC such as the default port
  * the Relational server listens for connections on.
  */
+@API(API.Status.EXPERIMENTAL)
 public class GrpcConstants {
     /**
      * Default port the GRPC server listens on.

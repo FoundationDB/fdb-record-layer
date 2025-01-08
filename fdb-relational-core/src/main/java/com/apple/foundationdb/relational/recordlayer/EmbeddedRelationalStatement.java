@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.relational.api.Continuation;
@@ -47,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement implements RelationalStatement {
 
     public EmbeddedRelationalStatement(@Nonnull EmbeddedRelationalConnection conn) throws SQLException {

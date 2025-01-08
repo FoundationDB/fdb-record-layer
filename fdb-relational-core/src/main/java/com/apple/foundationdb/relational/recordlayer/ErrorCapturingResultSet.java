@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -32,6 +34,7 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 @ExcludeFromJacocoGeneratedReport //there's nothing to test, just exception translation
+@API(API.Status.EXPERIMENTAL)
 public class ErrorCapturingResultSet implements RelationalResultSet {
     private final RelationalResultSet delegate;
 

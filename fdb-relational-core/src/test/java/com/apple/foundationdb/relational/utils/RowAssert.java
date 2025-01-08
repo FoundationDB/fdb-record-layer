@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
@@ -33,6 +35,7 @@ import org.assertj.core.api.ByteArrayAssert;
 import java.sql.Array;
 import java.util.Collection;
 
+@API(API.Status.EXPERIMENTAL)
 public class RowAssert extends AbstractAssert<RowAssert, Row> {
     protected RowAssert(Row row) {
         super(row, RowAssert.class);

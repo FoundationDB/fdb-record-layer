@@ -44,7 +44,7 @@ import java.util.List;
  * The same result can be achieved more transparently by having a repeated nested submessage with the several fields
  * in it; this is for the sake of clients with poorer type systems that only allow for lists of primitive types.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Split-Key-Expression");
 

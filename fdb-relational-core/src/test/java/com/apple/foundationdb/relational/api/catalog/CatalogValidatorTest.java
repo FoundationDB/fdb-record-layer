@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -34,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class CatalogValidatorTest {
     @Test
     void testValidateGoodSchema() {

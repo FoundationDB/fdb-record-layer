@@ -41,7 +41,7 @@ import java.util.concurrent.CompletableFuture;
  * {@link #add(String, Object)}. Once a desired path has been fully constructed, {@link #toTuple(FDBRecordContext)} is used
  * to turn the resulting path into a <code>Tuple</code> to represent the FDB row key.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface KeySpacePath {
 
     /**

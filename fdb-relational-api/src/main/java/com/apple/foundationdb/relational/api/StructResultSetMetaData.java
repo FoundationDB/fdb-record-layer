@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import java.sql.SQLException;
 
+@API(API.Status.EXPERIMENTAL)
 public class StructResultSetMetaData implements RelationalResultSetMetaData {
     private final StructMetaData metaData;
 

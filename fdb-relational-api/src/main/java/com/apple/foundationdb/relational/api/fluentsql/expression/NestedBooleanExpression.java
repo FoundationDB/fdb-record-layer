@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
@@ -32,6 +34,7 @@ import java.util.Objects;
  * TODO: remove this class.
  */
 @Immutable
+@API(API.Status.EXPERIMENTAL)
 public class NestedBooleanExpression implements BooleanExpressionTrait {
 
     @Nonnull

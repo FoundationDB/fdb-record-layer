@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 
 import com.google.protobuf.DescriptorProtos;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@API(API.Status.EXPERIMENTAL)
 public class DdlTestUtil {
 
     public static class ParsedColumn {

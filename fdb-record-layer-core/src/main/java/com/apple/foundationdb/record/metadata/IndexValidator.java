@@ -39,7 +39,7 @@ import java.util.Set;
  * @see Index
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexValidator {
     @Nonnull
     protected final Index index;

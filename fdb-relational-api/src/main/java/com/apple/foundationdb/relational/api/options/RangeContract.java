@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.options;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
@@ -30,6 +32,7 @@ import java.sql.SQLException;
  * Helper to check that parameters passed as options are within a given range.
  * @param <T> the type of the parameter being checked
  */
+@API(API.Status.EXPERIMENTAL)
 public final class RangeContract<T extends Comparable<T>> implements OptionContract {
     private final T min;
     private final T max;

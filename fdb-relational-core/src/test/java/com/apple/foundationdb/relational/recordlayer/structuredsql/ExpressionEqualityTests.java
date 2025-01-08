@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -36,6 +38,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+@API(API.Status.EXPERIMENTAL)
 public class ExpressionEqualityTests {
     @Nonnull
     private static SchemaTemplate sampleSchemaTemplate() {

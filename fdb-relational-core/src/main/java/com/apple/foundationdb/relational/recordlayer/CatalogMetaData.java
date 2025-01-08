@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -60,6 +62,7 @@ import java.util.stream.Stream;
 /**
  * An implementation of {@link DatabaseMetaData}, that relies on the {@link StoreCatalog} to supply metadata info.
  */
+@API(API.Status.EXPERIMENTAL)
 public class CatalogMetaData implements RelationalDatabaseMetaData {
     private final StoreCatalog catalog;
     private final EmbeddedRelationalConnection conn;

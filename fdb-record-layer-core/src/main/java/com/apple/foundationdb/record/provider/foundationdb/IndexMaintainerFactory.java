@@ -44,7 +44,7 @@ import javax.annotation.Nonnull;
  * @see IndexMaintainerRegistry
  *
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface IndexMaintainerFactory {
     /**
      * Get the index types supported by this factory.

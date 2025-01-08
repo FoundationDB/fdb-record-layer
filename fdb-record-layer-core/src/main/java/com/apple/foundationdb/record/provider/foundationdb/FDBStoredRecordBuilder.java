@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * A builder for {@link FDBStoredRecord}.
  * @param <M> type used to represent stored records
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
     @Nullable
     private Tuple primaryKey;

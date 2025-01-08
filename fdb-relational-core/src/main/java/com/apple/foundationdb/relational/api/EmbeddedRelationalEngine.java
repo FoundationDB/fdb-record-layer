@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
@@ -31,6 +33,7 @@ import java.util.List;
 /**
  * The Engine that drives and manages an Embedded Relational instance.
  */
+@API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalEngine {
     private final List<StorageCluster> clusters;
 

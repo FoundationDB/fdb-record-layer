@@ -35,7 +35,7 @@ import java.util.concurrent.Executor;
  * instead where possible.
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
     public IteratorCursor(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
         super(executor, iterator);

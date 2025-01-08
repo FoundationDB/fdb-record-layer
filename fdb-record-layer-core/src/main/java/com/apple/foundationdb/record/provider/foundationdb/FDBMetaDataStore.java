@@ -63,7 +63,7 @@ import java.util.function.Consumer;
  * instances will have out-of-date meta-data.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBMetaDataStore.class);
     private static final ExtensionRegistry DEFAULT_EXTENSION_REGISTRY;
@@ -544,7 +544,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param fileDescriptor the file descriptor of the record meta-data
      * @see MetaDataProtoEditor#addDefaultUnionIfMissing(Descriptors.FileDescriptor)
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public void saveRecordMetaData(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_META_DATA, saveRecordMetaDataAsync(fileDescriptor));
     }
@@ -583,7 +583,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future when save is completed
      * @see MetaDataProtoEditor#addDefaultUnionIfMissing(Descriptors.FileDescriptor)
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public CompletableFuture<Void> saveRecordMetaDataAsync(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         return getRecordMetaDataAsync(false).thenCompose(metaData -> {
             if (metaData == null ) {
@@ -773,7 +773,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * @param recordsDescriptor the new recordsDescriptor
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_UPDATE_RECORDS_DESCRIPTOR, updateRecordsAsync(recordsDescriptor));
     }
@@ -800,7 +800,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future that completes when the records descriptor is updated
      */
     @Nonnull
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public CompletableFuture<Void> updateRecordsAsync(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             // Update the records without using its local file descriptor. Let saveAndSetCurrent use the local file descriptor when saving the meta-data.

@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 /**
  * A {@link StoreTimer} associated with {@link FDBRecordStore} operations.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class FDBStoreTimer extends StoreTimer {
 
     /**

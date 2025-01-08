@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -42,6 +44,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
+@API(API.Status.EXPERIMENTAL)
 public class SystemCatalogQueryTest {
 
     @RegisterExtension

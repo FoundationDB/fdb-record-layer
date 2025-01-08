@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport //nothing to test
+@API(API.Status.EXPERIMENTAL)
 public class NoOpQueryFactory implements DdlQueryFactory {
     public static final DdlQueryFactory INSTANCE = new NoOpQueryFactory();
 

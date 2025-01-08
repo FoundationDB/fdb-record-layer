@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
@@ -48,6 +50,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 
+@API(API.Status.EXPERIMENTAL)
 public class SchemaTemplateSerDeTests {
 
     private static RecordLayerSchemaTemplate basicTestTemplate() {

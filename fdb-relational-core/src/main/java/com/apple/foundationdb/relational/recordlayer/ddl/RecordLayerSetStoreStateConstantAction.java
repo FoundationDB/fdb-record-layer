@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -42,6 +44,7 @@ import java.net.URI;
 import java.util.Map;
 
 @ExcludeFromJacocoGeneratedReport
+@API(API.Status.EXPERIMENTAL)
 public class RecordLayerSetStoreStateConstantAction implements ConstantAction {
     private final StoreCatalog catalog;
     private final RecordLayerConfig rlConfig;

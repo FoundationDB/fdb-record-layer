@@ -48,7 +48,7 @@ import java.util.List;
  * is for passing static arguments to functions (see {@link FunctionKeyExpression} for details).
  * @param <T> the type of the literal value
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithValue, KeyExpressionWithoutChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Key-Expression");
 

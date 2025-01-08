@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
@@ -27,6 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import javax.annotation.Nonnull;
 import java.net.URI;
 
+@API(API.Status.EXPERIMENTAL)
 public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private MetadataPlanVisitor(@Nonnull BaseVisitor baseVisitor) {

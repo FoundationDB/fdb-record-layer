@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
@@ -61,6 +63,7 @@ import java.util.Set;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
+@API(API.Status.EXPERIMENTAL)
 public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private QueryVisitor(@Nonnull BaseVisitor baseVisitor) {

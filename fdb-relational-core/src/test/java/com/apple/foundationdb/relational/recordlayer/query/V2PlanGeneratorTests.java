@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 
+@API(API.Status.EXPERIMENTAL)
 public class V2PlanGeneratorTests {
     @RegisterExtension
     @Order(0)

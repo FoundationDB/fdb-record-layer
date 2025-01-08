@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -40,6 +42,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  * This class represents the {@code Schema} system table. This system table contains information
  * about all available schemas.
  */
+@API(API.Status.EXPERIMENTAL)
 public class SchemaSystemTable implements SystemTable {
     public static final String TABLE_NAME = SystemTableRegistry.SCHEMAS_TABLE_NAME;
 

@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * A range within a subspace specified by two byte value endpoints.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeyRange {
     @Nonnull
     private final byte[] lowKey;

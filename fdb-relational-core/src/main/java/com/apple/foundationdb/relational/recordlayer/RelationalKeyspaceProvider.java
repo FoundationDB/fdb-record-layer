@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
@@ -51,6 +53,7 @@ import java.util.concurrent.CompletableFuture;
  *                |- schema (string)
  */
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalKeyspaceProvider {
 
     public static final String SYS = "__SYS";

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.continuation.ContinuationProto;
 
 import com.google.common.primitives.Ints;
@@ -28,6 +30,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+@API(API.Status.EXPERIMENTAL)
 public class ContinuationTest {
     @Test
     public void testBegin() {

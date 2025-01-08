@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  * This happens when, perhaps due to caching, one instance writes with newer code and an instance yet to be upgraded encounters that record store.
  */
 @SuppressWarnings("serial")
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordStoreStaleMetaDataVersionException extends RecordCoreStorageException {
     public RecordStoreStaleMetaDataVersionException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

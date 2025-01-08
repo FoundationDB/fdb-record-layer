@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.transactionbound;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
@@ -33,6 +35,7 @@ import java.util.List;
  * A specialized derived class of {@link EmbeddedRelationalEngine} that creates a {@link com.apple.foundationdb.relational.recordlayer.catalog.TransactionBoundDatabase}
  * for every connection.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelationalEngine {
     private final RelationalPlanCache planCache;
     private final List<StorageCluster> clusters;

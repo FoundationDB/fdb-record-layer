@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
@@ -53,6 +55,7 @@ import java.sql.SQLException;
 // If you add a method, be sure to catch RuntimeExceptions; doing it here is cleaner
 // than trying to do it in some global server interceptor. See comment in RelationalServer
 // where we register grpc Services on the Server instance.
+@API(API.Status.EXPERIMENTAL)
 public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
     private final FRL frl;
 

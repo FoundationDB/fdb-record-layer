@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -39,6 +41,7 @@ import java.util.Locale;
  * Contains a set of utility methods that are relevant for parsing the AST.
  * TODO: this class should be removed.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class ParseHelpers {
 
     // used only to be passed to expression lambdas in Record Layer (to be removed).

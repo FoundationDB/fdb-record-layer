@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -53,6 +55,7 @@ import java.net.URI;
  * Note: this database doesn't support DDL statements.
  * Note: this is only a temporary workaround to finish the first step of integration with customers through direct API.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TransactionBoundDatabase extends AbstractDatabase {
     BackingStore store;
     URI uri;

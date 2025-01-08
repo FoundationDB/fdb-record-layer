@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -37,6 +39,7 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+@API(API.Status.EXPERIMENTAL)
 public class RelationalStatementRule implements BeforeEachCallback, AfterEachCallback, RelationalStatement {
     RelationalConnection connection;
     RelationalStatement statement;

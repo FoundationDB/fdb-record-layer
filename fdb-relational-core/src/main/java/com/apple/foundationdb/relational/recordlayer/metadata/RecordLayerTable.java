@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -49,6 +51,7 @@ import java.util.stream.Collectors;
 /**
  * Represents a {@link com.apple.foundationdb.relational.api.metadata.Table} that is backed by the Record Layer.
  */
+@API(API.Status.EXPERIMENTAL)
 public final class RecordLayerTable implements Table {
 
     @Nonnull
