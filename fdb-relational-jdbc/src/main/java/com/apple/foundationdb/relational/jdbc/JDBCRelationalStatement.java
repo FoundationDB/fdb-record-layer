@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.google.protobuf.ByteString;
 import io.grpc.StatusRuntimeException;
 
 import javax.annotation.Nonnull;

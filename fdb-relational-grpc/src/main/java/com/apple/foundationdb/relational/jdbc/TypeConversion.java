@@ -34,9 +34,9 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySetValue;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetContinuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
@@ -329,7 +329,7 @@ public class TypeConversion {
         // Set the continuation after all the rows have been traversed
         // TODO: we may go over the cursor by 1 here?
         Continuation existingContinuation = relationalResultSet.getContinuation();
-        ResultSetContinuation rpcContinuation = toContinuation(existingContinuation);
+        RpcContinuation rpcContinuation = toContinuation(existingContinuation);
         if (rpcContinuation != null) {
             resultSetBuilder.setContinuation(rpcContinuation);
         }
@@ -337,16 +337,16 @@ public class TypeConversion {
         return resultSetBuilder.build();
     }
 
-    private static ResultSetContinuation toContinuation(Continuation existingContinuation) {
+    private static RpcContinuation toContinuation(Continuation existingContinuation) {
         if (existingContinuation == null) {
             return null;
         } else if (existingContinuation.atBeginning()) {
-            return RelationalGrpcContinuation.BEGIN.getProto();
+            return RelationalRpcContinuation.BEGIN.getProto();
         } else if (existingContinuation.atEnd()) {
-            return RelationalGrpcContinuation.END.getProto();
+            return RelationalRpcContinuation.END.getProto();
         } else {
-            return ResultSetContinuation.newBuilder()
-                    .setVersion(RelationalGrpcContinuation.CURRENT_VERSION)
+            return RpcContinuation.newBuilder()
+                    .setVersion(RelationalRpcContinuation.CURRENT_VERSION)
                     // Here, we serialize the entire continuation - this will make it easier to recreate the original once
                     // we get it back
                     .setInternalState(ByteString.copyFrom(existingContinuation.serialize()))

@@ -32,6 +32,7 @@ option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1";
 option java_outer_classname = "ResultSetProto";
 
 import "grpc/relational/jdbc/v1/column.proto";
+import "grpc/relational/jdbc/v1/continuation.proto";
 
 // Results from Direct Access API Get or Scan or from sql execute.
 message ResultSet {
@@ -44,26 +45,11 @@ message ResultSet {
 
   // Optional continuation that can continue the query from the point the current results ended.
   // Not all queries support continuations. Null (or non existent) continuations means "no continuation".
-  optional ResultSetContinuation continuation = 3;
+  optional RpcContinuation continuation = 3;
 }
 
 // Metadata about a [ResultSet][grpc.relational.jdbc.v1.ResultSet]
 message ResultSetMetadata {
   // Indicates the field names and types for the rows in the result set.
   ListColumnMetadata columnMetadata = 1;
-}
-
-enum ResultSetContinuationReason {
-  // Reached a transaction limit, such as byte scan limit, row scan limit or time limit.
-  TRANSACTION_LIMIT_REACHED = 0;
-  // Reached a query execution limit, such as the maximum number of rows allowed in a result set.
-  QUERY_EXECUTION_LIMIT_REACHED = 1;
-  // All rows were returned.
-  CURSOR_AFTER_LAST = 2;
-}
-
-message ResultSetContinuation {
-  int32 version = 1;
-  bytes internal_state = 2;
-  ResultSetContinuationReason reason = 3;
 }

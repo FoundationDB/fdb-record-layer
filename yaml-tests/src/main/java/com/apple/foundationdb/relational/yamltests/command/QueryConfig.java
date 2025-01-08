@@ -154,7 +154,7 @@ public abstract class QueryConfig {
         if (!currentQuery.isEmpty() && currentQuery.charAt(currentQuery.length() - 1) == ';') {
             currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
         }
-        if (continuation instanceof ContinuationImpl) {
+        if (continuation != null) {
             String result;
             if (continuation.atBeginning()) {
                 result = "START";

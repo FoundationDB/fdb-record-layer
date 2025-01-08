@@ -1,5 +1,5 @@
 /*
- * RelationalGrpcContinuation.java
+ * RelationalRpcContinuation.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetContinuation;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -29,21 +29,21 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 
-public class RelationalGrpcContinuation implements Continuation {
+public class RelationalRpcContinuation implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
-    public static final RelationalGrpcContinuation BEGIN = new RelationalGrpcContinuation((byte[]) null);
-    public static final RelationalGrpcContinuation END = new RelationalGrpcContinuation(new byte[0]);
+    public static final RelationalRpcContinuation BEGIN = new RelationalRpcContinuation((byte[]) null);
+    public static final RelationalRpcContinuation END = new RelationalRpcContinuation(new byte[0]);
 
     @Nonnull
-    private final ResultSetContinuation proto;
+    private final RpcContinuation proto;
 
-    public RelationalGrpcContinuation(@Nonnull ResultSetContinuation proto) {
+    public RelationalRpcContinuation(@Nonnull RpcContinuation proto) {
         this.proto = proto;
     }
 
-    private RelationalGrpcContinuation(@Nullable byte[] continuationBytes) {
-        ResultSetContinuation.Builder builder = ResultSetContinuation.newBuilder().setVersion(CURRENT_VERSION);
+    private RelationalRpcContinuation(@Nullable byte[] continuationBytes) {
+        RpcContinuation.Builder builder = RpcContinuation.newBuilder().setVersion(CURRENT_VERSION);
         if (continuationBytes != null) {
             builder.setInternalState(ByteString.copyFrom(continuationBytes));
         }
@@ -57,17 +57,20 @@ public class RelationalGrpcContinuation implements Continuation {
      * @return the deserialized continuation
      * @throws InvalidProtocolBufferException in case the continuation cannot be deserialized
      */
-    public static RelationalGrpcContinuation parseContinuation(byte[] bytes) throws InvalidProtocolBufferException {
+    public static RelationalRpcContinuation parseContinuation(byte[] bytes) throws InvalidProtocolBufferException {
         if (bytes == null) {
             return BEGIN; // TODO: Is this right?
         } else {
-            return new RelationalGrpcContinuation(ResultSetContinuation.parseFrom(bytes));
+            return new RelationalRpcContinuation(RpcContinuation.parseFrom(bytes));
         }
     }
 
     @Override
     public byte[] serialize() {
-        return proto.toByteArray();
+        // Serialize the INTERNAL STATE. This is done since on the client side, when the query is modified to include an
+        // encoded version of the continuation as a string, we have to use the INTERNAL flavor of the continuation to have
+        // it properly deserialized by the server. The server only accepts the internal continuation as part of the query.
+        return proto.getInternalState().toByteArray();
     }
 
     @Nullable
@@ -82,7 +85,7 @@ public class RelationalGrpcContinuation implements Continuation {
     }
 
     @Nonnull
-    public ResultSetContinuation getProto() {
+    public RpcContinuation getProto() {
         return proto;
     }
 
@@ -91,10 +94,10 @@ public class RelationalGrpcContinuation implements Continuation {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof RelationalGrpcContinuation)) {
+        if (!(o instanceof RelationalRpcContinuation)) {
             return false;
         }
-        RelationalGrpcContinuation that = (RelationalGrpcContinuation) o;
+        RelationalRpcContinuation that = (RelationalRpcContinuation) o;
         return Objects.equals(proto, that.proto);
     }
 
