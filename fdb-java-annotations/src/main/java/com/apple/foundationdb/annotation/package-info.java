@@ -19,7 +19,18 @@
  */
 
 /**
- * Annotations defined for use with FoundationDB. Currently, this only includes the {@link com.apple.foundationdb.annotation.API API}
- * stability annotations, but more could be added in the future.
+ * Annotations defined for use with FoundationDB. Currently, this includes:
+ *
+ * <ul>
+ *     <li> {@link com.apple.foundationdb.annotation.API API} for specifying API stability levels.</li>
+ *     <li> {@link com.apple.foundationdb.annotation.SpotBugsSuppressWarnings SpotBugsSuppressWarnings} for suppressing
+ *         static analysis warnings.</li>
+ *     <li> {@link com.apple.foundationdb.annotation.GenerateVisitor GenerateVisitor} for automatically generating visitor
+ *         interfaces of class hierarchies</li>
+ * </ul>
+ *
+ * <p>
+ * None of the annotations have dependencies on
+ * </p>
  */
 package com.apple.foundationdb.annotation;

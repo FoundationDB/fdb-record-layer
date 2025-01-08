@@ -29,8 +29,8 @@ configurations {
 }
 
 dependencies {
+    annotationProcessor project(':fdb-java-annotations')
     api project(':fdb-extensions')
-    annotationProcessor project(':fdb-extensions')
 
     api "com.google.protobuf:protobuf-java:${protobufVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"

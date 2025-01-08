@@ -29,16 +29,22 @@ import java.lang.annotation.Target;
 /**
  * An annotation used on public types, fields, and methods to indicate their level of stability for consumers of the API.
  *
+ * <p>
  * If a class or interface is annotated with {@code API}, all of its fields and methods are considered to have that same
  * level of stability by default. However, this may be changed by annotating a member explicitly.
+ * </p>
  *
+ * <p>
  * An API may have its stability status become more stable (see {@link Status}) at any time, including before the next
  * minor release. However, an API must not become less stable in the next minor release. Each stability status must
  * specify how API elements with that status may become less stable (e.g., with the next minor release, with next major
  * release).
+ * </p>
  *
+ * <p>
  * The key words "must", "must not", "require", "shall", "shall not", "should", "should not", and "may" in this document
  * are to be interpreted as described in RFC 2119.
+ * </p>
  */
 @Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
 @Retention(RetentionPolicy.CLASS)
