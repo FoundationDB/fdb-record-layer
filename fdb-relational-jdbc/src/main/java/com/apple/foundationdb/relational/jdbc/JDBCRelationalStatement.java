@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import com.google.protobuf.ByteString;
 import io.grpc.StatusRuntimeException;
 
 import javax.annotation.Nonnull;
@@ -181,10 +180,7 @@ class JDBCRelationalStatement implements RelationalStatement {
         StatementResponse statementResponse;
         try {
             StatementRequest.Builder builder = StatementRequest.newBuilder()
-                    .setSql(sql)
-                    .setDatabase(this.connection.getDatabase())
-                    .setSchema(this.connection.getSchema())
-                    .setOptions(optionsAsProto());
+                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema()).setOptions(optionsAsProto());
             if (parameters != null) {
                 builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
             }
