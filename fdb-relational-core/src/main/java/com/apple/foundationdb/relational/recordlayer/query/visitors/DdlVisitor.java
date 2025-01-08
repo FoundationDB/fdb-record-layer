@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Optional;
 
 @API(API.Status.EXPERIMENTAL)
-public class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
+public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder metadataBuilder;

@@ -38,7 +38,7 @@ import java.util.zip.Deflater;
  * Holder object for RecordLayer-specific stuff that isn't directly tied to an actual FDB StorageCluster.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordLayerConfig {
+public final class RecordLayerConfig {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final RecordSerializer<Message> serializer;
     private final int formatVersion;

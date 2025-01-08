@@ -35,7 +35,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 @API(API.Status.EXPERIMENTAL)
-public class OrderByExpression {
+public final class OrderByExpression {
 
     @Nonnull
     private final Expression expression;

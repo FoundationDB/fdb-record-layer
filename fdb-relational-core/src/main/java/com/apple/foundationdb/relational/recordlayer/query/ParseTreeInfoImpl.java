@@ -35,7 +35,7 @@ import javax.annotation.Nonnull;
  * this holds query parsing information.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ParseTreeInfoImpl implements ParseTreeInfo {
+public final class ParseTreeInfoImpl implements ParseTreeInfo {
 
     @Nonnull
     private final RelationalParser.RootContext rootContext;

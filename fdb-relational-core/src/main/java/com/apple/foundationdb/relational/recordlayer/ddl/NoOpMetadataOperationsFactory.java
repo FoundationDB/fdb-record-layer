@@ -35,7 +35,7 @@ import java.net.URI;
 
 @ExcludeFromJacocoGeneratedReport //nothing to test
 @API(API.Status.EXPERIMENTAL)
-public class NoOpMetadataOperationsFactory implements MetadataOperationsFactory {
+public final class NoOpMetadataOperationsFactory implements MetadataOperationsFactory {
     public static final NoOpMetadataOperationsFactory INSTANCE = new NoOpMetadataOperationsFactory();
 
     private NoOpMetadataOperationsFactory() {

@@ -110,7 +110,7 @@ import static java.util.stream.Collectors.toList;
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "OptionalUsedAsFieldOrParameterType"})
 @API(API.Status.EXPERIMENTAL)
-public class IndexGenerator {
+public final class IndexGenerator {
 
     private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
     private static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";

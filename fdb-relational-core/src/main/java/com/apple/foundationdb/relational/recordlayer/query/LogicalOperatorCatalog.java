@@ -33,7 +33,7 @@ import java.util.function.Function;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class LogicalOperatorCatalog {
+public final class LogicalOperatorCatalog {
 
     @Nonnull
     private final Map<CatalogKey, LogicalOperator> logicalOperators;

@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  */
 @ExcludeFromJacocoGeneratedReport
 @API(API.Status.EXPERIMENTAL)
-public class RelationalPlanCache extends MultiStageCache<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
+public final class RelationalPlanCache extends MultiStageCache<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
 
     @Nonnull
     private static final TimeUnit DEFAULT_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;

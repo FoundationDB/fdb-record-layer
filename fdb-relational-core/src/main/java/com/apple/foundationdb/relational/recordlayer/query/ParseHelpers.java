@@ -42,7 +42,7 @@ import java.util.Locale;
  * TODO: this class should be removed.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ParseHelpers {
+public final class ParseHelpers {
 
     // used only to be passed to expression lambdas in Record Layer (to be removed).
     @Nonnull

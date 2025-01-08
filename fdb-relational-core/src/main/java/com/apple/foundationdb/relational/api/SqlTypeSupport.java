@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
-public class SqlTypeSupport {
+public final class SqlTypeSupport {
     //TODO(bfines) eventually this should move into the Planner (or closer to there, anyway), but for now
     //we will hold on to it here
     private static final Set<String> KNOWN_PHANTOM_COLUMNS = Set.of("__TYPE_KEY");

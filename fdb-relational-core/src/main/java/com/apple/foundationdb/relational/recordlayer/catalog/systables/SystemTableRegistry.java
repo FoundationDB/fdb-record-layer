@@ -34,7 +34,7 @@ import java.util.Map;
  */
 @ExcludeFromJacocoGeneratedReport //We don't need to test map accesses
 @API(API.Status.EXPERIMENTAL)
-public class SystemTableRegistry {
+public final class SystemTableRegistry {
 
     public static final long SCHEMA_RECORD_TYPE_KEY = 0L;
     public static final long DATABASE_INFO_RECORD_TYPE_KEY = 1L;

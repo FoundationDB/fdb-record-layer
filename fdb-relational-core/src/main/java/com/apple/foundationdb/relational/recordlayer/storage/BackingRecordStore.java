@@ -71,7 +71,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
-public class BackingRecordStore implements BackingStore {
+public final class BackingRecordStore implements BackingStore {
     private final Transaction transaction;
     private final FDBRecordStoreBase<Message> recordStore;
 

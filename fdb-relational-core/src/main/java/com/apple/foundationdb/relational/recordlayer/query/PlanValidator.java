@@ -44,7 +44,7 @@ import java.util.Set;
 
 @SuppressWarnings("PMD.MissingSerialVersionUID")
 @API(API.Status.EXPERIMENTAL)
-public class PlanValidator {
+public final class PlanValidator {
 
     private PlanValidator() {
     }

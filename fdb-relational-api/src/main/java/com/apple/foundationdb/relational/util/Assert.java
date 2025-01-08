@@ -34,7 +34,7 @@ import java.util.function.Supplier;
  */
 @ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
 @API(API.Status.EXPERIMENTAL)
-public class Assert {
+public final class Assert {
 
     public static void that(boolean mustBeTrue) throws RelationalException {
         that(mustBeTrue, "condition is not met!");

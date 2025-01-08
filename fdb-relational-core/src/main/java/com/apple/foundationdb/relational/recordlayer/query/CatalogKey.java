@@ -38,7 +38,7 @@ import java.util.Set;
  * hinted at all).
  */
 @API(API.Status.EXPERIMENTAL)
-public class CatalogKey {
+public final class CatalogKey {
     @Nonnull
     private final Identifier identifier;
 

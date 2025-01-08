@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  * everywhere.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TestSchemas {
+public final class TestSchemas {
 
     private TestSchemas() {
     }

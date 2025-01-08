@@ -41,7 +41,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
-public class Options {
+public final class Options {
 
     public enum Name {
         /**

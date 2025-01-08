@@ -36,7 +36,7 @@ import java.sql.Types;
 // Used by fdb-relational-jdbc module in JDBCRelationalArray.
 @ExcludeFromJacocoGeneratedReport
 @API(API.Status.EXPERIMENTAL)
-public class SqlTypeNamesSupport {
+public final class SqlTypeNamesSupport {
     private SqlTypeNamesSupport() {
     }
 

@@ -46,7 +46,7 @@ import java.util.Properties;
  * Obtain the singleton instance by calling {@link #getInstance()}}
  */
 @API(API.Status.EXPERIMENTAL)
-public class BuildVersion {
+public final class BuildVersion {
     private static BuildVersion instance;
     private static final String VERSIONS_PROPERTIES_FILENAME = "version.properties";
     private final Properties versionProperties = new Properties();

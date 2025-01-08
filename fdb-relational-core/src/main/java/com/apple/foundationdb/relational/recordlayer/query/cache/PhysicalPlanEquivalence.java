@@ -55,7 +55,7 @@ import java.util.Optional;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class PhysicalPlanEquivalence {
+public final class PhysicalPlanEquivalence {
 
     @Nonnull
     private final Optional<QueryPlanConstraint> constraint;

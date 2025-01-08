@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
-public class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
+public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private MetadataPlanVisitor(@Nonnull BaseVisitor baseVisitor) {
         super(baseVisitor);

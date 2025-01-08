@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @API(API.Status.EXPERIMENTAL)
-public class Expressions implements Iterable<Expression> {
+public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     private static final Expressions EMPTY = new Expressions(ImmutableList.of());

@@ -66,7 +66,7 @@ import java.util.stream.Stream;
  * This visits expression tree parse nodes and generates a corresponding {@link Expression}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
+public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private ExpressionVisitor(@Nonnull BaseVisitor baseVisitor) {
         super(baseVisitor);

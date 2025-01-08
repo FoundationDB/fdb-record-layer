@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
-public class ContinuationImpl implements Continuation {
+public final class ContinuationImpl implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
     public static final ContinuationImpl BEGIN = new ContinuationImpl((byte[]) null);

@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  * Utility methods and classes to improve the construction of various different sampling methods.
  */
 @API(API.Status.EXPERIMENTAL)
-public class Sampling {
+public final class Sampling {
 
     private Sampling() {
     }

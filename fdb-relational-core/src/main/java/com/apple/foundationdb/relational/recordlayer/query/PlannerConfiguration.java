@@ -46,7 +46,7 @@ import java.util.Set;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class PlannerConfiguration {
+public final class PlannerConfiguration {
 
     @Nonnull
     private static final PlannerConfiguration ALL_AVAILABLE_INDEXES = new PlannerConfiguration(Optional.empty());

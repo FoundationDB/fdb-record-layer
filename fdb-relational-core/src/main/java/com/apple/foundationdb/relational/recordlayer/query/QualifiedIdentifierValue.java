@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 // todo (yhatem) remove this class.
 @API(API.Status.EXPERIMENTAL)
-public class QualifiedIdentifierValue extends LiteralValue<String> {
+public final class QualifiedIdentifierValue extends LiteralValue<String> {
     @Nonnull
     private final String[] parts;
 

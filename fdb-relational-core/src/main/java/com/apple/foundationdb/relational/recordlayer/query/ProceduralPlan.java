@@ -31,7 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
-public class ProceduralPlan extends Plan<Void> {
+public final class ProceduralPlan extends Plan<Void> {
 
     private final ConstantAction action;
 

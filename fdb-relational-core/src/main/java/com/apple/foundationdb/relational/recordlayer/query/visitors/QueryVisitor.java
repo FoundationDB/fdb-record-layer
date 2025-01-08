@@ -64,7 +64,7 @@ import java.util.Set;
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
 @API(API.Status.EXPERIMENTAL)
-public class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
+public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private QueryVisitor(@Nonnull BaseVisitor baseVisitor) {
         super(baseVisitor);

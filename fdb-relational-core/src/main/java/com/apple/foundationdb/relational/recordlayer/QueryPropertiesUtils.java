@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.Options;
 import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
-public class QueryPropertiesUtils {
+public final class QueryPropertiesUtils {
     static ExecuteProperties getExecuteProperties(@Nonnull Options options) {
         ExecuteProperties.Builder builder = ExecuteProperties.newBuilder();
         Integer rowLimit = options.getOption(Options.Name.MAX_ROWS);

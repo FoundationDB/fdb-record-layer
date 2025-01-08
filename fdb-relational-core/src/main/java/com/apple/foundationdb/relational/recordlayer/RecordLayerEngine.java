@@ -40,7 +40,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
-public class RecordLayerEngine {
+public final class RecordLayerEngine {
 
     public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
                                                     @Nonnull List<FDBDatabase> databases,

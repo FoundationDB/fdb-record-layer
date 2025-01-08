@@ -62,7 +62,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 
 @API(API.Status.EXPERIMENTAL)
-public class BackingLocatableResolverStore implements BackingStore {
+public final class BackingLocatableResolverStore implements BackingStore {
     private final LocatableResolver locatableResolver;
     private final Transaction txn;
     private final LocatableResolverMetaDataProvider metaDataProvider;

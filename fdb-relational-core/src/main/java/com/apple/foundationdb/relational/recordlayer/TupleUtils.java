@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 @API(API.Status.EXPERIMENTAL)
-public class TupleUtils {
+public final class TupleUtils {
 
     public static Tuple toFDBTuple(Row relationalTuple) throws RelationalException {
         if (!(relationalTuple instanceof FDBTuple)) {

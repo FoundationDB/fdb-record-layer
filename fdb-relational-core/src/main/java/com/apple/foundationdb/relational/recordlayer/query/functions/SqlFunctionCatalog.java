@@ -40,7 +40,7 @@ import static java.util.stream.Collectors.toList;
  * A catalog of built-in SQL functions.
  */
 @API(API.Status.EXPERIMENTAL)
-public class SqlFunctionCatalog implements FunctionCatalog {
+public final class SqlFunctionCatalog implements FunctionCatalog {
 
     @Nonnull
     private static final AutoServiceFunctionCatalog underlying = AutoServiceFunctionCatalog.instance();

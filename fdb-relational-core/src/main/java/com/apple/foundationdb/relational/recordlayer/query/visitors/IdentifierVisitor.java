@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 @API(API.Status.EXPERIMENTAL)
-public class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
+public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
 
     private IdentifierVisitor(BaseVisitor baseVisitor) {
         super(baseVisitor);

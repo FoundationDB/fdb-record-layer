@@ -38,7 +38,7 @@ import javax.annotation.Nonnull;
  */
 @ExcludeFromJacocoGeneratedReport //it doesn't do anything to be tested
 @API(API.Status.EXPERIMENTAL)
-public class NoOpMetricRegistry {
+public final class NoOpMetricRegistry {
 
     @Nonnull
     public static final MetricRegistry INSTANCE = new NoopMetricRegistry();

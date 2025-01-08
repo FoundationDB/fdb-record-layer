@@ -75,7 +75,7 @@ import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class PlanGenerator {
+public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
 
     /**

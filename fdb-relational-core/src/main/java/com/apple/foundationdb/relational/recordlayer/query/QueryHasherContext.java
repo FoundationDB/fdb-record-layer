@@ -38,7 +38,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 @API(API.Status.EXPERIMENTAL)
-public class QueryHasherContext implements QueryExecutionContext {
+public final class QueryHasherContext implements QueryExecutionContext {
 
     @Nonnull
     private final Literals literals;

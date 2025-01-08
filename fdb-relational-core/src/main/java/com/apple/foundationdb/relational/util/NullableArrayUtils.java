@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
  * Non-nullable arrays are arrays that, if unset, will be empty list.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NullableArrayUtils {
+public final class NullableArrayUtils {
     public static final String REPEATED_FIELD_NAME = "values";
 
     private NullableArrayUtils() {

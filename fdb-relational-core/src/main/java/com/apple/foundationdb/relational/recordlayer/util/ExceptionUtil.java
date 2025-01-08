@@ -38,7 +38,7 @@ import java.sql.SQLException;
 import java.util.Map;
 
 @API(API.Status.EXPERIMENTAL)
-public class ExceptionUtil {
+public final class ExceptionUtil {
     public static RelationalException toRelationalException(Throwable re) {
         if (re instanceof RelationalException) {
             return (RelationalException) re;

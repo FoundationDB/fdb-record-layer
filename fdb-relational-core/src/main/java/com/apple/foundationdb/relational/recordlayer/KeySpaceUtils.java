@@ -40,7 +40,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
-public class KeySpaceUtils {
+public final class KeySpaceUtils {
 
     @Nonnull
     public static URI pathToUri(@Nonnull KeySpacePath dbPath) {

@@ -35,7 +35,7 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 
 @API(API.Status.EXPERIMENTAL)
-public class AutoServiceFunctionCatalog implements FunctionCatalog {
+public final class AutoServiceFunctionCatalog implements FunctionCatalog {
 
     @Nonnull
     private static final AutoServiceFunctionCatalog INSTANCE = new AutoServiceFunctionCatalog();

@@ -37,7 +37,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
-public class ProtobufDdlUtil {
+public final class ProtobufDdlUtil {
 
     private ProtobufDdlUtil() {
     }

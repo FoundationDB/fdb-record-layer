@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class Star extends Expression {
+public final class Star extends Expression {
 
     @Nonnull
     private final List<Expression> expansion;

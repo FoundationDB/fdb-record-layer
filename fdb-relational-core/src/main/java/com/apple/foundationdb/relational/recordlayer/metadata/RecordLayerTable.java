@@ -52,7 +52,7 @@ import java.util.stream.Collectors;
  * Represents a {@link com.apple.foundationdb.relational.api.metadata.Table} that is backed by the Record Layer.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordLayerTable implements Table {
+public final class RecordLayerTable implements Table {
 
     @Nonnull
     private final String name;

@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
-public class RecordLayerIterator<T> implements ResumableIterator<Row> {
+public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private final RecordCursor<T> recordCursor;
     private final Function<T, Row> transform;
     private RecordCursorResult<T> result;

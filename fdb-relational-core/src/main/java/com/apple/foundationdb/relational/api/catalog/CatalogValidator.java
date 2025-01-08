@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
-public class CatalogValidator {
+public final class CatalogValidator {
 
     // this seems superfluous, it can be replaced with proper checks in {@link Schema} constructor.
     public static void validateSchema(@Nonnull Schema schema) throws RelationalException {

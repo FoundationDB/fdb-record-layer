@@ -48,7 +48,7 @@ import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYP
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INTERNAL_ERROR;
 
 @API(API.Status.EXPERIMENTAL)
-public class LiteralsUtils {
+public final class LiteralsUtils {
     private LiteralsUtils() {
         // prevent instantiation
     }

@@ -40,7 +40,7 @@ import java.util.stream.Stream;
  * Generates DDL definitions for tables and types using permutative exhaustion.
  */
 @API(API.Status.EXPERIMENTAL)
-public class DdlPermutationGenerator {
+public final class DdlPermutationGenerator {
     private static final String[] validPrimitiveDataTypes = new String[]{
             "bigint", "double", "boolean", "string", "bytes"
     };

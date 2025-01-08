@@ -49,7 +49,7 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 
 @API(API.Status.EXPERIMENTAL)
-public class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
+public final class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tautological-Value");
 

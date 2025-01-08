@@ -35,7 +35,7 @@ import java.util.Objects;
  */
 @Immutable
 @API(API.Status.EXPERIMENTAL)
-public class BooleanLiteral implements Literal<Boolean, DataType.BooleanType>, BooleanExpressionTrait {
+public final class BooleanLiteral implements Literal<Boolean, DataType.BooleanType>, BooleanExpressionTrait {
     @Nonnull
     private static final BooleanLiteral TRUE = new BooleanLiteral(DataType.BooleanType.notNullable(), true);
 

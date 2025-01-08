@@ -39,7 +39,7 @@ import java.util.Set;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class LogicalPlanFragment {
+public final class LogicalPlanFragment {
 
     @Nonnull
     private final Optional<LogicalPlanFragment> parent;

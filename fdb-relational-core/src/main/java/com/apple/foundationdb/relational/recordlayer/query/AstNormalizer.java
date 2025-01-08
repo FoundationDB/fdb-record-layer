@@ -98,7 +98,7 @@ import java.util.function.Supplier;
 // AstHasher is short-lived, therefore, using StringBuilder is ok.
 @NotThreadSafe
 @API(API.Status.EXPERIMENTAL)
-public class AstNormalizer extends RelationalParserBaseVisitor<Object> {
+public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     private final Hasher hashFunction;

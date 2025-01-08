@@ -42,7 +42,7 @@ import com.google.protobuf.Message;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
-public class StoreConfig {
+public final class StoreConfig {
     private final RecordLayerConfig recordLayerConfig;
     private final String schemaName;
     private final KeySpacePath storePath;

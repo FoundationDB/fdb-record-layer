@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Utility class for creating different clock instances.
  */
 @API(API.Status.EXPERIMENTAL)
-public class Clocks {
+public final class Clocks {
 
     private static final Clock SYSTEM_CLOCK = System::nanoTime;
 

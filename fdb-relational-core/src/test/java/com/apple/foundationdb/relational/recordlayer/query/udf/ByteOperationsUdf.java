@@ -38,7 +38,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 @API(API.Status.EXPERIMENTAL)
-public class ByteOperationsUdf extends UdfFunction {
+public final class ByteOperationsUdf extends UdfFunction {
 
     public static final class ByteOperationsValue extends UdfValue {
         public ByteOperationsValue(@Nonnull final Iterable<? extends Value> children, @Nonnull final Type resultType) {

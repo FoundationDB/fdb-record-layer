@@ -37,7 +37,7 @@ import java.util.function.Supplier;
  * Metadata describing what is in a {@link RelationalArray}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RelationalArrayMetaData implements ArrayMetaData {
+public final class RelationalArrayMetaData implements ArrayMetaData {
 
     private final FieldDescription element;
 

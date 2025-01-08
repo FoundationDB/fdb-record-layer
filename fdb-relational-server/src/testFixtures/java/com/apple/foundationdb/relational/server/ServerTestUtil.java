@@ -33,7 +33,7 @@ import org.apache.logging.log4j.Logger;
  * Stand up a server for downstream modules to use in test.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ServerTestUtil {
+public final class ServerTestUtil {
     private static final Logger logger = LogManager.getLogger(ServerTestUtil.class.getName());
     private static final int PORT_RETRY_MAX = 100;
 

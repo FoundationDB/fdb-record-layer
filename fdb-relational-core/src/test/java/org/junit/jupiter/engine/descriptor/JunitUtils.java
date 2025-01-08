@@ -38,7 +38,7 @@ import java.util.Optional;
  * Package-private hacks.
  */
 @API(API.Status.EXPERIMENTAL)
-public class JunitUtils {
+public final class JunitUtils {
 
     public static Optional<JupiterTestDescriptor> createDynamicDescriptor(JupiterTestDescriptor parent,
                                                                           DynamicNode node,

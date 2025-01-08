@@ -36,7 +36,7 @@ import java.util.Map;
  * TODO (Make prepared statement parameters stateless)
  */
 @API(API.Status.EXPERIMENTAL)
-public class PreparedParams {
+public final class PreparedParams {
 
     @Nonnull
     private static final PreparedParams EMPTY_PARAMETERS = new PreparedParams(Map.of(), Map.of());

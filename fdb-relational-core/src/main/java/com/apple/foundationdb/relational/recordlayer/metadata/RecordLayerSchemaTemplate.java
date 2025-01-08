@@ -60,7 +60,7 @@ import java.util.TreeSet;
 import java.util.function.Predicate;
 
 @API(API.Status.EXPERIMENTAL)
-public class RecordLayerSchemaTemplate implements SchemaTemplate {
+public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     private final String name;

@@ -38,7 +38,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 @API(API.Status.EXPERIMENTAL)
-public class ResultSetUtils {
+public final class ResultSetUtils {
 
     public static Iterator<Row> resultSetIterator(RelationalResultSet rrs) throws SQLException {
         return new ResultSetIterator(rrs);

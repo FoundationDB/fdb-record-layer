@@ -37,10 +37,10 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 @API(API.Status.EXPERIMENTAL)
-public class SumUdf extends UdfFunction {
+public final class SumUdf extends UdfFunction {
 
     @API(API.Status.EXPERIMENTAL)
-    public class SumUdfValue extends UdfValue {
+    public final class SumUdfValue extends UdfValue {
         public SumUdfValue(@Nonnull final Iterable<? extends Value> children, @Nonnull final Type resultType) {
             super(children, resultType);
         }

@@ -41,7 +41,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
-public class PlanContext {
+public final class PlanContext {
 
     // todo (yhatem) remove this if possible.
     @Nonnull

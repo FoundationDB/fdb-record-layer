@@ -97,7 +97,7 @@ import java.util.Objects;
  * For more information, examine the unit tests of {@link AstNormalizer}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueryCacheKey {
+public final class QueryCacheKey {
 
     @Nonnull
     private final String canonicalQueryString;

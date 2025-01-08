@@ -37,7 +37,7 @@ import java.util.function.Supplier;
  * information that is necessary to represent a given column field in a JDBC MetaData API.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FieldDescription {
+public final class FieldDescription {
     private final String fieldName;
     private final int sqlTypeCode; //taken from java.sql.Types
 
