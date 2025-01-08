@@ -437,7 +437,7 @@ public class ExplainPlanVisitorTest {
         double choice = r.nextDouble();
         boolean allSameReverse = plans.stream().allMatch(plan -> plan.isReverse() == plans.get(0).isReverse());
         if (!allSameReverse || choice < 0.2) {
-            return NonnullPair.of(RecordQueryUnorderedUnionPlan.from(plans), String.join(" ∪ ", strings));
+            return NonnullPair.of(RecordQueryUnorderedUnionPlan.from(plans), String.join(" ⊎ ", strings));
         } else if (choice < 0.6) {
             KeyExpression comparisonKey = Key.Expressions.field(randomFieldName(r));
             return NonnullPair.of(RecordQueryIntersectionPlan.from(plans, comparisonKey), String.join(" ∩ ", strings) + " COMPARE BY " + comparisonKey);

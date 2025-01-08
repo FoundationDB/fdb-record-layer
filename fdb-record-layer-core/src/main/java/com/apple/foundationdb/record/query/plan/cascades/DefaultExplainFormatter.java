@@ -84,6 +84,13 @@ public class DefaultExplainFormatter implements ExplainFormatter {
     }
 
     @Nonnull
+    @Override
+    public CharSequence visitError(@Nonnull final ExplainTokens.Token token,
+                                   @Nonnull final CharSequence stringedToken) {
+        return "?" + stringedToken + "?";
+    }
+
+    @Nonnull
     public static DefaultExplainFormatter forDebugging() {
         return new DefaultExplainFormatter(DefaultExplainSymbolMap::new);
     }

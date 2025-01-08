@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
@@ -35,7 +34,31 @@ import java.util.function.IntBinaryOperator;
 import java.util.function.Supplier;
 
 /**
- * Holder class for the result of a call to {@link Value#explain()} and derivatives.
+ * Class to hold information about a list of tokens. Tokens are created during the explain walk and rendered afterward.
+ * Tokens can be simple, or they can be nested (via {@link NestedToken}). If a token is nested it contains an instance
+ * of this class making this general structure more of a tree than a list.
+ * <br>
+ * Most tokens render into some {@link CharSequence} using an {@link ExplainFormatter}. Some tokens also interact with
+ * the formatter in way that changes the internal state of the formatter. Those tokens when rendered exert a side effect
+ * on the formatter (e.g. declaring an alias, etc.)
+ * <br>
+ * Tokens may render differently for different {@link ExplainLevel}s. For instance, a token that renders some
+ * information in {@link ExplainLevel#ALL_DETAILS} may only render the string {@code ...} in
+ * {@link ExplainLevel#STRUCTURE}.
+ * <br>
+ * It is important to keep track of the number of characters the renderer would produce if rendered for each individual
+ * explain level. Unfortunately, this is not an exact science! While most tokens render to exactly the same character
+ * sequence on each explain level (for e.g. a keyword), for some tokens (e.g. aliases) we just do not know what they
+ * will render into as not all information is available when the token is created during the explain phase. Staying
+ * with the example, we do not know the length of an alias rendering until we know the symbol table to resolve the
+ * alias.
+ * <br>
+ * While we do not know the exact number of characters a token will render into a priori, we can estimate the bounds
+ * pretty well (even without knowing all the information to render the token yet (e.g. the symbol table)). To that
+ * end, rather than keeping just a length, we keep a {@code minLength} and a {@code maxLength} (both inclusive) for each
+ * explain level.
+ * <br>
+ * This class is mutable and not thread-safe.
  */
 public class ExplainTokens {
     @Nonnull
@@ -92,6 +115,21 @@ public class ExplainTokens {
         return render(ExplainLevel.ALL_DETAILS, formatter, Integer.MAX_VALUE);
     }
 
+    /**
+     * Render all tokens on the given explain level, using the given formatter, and a given budget of number of
+     * characters. If the budget is limited (if {@code remainingCharacterBudget < Integer.MAX_VALUE}), this method will
+     * at worst render into a string of that budget (plus three characters {@code ...} if the rendered char sequence has
+     * to be cut off).
+     * @param renderingExplainLevel the desired {@link ExplainLevel}
+     * @param formatter the formatter
+     * @param remainingCharacterBudget the budget of the number of remaining characters
+     * @return a {@link CharSequence} representing the rendered explain string which is potentially cut off if
+     *         depending on the budget. The returned character sequence is at most of length
+     *         {@code remainingCharacterBudget + 3} to accommodate for the {@code ...}. Note that using
+     *         {@link CharSequence} instead of {@link String} is preferable as {@link StringBuilder} is a
+     *         {@link CharSequence} allowing us to return un-built string builders without materializing them to
+     *         strings.
+     */
     @Nonnull
     public CharSequence render(final int renderingExplainLevel,
                                @Nonnull final ExplainFormatter formatter,
@@ -102,7 +140,7 @@ public class ExplainTokens {
             final var stringedToken =
                     token.render(renderingExplainLevel, formatter, remainingCharacterBudget);
             stringBuilder.append(stringedToken);
-            remainingCharacterBudget -= stringedToken.length();
+            remainingCharacterBudget -= (remainingCharacterBudget == Integer.MAX_VALUE ? 0 : stringedToken.length());
             if (remainingCharacterBudget < 1) {
                 if (remainingCharacterBudget == 0 && i + 1 < tokens.size()) {
                     // if any of the remaining tokens render to more than an empty string we have to append ... instead
@@ -520,6 +558,9 @@ public class ExplainTokens {
      * Generic token structure.
      */
     public abstract static class Token {
+        /**
+         * Highest Explain level that all tokens get created at that do not override their explain level.
+         */
         public static final int DEFAULT_EXPLAIN_LEVEL = ExplainLevel.STRUCTURE;
         private static final int MAX_ALIAS_LENGTH = 36; // MAX UUID LENGTH
 
@@ -544,9 +585,14 @@ public class ExplainTokens {
                      final int tokenSize,
                      final int minLength,
                      final int maxLength) {
-            this(tokenKind, vectorFromExplainLevel(explainLevel + 1, tokenSize),
-                    vectorFromExplainLevel(explainLevel + 1, minLength),
-                    vectorFromExplainLevel(explainLevel + 1, maxLength));
+            //
+            // Create a vector for this new token from the most elaborate level 0 to the indicated explainLevel.
+            // If a token created at level n with length l, we mark it using l for all more elaborate levels < n as
+            // well.
+            //
+            this(tokenKind, vectorForExplainLevel(explainLevel + 1, tokenSize),
+                    vectorForExplainLevel(explainLevel + 1, minLength),
+                    vectorForExplainLevel(explainLevel + 1, maxLength));
         }
 
         protected Token(@Nonnull final TokenKind tokenKind,
@@ -565,19 +611,19 @@ public class ExplainTokens {
         }
 
         @Nonnull
-        @SuppressWarnings("PMD.UnusedPrivateMethod")
+        @SuppressWarnings("PMD.UnusedPrivateMethod") // PMD having hallucinations
         private int[] getTokenSizes() {
             return tokenSizes;
         }
 
         @Nonnull
-        @SuppressWarnings("PMD.UnusedPrivateMethod")
+        @SuppressWarnings("PMD.UnusedPrivateMethod") // PMD having hallucinations
         private int[] getMinLengths() {
             return minLengths;
         }
 
         @Nonnull
-        @SuppressWarnings("PMD.UnusedPrivateMethod")
+        @SuppressWarnings("PMD.UnusedPrivateMethod") // PMD having hallucinations
         private int[] getMaxLengths() {
             return maxLengths;
         }
@@ -629,7 +675,7 @@ public class ExplainTokens {
                                             int remainingCharacterBudget);
 
         @Nonnull
-        private static int[] vectorFromExplainLevel(final int explainLevelExclusive, int value) {
+        private static int[] vectorForExplainLevel(final int explainLevelExclusive, int value) {
             final int[] result = new int[explainLevelExclusive];
             Arrays.fill(result, value);
             return result;
@@ -637,7 +683,8 @@ public class ExplainTokens {
     }
 
     /**
-     * A push token.
+     * A push token. This kind of token is used to interact with the symbol table of the formatter and does not render
+     * into anything.
      */
     public static class PushToken extends Token {
         public PushToken(final int explainLevel) {
@@ -655,7 +702,8 @@ public class ExplainTokens {
     }
 
     /**
-     * A push token.
+     * A pop token. This kind of token is used to interact with the symbol table of the formatter and does not render
+     * into anything.
      */
     public static class PopToken extends Token {
         public PopToken(final int explainLevel) {
@@ -674,7 +722,9 @@ public class ExplainTokens {
     }
 
     /**
-     * A nested token.
+     * A nested token. A nested token can override the {@link ExplainLevel}s of their contained tokens. In order to
+     * avoid recreating all contained tokens on a new explain level, we do some arithmetics here to compensate for
+     * a different explain level.
      */
     public static class NestedToken extends Token {
         final int explainLevel;
@@ -800,7 +850,7 @@ public class ExplainTokens {
     }
 
     /**
-     * An optional whitespace token.
+     * A line break or whitespace token.
      */
     public static class LineBreakOrSpaceToken extends Token {
         public LineBreakOrSpaceToken(final int explainLevel) {
@@ -845,7 +895,7 @@ public class ExplainTokens {
     }
 
     /**
-     * An identifier token.
+     * A keyword token.
      */
     public static class KeywordToken extends Token {
         @Nonnull
@@ -872,7 +922,7 @@ public class ExplainTokens {
     }
 
     /**
-     * An identifier token.
+     * A comma-like token. Can be {@code ,;:.} or similar.
      */
     public static class CommaLikeToken extends Token {
         @Nonnull
@@ -894,7 +944,7 @@ public class ExplainTokens {
     }
 
     /**
-     * An alias definition token.
+     * An alias definition token. Registers the alias with the symbol table of the formatter and renders the symbol.
      */
     public static class AliasDefinitionToken extends Token {
         @Nonnull
@@ -928,7 +978,8 @@ public class ExplainTokens {
     }
 
     /**
-     * An alias definition token.
+     * Token that registers an alias explicitly to some symbol. This token is used to render the <em>current</em>
+     * symbol in some special way (e.g. {@code _}). This token renders into the empty string.
      */
     public static class CurrentAliasDefinitionToken extends Token {
         @Nonnull
@@ -957,14 +1008,16 @@ public class ExplainTokens {
     }
 
     /**
-     * An alias reference token.
+     * An alias reference token. Renders the symbol the alias is currently mapped to in the symbol table of the
+     * formatter. Renders an error (e.g. the alias in an alerting color if using {@link PrettyExplainFormatter}) if the
+     * alias has not been registered prior to this token.
      */
     public static class AliasReferenceToken extends Token {
         @Nonnull
         private final CorrelationIdentifier alias;
 
         public AliasReferenceToken(final int explainLevel, @Nonnull final CorrelationIdentifier alias) {
-            super(TokenKind.ALIAS_REFERENCE, explainLevel, 1, Token.MAX_ALIAS_LENGTH);
+            super(TokenKind.ALIAS_REFERENCE, explainLevel, 1, Token.MAX_ALIAS_LENGTH + 2);
             this.alias = alias;
         }
 
@@ -992,7 +1045,7 @@ public class ExplainTokens {
     }
 
     /**
-     * An identifier token.
+     * A brackets token. Can be {@code ()[]{}<>}.
      */
     public static class BracketsToken extends Token {
         private final boolean isOpen;
@@ -1022,7 +1075,7 @@ public class ExplainTokens {
     }
 
     /**
-     * An identifier token.
+     * A ToString token. Can hold anything that can be stringified by calling {@link Object#toString()}.
      */
     public static class ToStringToken extends Token {
         @Nullable
