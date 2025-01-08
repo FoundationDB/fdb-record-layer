@@ -20,8 +20,6 @@
 
 package org.junit.jupiter.engine.descriptor;
 
-import com.apple.foundationdb.annotation.API;
-
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -37,7 +35,6 @@ import java.util.Optional;
 /**
  * Package-private hacks.
  */
-@API(API.Status.EXPERIMENTAL)
 public final class JunitUtils {
 
     public static Optional<JupiterTestDescriptor> createDynamicDescriptor(JupiterTestDescriptor parent,

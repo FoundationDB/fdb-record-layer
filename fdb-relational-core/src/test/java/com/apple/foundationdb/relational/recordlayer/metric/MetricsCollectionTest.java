@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.metric;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -32,7 +30,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-@API(API.Status.EXPERIMENTAL)
 public class MetricsCollectionTest {
     @RegisterExtension
     @Order(0)

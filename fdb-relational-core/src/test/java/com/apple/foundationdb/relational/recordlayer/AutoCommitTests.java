@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
@@ -49,7 +47,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.function.Consumer;
 
-@API(API.Status.EXPERIMENTAL)
 public class AutoCommitTests {
     @RegisterExtension
     @Order(0)

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -39,7 +37,6 @@ import java.util.stream.Collectors;
 /**
  * Manages the lifecycle of a single SchemaTemplate within a unit test.
  */
-@API(API.Status.EXPERIMENTAL)
 public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback {
     private final RelationalExtension relationalExtension;
     private final String templateName;

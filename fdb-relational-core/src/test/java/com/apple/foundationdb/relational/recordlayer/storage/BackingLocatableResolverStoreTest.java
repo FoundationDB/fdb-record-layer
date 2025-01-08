@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.storage;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -83,7 +81,6 @@ import java.util.stream.LongStream;
 /**
  * Tests of the {@link BackingLocatableResolverStore}.
  */
-@API(API.Status.EXPERIMENTAL)
 public class BackingLocatableResolverStoreTest {
     @RegisterExtension
     @Order(0)

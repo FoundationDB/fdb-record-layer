@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.KeySet;
@@ -51,7 +49,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 
-@API(API.Status.EXPERIMENTAL)
 public class CursorTest {
     @RegisterExtension
     @Order(0)

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -46,7 +44,6 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.function.Supplier;
 
-@API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
 
     private final KeySpace keySpace;

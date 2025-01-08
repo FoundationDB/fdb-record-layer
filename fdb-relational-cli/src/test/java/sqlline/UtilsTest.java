@@ -20,14 +20,11 @@
 
 package sqlline;
 
-import com.apple.foundationdb.annotation.API;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-@API(API.Status.EXPERIMENTAL)
 public class UtilsTest {
     @Test
     public void testStripCommandName() {

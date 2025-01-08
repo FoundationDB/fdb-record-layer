@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.jdbc.grpc;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
@@ -32,7 +30,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 
-@API(API.Status.EXPERIMENTAL)
 public class GrpcSQLExceptionUtilTest {
     @Test
     public void testCreate() {

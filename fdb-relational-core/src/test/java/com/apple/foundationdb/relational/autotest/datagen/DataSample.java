@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.utils.ReservoirSample;
 
@@ -32,7 +30,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
-@API(API.Status.EXPERIMENTAL)
 public class DataSample {
     private final Map<String, ReservoirSample<RelationalStruct>> samples = new HashMap<>();
 

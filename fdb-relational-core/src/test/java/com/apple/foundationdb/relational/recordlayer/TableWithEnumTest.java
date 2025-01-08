@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -48,7 +46,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
-@API(API.Status.EXPERIMENTAL)
 public class TableWithEnumTest {
     private static final List<String> SUITS = List.of("SPADES", "HEARTS", "DIAMONDS", "CLUBS");
 

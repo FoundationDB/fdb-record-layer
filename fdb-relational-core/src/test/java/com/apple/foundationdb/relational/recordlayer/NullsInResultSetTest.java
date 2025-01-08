@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -36,7 +34,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
-@API(API.Status.EXPERIMENTAL)
 public class NullsInResultSetTest {
 
     private static final String schemaTemplate =

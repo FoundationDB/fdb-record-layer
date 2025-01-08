@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.memory;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
@@ -42,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@API(API.Status.EXPERIMENTAL)
 public class InMemoryCatalog implements StoreCatalog {
 
     Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();

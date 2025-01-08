@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 
@@ -29,7 +27,6 @@ import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-@API(API.Status.EXPERIMENTAL)
 public class JDBCServiceTest {
 
     @Test

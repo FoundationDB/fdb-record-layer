@@ -20,15 +20,12 @@
 
 package com.apple.foundationdb.relational.autotest;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.StructMetaData;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.List;
 
-@API(API.Status.EXPERIMENTAL)
 public class TableDescription {
     private final StructMetaData metaData;
     private final List<String> pkColumns;

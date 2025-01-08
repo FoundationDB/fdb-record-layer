@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.autotest.engine;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.autotest.AutomatedTest;
 
 import org.junit.jupiter.engine.config.CachingJupiterConfiguration;
@@ -44,7 +42,6 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.function.Predicate;
 
-@API(API.Status.EXPERIMENTAL)
 public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutionContext> {
     private static final Predicate<Class<?>> IS_AUTO_TEST_CONTAINER
             = classCandidate -> AnnotationSupport.isAnnotated(classCandidate, AutomatedTest.class);

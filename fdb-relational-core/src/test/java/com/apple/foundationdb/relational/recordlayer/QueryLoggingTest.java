@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
@@ -50,7 +48,6 @@ import java.util.List;
 /**
  * Testing basic query logging: plan, time, cache hits, etc.
  */
-@API(API.Status.EXPERIMENTAL)
 public class QueryLoggingTest {
     @RegisterExtension
     @Order(0)

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import com.google.common.testing.FakeTicker;
@@ -73,7 +71,6 @@ import java.util.stream.Stream;
  *     </tbody>
  * </table>
  */
-@API(API.Status.EXPERIMENTAL)
 public class MultiStageCacheTests {
     private static final Map<String, Map<String, Map<String, String>>> entries = Map.of(
             "U.S.", Map.of(

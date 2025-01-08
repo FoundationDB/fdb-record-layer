@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -38,7 +36,6 @@ import java.util.Set;
 /**
  * A quick placeholder until the main Catalog work lands.
  */
-@API(API.Status.EXPERIMENTAL)
 public class PlaceholderCatalog {
     private final Map<String, SchemaData> schemaMap = new HashMap<>();
 

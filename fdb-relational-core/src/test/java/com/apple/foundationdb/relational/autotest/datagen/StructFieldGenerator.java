@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
@@ -34,7 +32,6 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
-@API(API.Status.EXPERIMENTAL)
 public class StructFieldGenerator implements FieldGenerator {
     private final String fieldName;
     protected final List<FieldGenerator> nestedFieldGenerators;

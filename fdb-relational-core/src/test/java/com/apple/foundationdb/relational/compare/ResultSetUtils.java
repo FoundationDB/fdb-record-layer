@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.compare;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 
 import java.sql.ResultSetMetaData;
@@ -37,7 +35,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-@API(API.Status.EXPERIMENTAL)
 public final class ResultSetUtils {
 
     public static Iterator<Row> resultSetIterator(RelationalResultSet rrs) throws SQLException {

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
@@ -43,7 +41,6 @@ import java.sql.ResultSet;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@API(API.Status.EXPERIMENTAL)
 public class LargeRecordLayerSchemaTest {
 
     @RegisterExtension

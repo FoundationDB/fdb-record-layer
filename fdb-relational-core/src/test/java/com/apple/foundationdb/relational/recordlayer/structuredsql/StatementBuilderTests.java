@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
 import com.apple.foundationdb.relational.api.fluentsql.statement.StructuredQuery;
@@ -44,7 +42,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@API(API.Status.EXPERIMENTAL)
 public class StatementBuilderTests {
 
     @RegisterExtension

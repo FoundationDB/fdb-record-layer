@@ -20,12 +20,9 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.annotation.API;
-
 import java.util.List;
 import java.util.Map;
 
-@API(API.Status.EXPERIMENTAL)
 public class TableDefinition extends TypeDefinition {
     private final List<String> pks;
 

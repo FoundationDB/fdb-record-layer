@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.compare;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 
@@ -32,7 +30,6 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 
-@API(API.Status.EXPERIMENTAL)
 public class JDBCDatabaseMetaData implements RelationalDatabaseMetaData {
     private final DatabaseMetaData metaData;
 

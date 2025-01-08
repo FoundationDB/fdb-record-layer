@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -43,7 +41,6 @@ import java.util.List;
  * Tests of some basic operations in a store where each record's primary key is missing the record type key prefix,
  * and thus different types share the same extent.
  */
-@API(API.Status.EXPERIMENTAL)
 public class IntermingledTablesTest {
     private static final String SCHEMA_TEMPLATE = " " +
             "CREATE TABLE t1 (group bigint, id string, val bigint, PRIMARY KEY(group, id)) " +

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.udf;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -37,7 +35,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-@API(API.Status.EXPERIMENTAL)
 public final class ByteOperationsUdf extends UdfFunction {
 
     public static final class ByteOperationsValue extends UdfValue {

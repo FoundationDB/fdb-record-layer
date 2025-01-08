@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -41,7 +39,6 @@ import java.net.URI;
  * Use this whenever you want a SQL-style database for testing (i.e. you just want a single database with a single
  * schema format).
  */
-@API(API.Status.EXPERIMENTAL)
 public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback {
     private final RelationalExtension relationalExtension;
     private final SchemaTemplateRule templateRule;
