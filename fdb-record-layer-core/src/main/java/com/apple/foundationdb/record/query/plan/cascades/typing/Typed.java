@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 
 import javax.annotation.Nonnull;
 

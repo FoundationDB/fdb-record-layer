@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,21 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.explain;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.AliasDefinitionToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.AliasReferenceToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.BracketsToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.CommaLikeToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.IdentifierToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.KeywordToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.LineBreakOrSpaceToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.NestedToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.OptionalWhitespaceToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.ToStringToken;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.Token;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens.WhitespaceToken;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.AliasDefinitionToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.AliasReferenceToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.BracketsToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.CommaLikeToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.IdentifierToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.KeywordToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.LineBreakOrSpaceToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.NestedToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.OptionalWhitespaceToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.ToStringToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.Token;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.WhitespaceToken;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;

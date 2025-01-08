@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithExplain.java
+ * ExplainLevel.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,16 +18,27 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
-
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-
-import javax.annotation.Nonnull;
+package com.apple.foundationdb.record.query.plan.explain;
 
 /**
- * Interface for plans in downstream modules to implement explain functionality.
+ * Explain level. Adjusts the granularity of explain output.
  */
-public interface RecordQueryPlanWithExplain {
-    @Nonnull
-    ExplainTokensWithPrecedence explain();
+public final class ExplainLevel {
+    /**
+     * Everything we can render is rendered.
+     */
+    public static final int ALL_DETAILS = 0;
+    /**
+     * Nice to have details are rendered, other details not absolutely needed for the understanding of the plan
+     * are omitted.
+     */
+    public static final int SOME_DETAILS = 1;
+    /**
+     * Only the structure of the plan, i.e. the plan operators and their relationship is rendered.
+     */
+    public static final int STRUCTURE = 2;
+
+    private ExplainLevel() {
+        // nothing
+    }
 }

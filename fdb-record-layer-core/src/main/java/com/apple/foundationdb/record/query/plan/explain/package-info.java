@@ -1,5 +1,5 @@
 /*
- * ExplainLevel.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,17 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
-
 /**
- * Explain level.
+ * Classes supporting plan explains.
  */
-public final class ExplainLevel {
-    public static final int ALL_DETAILS = 0;
-    public static final int SOME_DETAILS = 1;
-    public static final int STRUCTURE = 2;
-
-    private ExplainLevel() {
-        // nothing
-    }
-}
+package com.apple.foundationdb.record.query.plan.explain;

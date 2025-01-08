@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan;
+package com.apple.foundationdb.record.query.plan.explain;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainFormatter;
-import com.apple.foundationdb.record.query.plan.cascades.DefaultExplainSymbolMap;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainLevel;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainSelfContainedSymbolMap;
-import com.apple.foundationdb.record.query.plan.cascades.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.cascades.PrettyExplainFormatter;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -115,8 +110,8 @@ import java.util.function.Supplier;
  * {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}.
  * </p>
  * <p>
- * The token list is then rendered using a {@link com.apple.foundationdb.record.query.plan.cascades.ExplainFormatter}
- * which in turn employs a {@link com.apple.foundationdb.record.query.plan.cascades.ExplainSymbolMap} or derivatives
+ * The token list is then rendered using a {@link ExplainFormatter}
+ * which in turn employs a {@link ExplainSymbolMap} or derivatives
  * to actually render the tokens into a char sequence. While the formatter may inject whitespaces, line breaks, or
  * ANSI escape sequences (for color and in general prettification), the symbol map is used to resolve aliases used
  * by the planner into a string. That resolved string may just be the alias itself (for debugging purposes) or some

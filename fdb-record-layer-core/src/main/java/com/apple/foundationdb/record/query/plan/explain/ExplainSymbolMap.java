@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithExplain.java
+ * ExplainSymbolMap.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,16 +18,21 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.query.plan.explain;
 
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
- * Interface for plans in downstream modules to implement explain functionality.
+ * Interface for all kinds of explain formatters.
  */
-public interface RecordQueryPlanWithExplain {
-    @Nonnull
-    ExplainTokensWithPrecedence explain();
+public interface ExplainSymbolMap {
+    void registerAlias(@Nonnull CorrelationIdentifier alias);
+
+    void registerAliasExplicitly(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
+
+    @Nullable
+    String getSymbolForAlias(@Nonnull CorrelationIdentifier alias);
 }

@@ -1,9 +1,9 @@
 /*
- * ExplainTokensWithPrecedence.java
+ * ExplainTokens.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.explain;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
@@ -53,10 +54,10 @@ import java.util.function.Supplier;
  * with the example, we do not know the length of an alias rendering until we know the symbol table to resolve the
  * alias.
  * <br>
- * While we do not know the exact number of characters a token will render into a priori, we can estimate the bounds
- * pretty well (even without knowing all the information to render the token yet (e.g. the symbol table)). To that
- * end, rather than keeping just a length, we keep a {@code minLength} and a {@code maxLength} (both inclusive) for each
- * explain level.
+ * While we do not know the exact number of characters a token will render into <i>a priori</i>, we can estimate the
+ * bounds pretty well (even without knowing all the information to render the token yet (e.g. the symbol table)). To
+ * that end, rather than keeping just a length, we keep a {@code minLength} and a {@code maxLength} (both inclusive) for
+ * each explain level.
  * <br>
  * This class is mutable and not thread-safe.
  */
@@ -170,33 +171,29 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addNested(@Nonnull final ExplainTokens additionalExplainTokens) {
-        addNested(Token.DEFAULT_EXPLAIN_LEVEL, additionalExplainTokens);
-        return this;
+        return addNested(Token.DEFAULT_EXPLAIN_LEVEL, additionalExplainTokens);
     }
 
     @Nonnull
     public ExplainTokens addNested(final int explainLevel,
                                    @Nonnull final ExplainTokens additionalExplainTokens) {
-        add(new NestedToken(explainLevel, additionalExplainTokens,
+        return add(new NestedToken(explainLevel, additionalExplainTokens,
                 new OptionalWhitespaceToken(Token.DEFAULT_EXPLAIN_LEVEL)));
-        return this;
     }
 
     @Nonnull
     public ExplainTokens addNested(final int explainLevel,
                                    @Nonnull final ExplainTokens additionalExplainTokens,
                                    @Nonnull final String replacementTokenString) {
-        addNested(explainLevel, additionalExplainTokens,
+        return addNested(explainLevel, additionalExplainTokens,
                 new ToStringToken(Token.DEFAULT_EXPLAIN_LEVEL, replacementTokenString));
-        return this;
     }
 
     @Nonnull
     public ExplainTokens addNested(final int explainLevel,
                                    @Nonnull final ExplainTokens additionalExplainTokens,
                                    @Nonnull final Token replacementToken) {
-        add(new NestedToken(explainLevel, additionalExplainTokens, replacementToken));
-        return this;
+        return add(new NestedToken(explainLevel, additionalExplainTokens, replacementToken));
     }
 
     @Nonnull
@@ -212,8 +209,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addPush(final int explainLevel) {
-        add(new PushToken(explainLevel));
-        return this;
+        return add(new PushToken(explainLevel));
     }
 
     @Nonnull
@@ -223,8 +219,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addPop(final int explainLevel) {
-        add(new PopToken(explainLevel));
-        return this;
+        return add(new PopToken(explainLevel));
     }
 
     @Nonnull
@@ -234,8 +229,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addWhitespace(final int explainLevel) {
-        add(new WhitespaceToken(explainLevel));
-        return this;
+        return add(new WhitespaceToken(explainLevel));
     }
 
     @Nonnull
@@ -245,8 +239,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOptionalWhitespace(final int explainLevel) {
-        add(new OptionalWhitespaceToken(explainLevel));
-        return this;
+        return add(new OptionalWhitespaceToken(explainLevel));
     }
 
     @Nonnull
@@ -256,8 +249,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addLinebreakOrWhitespace(final int explainLevel) {
-        add(new LineBreakOrSpaceToken(explainLevel));
-        return this;
+        return add(new LineBreakOrSpaceToken(explainLevel));
     }
 
     @Nonnull
@@ -267,8 +259,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addIdentifier(final int explainLevel, @Nonnull final String identifier) {
-        add(new IdentifierToken(explainLevel, identifier));
-        return this;
+        return add(new IdentifierToken(explainLevel, identifier));
     }
 
     @Nonnull
@@ -278,8 +269,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addKeyword(final int explainLevel, @Nonnull final String keyword) {
-        add(new KeywordToken(explainLevel, keyword));
-        return this;
+        return add(new KeywordToken(explainLevel, keyword));
     }
 
     @Nonnull
@@ -289,8 +279,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addComma(final int explainLevel) {
-        add(new CommaLikeToken(explainLevel, ","));
-        return this;
+        return add(new CommaLikeToken(explainLevel, ","));
     }
 
     @Nonnull
@@ -300,8 +289,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addCommaAndWhiteSpace(final int explainLevel) {
-        addComma(explainLevel).addWhitespace(explainLevel);
-        return this;
+        return addComma(explainLevel).addWhitespace(explainLevel);
     }
 
     @Nonnull
@@ -312,8 +300,7 @@ public class ExplainTokens {
     @Nonnull
     public ExplainTokens addAliasDefinition(final int explainLevel,
                                             @Nonnull final CorrelationIdentifier alias) {
-        add(new AliasDefinitionToken(explainLevel, alias));
-        return this;
+        return add(new AliasDefinitionToken(explainLevel, alias));
     }
 
     @Nonnull
@@ -324,8 +311,7 @@ public class ExplainTokens {
     @Nonnull
     public ExplainTokens addCurrentAliasDefinition(final int explainLevel,
                                                    @Nonnull final CorrelationIdentifier alias) {
-        add(new CurrentAliasDefinitionToken(explainLevel, alias));
-        return this;
+        return add(new CurrentAliasDefinitionToken(explainLevel, alias));
     }
 
     @Nonnull
@@ -336,8 +322,7 @@ public class ExplainTokens {
     @Nonnull
     public ExplainTokens addAliasReference(final int explainLevel,
                                            @Nonnull final CorrelationIdentifier alias) {
-        add(new AliasReferenceToken(explainLevel, alias));
-        return this;
+        return add(new AliasReferenceToken(explainLevel, alias));
     }
 
     @Nonnull
@@ -347,8 +332,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOpeningParen(final int explainLevel) {
-        add(new BracketsToken(explainLevel, true, "("));
-        return this;
+        return add(new BracketsToken(explainLevel, true, "("));
     }
 
     @Nonnull
@@ -358,8 +342,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addClosingParen(final int explainLevel) {
-        add(new BracketsToken(explainLevel, false, ")"));
-        return this;
+        return add(new BracketsToken(explainLevel, false, ")"));
     }
 
     @Nonnull
@@ -369,8 +352,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOpeningBracket(final int explainLevel) {
-        add(new BracketsToken(explainLevel, true, "["));
-        return this;
+        return add(new BracketsToken(explainLevel, true, "["));
     }
 
     @Nonnull
@@ -380,8 +362,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addClosingBracket(final int explainLevel) {
-        add(new BracketsToken(explainLevel, false, "]"));
-        return this;
+        return add(new BracketsToken(explainLevel, false, "]"));
     }
 
     @Nonnull
@@ -391,8 +372,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOpeningBrace(final int explainLevel) {
-        add(new BracketsToken(explainLevel, true, "{"));
-        return this;
+        return add(new BracketsToken(explainLevel, true, "{"));
     }
 
     @Nonnull
@@ -402,8 +382,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addClosingBrace(final int explainLevel) {
-        add(new BracketsToken(explainLevel, false, "}"));
-        return this;
+        return add(new BracketsToken(explainLevel, false, "}"));
     }
 
     @Nonnull
@@ -413,8 +392,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOpeningAngledBracket(final int explainLevel) {
-        add(new BracketsToken(explainLevel, true, "<"));
-        return this;
+        return add(new BracketsToken(explainLevel, true, "<"));
     }
 
     @Nonnull
@@ -424,8 +402,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addClosingAngledBracket(final int explainLevel) {
-        add(new BracketsToken(explainLevel, false, ">"));
-        return this;
+        return add(new BracketsToken(explainLevel, false, ">"));
     }
 
     @Nonnull
@@ -435,8 +412,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addToString(final int explainLevel, @Nullable final Object object) {
-        add(new ToStringToken(explainLevel, object));
-        return this;
+        return add(new ToStringToken(explainLevel, object));
     }
 
     @Nonnull

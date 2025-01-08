@@ -1,9 +1,9 @@
 /*
- * ExplainSymbolMap.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 /**
- * Interface for all kinds of explain formatters.
+ * Tests testing plan explains.
  */
-public interface ExplainSymbolMap {
-    void registerAlias(@Nonnull CorrelationIdentifier alias);
-
-    void registerAliasExplicitly(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
-
-    @Nullable
-    String getSymbolForAlias(@Nonnull CorrelationIdentifier alias);
-}
+package com.apple.foundationdb.record.query.plan.explain;
