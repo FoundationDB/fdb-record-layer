@@ -308,8 +308,8 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 ? Bindings.Internal.CORRELATION.identifier(inSource.getBindingName())
                 : inSource.getBindingName();
 
-        addOpeningBracket().addOptionalWhitespace().addNested(inSource.explain().getExplainTokens())
-                .addOptionalWhitespace().addClosingBracket();
+        addOpeningSquareBracket().addOptionalWhitespace().addNested(inSource.explain().getExplainTokens())
+                .addOptionalWhitespace().addClosingSquareBracket();
         pipe().addKeyword("INJOIN").addWhitespace();
         if (isCorrelation) {
             addAliasDefinition(CorrelationIdentifier.of(bindingName));
@@ -348,10 +348,10 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
             bindingsBuilder.add(new ExplainTokens().addAliasDefinition(CorrelationIdentifier.of(bindingName)));
         }
 
-        addOpeningBracket().addOptionalWhitespace()
+        addOpeningSquareBracket().addOptionalWhitespace()
                 .addSequence(() -> new ExplainTokens().addWhitespace().addToString("⋈").addWhitespace(),
                         inSourcesBuilder.build())
-                .addOptionalWhitespace().addClosingBracket()
+                .addOptionalWhitespace().addClosingSquareBracket()
                 .addWhitespace().addKeyword("INUNION").addWhitespace()
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), bindingsBuilder.build())
                 .addWhitespace().addToString("->").addWhitespace()

@@ -81,9 +81,9 @@ public class PrettyExplainFormatter extends DefaultExplainFormatter {
 
     @Nonnull
     @Override
-    public CharSequence visitBrackets(@Nonnull final ExplainTokens.BracketsToken bracketsToken,
-                                      @Nonnull final CharSequence stringedToken) {
-        if (bracketsToken.isOpen()) {
+    public CharSequence visitBracketLike(@Nonnull final ExplainTokens.BracketLikeToken bracketLikeToken,
+                                         @Nonnull final CharSequence stringedToken) {
+        if (bracketLikeToken.isOpen()) {
             indentationLevel ++;
         } else {
             indentationLevel --;

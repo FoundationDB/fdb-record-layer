@@ -332,7 +332,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOpeningParen(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, true, "("));
+        return add(new BracketLikeToken(explainLevel, true, "("));
     }
 
     @Nonnull
@@ -342,27 +342,27 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addClosingParen(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, false, ")"));
+        return add(new BracketLikeToken(explainLevel, false, ")"));
     }
 
     @Nonnull
-    public ExplainTokens addOpeningBracket() {
-        return addOpeningBracket(Token.DEFAULT_EXPLAIN_LEVEL);
+    public ExplainTokens addOpeningSquareBracket() {
+        return addOpeningSquareBracket(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
     @Nonnull
-    public ExplainTokens addOpeningBracket(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, true, "["));
+    public ExplainTokens addOpeningSquareBracket(final int explainLevel) {
+        return add(new BracketLikeToken(explainLevel, true, "["));
     }
 
     @Nonnull
-    public ExplainTokens addClosingBracket() {
-        return addClosingBracket(Token.DEFAULT_EXPLAIN_LEVEL);
+    public ExplainTokens addClosingSquareBracket() {
+        return addClosingSquareBracket(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
     @Nonnull
-    public ExplainTokens addClosingBracket(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, false, "]"));
+    public ExplainTokens addClosingSquareBracket(final int explainLevel) {
+        return add(new BracketLikeToken(explainLevel, false, "]"));
     }
 
     @Nonnull
@@ -372,7 +372,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOpeningBrace(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, true, "{"));
+        return add(new BracketLikeToken(explainLevel, true, "{"));
     }
 
     @Nonnull
@@ -382,7 +382,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addClosingBrace(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, false, "}"));
+        return add(new BracketLikeToken(explainLevel, false, "}"));
     }
 
     @Nonnull
@@ -392,7 +392,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addOpeningAngledBracket(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, true, "<"));
+        return add(new BracketLikeToken(explainLevel, true, "<"));
     }
 
     @Nonnull
@@ -402,7 +402,7 @@ public class ExplainTokens {
 
     @Nonnull
     public ExplainTokens addClosingAngledBracket(final int explainLevel) {
-        return add(new BracketsToken(explainLevel, false, ">"));
+        return add(new BracketLikeToken(explainLevel, false, ">"));
     }
 
     @Nonnull
@@ -1023,14 +1023,14 @@ public class ExplainTokens {
     /**
      * A brackets token. Can be {@code ()[]{}<>}.
      */
-    public static class BracketsToken extends Token {
+    public static class BracketLikeToken extends Token {
         private final boolean isOpen;
         @Nonnull
         private final String bracket;
 
-        public BracketsToken(final int explainLevel,
-                             final boolean isOpen,
-                             @Nonnull final String bracket) {
+        public BracketLikeToken(final int explainLevel,
+                                final boolean isOpen,
+                                @Nonnull final String bracket) {
             super(isOpen ? TokenKind.BRACKETS_OPEN : TokenKind.BRACKETS_CLOSE, explainLevel, 1, 1);
             this.isOpen = isOpen;
             this.bracket = bracket;
@@ -1046,7 +1046,7 @@ public class ExplainTokens {
                                    @Nonnull final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
-                    renderIfEnabled(renderingExplainLevel, bracket, explainFormatter::visitBrackets));
+                    renderIfEnabled(renderingExplainLevel, bracket, explainFormatter::visitBracketLike));
         }
     }
 

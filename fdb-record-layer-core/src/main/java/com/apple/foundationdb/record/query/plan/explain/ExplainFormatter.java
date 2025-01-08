@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.explain;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.AliasDefinitionToken;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.AliasReferenceToken;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.BracketsToken;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.BracketLikeToken;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.CommaLikeToken;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.IdentifierToken;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.KeywordToken;
@@ -118,8 +118,8 @@ public interface ExplainFormatter {
 
     @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitBrackets(@Nonnull final BracketsToken bracketsToken,
-                                       @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitBracketLike(@Nonnull final BracketLikeToken bracketLikeToken,
+                                          @Nonnull final CharSequence stringedToken) {
         return stringedToken;
     }
 

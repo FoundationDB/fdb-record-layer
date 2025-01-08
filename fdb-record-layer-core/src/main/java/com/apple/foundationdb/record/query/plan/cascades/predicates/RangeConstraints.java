@@ -293,7 +293,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Nonnull
     public ExplainTokensWithPrecedence explain() {
         final var resultExplainTokens = new ExplainTokens();
-        resultExplainTokens.addOpeningBracket();
+        resultExplainTokens.addOpeningSquareBracket();
         if (evaluableRange == null) {
             resultExplainTokens.addOpeningParen().addToString("-∞..+∞").addClosingParen();
         } else {
@@ -306,7 +306,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                     () -> deferredRanges.stream().map(Comparisons.Comparison::explain)
                             .map(Precedence.AND::parenthesizeChild).iterator());
         }
-        resultExplainTokens.addClosingBracket();
+        resultExplainTokens.addClosingSquareBracket();
         return ExplainTokensWithPrecedence.of(resultExplainTokens);
     }
 

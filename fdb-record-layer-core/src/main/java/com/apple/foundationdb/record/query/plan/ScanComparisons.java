@@ -459,16 +459,16 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             final var inequalityComparisonLists  = Lists.newArrayList(inequalityComparisons);
             inequalityComparisonLists.sort(Comparator.comparing(Comparisons.Comparison::toString));
             explainTokensListBuilder.add(
-                    new ExplainTokens().addOpeningBracket().addOptionalWhitespace()
+                    new ExplainTokens().addOpeningSquareBracket().addOptionalWhitespace()
                             .addSequence(() -> new ExplainTokens().addWhitespace().addToString("&&").addWhitespace(),
                                     () -> inequalityComparisonLists.stream().map(Comparisons.Comparison::explain)
                                             .map(ExplainTokensWithPrecedence::getExplainTokens).iterator())
-                            .addOptionalWhitespace().addClosingBracket());
+                            .addOptionalWhitespace().addClosingSquareBracket());
         }
 
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningBracket().addOptionalWhitespace()
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningSquareBracket().addOptionalWhitespace()
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), explainTokensListBuilder.build())
-                .addOptionalWhitespace().addClosingBracket());
+                .addOptionalWhitespace().addClosingSquareBracket());
     }
 
     @Nonnull
