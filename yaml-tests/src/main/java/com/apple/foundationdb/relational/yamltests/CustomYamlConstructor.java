@@ -100,7 +100,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         }
 
         /**
-         * Remove the {@link LinedObject} wrappers from keys and create a new map
+         * Remove the {@link LinedObject} wrappers from keys and create a new map.
          * @param blockMap a map from a yaml file that may have keys that had lines added
          * @return a new map where the keys do not have lines added
          */
@@ -173,7 +173,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         }
     }
 
-    private class ConstructCurrentVersion extends AbstractConstruct {
+    private static class ConstructCurrentVersion extends AbstractConstruct {
 
         @Override
         public Object construct(Node node) {

@@ -21,12 +21,11 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
 
 public class EmbeddedYamlIntegrationTests extends YamlIntegrationTests {
     YamlRunner.YamlConnectionFactory createConnectionFactory() {

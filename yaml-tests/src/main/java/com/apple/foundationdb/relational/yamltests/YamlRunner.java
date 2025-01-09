@@ -67,7 +67,23 @@ public final class YamlRunner {
     private final YamlExecutionContext executionContext;
 
     public interface YamlConnectionFactory {
+        /**
+         * Convert a connection uri into an actual connection.
+         * @param connectPath the path to connect to
+         * @return A new {@link RelationalConnection} for the given path appropriate for this test class
+         * @throws SQLException if we cannot connect
+         */
         RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+
+        /**
+         * The versions that the connection has, other than the current code.
+         * <p>
+         *     If we are just testing against the current code, this will be empty, but otherwise it will include the
+         *     versions that we're testing. In the future we may want to support tests that don't run against the
+         *     current version, but that's not currently needed, so not supported.
+         * </p>
+         * @return A set of versions that we are testing against
+         */
         Set<String> getVersionsUnderTest();
     }
 

@@ -93,8 +93,8 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         File jar;
         if (jarName == null) {
             final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-            final File[] externalServers = externalDirectory.listFiles(file -> file.getName().endsWith(".jar"));
-            Assertions.assertEquals(1, Objects.requireNonNull(externalServers).length);
+            final File[] externalServers = Objects.requireNonNull(externalDirectory.listFiles(file -> file.getName().endsWith(".jar")));
+            Assertions.assertEquals(1, externalServers.length);
             jar = externalServers[0];
         } else {
             jar = new File(jarName);
@@ -113,7 +113,7 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         }
 
         this.version = getVersion(jar);
-        logger.info("Started " + jar + " Version: " + version);
+        logger.info("Started {} Version: {}", jar, version);
     }
 
     private static String getVersion(File jar) throws IOException {

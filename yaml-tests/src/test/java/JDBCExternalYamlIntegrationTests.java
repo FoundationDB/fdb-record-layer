@@ -25,12 +25,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Disabled;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
 
 /**
  * A version of {@link YamlIntegrationTests} that points to an external running server.

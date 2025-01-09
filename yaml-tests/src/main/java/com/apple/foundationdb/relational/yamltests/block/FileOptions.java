@@ -62,7 +62,7 @@ public class FileOptions {
             final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
             // IntelliJ, at least, doesn't display the reason, so log it
             logger.info(
-                    "Skipping test that only works against the current version, when we're running with these versions: " +
+                    "Skipping test that only works against the current version, when we're running with these versions: {}",
                     versionsUnderTest);
             Assumptions.assumeTrue(versionsUnderTest.isEmpty(),
                     () -> "Test only works against the current version, but we are running with these versions: " +

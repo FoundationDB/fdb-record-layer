@@ -30,13 +30,12 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Like {@link EmbeddedYamlIntegrationTests} only it runs the YAML via the fdb-relational-jdbc client
