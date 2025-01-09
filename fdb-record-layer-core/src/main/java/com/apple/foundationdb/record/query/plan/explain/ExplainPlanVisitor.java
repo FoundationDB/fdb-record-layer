@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithExplain;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -74,6 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -389,6 +391,22 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     @Nonnull
     @Override
+    public ExplainTokens visitRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan recursiveUnionPlan) {
+        Verify.verify(recursiveUnionPlan.getChildren().size() == 2);
+        addKeyword("RUNION").addWhitespace()
+                .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                        new ExplainTokens().addAliasDefinition(recursiveUnionPlan.getTempTableScanAlias()),
+                        new ExplainTokens().addAliasDefinition(recursiveUnionPlan.getTempTableInsertAlias())
+                .addWhitespace().addOpeningBrace().addLinebreakOrWhitespace()
+                .addKeyword("INITIAL").addWhitespace().addOpeningBrace().addLinebreakOrWhitespace());
+        visit(recursiveUnionPlan.getChildren().get(0)).addWhitespace().addClosingBrace().addLinebreakOrWhitespace();
+        addKeyword("RECURSIVE").addWhitespace().addWhitespace().addOpeningBrace().addLinebreakOrWhitespace();
+        return visit(recursiveUnionPlan.getChildren().get(1)).addWhitespace().addClosingBrace()
+                .addOptionalWhitespace().addClosingBrace();
+    }
+
+    @Nonnull
+    @Override
     public ExplainTokens visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
         // TODO maybe explain the coercion tree on ALL_DETAILS
         visit(insertPlan.getChild());
@@ -616,7 +634,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Override
     public ExplainTokens visitTempTableScanPlan(@Nonnull final TempTableScanPlan tempTableScanPlan) {
         return addKeyword("TEMP").addWhitespace().addKeyword("SCAN").addWhitespace()
-                .addNested(tempTableScanPlan.getResultValue().explain().getExplainTokens());
+                .addNested(tempTableScanPlan.getTempTableReferenceValue().explain().getExplainTokens());
     }
 
     @Nonnull

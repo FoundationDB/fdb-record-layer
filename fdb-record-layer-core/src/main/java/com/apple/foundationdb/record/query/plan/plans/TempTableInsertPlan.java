@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -106,7 +107,8 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                     proto -> {
                         final var tempTable = Objects.requireNonNull((TempTable)getTempTableReferenceValue().eval(store, context));
                         if (proto != null) {
-                            TempTable.from(proto, typeDescriptor).getIterator().forEachRemaining(tempTable::add);
+                            final var deserialized = TempTable.from(proto, typeDescriptor);
+                            deserialized.getIterator().forEachRemaining(tempTable::add);
                         }
                         return tempTable;
                     },
@@ -160,7 +162,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     @Nonnull
     @Override
     public Value getResultValue() {
-        return tempTableReferenceValue;
+        return new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
     @Nonnull
@@ -248,8 +250,9 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
      */
     @Nonnull
     public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
-                                                 @Nonnull final Value tempTableReferenceValue) {
-        return new TempTableInsertPlan(inner, tempTableReferenceValue, true);
+                                                 @Nonnull final Value tempTableReferenceValue,
+                                                 boolean isOwningTempTable) {
+        return new TempTableInsertPlan(inner, tempTableReferenceValue, isOwningTempTable);
     }
 
     @Nonnull
@@ -270,7 +273,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
 
     @Override
     public void logPlanStructure(final StoreTimer timer) {
-        // TODO timer.increment(FDBStoreTimer.Counts.PLAN_TYPE_FILTER);
+        // TODO https://github.com/FoundationDB/fdb-record-layer/issues/3020
         getChild().logPlanStructure(timer);
     }
 

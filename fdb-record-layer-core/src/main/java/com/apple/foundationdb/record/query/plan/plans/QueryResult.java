@@ -261,7 +261,7 @@ public class QueryResult implements ProtoSerializable {
             } else {
                 builder.setPrimitive(PlanSerialization.valueObjectToProto(datum));
             }
-            cachedProto = builder.build();
+            cachedProto = builder.buildPartial();
         }
         return cachedProto;
     }

@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
@@ -171,6 +172,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private List<Range> notCommittedConflictingKeys = null;
     @Nonnull
     private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
+    @Nonnull
+    private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
@@ -1570,5 +1573,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.INTERNAL)
     public <T> CompletableFuture<T> doWithWriteLock(@Nonnull final LockIdentifier identifier, @Nonnull final Supplier<CompletableFuture<T>> operation) {
         return lockRegistry.doWithWriteLock(identifier, operation);
+    }
+
+    /**
+     * Returns a transaction-bound factory of {@link TempTable}s.
+     * @return a factory of {@link TempTable}s bound to this transactional context.
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public TempTable.Factory getTempTableFactory() {
+        return tempTableFactory;
     }
 }
