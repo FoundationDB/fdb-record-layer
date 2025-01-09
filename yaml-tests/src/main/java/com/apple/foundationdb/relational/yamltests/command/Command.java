@@ -20,13 +20,22 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
+import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
@@ -105,19 +114,42 @@ public abstract class Command {
                 logger.debug("⏳ Loading template '{}'", value);
                 // current connection should be __SYS/catalog
                 // save schema template
-                StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
-                RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                        .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
-                        .setRlConfig(RecordLayerConfig.getDefault())
-                        .setStoreCatalog(backingCatalog)
-                        .build();
-                final var embeddedConnection = (EmbeddedRelationalConnection) connection;
-                embeddedConnection.setAutoCommit(false);
-                embeddedConnection.createNewTransaction();
-                final var transaction = embeddedConnection.getTransaction();
-                metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(transaction);
-                embeddedConnection.commit();
-                embeddedConnection.setAutoCommit(true);
+                StoreCatalog backingCatalog;
+                if (connection instanceof EmbeddedRelationalConnection) {
+                    backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
+                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                            .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
+                            .setRlConfig(RecordLayerConfig.getDefault())
+                            .setStoreCatalog(backingCatalog)
+                            .build();
+                    final var embeddedConnection = (EmbeddedRelationalConnection) connection;
+                    embeddedConnection.setAutoCommit(false);
+                    embeddedConnection.createNewTransaction();
+                    final var transaction = embeddedConnection.getTransaction();
+                    metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(transaction);
+                    embeddedConnection.commit();
+                    embeddedConnection.setAutoCommit(true);
+                } else {
+                    final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+                    // DirectFdbConnection fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
+
+                    final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+                    keyspaceProvider.registerDomainIfNotExists("FRL");
+                    KeySpace keySpace = keyspaceProvider.getKeySpace();
+                    try (Transaction txn = new RecordContextTransaction(fdbDb.openContext(FDBRecordContextConfig.newBuilder().build()))) {
+                        backingCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+                        txn.commit();
+                    }
+                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                            .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
+                            .setRlConfig(RecordLayerConfig.getDefault())
+                            .setStoreCatalog(backingCatalog)
+                            .build();
+                    try (Transaction txn = new RecordContextTransaction(fdbDb.openContext(FDBRecordContextConfig.newBuilder().build()))) {
+                        metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
+                        txn.commit();
+                    }
+                }
             }
         };
     }
@@ -127,26 +159,50 @@ public abstract class Command {
             @Override
             public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Setting schema state '{}'", value);
-                StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
                 SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(value);
                 RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
                         .setIndexStateMap(CommandUtil.fromIndexStateProto(schemaInstance.getIndexStatesMap()))
                         .setFormatVersion(schemaInstance.getStoreInfo().getFormatVersion())
                         .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
                         .build();
-                RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                        .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
-                        .setRlConfig(rlConfig)
-                        .setStoreCatalog(backingCatalog)
-                        .build();
+                StoreCatalog backingCatalog;
+                if (connection instanceof EmbeddedRelationalConnection) {
+                    backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
+                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                            .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
+                            .setRlConfig(rlConfig)
+                            .setStoreCatalog(backingCatalog)
+                            .build();
 
-                final var embeddedConnection = (EmbeddedRelationalConnection) connection;
-                embeddedConnection.setAutoCommit(false);
-                embeddedConnection.createNewTransaction();
-                final var transaction = embeddedConnection.getTransaction();
-                metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
-                embeddedConnection.commit();
-                embeddedConnection.setAutoCommit(true);
+                    final var embeddedConnection = (EmbeddedRelationalConnection) connection;
+                    embeddedConnection.setAutoCommit(false);
+                    embeddedConnection.createNewTransaction();
+                    final var transaction = embeddedConnection.getTransaction();
+                    metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
+                    embeddedConnection.commit();
+                    embeddedConnection.setAutoCommit(true);
+                } else {
+                    final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+                    // DirectFdbConnection fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
+
+                    final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+                    keyspaceProvider.registerDomainIfNotExists("FRL");
+                    KeySpace keySpace = keyspaceProvider.getKeySpace();
+                    try (Transaction txn = new RecordContextTransaction(fdbDb.openContext(FDBRecordContextConfig.newBuilder().build()))) {
+                        backingCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+                        txn.commit();
+                    }
+
+                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                            .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
+                            .setRlConfig(rlConfig)
+                            .setStoreCatalog(backingCatalog)
+                            .build();
+                    try (Transaction txn = new RecordContextTransaction(fdbDb.openContext(FDBRecordContextConfig.newBuilder().build()))) {
+                        metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(txn);
+                        txn.commit();
+                    }
+                }
             }
         };
     }
