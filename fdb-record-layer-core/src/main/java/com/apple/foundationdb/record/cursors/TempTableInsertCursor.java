@@ -150,7 +150,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
         private RecordCursorProto.TempTableInsertContinuation toProto() {
             RecordCursorProto.TempTableInsertContinuation.Builder builder =
                     RecordCursorProto.TempTableInsertContinuation.newBuilder();
-            builder.setTempTable(tempTable.toProto().toByteString());
+            builder.setTempTable(tempTable.toProto());
             ByteString childBytes = childContinuation.toByteString();
             if (!childBytes.isEmpty()) {
                 builder.setChildContinuation(childBytes);
@@ -197,7 +197,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
             } else {
                 try {
                     final var parsed = RecordCursorProto.TempTableInsertContinuation.parseFrom(unparsed);
-                    final var parsedTempTable = parsed.hasTempTable() ? PTempTable.parseFrom(parsed.getTempTable()) : null;
+                    final var parsedTempTable = parsed.hasTempTable() ? PTempTable.parseFrom(parsed.getTempTable().toByteString()) : null;
                     return Continuation.from(parsed, parsedTempTable, tempTableDeserializer);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("invalid continuation", ex)

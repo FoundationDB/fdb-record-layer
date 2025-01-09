@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 
 import javax.annotation.Nonnull;
 
@@ -39,12 +39,11 @@ public interface Typed {
 
     /**
      * Returns a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
-     *
-     * @param formatter The formatter used to format the textual representation.
-     * @return a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
+     * @return a token list used to render a human-friendly textual representation of both the type-producing instance
+     *         and its result set {@link Type}.
      */
     @Nonnull
-    default String describe(@Nonnull final Formatter formatter) {
-        return getResultType().describe(formatter);
+    default ExplainTokens describe() {
+        return getResultType().describe();
     }
 }

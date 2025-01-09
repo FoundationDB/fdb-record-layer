@@ -34,7 +34,8 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -53,6 +54,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
@@ -95,12 +97,6 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         return pattern.matcher(lhs).find();
     }
 
-    @Nonnull
-    @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return srcChild.explain(formatter) + " LIKE " + patternChild.explain(formatter);
-    }
-
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
         return Optional.of(new ValuePredicate(srcChild, new Comparisons.ValueComparison(Comparisons.Type.LIKE, patternChild)));
@@ -131,9 +127,14 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, srcChild, patternChild);
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return srcChild + " LIKE " + patternChild;
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var src = Iterables.get(explainSuppliers, 0).get();
+        final var pattern = Iterables.get(explainSuppliers, 1).get();
+        return ExplainTokensWithPrecedence.of(Precedence.BETWEEN,
+                Precedence.BETWEEN.parenthesizeChild(src, true).addWhitespace().addKeyword("LIKE")
+                        .addWhitespace().addNested(Precedence.BETWEEN.parenthesizeChild(pattern)));
     }
 
     @Override

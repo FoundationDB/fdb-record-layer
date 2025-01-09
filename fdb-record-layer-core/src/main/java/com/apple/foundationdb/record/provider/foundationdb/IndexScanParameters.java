@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -75,7 +76,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
      * @return the scan details
      */
     @Nonnull
-    String getScanDetails();
+    ExplainTokensWithPrecedence explain();
 
     /**
      * Get details for graph visualization, including the scan type.

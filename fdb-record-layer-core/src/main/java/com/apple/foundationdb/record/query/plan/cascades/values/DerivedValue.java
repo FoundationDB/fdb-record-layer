@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PDerivedValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
@@ -37,7 +39,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 /**
  * A value merges the input messages given to it into an output message.
@@ -90,11 +92,11 @@ public class DerivedValue extends AbstractValue implements Value.NonEvaluableVal
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, children);
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return "derived(" + children.stream()
-                .map(Value::toString)
-                .collect(Collectors.joining(", ")) + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens()
+                .addFunctionCall("derived", Value.explainFunctionArguments(explainSuppliers)));
     }
 
     @Override

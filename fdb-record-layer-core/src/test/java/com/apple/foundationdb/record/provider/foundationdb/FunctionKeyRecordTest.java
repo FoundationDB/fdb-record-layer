@@ -211,7 +211,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
                         Query.field("int_value").lessThanOrEquals(2)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        Assertions.assertEquals("Scan([[1],[2]])", plan.toString());
+        Assertions.assertEquals("SCAN([[1],[2]])", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
@@ -238,7 +238,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
                 .setFilter(Query.field("rec_id").equalsValue("/s:foo_3_blah"))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        Assertions.assertEquals("Scan(<,>) | rec_id EQUALS /s:foo_3_blah", plan.toString());
+        Assertions.assertEquals("SCAN(<,>) | QCFILTER rec_id EQUALS /s:foo_3_blah", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);

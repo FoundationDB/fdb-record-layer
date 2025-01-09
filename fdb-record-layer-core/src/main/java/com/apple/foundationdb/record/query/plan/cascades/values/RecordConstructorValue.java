@@ -34,7 +34,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -59,7 +60,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -238,33 +238,28 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "(" +
-               columns.stream()
-                       .map(column -> {
-                           final var field = column.getField();
-                           final var value = column.getValue();
-                           if (field.getFieldNameOptional().isPresent()) {
-                               return column.getValue().explain(formatter) + " as " + field.getFieldName();
-                           }
-                           return value.explain(formatter);
-                       })
-                       .collect(Collectors.joining(", ")) + ")";
-    }
+    @SuppressWarnings("PMD.ForLoopCanBeForeach")
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var arguments = new ExplainTokens();
+        int i = 0;
+        for (final var iterator = explainSuppliers.iterator();
+                 iterator.hasNext(); i ++) {
+            final var child = iterator.next().get();
+            final var column = columns.get(i);
+            final var field = column.getField();
+            if (field.getFieldNameOptional().isPresent()) {
+                arguments.addNested(child.getExplainTokens()).addWhitespace().addKeyword("AS").addWhitespace()
+                        .addToString(field.getFieldName());
+            } else {
+                arguments.addNested(child.getExplainTokens());
+            }
 
-    @Override
-    public String toString() {
-        return "(" +
-               columns.stream()
-                       .map(column -> {
-                           final var field = column.getField();
-                           final var value = column.getValue();
-                           if (field.getFieldNameOptional().isPresent()) {
-                               return column.getValue() + " as " + field.getFieldName();
-                           }
-                           return value.toString();
-                       })
-                       .collect(Collectors.joining(", ")) + ")";
+            if (i + 1 < columns.size()) {
+                arguments.addCommaAndWhiteSpace();
+            }
+        }
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningParen().addOptionalWhitespace()
+                .addNested(arguments).addOptionalWhitespace().addClosingParen());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

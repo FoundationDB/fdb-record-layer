@@ -28,21 +28,24 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
  * A Placeholder is basically a {@link PredicateWithValueAndRanges} with an alias that is used solely used for index matching.
  */
 public class Placeholder extends PredicateWithValueAndRanges implements WithAlias {
-
     @Nonnull
     private final CorrelationIdentifier parameterAlias;
 
@@ -133,9 +136,12 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
         return semanticHashCode();
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return super.toString() + " -> " + getParameterAlias();
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        Verify.verify(Iterables.isEmpty(explainSuppliers));
+        return ExplainTokensWithPrecedence.of(super.explain(explainSuppliers).getExplainTokens()
+                .addWhitespace().addToString("->").addWhitespace().addIdentifier(getParameterAlias().toString()));
     }
 
     @Nonnull

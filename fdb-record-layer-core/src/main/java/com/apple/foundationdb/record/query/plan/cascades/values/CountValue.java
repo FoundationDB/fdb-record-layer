@@ -35,7 +35,8 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -52,6 +53,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.BinaryOperator;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 /**
@@ -90,9 +92,6 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     }
 
     private static boolean isCountStar(@Nonnull Typed valueType) {
-        // todo: we should dispatch on the right function depending on whether the child
-        // value type is nullable or not. The '*' in count(*) must be guaranteed to be not-null
-        // during plan generation.
         return !valueType.getResultType().isPrimitive();
     }
 
@@ -120,12 +119,14 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        if (child != null) {
-            return operator.name().toLowerCase(Locale.ROOT) + "(" + child.explain(formatter) + ")";
-        } else {
-            return operator.name().toLowerCase(Locale.ROOT) + "()";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        if (operator == PhysicalOperator.COUNT_STAR) {
+            return ExplainTokensWithPrecedence.of(
+                    new ExplainTokens().addFunctionCall(PhysicalOperator.COUNT_STAR.name().toLowerCase(Locale.ROOT),
+                            new ExplainTokens().addIdentifier("*")));
         }
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall(operator.name().toLowerCase(Locale.ROOT),
+                Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens()));
     }
 
     @Nonnull
@@ -159,11 +160,6 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, child);
-    }
-
-    @Override
-    public String toString() {
-        return operator.name().toLowerCase(Locale.ROOT) + "(" + child + ")";
     }
 
     @Override
@@ -237,6 +233,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
      */
     public enum PhysicalOperator {
         COUNT(TypeCode.LONG, v -> v == null ? 0L : 1L, (s, v) -> Math.addExact((long)s, (long)v), UnaryOperator.identity()),
+        // TODO retire this operator -- COUNT will do the same if passed the right child
         COUNT_STAR(TypeCode.LONG, v -> 1L, (s, v) -> Math.addExact((long)s, (long)v), UnaryOperator.identity());
 
         @Nonnull

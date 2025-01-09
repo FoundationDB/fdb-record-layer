@@ -1887,14 +1887,14 @@ public class VersionIndexTest {
                 if (last == null) {
                     RecordQuery query = RecordQuery.newBuilder().setSort(VersionKeyExpression.VERSION).build();
                     plan = plan(query, fetchMethod);
-                    assertEquals("Index(globalVersion <,>)", plan.toString());
+                    assertEquals("ISCAN(globalVersion <,>)", plan.toString());
                 } else {
                     RecordQuery query = RecordQuery.newBuilder()
                             .setFilter(Query.version().greaterThan(last))
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
                     plan = plan(query, fetchMethod);
-                    assertEquals("Index(globalVersion ([" + last.toVersionstamp() + "],>)", plan.toString());
+                    assertEquals("ISCAN(globalVersion ([" + last.toVersionstamp() + "],>)", plan.toString());
                 }
 
                 RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator();
@@ -1939,7 +1939,7 @@ public class VersionIndexTest {
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
-                    assertEquals("Index(MySimpleRecord$num2-version [[0],[0]])", plan.toString());
+                    assertEquals("ISCAN(MySimpleRecord$num2-version [[0],[0]])", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
                 } else {
@@ -1948,7 +1948,7 @@ public class VersionIndexTest {
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
-                    assertEquals("Index(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]])", plan.toString());
+                    assertEquals("ISCAN(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]])", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
                 }
@@ -1996,7 +1996,7 @@ public class VersionIndexTest {
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
-                    assertEquals("Index(MySimpleRecord$num2-version [[0],[0]]) | num_value_3_indexed EQUALS 0", plan.toString());
+                    assertEquals("ISCAN(MySimpleRecord$num2-version [[0],[0]]) | QCFILTER num_value_3_indexed EQUALS 0", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
                 } else {
@@ -2009,7 +2009,7 @@ public class VersionIndexTest {
                             .setSort(VersionKeyExpression.VERSION)
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
-                    assertEquals("Index(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]]) | num_value_3_indexed EQUALS 0", plan.toString());
+                    assertEquals("ISCAN(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]]) | QCFILTER num_value_3_indexed EQUALS 0", plan.toString());
                     cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
                 }
@@ -2053,7 +2053,7 @@ public class VersionIndexTest {
                     .setSort(field("num_value_3_indexed"))
                     .build();
             RecordQueryPlan plan = plan(query, fetchMethod);
-            assertEquals("Index(MySimpleRecord$num_value_3_indexed <,>) | version GREATER_THAN " + chosenVersion.toString(), plan.toString());
+            assertEquals("ISCAN(MySimpleRecord$num_value_3_indexed <,>) | QCFILTER version GREATER_THAN " + chosenVersion, plan.toString());
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
 
             int last = -1;
@@ -2118,7 +2118,7 @@ public class VersionIndexTest {
                             .setRemoveDuplicates(false)
                             .build();
                     plan = plan(query, fetchMethod);
-                    assertEquals("Index(MySimpleRecord$repeater-version [[1],[1]])", plan.toString());
+                    assertEquals("ISCAN(MySimpleRecord$repeater-version [[1],[1]])", plan.toString());
                 } else {
                     RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
                             .setFilter(Query.and(Query.field("repeater").oneOfThem().equalsValue(1), Query.version().greaterThan(last)))
@@ -2126,7 +2126,7 @@ public class VersionIndexTest {
                             .setRemoveDuplicates(false)
                             .build();
                     plan = plan(query, fetchMethod);
-                    assertEquals("Index(MySimpleRecord$repeater-version ([1, " + last.toVersionstamp() + "],[1]])", plan.toString());
+                    assertEquals("ISCAN(MySimpleRecord$repeater-version ([1, " + last.toVersionstamp() + "],[1]])", plan.toString());
                 }
 
                 RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore
