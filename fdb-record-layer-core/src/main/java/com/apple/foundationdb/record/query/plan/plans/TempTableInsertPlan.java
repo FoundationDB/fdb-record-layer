@@ -275,14 +275,8 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
 
     @Override
     public void logPlanStructure(final StoreTimer timer) {
-        // TODO timer.increment(FDBStoreTimer.Counts.PLAN_TYPE_FILTER);
+        // TODO https://github.com/FoundationDB/fdb-record-layer/issues/3020
         getChild().logPlanStructure(timer);
-    }
-
-    @Nonnull
-    @Override
-    public Set<Type> getDynamicTypes() {
-        return ImmutableSet.of(Objects.requireNonNull(getResultType().getInnerType()));
     }
 
     @Override

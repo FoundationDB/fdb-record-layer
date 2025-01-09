@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ import java.util.function.Supplier;
 
 /**
  * A physical representation of a recursive union. As with other operators, it delegates the execution to a corresponding
- * {@link RecordCursor}, but unlike most operators, it heavily involved in orchestrating the execution of the cursor
+ * {@link RecordCursor}, but unlike most operators, it is heavily involved in orchestrating the execution of the cursor
  * itself due to the recursive nature of the union.
  * <br>
  * The orchestration involves, for example, overriding the {@link EvaluationContext} references to flip the read- and write-
@@ -246,7 +246,7 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
     private int computeComplexity() {
         // the complexity is calculated statically, it does not convoy the recursive nature of the
         // actual execution of this operator, which for the most part can not be statically determined anyway.
-        return getChildren().stream().map(QueryPlan::getComplexity).reduce(1, Integer::sum);
+        return 1 + getChildren().stream().map(QueryPlan::getComplexity).reduce(1, Integer::sum);
     }
 
     @Nonnull
