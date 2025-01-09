@@ -284,12 +284,12 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(tempTableInsertAlias, tempTableScanAlias, initialStateQuantifier, recursiveStateQuantifier);
+        return Objects.hash(initialStateQuantifier, recursiveStateQuantifier);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode hashMode) {
-        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, tempTableInsertAlias, tempTableScanAlias, initialStateQuantifier, recursiveStateQuantifier);
+        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, initialStateQuantifier, recursiveStateQuantifier);
     }
 
     @Nonnull
