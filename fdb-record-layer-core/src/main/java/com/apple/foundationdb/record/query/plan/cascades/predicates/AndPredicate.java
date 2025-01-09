@@ -30,12 +30,16 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -46,7 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 /**
  * A {@link QueryPredicate} that is satisfied when all of its child components are.
@@ -85,12 +89,13 @@ public class AndPredicate extends AndOrPredicate {
         return defaultValue;
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return getChildren()
-                .stream()
-                .map(child -> "(" + child + ")")
-                .collect(Collectors.joining(" and "));
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(Precedence.AND,
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addWhitespace().addKeyword("AND").addWhitespace(),
+                        () -> Streams.stream(explainSuppliers).map(Supplier::get)
+                                .map(Precedence.AND::parenthesizeChild).iterator()));
     }
 
     @Override

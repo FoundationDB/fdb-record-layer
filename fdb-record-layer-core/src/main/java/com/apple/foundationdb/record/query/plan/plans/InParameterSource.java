@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInParameterSource;
 import com.apple.foundationdb.record.planprotos.PInSource;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
@@ -82,8 +84,9 @@ public class InParameterSource extends InSource {
 
     @Nonnull
     @Override
-    public String valuesString() {
-        return "$" + parameterName;
+    public ExplainTokensWithPrecedence explain() {
+        return ExplainTokensWithPrecedence.of(
+                new ExplainTokens().addToString("$").addIdentifier(parameterName).addNested(explainSuffix()));
     }
 
     @Override

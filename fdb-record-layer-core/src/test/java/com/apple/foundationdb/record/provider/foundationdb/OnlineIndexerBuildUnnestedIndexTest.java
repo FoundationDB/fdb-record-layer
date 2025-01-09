@@ -297,7 +297,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         final Runnable afterReadable = () -> {
             try (FDBRecordContext context = openContext()) {
                 final RecordQueryPlan plan = recordStore.planQuery(UNNESTED_KEY_QUERY);
-                assertThat(plan.toString(), Matchers.containsString("Covering(Index(" + index.getName() + " [EQUALS $" + KEY_PARAM + "])"));
+                assertThat(plan.toString(), Matchers.containsString("COVERING(" + index.getName() + " [EQUALS $" + KEY_PARAM + "]"));
 
                 final List<Message> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding);
                 final List<IndexEntry> expectedEntries = unnestedEntriesForOuterRecords(index, updatedRecords);

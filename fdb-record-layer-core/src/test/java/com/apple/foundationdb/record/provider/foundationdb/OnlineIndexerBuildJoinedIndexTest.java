@@ -240,7 +240,7 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
         final Runnable afterReadable = () -> {
             try (FDBRecordContext context = openContext()) {
                 final RecordQueryPlan plan = recordStore.planQuery(joinQuery);
-                assertThat(plan.toString(), Matchers.containsString("Index(" + joinIndex.getName() + " [EQUALS $" + numValueParam + ", EQUALS $" + numValue3Param + "])"));
+                assertThat(plan.toString(), Matchers.containsString("ISCAN(" + joinIndex.getName() + " [EQUALS $" + numValueParam + ", EQUALS $" + numValue3Param + "])"));
 
                 final List<Message> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding);
                 final List<IndexEntry> expectedEntries = joinValueIndexEntries(joinIndex, updatedRecords);

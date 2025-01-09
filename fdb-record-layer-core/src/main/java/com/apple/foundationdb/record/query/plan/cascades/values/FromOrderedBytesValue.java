@@ -34,7 +34,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.OrderPreservingValue;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -51,6 +52,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A value that produces a binary encoding that is comparable according to certain modes gives by
@@ -158,13 +160,9 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "from_ordered_bytes(" + child.explain(formatter) + ", " + getDirection() + ", " + getResultType() + ")";
-    }
-
-    @Override
-    public String toString() {
-        return "from_ordered_bytes(" + child + ", " + getDirection() + ", " + getResultType() + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("from_ordered_bytes",
+                Value.explainFunctionArguments(explainSuppliers).addCommaAndWhiteSpace().addToString(getDirection())));
     }
 
     @Override

@@ -498,7 +498,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                 indexPlan()
                                         .where(indexName("RestaurantRecord$name"))
                                         .and(scanComparisons(range("[[name],[name]]")))),
-                        typeFilterPlan(scanPlan().where(scanComparisons(range("[EQUALS $q6.review.reviewer]"))))
+                        typeFilterPlan(scanPlan().where(scanComparisons(range("[EQUALS q6.review.reviewer]"))))
                                 .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
 
         assertMatchesExactly(plan, planMatcher);
@@ -576,7 +576,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final var plannedPlan = planMediumJoin(cascadesPlanner);
 
         // TODO write a matcher when this plan becomes more stable
-        Assertions.assertTrue(plannedPlan instanceof RecordQueryFlatMapPlan);
+        Assertions.assertInstanceOf(RecordQueryFlatMapPlan.class, plannedPlan);
         verifySerialization(plannedPlan);
     }
 
@@ -1107,7 +1107,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 });
 
         // TODO write a matcher when this plan becomes more stable
-        Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
+        Assertions.assertInstanceOf(RecordQueryFlatMapPlan.class, plan);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

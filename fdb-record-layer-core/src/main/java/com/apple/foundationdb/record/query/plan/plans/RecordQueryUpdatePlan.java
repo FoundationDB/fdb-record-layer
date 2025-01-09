@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryUpdatePlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -170,7 +170,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public String toString() {
-        return PlanStringRepresentation.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     /**

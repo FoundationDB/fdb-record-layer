@@ -34,7 +34,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
@@ -45,6 +46,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A value representing a version stamp derived from a quantifier.
@@ -95,18 +97,6 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return toString();
-    }
-
-    @Nonnull
-    @Override
-    public String toString() {
-        return "version(" + baseAlias + ")";
-    }
-
-    @Nonnull
-    @Override
     public VersionValue rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
         return new VersionValue(targetAlias);
     }
@@ -123,6 +113,13 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
             return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
         }
         return false;
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("version",
+                new ExplainTokens().addAliasReference(baseAlias)));
     }
 
     @Override

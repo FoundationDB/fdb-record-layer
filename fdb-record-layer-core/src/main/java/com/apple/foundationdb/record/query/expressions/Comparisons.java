@@ -57,13 +57,16 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -878,6 +881,9 @@ public class Comparisons {
                                               @Nonnull final PComparison comparisonProto) {
             return (Comparison)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonProto);
         }
+
+        @Nonnull
+        ExplainTokensWithPrecedence explain();
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -995,7 +1001,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -1295,7 +1308,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Nonnull
@@ -1597,7 +1617,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
+                    .addWhitespace().addNested(comparandValue.explain().getExplainTokens()));
         }
 
         @Override
@@ -1820,7 +1847,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type + " " + typelessString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -1981,7 +2015,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return type.toString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name()));
         }
 
         @Override
@@ -2103,7 +2143,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return Type.EQUALS + " " + typelessString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(Type.EQUALS.name())
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -2325,10 +2372,16 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         public String toString() {
-            return type.name() + " " + typelessString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Override
@@ -2466,8 +2519,10 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public String toString() {
-            return getType().name() + "(" + maxDistance + ") " + typelessString();
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(getType().name())
+                    .addOptionalWhitespace().addOpeningParen().addOptionalWhitespace().addToString(maxDistance)
+                    .addOptionalWhitespace().addClosingParen().addWhitespace().addIdentifier(typelessString()));
         }
     }
 
@@ -2580,8 +2635,18 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public String toString() {
-            return getType().name() + "(" + (strict ? "strictly" : "approximately") + ") " + typelessString();
+        public ExplainTokensWithPrecedence explain() {
+            final var resultExplainTokens =
+                    new ExplainTokens().addKeyword(getType().name())
+                            .addOptionalWhitespace().addOpeningParen().addOpeningParen();
+            if (strict) {
+                resultExplainTokens.addKeyword("STRICTLY");
+            } else {
+                resultExplainTokens.addKeyword("APPROXIMATELY");
+            }
+            resultExplainTokens.addOptionalWhitespace().addClosingParen().addWhitespace()
+                    .addIdentifier(typelessString());
+            return ExplainTokensWithPrecedence.of(resultExplainTokens);
         }
     }
 
@@ -2716,7 +2781,13 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return inner.toString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return inner.explain();
         }
 
         @Nonnull
@@ -2901,7 +2972,14 @@ public class Comparisons {
 
         @Override
         public String toString() {
-            return getType() + " " + typelessString();
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
+                    .addWhitespace().addIdentifier(typelessString()));
         }
 
         @Nonnull

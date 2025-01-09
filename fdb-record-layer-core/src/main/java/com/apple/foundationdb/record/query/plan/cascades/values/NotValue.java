@@ -33,7 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -50,6 +52,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A value that flips the output of its boolean child.
@@ -137,13 +140,11 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "not(" + child.explain(formatter) + ")";
-    }
-
-    @Override
-    public String toString() {
-        return "not(" + child + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var childExplainInfo = Iterables.getOnlyElement(explainSuppliers).get();
+        return ExplainTokensWithPrecedence.of(ExplainTokensWithPrecedence.Precedence.NOT,
+                new ExplainTokens().addKeyword("NOT").addWhitespace()
+                        .addNested(ExplainTokensWithPrecedence.Precedence.NOT.parenthesizeChild(childExplainInfo)));
     }
 
     @Override

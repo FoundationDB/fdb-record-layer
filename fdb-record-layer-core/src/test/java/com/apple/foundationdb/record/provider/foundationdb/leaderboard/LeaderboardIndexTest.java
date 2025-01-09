@@ -714,7 +714,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan plan1 = leaderboards.planQuery(query1);
-            assertEquals("Index(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", plan1.toString());
+            assertEquals("ISCAN(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", plan1.toString());
             assertEquals(Arrays.asList("hecuba", "achilles"),
                     leaderboards.executeQuery(plan1).map(leaderboards::getName).asList().join());
 
@@ -725,7 +725,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryTimeWindowRank("l1", "l2").lessThanOrEquals(2L)))
                     .build();
             RecordQueryPlan plan2 = leaderboards.planQuery(query2);
-            assertEquals("Index(LeaderboardIndex ([game-1, null],[game-1, 2]]@$l1,$l2 BY_TIME_WINDOW)", plan2.toString());
+            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]]@$l1,$l2 BY_TIME_WINDOW)", plan2.toString());
 
             final EvaluationContext evaluationContext1 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
@@ -759,7 +759,7 @@ public class LeaderboardIndexTest {
                         .setSort(leaderboards.getKeyExpression())
                         .build();
                 final RecordQueryPlan plan = leaderboards.planQuery(query);
-                assertEquals("Index(LeaderboardIndex [[game-1],[game-1]] BY_RANK)", plan.toString());
+                assertEquals("ISCAN(LeaderboardIndex [[game-1],[game-1]] BY_RANK)", plan.toString());
                 assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
                         leaderboards.executeQuery(plan).map(leaderboards::getName).asList().join());
             }
@@ -771,7 +771,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().greaterThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planGreaterEqual = leaderboards.planQuery(queryGreaterEqual);
-            assertEquals("Index(LeaderboardIndex [[game-1, 2],[game-1]] BY_RANK)", planGreaterEqual.toString());
+            assertEquals("ISCAN(LeaderboardIndex [[game-1, 2],[game-1]] BY_RANK)", planGreaterEqual.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterEqual).map(leaderboards::getName).asList().join());
 
@@ -782,7 +782,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().greaterThan(1L)))
                     .build();
             final RecordQueryPlan planGreaterThan = leaderboards.planQuery(queryGreaterThan);
-            assertEquals("Index(LeaderboardIndex ([game-1, 1],[game-1]] BY_RANK)", planGreaterThan.toString());
+            assertEquals("ISCAN(LeaderboardIndex ([game-1, 1],[game-1]] BY_RANK)", planGreaterThan.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterThan).map(leaderboards::getName).asList().join());
 
@@ -793,7 +793,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planLessEqual = leaderboards.planQuery(queryLessEqual);
-            assertEquals("Index(LeaderboardIndex ([game-1, null],[game-1, 2]] BY_RANK)", planLessEqual.toString());
+            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]] BY_RANK)", planLessEqual.toString());
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles"),
                     leaderboards.executeQuery(planLessEqual).map(leaderboards::getName).asList().join());
 
@@ -804,7 +804,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThan(2L)))
                     .build();
             final RecordQueryPlan planLessThan = leaderboards.planQuery(queryLessThan);
-            assertEquals("Index(LeaderboardIndex ([game-1, null],[game-1, 2]) BY_RANK)", planLessThan.toString());
+            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]) BY_RANK)", planLessThan.toString());
             assertEquals(Arrays.asList("patroclus", "hecuba"),
                     leaderboards.executeQuery(planLessThan).map(leaderboards::getName).asList().join());
 
@@ -816,7 +816,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planGreaterEqualAndLessEqual = leaderboards.planQuery(queryGreaterEqualAndLessEqual);
-            assertEquals("Index(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", planGreaterEqualAndLessEqual.toString());
+            assertEquals("ISCAN(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", planGreaterEqualAndLessEqual.toString());
             assertEquals(Arrays.asList("hecuba", "achilles"),
                     leaderboards.executeQuery(planGreaterEqualAndLessEqual).map(leaderboards::getName).asList().join());
 
@@ -828,7 +828,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThan(4L)))
                     .build();
             final RecordQueryPlan planGreaterThanAndLessThan = leaderboards.planQuery(queryGreaterThanAndLessThan);
-            assertEquals("Index(LeaderboardIndex ([game-1, 1],[game-1, 4]) BY_RANK)", planGreaterThanAndLessThan.toString());
+            assertEquals("ISCAN(LeaderboardIndex ([game-1, 1],[game-1, 4]) BY_RANK)", planGreaterThanAndLessThan.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterThanAndLessThan).map(leaderboards::getName).asList().join());
         }
