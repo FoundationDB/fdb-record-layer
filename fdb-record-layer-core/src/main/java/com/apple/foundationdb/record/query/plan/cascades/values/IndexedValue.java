@@ -29,12 +29,15 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PIndexedValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A value representing the source of a value derivation.
@@ -88,9 +91,11 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.NonE
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
+
+    @Nonnull
     @Override
-    public String toString() {
-        return "base()";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("indexed"));
     }
 
     @Override

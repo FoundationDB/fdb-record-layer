@@ -33,16 +33,19 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A wrapper around a constant.
@@ -122,15 +125,11 @@ public class ConstantValue extends AbstractValue implements LeafValue {
         }
     }
 
-    @Override
-    public String toString() {
-        return "const(" + value + ")";
-    }
-
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "const(" + value + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("const",
+                Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens()));
     }
 
     @Override

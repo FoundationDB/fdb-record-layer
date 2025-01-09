@@ -721,7 +721,7 @@ public abstract class IndexingBase {
         return throttle.getTotalRecordsScannedSuccessfully();
     }
 
-    protected void timerIncrement(FDBStoreTimer.Counts event) {
+    protected void timerIncrement(StoreTimer.Count event) {
         // helper function to reduce complexity
         final FDBStoreTimer timer = getRunner().getTimer();
         if (timer != null) {

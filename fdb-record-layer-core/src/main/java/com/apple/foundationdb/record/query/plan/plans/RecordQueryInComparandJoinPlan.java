@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -122,7 +122,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     public String toString() {
-        return PlanStringRepresentation.toString(this);
+        return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
     @Override

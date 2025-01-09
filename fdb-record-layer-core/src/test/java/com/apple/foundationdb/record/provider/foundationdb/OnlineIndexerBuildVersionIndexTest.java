@@ -199,7 +199,7 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
                             })
                             .sorted()
                             .collect(Collectors.toList());
-                    executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "]])", sortedValues, projection);
+                    executeQuery(updatedQueries.get(i), "ISCAN(newVersionIndex [[" + value2 + "],[" + value2 + "]])", sortedValues, projection);
                 }
                 context.commit();
             }

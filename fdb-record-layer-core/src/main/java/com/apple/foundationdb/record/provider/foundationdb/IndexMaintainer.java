@@ -343,4 +343,10 @@ public abstract class IndexMaintainer {
     @API(API.Status.EXPERIMENTAL)
     public abstract CompletableFuture<Void> mergeIndex();
 
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nullable
+    public IndexScrubbingTools<?> getIndexScrubbingTools(IndexScrubbingTools.ScrubbingType typeIgnore) {
+        throw new UnsupportedOperationException("This index does not support scrubbing");
+    }
 }

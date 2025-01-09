@@ -35,6 +35,9 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
@@ -472,11 +475,23 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return Optional.of(compileTimeEvalRanges(evaluationContext));
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return "(" + getValue() +
-                (ranges.isEmpty() ? "" : " " + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||"))) +
-                ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        Verify.verify(Iterables.isEmpty(explainSuppliers));
+        final var resultExplainTokens =
+                new ExplainTokens().addNested(getValue().explain().getExplainTokens());
+
+        if (!ranges.isEmpty()) {
+            resultExplainTokens.addWhitespace()
+                    .addSequence(() -> new ExplainTokens()
+                                    .addWhitespace().addKeyword("OR").addWhitespace(),
+                            () -> ranges.stream()
+                                    .map(RangeConstraints::explain)
+                                    .map(Precedence.OR::parenthesizeChild)
+                                    .iterator());
+        }
+        return ExplainTokensWithPrecedence.of(Precedence.ALWAYS_PARENS, resultExplainTokens);
     }
 
     @Nonnull

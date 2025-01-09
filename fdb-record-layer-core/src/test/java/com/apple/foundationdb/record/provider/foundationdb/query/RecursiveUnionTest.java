@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
@@ -485,6 +486,8 @@ public class RecursiveUnionTest extends TempTableTestBase {
         final var scanTempTableAlias = CorrelationIdentifier.of("Scan");
 
         final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, queryPredicate);
+
+        System.out.println(ExplainPlanVisitor.prettyExplain(plan));
 
         final var seedingTempTable = tempTableInstance();
 

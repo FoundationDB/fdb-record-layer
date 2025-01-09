@@ -33,7 +33,8 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -48,7 +49,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
 /**
@@ -96,10 +97,15 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         return children;
     }
 
+
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "[" + children.stream().map(child -> child.explain(formatter)).collect(Collectors.joining(", ")) + "]";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("array",
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                        () -> Streams.stream(explainSuppliers)
+                                .map(explainFunction -> explainFunction.get().getExplainTokens())
+                                .iterator())));
     }
 
     @Override
@@ -110,11 +116,6 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, children);
-    }
-
-    @Override
-    public String toString() {
-        return "array(" + children.stream().map(Object::toString).collect(Collectors.joining(", ")) + ")";
     }
 
     @Override

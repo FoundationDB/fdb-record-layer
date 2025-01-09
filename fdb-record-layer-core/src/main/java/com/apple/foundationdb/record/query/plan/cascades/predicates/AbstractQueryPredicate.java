@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PAbstractQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
@@ -99,6 +100,12 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     @Override
     public int hashCodeWithoutChildren() {
         return Objects.hash(isAtomic);
+    }
+
+    @Nonnull
+    @Override
+    public String toString() {
+        return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
     }
 
     @Override

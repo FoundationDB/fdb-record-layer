@@ -304,6 +304,16 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
         return new RecordQueryRecursiveUnionPlan(translatedInitialQuantifier, translatedRecursiveQuantifier, tempTableScanAlias, tempTableInsertAlias);
     }
 
+    @Nonnull
+    public CorrelationIdentifier getTempTableScanAlias() {
+        return tempTableScanAlias;
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getTempTableInsertAlias() {
+        return tempTableInsertAlias;
+    }
+
     /**
      * Deserializer of {@link RecordQueryRecursiveUnionPlan}.
      */

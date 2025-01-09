@@ -28,7 +28,8 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PWindowedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +39,7 @@ import com.google.common.collect.Iterators;
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 /**
  * A value merges the input messages given to it into an output message.
@@ -130,19 +131,29 @@ public abstract class WindowedValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return getName() + "(" +
-               argumentValues.stream().map(a -> a.explain(formatter)).collect(Collectors.joining(", ")) + " PARTITION BY [" +
-               partitioningValues.stream().map(a -> a.explain(formatter)).collect(Collectors.joining(", ")) +
-               "])";
-    }
+    @SuppressWarnings("PMD.ForLoopCanBeForeach")
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        int i = 0;
+        final var argumentsBuilder = ImmutableList.<ExplainTokens>builder();
+        final var iterator = explainSuppliers.iterator();
+        for (; i < argumentValues.size(); i ++) {
+            argumentsBuilder.add(iterator.next().get().getExplainTokens());
+        }
+        final var partitioningBuilder = ImmutableList.<ExplainTokens>builder();
+        while (iterator.hasNext()) {
+            partitioningBuilder.add(iterator.next().get().getExplainTokens());
+        }
 
-    @Override
-    public String toString() {
-        return getName() + "(" +
-               argumentValues.stream().map(Value::toString).collect(Collectors.joining(", ")) + " PARTITION BY [" +
-               partitioningValues.stream().map(Value::toString).collect(Collectors.joining(", ")) +
-               "])";
+        final var allArgumentsExplainTokens =
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                        argumentsBuilder.build());
+        final var partitioning = partitioningBuilder.build();
+        if (!partitioning.isEmpty()) {
+            allArgumentsExplainTokens.addKeyword("PARTITION").addWhitespace().addKeyword("BY").addWhitespace()
+                    .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), partitioning);
+        }
+
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall(getName(), allArgumentsExplainTokens));
     }
 
     @Override

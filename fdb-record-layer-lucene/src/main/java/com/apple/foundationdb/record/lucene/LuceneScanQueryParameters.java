@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -147,8 +149,8 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
 
     @Nonnull
     @Override
-    public String getScanDetails() {
-        return getGroupScanDetails() + " " + query;
+    public ExplainTokensWithPrecedence explain() {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(getGroupScanDetails() + " " + query));
     }
 
     @Override

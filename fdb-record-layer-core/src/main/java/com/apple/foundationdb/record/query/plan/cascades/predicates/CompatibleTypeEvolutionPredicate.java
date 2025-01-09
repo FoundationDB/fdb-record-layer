@@ -37,6 +37,8 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -52,6 +54,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
@@ -61,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * A predicate to be used as part of a {@link com.apple.foundationdb.record.query.plan.QueryPlanConstraint}
@@ -151,9 +155,11 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, isAtomic(), recordTypeNameFieldAccessMap);
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return "compatibleTypeEvolution()";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        Verify.verify(Iterables.isEmpty(explainSuppliers));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("compatibleTypeEvolution"));
     }
 
     @Override

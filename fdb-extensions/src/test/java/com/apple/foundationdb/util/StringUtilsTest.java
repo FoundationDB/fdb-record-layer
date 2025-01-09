@@ -28,6 +28,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Stream;
@@ -109,6 +111,53 @@ public class StringUtilsTest {
     @MethodSource
     void numericStringsOutOfBounds(int beginIndex, int endIndex) {
         assertThrows(IllegalArgumentException.class, () -> StringUtils.isNumeric("abc", beginIndex, endIndex));
+    }
+
+    static Stream<Arguments> repeat() {
+        int supplementalCodePoint = 0x1f60e; // codepoint for smiling face with sunglasses, which has special UTF-16 encoding
+        char highSurrogate = Character.highSurrogate(supplementalCodePoint);
+        char lowSurrogate = Character.lowSurrogate(supplementalCodePoint);
+        assertEquals("😎", "" + highSurrogate + lowSurrogate);
+
+        return Stream.of(
+                Arguments.of('x', -2),
+                Arguments.of('x', -1),
+                Arguments.of('x', 0),
+                Arguments.of('x', 1),
+                Arguments.of('x', 2),
+                Arguments.of('x', 3),
+                Arguments.of('\0', 0),
+                Arguments.of('\0', 1),
+                Arguments.of('\0', 2),
+                Arguments.of('\n', 3),
+                Arguments.of('\t', 4),
+                Arguments.of('é', 5),
+                Arguments.of('Δ', 3),
+                Arguments.of('≠', 1),
+                Arguments.of('ツ', 4),
+                Arguments.of('ㅋ', 10),
+                Arguments.of('人', 2),
+                Arguments.of(highSurrogate, 0),
+                Arguments.of(highSurrogate, 1),
+                Arguments.of(highSurrogate, 2),
+                Arguments.of(lowSurrogate, 0),
+                Arguments.of(lowSurrogate, 1),
+                Arguments.of(lowSurrogate, 2),
+                Arguments.of('ﬃ', 3)
+        );
+    }
+
+    @ParameterizedTest(name = "repeat[c={0}, n={1}]")
+    @MethodSource
+    void repeat(char c, int n) {
+        final String r = StringUtils.repeat(c, n);
+        assertEquals(Math.max(0, n), r.length());
+        for (int i = 0; i < r.length(); i++) {
+            assertEquals(c, r.charAt(i));
+        }
+        // Should be valid UTF-16 unless we are given a surrogate character
+        CharsetEncoder encoder = StandardCharsets.UTF_16.newEncoder();
+        assertEquals(n <= 0 || !Character.isSurrogate(c), encoder.canEncode(r));
     }
 
     @Test
