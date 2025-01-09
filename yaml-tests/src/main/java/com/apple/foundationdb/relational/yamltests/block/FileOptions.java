@@ -46,9 +46,7 @@ import java.util.Set;
  *                 options:
  *                     supported_version: !current_version
  *             }</pre>
- *         </p></li>
  *     </ul>
- * </p>
  */
 public class FileOptions {
     public static final String OPTIONS = "options";
