@@ -139,7 +139,6 @@ public final class QueryCommand extends Command {
 
     private void executeInternal(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
             throws SQLException, RelationalException {
-        System.out.println("QueryCommand::executeInternal called with connection:" + connection.getClass());
         enableCascadesDebugger();
         boolean queryIsRunning = false;
         Continuation continuation = null;
