@@ -131,6 +131,8 @@ test_block:
       - query: select b, c from t1 order by b;
       - maxRows: 4
       - result: [{1, 0}, {2, 0}, {3, 1}, {4, 1}]
+      - result: [{5, 8}, {6, 8}, {7, 8}, {8, 5}]
+      - result: [{9, 5}, {10, 5}]
     -
       # Simple ordering on 1 variable, with continuation
       - query: select b, c from t1 order by b;
@@ -139,6 +141,13 @@ test_block:
       - result: [{2, 0}]
       - result: [{3, 1}]
       - result: [{4, 1}]
+      - result: [{5, 8}]
+      - result: [{6, 8}]
+      - result: [{7, 8}]
+      - result: [{8, 5}]
+      - result: [{9, 5}]
+      - result: [{10, 5}]
+      - result: [] # even multiple requires another fetch to confirm no-more results
     -
       # Simple ordering on 1 variable, range filter on index key value, filter on other field
       - query: select b, c from t1 where b >= 5 and c = 5 order by b;

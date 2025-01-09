@@ -178,6 +178,7 @@ test_block:
       - maxRows: 3
       - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG)] BY_GROUP REVERSE)"
       - result: [{COL3: 200, !l 2}, {COL3: 2, !l 2}, {COL3: 100, !l 1}]
+      - result: [{COL3: 1, !l 1}]
     -
       - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 order by max(col2) desc;
       - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG), [LESS_THAN promote(@c25 as LONG)]] BY_GROUP REVERSE)"

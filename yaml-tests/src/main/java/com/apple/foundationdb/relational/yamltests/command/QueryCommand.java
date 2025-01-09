@@ -38,13 +38,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A {@link QueryCommand} is one of the possible {@link Command} supported in the YAML testing framework that is used
@@ -142,6 +143,7 @@ public final class QueryCommand extends Command {
         boolean queryIsRunning = false;
         Continuation continuation = null;
         int maxRows = 0;
+        boolean exhausted = false;
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
@@ -165,16 +167,21 @@ public final class QueryCommand extends Command {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
                 }
 
-                if (continuation != null && continuation.atEnd() && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName())) {
-                    Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch at line %d%n" +
+                if (exhausted && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName())) {
+                    Assert.fail(String.format("‼️ Expecting more results, however no more rows are available to fetch at line %d%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                             "%s%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfig.getLineNumber(), queryConfig.getValueString()));
                 }
                 continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows);
-                if (continuation == null || continuation.atEnd() || !queryConfigsIterator.hasNext()) {
+                if (continuation == null || continuation.atEnd()) {
                     queryIsRunning = false;
+                    exhausted = true;
+                } else if (!queryConfigsIterator.hasNext()) {
+                    queryIsRunning = false;
+                    Assert.fail(String.format("Query returned more results, but no more were expected after line %d",
+                            queryConfig.getLineNumber()));
                 } else {
                     queryIsRunning = true;
                 }

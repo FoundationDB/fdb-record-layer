@@ -101,6 +101,7 @@ test_block:
       - result: [{10, 20}]
       - result: [{30, 40}]
       - result: [{50, 60}]
+      - result: [] # even multiple requires another fetch to confirm no-more results
 ---
 # Another setup block to "change" the testing environment. But doing it manually this time.
 setup:

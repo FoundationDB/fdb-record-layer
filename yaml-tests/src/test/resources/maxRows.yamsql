@@ -47,16 +47,47 @@ test_block:
       - query: select ta.* from ta;
       - maxRows: 1
       - result: [{1, 2}]
+      - result: [{3, 4}]
+      - result: [{5, 6}]
+      - result: [{7, 8}]
+      - result: [{9, 10}]
+      - result: [{11, 12}]
+      - result: [{13, 14}]
+      - result: [{15, 16}]
+      - result: [{17, 18}]
+      - result: [{19, 20}]
+      - result: [] # Even multiple, it takes one more to know it is exhausted
     -
       # maxRows value 2
       - query: select ta.* from ta;
       - maxRows: 2
       - result: [{1, 2}, {3, 4}]
+      - result: [{5, 6}, {7, 8}]
+      - result: [{9, 10}, {11, 12}]
+      - result: [{13, 14}, {15, 16}]
+      - result: [{17, 18}, {19, 20}]
+      - result: [] # Even multiple, it takes one more to know it is exhausted
     -
       # maxRows value < number of candidate records to be returned
       - query: select ta.* from ta;
       - maxRows: 5
       - result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}]
+      - result: [{11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
+      - result: []  # Even multiple, it takes one more to know it is exhausted
+    -
+      # maxRows value < number of candidate records to be returned
+      - query: select ta.* from ta;
+      - maxRows: 3
+      - result: [{1, 2}, {3, 4}, {5, 6}]
+      - result: [{7, 8}, {9, 10}, {11, 12}]
+      - result: [{13, 14}, {15, 16}, {17, 18}]
+      - result: [{19, 20}]
+    -
+      # maxRows value = number of candidate records to be returned (all records returned)
+      - query: select ta.* from ta;
+      - maxRows: 10
+      - result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}, {11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
+      - result: []  # Even multiple, it takes one more to know it is exhausted
     -
       # maxRows value > number of candidate records to be returned (all records returned)
       - query: select ta.* from ta;
@@ -87,6 +118,7 @@ test_block:
       - query: select ta.* from ta where a % 3 = 0;
       - maxRows: 2
       - result: [{3, 4}, {9, 10}]
+      - result: [{15, 16}]
 #    -
 #      # offset value = 0, limit 1
 #      - query: select ta.* from ta limit 1 OFFSET 0;

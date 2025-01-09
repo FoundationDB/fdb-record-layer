@@ -42,11 +42,31 @@ test_block:
       - query: select * from ta where a > !! !r [-1000, 1] !!
       - maxRows: 1
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
+      - result: [{3, 4.01, false, 354, [5, 6, 7], 'hulk'}]
+      - result: [{5, 6.01, true, 585, [7, 8, 9], 'iron man'}]
+      - result: [{7, 8.01, false, 702, [9, 10, 11], 'spider man'}]
+      - result: [{9, 10.01, true, 999, [11, 12, 13], 'thor'}]
+      - result: [{11, 12.01, false, 1103, [13, 14, 15], 'doctor strange'}]
+      - result: [{13, 14.01, true, 1374, [15, 16, 17], 'captain marvel'}]
+      - result: [{15, 16.01, false, 1566, [17, 18, 19], 'black widow'}]
+      - result: [{17, 18.01, true, 1744, [19, 20, 21], 'jessica jones'}]
+      - result: [{19, 20.01, false, 1853, [21, 22, 23], 'luke cage'}]
+      - result: [] # even multiple requires another fetch to confirm no-more results
     -
       # with random set parameter
       - query: select * from ta where a > !! !r {0, -100000, -34, -67} !!
       - maxRows: 1
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
+      - result: [{3, 4.01, false, 354, [5, 6, 7], 'hulk'}]
+      - result: [{5, 6.01, true, 585, [7, 8, 9], 'iron man'}]
+      - result: [{7, 8.01, false, 702, [9, 10, 11], 'spider man'}]
+      - result: [{9, 10.01, true, 999, [11, 12, 13], 'thor'}]
+      - result: [{11, 12.01, false, 1103, [13, 14, 15], 'doctor strange'}]
+      - result: [{13, 14.01, true, 1374, [15, 16, 17], 'captain marvel'}]
+      - result: [{15, 16.01, false, 1566, [17, 18, 19], 'black widow'}]
+      - result: [{17, 18.01, true, 1744, [19, 20, 21], 'jessica jones'}]
+      - result: [{19, 20.01, false, 1853, [21, 22, 23], 'luke cage'}]
+      - result: [] # even multiple requires another fetch to confirm no-more results
     -
       # with simple in-list parameter
       - query: select * from ta where a in !! !in {[1]} !!
@@ -80,11 +100,17 @@ test_block:
       - query: select * from ta where c = !!true!!
       - maxRows: 1
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
+      - result: [{5, 6.01, true, 585, [7, 8, 9], 'iron man'}]
+      - result: [{9, 10.01, true, 999, [11, 12, 13], 'thor'}]
+      - result: [{13, 14.01, true, 1374, [15, 16, 17], 'captain marvel'}]
+      - result: [{17, 18.01, true, 1744, [19, 20, 21], 'jessica jones'}]
+      - result: [] # even multiple requires another fetch to confirm no-more results
     -
       # with unnamed parameter of type String
       - query: select * from ta where f = !! 'captain america' !!
       - maxRows: 1
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
+      - result: [] # even multiple requires another fetch to confirm no-more results
 ---
 test_block:
   options:
