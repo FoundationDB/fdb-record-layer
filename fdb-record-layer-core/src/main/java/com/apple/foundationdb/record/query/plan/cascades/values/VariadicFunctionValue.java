@@ -33,7 +33,8 @@ import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue.PPhysical
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
@@ -96,12 +97,6 @@ public class VariadicFunctionValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return operator.name().toLowerCase(Locale.ROOT) + "(" + children.stream().map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
-    }
-
-    @Nonnull
-    @Override
     public Type getResultType() {
         return children.get(0).getResultType();
     }
@@ -129,9 +124,12 @@ public class VariadicFunctionValue extends AbstractValue {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, children);
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return operator.name().toLowerCase(Locale.ROOT) + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens()
+                .addFunctionCall(operator.name().toLowerCase(Locale.ROOT),
+                        Value.explainFunctionArguments(explainSuppliers)));
     }
 
     @Override

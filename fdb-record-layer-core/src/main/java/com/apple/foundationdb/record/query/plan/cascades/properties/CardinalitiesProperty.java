@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -73,6 +74,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
@@ -410,6 +412,16 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
+    public Cardinalities visitRecordQueryRecursiveUnionPlan(@Nonnull final RecordQueryRecursiveUnionPlan element) {
+        final var initialStateCardinality = fromChild(element.getChildren().get(0));
+        // this can be improved by imposing an assertion on the cardinality of the recursive leg; if the recursive leg
+        // has a known minimum cardinality of x | x > 0 then this query is infinitely recursive, so we should probably
+        // throw.
+        return new Cardinalities(initialStateCardinality.minCardinality, Cardinality.unknownCardinality);
+    }
+
+    @Nonnull
+    @Override
     public Cardinalities visitRecordQueryFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
         final var fromChildren = fromChildren(flatMapPlan);
         final var outerCardinalities = fromChildren.get(0);
@@ -514,6 +526,13 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     public Cardinalities visitPrimaryScanExpression(@Nonnull final PrimaryScanExpression element) {
         // TODO do better
         return Cardinalities.unknownMaxCardinality();
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecursiveUnionExpression(@Nonnull final RecursiveUnionExpression element) {
+        final var initialStateCardinality = fromQuantifier(element.getQuantifiers().get(0));
+        return new Cardinalities(initialStateCardinality.minCardinality, Cardinality.unknownCardinality);
     }
 
     @Nonnull

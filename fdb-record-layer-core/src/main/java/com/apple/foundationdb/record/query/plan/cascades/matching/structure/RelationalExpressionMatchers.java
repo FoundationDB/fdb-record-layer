@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -288,5 +289,25 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<TempTableScanExpression> tempTableScanExpression() {
         return ofTypeOwning(TempTableScanExpression.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecursiveUnionExpression.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(@Nonnull final BindingMatcher<? extends Quantifier> initialDownstream,
+                                                                                    @Nonnull final BindingMatcher<? extends Quantifier> recursiveDownstream) {
+        return typedWithDownstream(RecursiveUnionExpression.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(RecursiveUnionExpression.class,
+                        ImmutableList.of(
+                                typedWithDownstream(RecursiveUnionExpression.class,
+                                        Extractor.of(RecursiveUnionExpression::getInitialStateQuantifier, name -> "initial(" + name + ")"),
+                                        initialDownstream),
+                                typedWithDownstream(RecursiveUnionExpression.class,
+                                        Extractor.of(RecursiveUnionExpression::getRecursiveStateQuantifier, name -> "recursive(" + name + ")"),
+                                        recursiveDownstream))));
     }
 }

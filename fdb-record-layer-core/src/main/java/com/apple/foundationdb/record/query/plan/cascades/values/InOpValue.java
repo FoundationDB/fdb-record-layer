@@ -34,7 +34,8 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -54,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A {@link Value} that checks if the left child is in the list of values.
@@ -155,15 +157,15 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return "(" + probeValue.explain(formatter) + " IN " + inArrayValue.explain(formatter) + ")";
-    }
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        final var probe = Iterables.get(explainSuppliers, 0).get();
+        final var inArray = Iterables.get(explainSuppliers, 1).get();
 
-    @Override
-    public String toString() {
-        return "(" + probeValue + " IN " + inArrayValue + ")";
+        return ExplainTokensWithPrecedence.of(Precedence.BETWEEN,
+                Precedence.BETWEEN.parenthesizeChild(probe, true)
+                        .addWhitespace().addKeyword("IN")
+                        .addWhitespace().addNested(Precedence.BETWEEN.parenthesizeChild(inArray, true)));
     }
-
 
     @Override
     public int hashCode() {
