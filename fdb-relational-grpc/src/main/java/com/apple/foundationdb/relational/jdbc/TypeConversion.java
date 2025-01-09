@@ -34,7 +34,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySetValue;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetContinuationReason;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
@@ -327,51 +327,48 @@ public class TypeConversion {
             resultSetBuilder.addRow(toRow(relationalResultSet));
         }
         // Set the continuation after all the rows have been traversed
-        // TODO: we may go over the cursor by 1 here?
         Continuation existingContinuation = relationalResultSet.getContinuation();
         RpcContinuation rpcContinuation = toContinuation(existingContinuation);
-        if (rpcContinuation != null) {
-            resultSetBuilder.setContinuation(rpcContinuation);
-        }
+        resultSetBuilder.setContinuation(rpcContinuation);
 
         return resultSetBuilder.build();
     }
 
-    private static RpcContinuation toContinuation(Continuation existingContinuation) {
-        if (existingContinuation == null) {
-            return null;
-        } else if (existingContinuation.atBeginning()) {
-            return RelationalRpcContinuation.BEGIN.getProto();
-        } else if (existingContinuation.atEnd()) {
-            return RelationalRpcContinuation.END.getProto();
-        } else {
-            return RpcContinuation.newBuilder()
-                    .setVersion(RelationalRpcContinuation.CURRENT_VERSION)
-                    // Here, we serialize the entire continuation - this will make it easier to recreate the original once
-                    // we get it back
-                    .setInternalState(ByteString.copyFrom(existingContinuation.serialize()))
-                    .setReason(toReason(existingContinuation.getReason()))
-                    .build();
+    private static RpcContinuation toContinuation(@Nonnull Continuation existingContinuation) {
+        RpcContinuation.Builder builder = RpcContinuation.newBuilder()
+                .setVersion(RelationalRpcContinuation.CURRENT_VERSION)
+                .setAtBeginning(existingContinuation.atBeginning())
+                .setAtEnd(existingContinuation.atEnd());
+        // Here, we serialize the entire continuation - this will make it easier to recreate the original once
+        // we send it back
+        byte[] state = existingContinuation.serialize();
+        if (state != null) {
+            builder.setInternalState(ByteString.copyFrom(state));
         }
+        Continuation.Reason reason = existingContinuation.getReason();
+        if (reason != null) {
+            builder.setReason(toReason(reason));
+        }
+        return builder.build();
     }
 
-    public static ResultSetContinuationReason toReason(Continuation.Reason reason) {
+    public static RpcContinuationReason toReason(Continuation.Reason reason) {
         if (reason == null) {
             return null;
         }
         switch (reason) {
             case TRANSACTION_LIMIT_REACHED:
-                return ResultSetContinuationReason.TRANSACTION_LIMIT_REACHED;
+                return RpcContinuationReason.TRANSACTION_LIMIT_REACHED;
             case QUERY_EXECUTION_LIMIT_REACHED:
-                return ResultSetContinuationReason.QUERY_EXECUTION_LIMIT_REACHED;
+                return RpcContinuationReason.QUERY_EXECUTION_LIMIT_REACHED;
             case CURSOR_AFTER_LAST:
-                return ResultSetContinuationReason.CURSOR_AFTER_LAST;
+                return RpcContinuationReason.CURSOR_AFTER_LAST;
             default:
                 throw new IllegalStateException("Unrecognized continuation reason: " + reason);
         }
     }
 
-    public static Continuation.Reason toReason(ResultSetContinuationReason reason) {
+    public static Continuation.Reason toReason(RpcContinuationReason reason) {
         if (reason == null) {
             return null;
         }

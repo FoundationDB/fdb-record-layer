@@ -30,7 +30,7 @@ option java_multiple_files = true;
 option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1";
 option java_outer_classname = "RpcContinuationProto";
 
-enum ResultSetContinuationReason {
+enum RpcContinuationReason {
   // Reached a transaction limit, such as byte scan limit, row scan limit or time limit.
   TRANSACTION_LIMIT_REACHED = 0;
   // Reached a query execution limit, such as the maximum number of rows allowed in a result set.
@@ -41,6 +41,8 @@ enum ResultSetContinuationReason {
 
 message RpcContinuation {
   int32 version = 1; // Version of the continuation model; can be used to denote support for continuation features over time
-  bytes internal_state = 2; // Wrapper around any server-side continuation returned
-  ResultSetContinuationReason reason = 3;
+  optional bytes internal_state = 2; // Wrapper around any server-side continuation returned
+  optional RpcContinuationReason reason = 3;
+  bool atBeginning = 4;
+  bool atEnd = 5;
 }

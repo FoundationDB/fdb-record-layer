@@ -265,6 +265,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Nonnull
     @SpotBugsSuppressWarnings("NP") // TODO: Will need to fix null handling
     public Continuation getContinuation() throws SQLException {
+        // TODO: Fail if the result set is not exhausted
         return new RelationalRpcContinuation(delegate.getContinuation());
     }
 

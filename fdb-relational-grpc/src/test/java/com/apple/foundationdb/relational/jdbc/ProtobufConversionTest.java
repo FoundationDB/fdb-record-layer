@@ -20,13 +20,21 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
-
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Types;
+import java.util.List;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 public class ProtobufConversionTest {
     @Test
@@ -62,5 +70,38 @@ public class ProtobufConversionTest {
         Integer a = 123;
         column = TypeConversion.toColumn(a, biFunction);
         Assertions.assertEquals(a, column.getInteger());
+    }
+
+    @Test
+    void testResultSetWithContinuation() throws Exception {
+        MockContinuation continuation = new MockContinuation(Continuation.Reason.TRANSACTION_LIMIT_REACHED, null, false, false);
+        RelationalResultSet resultSet = TestUtils.resultSet(
+                "TestType",
+                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
+                continuation,
+                TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
+        ResultSet converted = TypeConversion.toProtobuf(resultSet);
+
+        Assertions.assertEquals(2, converted.getRowCount());
+        assertRow(List.of(1, 2, 3), converted.getRow(0));
+        assertRow(List.of(4, 5, 6), converted.getRow(1));
+        assertContinuation(continuation.serialize(), RpcContinuationReason.TRANSACTION_LIMIT_REACHED, converted.getContinuation());
+    }
+
+    private void assertContinuation(byte[] state, RpcContinuationReason reason, RpcContinuation actual) {
+        if (state == null) {
+            Assertions.assertNull(actual.getInternalState().toByteArray());
+        } else {
+            Assertions.assertArrayEquals(state, actual.getInternalState().toByteArray());
+        }
+        Assertions.assertEquals(reason, actual.getReason());
+    }
+
+    private void assertRow(List<Integer> expected, Struct actual) {
+        List<Integer> actualRow = actual.getColumns().getColumnList()
+                .stream()
+                .map(Column::getInteger)
+                .collect(Collectors.toList());
+        Assertions.assertEquals(expected, actualRow);
     }
 }

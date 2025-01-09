@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,37 +30,11 @@ import java.util.Objects;
 public class RelationalRpcContinuation implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
-    public static final RelationalRpcContinuation BEGIN = new RelationalRpcContinuation((byte[]) null);
-    public static final RelationalRpcContinuation END = new RelationalRpcContinuation(new byte[0]);
-
     @Nonnull
     private final RpcContinuation proto;
 
     public RelationalRpcContinuation(@Nonnull RpcContinuation proto) {
         this.proto = proto;
-    }
-
-    private RelationalRpcContinuation(@Nullable byte[] continuationBytes) {
-        RpcContinuation.Builder builder = RpcContinuation.newBuilder().setVersion(CURRENT_VERSION);
-        if (continuationBytes != null) {
-            builder.setInternalState(ByteString.copyFrom(continuationBytes));
-        }
-        // This continuation has no Reason set (usage is internal to create BEGIN/END continuations)
-        proto = builder.build();
-    }
-
-    /**
-     * Deserialize and parse a continuation. This would create a continuation from a previously serialized byte array.
-     * @param bytes the serialized continuation
-     * @return the deserialized continuation
-     * @throws InvalidProtocolBufferException in case the continuation cannot be deserialized
-     */
-    public static RelationalRpcContinuation parseContinuation(byte[] bytes) throws InvalidProtocolBufferException {
-        if (bytes == null) {
-            return BEGIN; // TODO: Is this right?
-        } else {
-            return new RelationalRpcContinuation(RpcContinuation.parseFrom(bytes));
-        }
     }
 
     @Override
@@ -76,12 +48,30 @@ public class RelationalRpcContinuation implements Continuation {
     @Nullable
     @Override
     public byte[] getExecutionState() {
-        return proto.getInternalState().toByteArray();
+        if (proto.hasInternalState()) {
+            return proto.getInternalState().toByteArray();
+        } else {
+            return null;
+        }
     }
 
     @Override
     public Reason getReason() {
-        return TypeConversion.toReason(proto.getReason());
+        if (proto.hasReason()) {
+            return TypeConversion.toReason(proto.getReason());
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public boolean atBeginning() {
+        return proto.getAtBeginning();
+    }
+
+    @Override
+    public boolean atEnd() {
+        return proto.getAtEnd();
     }
 
     @Nonnull
