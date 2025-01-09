@@ -54,7 +54,7 @@ public class DefaultExplainFormatter implements ExplainFormatter {
 
     @Override
     public void registerAliasExplicitly(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
-        Objects.requireNonNull(scopes.peek()).registerAliasExplicitly(alias, symbol);
+        Objects.requireNonNull(scopes.peek()).registerAliasWithExplicitSymbol(alias, symbol);
     }
 
     @Nonnull

@@ -26,12 +26,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Interface for all kinds of explain formatters.
+ * Interface for simple symbol maps for the purpose of mapping an alias as supplied by the planner to a human-readable
+ * string symbol.
  */
 public interface ExplainSymbolMap {
     void registerAlias(@Nonnull CorrelationIdentifier alias);
 
-    void registerAliasExplicitly(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
+    void registerAliasWithExplicitSymbol(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
 
     @Nullable
     String getSymbolForAlias(@Nonnull CorrelationIdentifier alias);

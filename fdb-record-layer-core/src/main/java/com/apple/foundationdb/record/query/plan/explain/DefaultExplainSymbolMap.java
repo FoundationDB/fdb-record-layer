@@ -22,13 +22,12 @@ package com.apple.foundationdb.record.query.plan.explain;
 
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Formatting for {@link Value#explain}.
+ * Symbol table that uses the alias' string representation as symbol.
  */
 public class DefaultExplainSymbolMap implements ExplainSymbolMap {
     @Override
@@ -37,7 +36,7 @@ public class DefaultExplainSymbolMap implements ExplainSymbolMap {
     }
 
     @Override
-    public void registerAliasExplicitly(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
+    public void registerAliasWithExplicitSymbol(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
         // empty
     }
 

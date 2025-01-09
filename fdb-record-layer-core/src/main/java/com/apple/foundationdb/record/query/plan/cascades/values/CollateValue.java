@@ -115,7 +115,9 @@ public class CollateValue extends AbstractValue {
 
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("collate",
                 new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
-                        stringExplainTokens, localeExplainTokens, strengthExplainTokens)));
+                        stringExplainTokens,
+                        localeExplainTokens,
+                        new ExplainTokens().addKeyword("STRENGTH").addWhitespace().addNested(strengthExplainTokens))));
     }
 
     @Nonnull

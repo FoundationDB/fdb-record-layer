@@ -43,11 +43,11 @@ public class ExplainSelfContainedSymbolMap implements ExplainSymbolMap {
 
     @Override
     public void registerAlias(@Nonnull final CorrelationIdentifier alias) {
-        registerAliasExplicitly(alias, "q" + quantifierNumber.getAndIncrement());
+        registerAliasWithExplicitSymbol(alias, "q" + quantifierNumber.getAndIncrement());
     }
 
     @Override
-    public void registerAliasExplicitly(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
+    public void registerAliasWithExplicitSymbol(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
         aliasToFormattingNameMap.putIfAbsent(alias, symbol);
     }
 

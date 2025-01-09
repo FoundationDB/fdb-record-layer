@@ -2642,7 +2642,7 @@ public class Comparisons {
             if (strict) {
                 resultExplainTokens.addKeyword("STRICTLY");
             } else {
-                resultExplainTokens.addKeyword("APPROVIMATELY");
+                resultExplainTokens.addKeyword("APPROXIMATELY");
             }
             resultExplainTokens.addOptionalWhitespace().addClosingParen().addWhitespace()
                     .addIdentifier(typelessString());
