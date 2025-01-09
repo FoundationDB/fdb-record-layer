@@ -41,22 +41,7 @@ import java.util.stream.Collectors;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class BuiltInFunction<T extends Typed> {
-    @Nonnull
-    final String functionName;
-
-    @Nonnull
-    final List<Type> parameterTypes;
-
-    /**
-     * The type of the function's variadic parameters (if any).
-     */
-    @Nullable
-    final Type variadicSuffixType;
-
-    @Nonnull
-    final EncapsulationFunction<T> encapsulationFunction;
-
+public abstract class BuiltInFunction<T extends Typed> extends Function<T>{
     /**
      * Creates a new instance of {@link BuiltInFunction}.
      * @param functionName The name of the function.
@@ -64,7 +49,7 @@ public abstract class BuiltInFunction<T extends Typed> {
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
     public BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
-        this(functionName, parameterTypes, null, encapsulationFunction);
+        super(functionName, parameterTypes, null, encapsulationFunction);
     }
 
     /**
@@ -75,52 +60,7 @@ public abstract class BuiltInFunction<T extends Typed> {
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
-        this.functionName = functionName;
-        this.parameterTypes = ImmutableList.copyOf(parameterTypes);
-        this.variadicSuffixType = variadicSuffixType;
-        this.encapsulationFunction = encapsulationFunction;
-    }
-
-    @Nonnull
-    public String getFunctionName() {
-        return functionName;
-    }
-
-    @Nonnull
-    public List<Type> getParameterTypes() {
-        return parameterTypes;
-    }
-
-    @Nonnull
-    public Type resolveParameterType(int index) {
-        Verify.verify(index >= 0, "unexpected negative parameter index");
-        if (index < parameterTypes.size()) {
-            return parameterTypes.get(index);
-        } else {
-            if (hasVariadicSuffix()) {
-                return variadicSuffixType;
-            }
-            throw new IllegalArgumentException("cannot resolve declared parameter at index " + index);
-        }
-    }
-
-    @Nonnull
-    public List<Type> resolveParameterTypes(int numberOfArguments) {
-        Verify.verify(numberOfArguments > 0, "unexpected number of arguments");
-        final ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
-        for (int i = 0; i < numberOfArguments; i ++) {
-            resultBuilder.add(resolveParameterType(i));
-        }
-        return resultBuilder.build();
-    }
-
-    @Nullable
-    public Type getVariadicSuffixType() {
-        return variadicSuffixType;
-    }
-
-    public boolean hasVariadicSuffix() {
-        return variadicSuffixType != null;
+        super(functionName, parameterTypes, variadicSuffixType, encapsulationFunction);
     }
 
     /**
@@ -164,26 +104,8 @@ public abstract class BuiltInFunction<T extends Typed> {
     }
 
     @Nonnull
-    public EncapsulationFunction<T> getEncapsulationFunction() {
-        return encapsulationFunction;
-    }
-
-    @Nonnull
-    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
-        return encapsulationFunction.encapsulate(this, arguments);
-    }
-
-    @Nonnull
     @Override
-    public String toString() {
-        String variadicSuffixString = "";
-        if (variadicSuffixType != null) {
-            variadicSuffixString = variadicSuffixType + "...";
-            if (!parameterTypes.isEmpty()) {
-                variadicSuffixString = ", " + variadicSuffixString;
-            }
-        }
-
-        return functionName + "(" + parameterTypes.stream().map(Object::toString).collect(Collectors.joining(",")) + variadicSuffixString + ")";
+    public T encapsulate(@Nonnull final List<? extends Typed> arguments) {
+        return encapsulationFunction.encapsulate(this, arguments);
     }
 }
