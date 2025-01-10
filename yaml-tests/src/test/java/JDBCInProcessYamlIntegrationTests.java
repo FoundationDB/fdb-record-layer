@@ -75,4 +75,5 @@ public class JDBCInProcessYamlIntegrationTests extends JDBCYamlIntegrationTests 
             return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
         };
     }
+
 }
