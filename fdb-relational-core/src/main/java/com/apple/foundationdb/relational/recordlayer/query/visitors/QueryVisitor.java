@@ -168,6 +168,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var literals = getDelegate().getPlanGenerationContext().getLiteralsBuilder();
             final var groupBy = LogicalOperator.generateGroupBy(getDelegate().getLogicalOperators(), groupByExpressions,
                     selectExpressions, where, outerCorrelations, literals);
+            if (groupByExpressions.isEmpty() && !getDelegate().isForDdl()) {
+                selectExpressions = LogicalOperator.adjustCountOnEmpty(selectExpressions);
+            }
             selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
