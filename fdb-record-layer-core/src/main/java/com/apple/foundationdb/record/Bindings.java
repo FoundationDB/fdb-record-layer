@@ -38,7 +38,7 @@ import java.util.Map;
  * A binding map can also have a parent from which values are taken if they are absent in the child.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class Bindings {
 
     /**

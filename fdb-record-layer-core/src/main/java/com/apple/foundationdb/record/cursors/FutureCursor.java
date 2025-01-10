@@ -36,7 +36,7 @@ import java.util.concurrent.Executor;
  * A cursor that returns a single element when a future completes.
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FutureCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Executor executor;

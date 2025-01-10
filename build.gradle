@@ -29,7 +29,6 @@ buildscript {
 
     dependencies {
         classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
     }
 }
 
@@ -75,6 +74,17 @@ allprojects {
         }
     }
 
+    // Propagate debugging option to tests
+    // This makes sure that all tests are running in debug mode by default which is convenient, when e.g. working
+    // with IntelliJ because we do not have to set the 'debugBuild' configuration for each test individually,
+    // though this requires making sure that we set 'debugBuild' to false explicitly when producing a release
+    // or snapshot build to make sure that the tests are _not_ running in that mode and rather running in prod-like
+    // environment.
+    project.tasks.withType(Test) {
+        systemProperty "debugBuild", System.getProperty("debugBuild", "true")
+        dependsOn("sourcesJar")
+    }
+
     buildDir = ".out"
     ext {
         distDir = ".dist"
@@ -118,8 +128,8 @@ allprojects {
     task sourcesJar(type: Jar, dependsOn: 'compileJava') {
         description = "Assembles a Jar archive containing the main sources."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
-        appendix = null
-        classifier = "sources"
+        archiveAppendix = null
+        archiveClassifier = "sources"
         from sourceSets.main.allSource
     }
 
@@ -127,8 +137,8 @@ allprojects {
     task javadocJar(type: Jar) {
         description = "Assembles a Jar archive containing the main Javadoc."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
-        appendix = null
-        classifier = "javadoc"
+        archiveAppendix = null
+        archiveClassifier = "javadoc"
         from tasks.javadoc
     }
 

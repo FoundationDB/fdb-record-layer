@@ -117,7 +117,7 @@ import java.util.concurrent.CompletableFuture;
  *     System.out.println(path.getParent().getParent().getDirectoryName());  //  Displays "office_id"
  * </pre>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeySpace {
 
     private final KeySpaceDirectory root;

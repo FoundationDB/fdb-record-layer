@@ -1,0 +1,100 @@
+/*
+ * column.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+package grpc.relational.jdbc.v1;
+option java_multiple_files = true;
+// Put the generated classes into grpc subpackage so I can exclude
+// these classes from checkstyle and spotbug checks.
+option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1.column";
+option java_outer_classname = "ColumnProto";
+
+message ColumnMetadata {
+  string name = 1;
+  string label = 2;
+  //taken from java.sql.Types
+  int32 java_sql_types_code = 3;
+  int32 nullable = 4;
+  // Indicates a column that isn't part of the DDL for a query, but is part of the returned
+  // tuple (and therefore necessary to keep so that our positional ordering is intact)
+  bool phantom = 5;
+  // If this column has a Struct or an Array, their metadata is here.
+  oneof metadata {
+    ListColumnMetadata structMetadata = 6;
+    ColumnMetadata arrayMetadata = 7;
+  }
+}
+
+// Relational Struct.
+message Struct {
+  ListColumn columns = 1;
+}
+
+// Relational Array.
+message Array {
+  repeated Column element = 1;
+}
+
+// `Column` represents a dynamically typed column which can be either
+// null, a number, a string, a boolean, a recursive struct value, or a
+// list of columns. A producer of column is expected to set one of these
+// variants. Absence of any variant indicates an error.
+message Column {
+  // The kind/type of column.
+  oneof kind {
+    // Represents a null column.
+    NullColumn null = 1;
+    // Represents a double column.
+    double double = 2;
+
+    int32 integer = 3;
+    int64 long = 4;
+
+    // Represents a string column.
+    string string = 5;
+    // Represents a boolean column.
+    bool boolean = 6;
+    // Represents a structured column.
+    Struct struct = 7;
+    Array array = 8;
+    bytes binary = 9;
+
+    float float = 10;
+  }
+}
+
+// `NullValue` is a singleton enumeration to represent the null value for the
+// `Column` type union.
+//
+//  The JSON representation for `NullValue` is JSON `null`.
+enum NullColumn {
+  // Null value.
+  NULL_COLUMN = 0;
+}
+
+// `ListColumn` is a wrapper around a repeated field of columns.
+message ListColumn {
+  // Repeated field of dynamically typed columns.
+  repeated Column column = 1;
+}
+
+message ListColumnMetadata {
+  repeated ColumnMetadata columnMetadata = 1;
+}

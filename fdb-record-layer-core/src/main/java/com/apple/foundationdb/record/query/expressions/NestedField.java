@@ -40,7 +40,7 @@ import java.util.function.Supplier;
 /**
  * A {@link QueryComponent} that evaluates a nested component against a {@link com.google.protobuf.Message}-valued field.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class NestedField extends BaseNestedField {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Nested-Field");
 

@@ -49,7 +49,7 @@ import java.util.List;
  * When implementing a new key expression, care should be taken to implement at least one (and possibly both) of
  * the interfaces Key.AtomExpression and Key.ExpressionWithChildren.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface KeyExpression extends PlanHashable, QueryHashable {
     /**
      * Evaluate against a given record producing a list of evaluated keys. These are extracted from the

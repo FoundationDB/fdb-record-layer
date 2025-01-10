@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  * These states might differ between record stores that have
  * otherwise identical meta-data.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public enum IndexState {
     /**
      * This is the default state for an index. It is

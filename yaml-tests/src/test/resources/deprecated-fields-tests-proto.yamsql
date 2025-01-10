@@ -1,0 +1,69 @@
+#
+# deprecated-fields-tests-proto.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+  - query: drop schema template deprecated_fields_tests_template
+  - query: drop database /FRL/DEPRECATED_FIELDS_YAML
+  - query: create database /FRL/DEPRECATED_FIELDS_YAML
+  - load schema template: schema template DEPRECATED_FIELDS_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.deprecatedfields.DeprecatedFieldsTestsProto
+  - query: create schema /FRL/DEPRECATED_FIELDS_YAML/test with template deprecated_fields_tests_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/DEPRECATED_FIELDS_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 1),
+               (2, 2),
+               (3, 3),
+               (4, 4),
+               (5, 5),
+               (6, 6),
+               (7, 7),
+               (8, 8),
+               (9, 9),
+               (10, 10),
+               (11, 11),
+               (12, 12),
+               (13, 13)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/DEPRECATED_FIELDS_YAML?schema=TEST"
+  tests:
+    -
+      - query: select * from (select * from (select * from T1) as x where COL1 = 5) as y;
+      - result: [{COL1: !l 5, !l 5}]
+    -
+      - query: select * from (select * from (select * from T1) as x) as y where COL1 = 5;
+      - result: [{COL1: !l 5, !l 5}]
+    -
+      - query: select count(*) from (select * from (select * from (select * from T1  where COL1 = 5) as x) as y) as z;
+      - result: [{!l 1}]
+    -
+      - query: select * from (select * from (select * from (select * from T1  where COL1 > 10) as x) as y) as z;
+      - result: [{COL1: !l 11, !l 11}, {COL1: !l 12, !l 12}, {COL1: !l 13, !l 13}]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template deprecated_fields_tests_template
+    - query: drop database /FRL/DEPRECATED_FIELDS_YAML
+...

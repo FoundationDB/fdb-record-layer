@@ -148,9 +148,9 @@
         <module name="AbbreviationAsWordInName">
             <property name="ignoreFinal" value="false"/>
             <property name="allowedAbbreviationLength" value="1"/>
-            <property name="allowedAbbreviations" value="ID,DB,UUID,URL,API,FDB,JSON,DNF,JCE"/>
+            <property name="allowedAbbreviations" value="ID,DB,UUID,URL,URI,API,FDB,FRL,JDBC,JSON,DNF,JCE,SQL,PK"/>
         </module>
-        <module name="OverloadMethodsDeclarationOrder"/>
+        <!-- <module name="OverloadMethodsDeclarationOrder"/> -->
         <module name="VariableDeclarationUsageDistance"/>
 
         <module name="MethodParamPad"/>
@@ -171,7 +171,7 @@
         <module name="NonEmptyAtclauseDescription"/>
 
         <module name="MissingJavadocPackage"/>
-        <module name="MissingJavadocType"/>
+        <!-- <module name="MissingJavadocType"/> -->
 
         <module name="JavadocType">
             <property name="scope" value="public"/>

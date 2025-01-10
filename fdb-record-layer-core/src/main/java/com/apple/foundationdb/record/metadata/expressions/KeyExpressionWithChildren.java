@@ -28,7 +28,7 @@ import java.util.List;
 /**
  * A {@link KeyExpression} with child expressions.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface KeyExpressionWithChildren extends KeyExpression {
     @Nonnull
     List<KeyExpression> getChildren();

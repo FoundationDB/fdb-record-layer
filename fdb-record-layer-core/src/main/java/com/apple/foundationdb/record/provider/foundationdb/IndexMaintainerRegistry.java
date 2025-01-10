@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  * A registry of {@link IndexMaintainer}s.
  * @see IndexMaintainerFactory
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface IndexMaintainerRegistry extends IndexValidatorRegistry {
     @Nonnull
     IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state);

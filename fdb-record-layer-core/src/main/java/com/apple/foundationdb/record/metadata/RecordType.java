@@ -38,7 +38,7 @@ import java.util.List;
  *
  * A record type corresponds to a Protobuf {@link com.google.protobuf.Descriptors.Descriptor} and specifies a primary key expression and any number of secondary {@link Index}es.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @Nonnull
     private final RecordMetaData metaData;

@@ -37,7 +37,7 @@ import java.util.Map;
  * @see com.apple.foundationdb.record.query.expressions.QueryComponent#eval
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class EvaluationContext {
     @Nonnull
     private final Bindings bindings;

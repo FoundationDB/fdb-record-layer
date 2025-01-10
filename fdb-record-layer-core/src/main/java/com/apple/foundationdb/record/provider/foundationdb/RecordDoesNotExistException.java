@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStoreBase.RecordExistenceCheck#ERROR_IF_NOT_EXISTS
  */
 @SuppressWarnings("serial")
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordDoesNotExistException extends RecordCoreException {
     public RecordDoesNotExistException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

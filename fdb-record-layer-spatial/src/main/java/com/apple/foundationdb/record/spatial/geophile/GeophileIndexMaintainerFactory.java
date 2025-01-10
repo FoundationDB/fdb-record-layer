@@ -35,7 +35,7 @@ import java.util.Arrays;
  * A factory for {@link GeophileIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class GeophileIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { GeophileIndexTypes.SPATIAL_GEOPHILE};
 

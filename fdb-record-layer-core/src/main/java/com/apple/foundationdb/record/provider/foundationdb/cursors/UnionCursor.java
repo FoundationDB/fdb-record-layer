@@ -59,7 +59,7 @@ import java.util.function.Function;
  *
  * @param <T> the type of elements returned by the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>> {
     private final boolean reverse;
 

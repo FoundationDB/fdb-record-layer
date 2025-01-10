@@ -36,7 +36,7 @@ import java.util.Objects;
  * Further, if the key and value were produced by applying an index key expression to a record, this will carry
  * around additional information about the nulls contained in the expression.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexEntry {
     private static final NullStandin[] NO_NULLS = new NullStandin[0];
 

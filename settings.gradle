@@ -20,6 +20,7 @@
 
 rootProject.name='fdb-record-layer'
 
+include 'fdb-java-annotations'
 include 'fdb-extensions'
 include 'fdb-record-layer-core'
 include 'fdb-record-layer-core-shaded'
@@ -27,6 +28,13 @@ include 'fdb-record-layer-icu'
 include 'fdb-record-layer-spatial'
 include 'fdb-record-layer-lucene'
 include 'fdb-record-layer-jmh'
+include 'fdb-relational-api'
+include 'fdb-relational-core'
+include 'fdb-relational-cli'
+include 'fdb-relational-grpc'
+include 'fdb-relational-jdbc'
+include 'fdb-relational-server'
+include 'yaml-tests'
 include 'examples'
 
 // It's confusing to have dozens of files called build.gradle scattered around the project

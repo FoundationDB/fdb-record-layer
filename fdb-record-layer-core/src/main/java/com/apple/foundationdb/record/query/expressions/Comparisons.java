@@ -110,7 +110,7 @@ import java.util.stream.Collectors;
 /**
  * Helper methods for building {@link Comparison}s.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class Comparisons {
     public static final Comparison LIST_EMPTY = new ListComparison(Type.EQUALS, Collections.emptyList());
 

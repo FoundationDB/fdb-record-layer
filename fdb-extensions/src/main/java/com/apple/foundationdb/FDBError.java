@@ -30,7 +30,7 @@ import java.util.Map;
  * FDB error codes (from https://apple.github.io/foundationdb/api-error-codes.html) and handy methods to
  * interpret them.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public enum FDBError {
     SUCCESS(0),
     OPERATION_FAILED(1000),

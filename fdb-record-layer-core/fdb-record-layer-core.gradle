@@ -18,7 +18,9 @@
  * limitations under the License.
  */
 
-apply plugin: 'com.github.johnrengelman.shadow'
+plugins {
+    id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
+}
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -27,8 +29,8 @@ configurations {
 }
 
 dependencies {
+    annotationProcessor project(':fdb-java-annotations')
     api project(':fdb-extensions')
-    annotationProcessor project(':fdb-extensions')
 
     api "com.google.protobuf:protobuf-java:${protobufVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
@@ -63,7 +65,7 @@ sourceSets {
 }
 
 task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    classifier = 'standalone-tests'
+    archiveClassifier = 'standalone-tests'
     from sourceSets.main.output
     from sourceSets.test.output
     configurations = [ project.configurations.testRuntimeOnly ]
@@ -77,7 +79,7 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
 }
 
 task replJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    classifier = 'repl'
+    archiveClassifier = 'repl'
     from sourceSets.main.output
     from sourceSets.test.output
     configurations = [ project.configurations.repl ]

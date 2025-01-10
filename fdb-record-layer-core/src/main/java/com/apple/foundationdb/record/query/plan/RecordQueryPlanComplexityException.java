@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * Exception thrown when a query plan is more complex than the configured limit.
  */
 @SuppressWarnings("serial")
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordQueryPlanComplexityException extends RuntimeException {
     public RecordQueryPlanComplexityException(@Nonnull String msg) {
         super(msg);

@@ -30,7 +30,7 @@ Then the following dependency can be added:
 ```
   <groupId>org.foundationdb</groupId>
   <artifactId>fdb-record-layer-core</artifactId>
-  <version>3.5.+</version>
+  <version>4.0.+</version>
 ```
 
 Older builds are also available in the maven central repository, and newer builds will be published there upon the resolution of [Issue #1288](https://github.com/FoundationDB/fdb-record-layer/issues/1288).
@@ -51,7 +51,7 @@ repositories {
 Then the following dependency can be added:
 
 ```
-"org.foundationdb:fdb-record-layer-core:3.5.+"
+"org.foundationdb:fdb-record-layer-core:4.0.+"
 ```
 
 Older builds are also available in the `mavenCentral()` repository, and newer builds will be published there upon the resolution of [Issue #1288](https://github.com/FoundationDB/fdb-record-layer/issues/1288).
@@ -75,14 +75,11 @@ Classes and methods annotations using `@API` determine when they can be changed 
 
 * `STABLE` will not change until the major version is incremented. At that time, they may also change status to something less stable.
 
-* `MAINTAINED` will not change until the minor version is incremented. At that time, only the status changes to `UNSTABLE` or `DEPRECATED`. This indicates that in the *next* minor version they will change / be removed.
-
 * `UNSTABLE` can change in a minor release without other advance notice.
 
 * `DEPRECATED` can be removed in a minor release without other advance notice.
 
 * `EXPERIMENTAL` can change / be removed in any build without notice.
-
 
 ## Creating a Patch Branch
 

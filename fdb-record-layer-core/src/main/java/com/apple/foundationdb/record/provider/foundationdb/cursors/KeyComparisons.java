@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * {@link Comparator}s for key expressions.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeyComparisons {
     @SuppressWarnings("unchecked")
     public static final Comparator<Object> FIELD_COMPARATOR = (o1, o2) ->  {

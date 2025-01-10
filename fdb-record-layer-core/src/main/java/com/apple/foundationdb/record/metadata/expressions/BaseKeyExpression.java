@@ -34,7 +34,7 @@ import java.util.ListIterator;
 /**
  * Base class to provide some common logic shared between most expression implementations.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public abstract class BaseKeyExpression implements KeyExpression {
     @Override
     @Nonnull

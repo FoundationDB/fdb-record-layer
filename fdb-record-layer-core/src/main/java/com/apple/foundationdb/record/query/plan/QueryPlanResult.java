@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
  * This is the result of the call of {@link QueryPlanner#plan(RecordQuery)} call. It contains the actual plan produced coupled
  * with some additional information related to the plan and the planning process.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class QueryPlanResult implements PlanHashable {
     @Nonnull
     private final RecordQueryPlan plan;

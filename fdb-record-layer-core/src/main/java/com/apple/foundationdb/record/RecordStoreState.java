@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
  *     </li>
  * </ul>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordStoreState {
 
     @Nonnull

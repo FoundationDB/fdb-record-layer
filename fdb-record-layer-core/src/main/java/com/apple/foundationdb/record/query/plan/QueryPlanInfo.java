@@ -34,7 +34,7 @@ import java.util.Set;
  * This class holds some additional information regarding the query plan that can be attached to the plan itself, without
  * impacting its structure. This info can be added during planning to help reason about the plan and the planning process.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class QueryPlanInfo {
     private final Map<QueryPlanInfoKey<?>, Object> info;
 

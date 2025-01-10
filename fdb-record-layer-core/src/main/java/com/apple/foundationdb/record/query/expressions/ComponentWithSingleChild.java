@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * A {@link QueryComponent} with exactly one child component.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface ComponentWithSingleChild extends QueryComponent {
     @Nonnull
     QueryComponent getChild();

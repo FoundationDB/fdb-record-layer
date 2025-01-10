@@ -39,7 +39,7 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
  *
  * Nothing is remembered about the index other than this, so that the now-unused range can be deleted when an older record store is upgraded to newer meta-data.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FormerIndex {
     @Nonnull
     private final Object subspaceKey;

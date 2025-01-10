@@ -21,13 +21,13 @@
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
+    api(project(":fdb-java-annotations")) {
+        exclude(group: "com.squareup", module: "javapoet")
+    }
     api "org.foundationdb:fdb-java:${fdbVersion}"
     implementation "com.google.guava:guava:${guavaVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
-    api "com.squareup:javapoet:${javaPoetVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    compileOnly "com.google.auto.service:auto-service:undefined"
-    annotationProcessor "com.google.auto.service:auto-service:undefined"
 
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"

@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * Exception thrown when encountering issues serializing IDs using {@link LuceneIndexKeySerializer}.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordCoreFormatException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 

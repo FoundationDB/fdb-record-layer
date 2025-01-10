@@ -36,7 +36,7 @@ import java.util.function.BiFunction;
 /**
  * The particular operation to be performed by an {@link AtomicMutationIndexMaintainer} index.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface AtomicMutation {
 
     /**
@@ -118,7 +118,7 @@ public interface AtomicMutation {
     /**
      * The atomic mutations implemented straightforwardly by the FDB API.
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     enum Standard implements AtomicMutation {
         COUNT(MutationType.ADD),
         COUNT_UPDATES(MutationType.ADD),

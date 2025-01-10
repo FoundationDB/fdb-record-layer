@@ -57,7 +57,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * @see IndexMaintainerFactory
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public abstract class IndexMaintainer {
     protected final IndexMaintainerState state;
 

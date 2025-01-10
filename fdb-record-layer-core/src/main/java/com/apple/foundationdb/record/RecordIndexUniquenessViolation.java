@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  * {@code commit} <em>will not</em> complete successfully, whether it was thrown earlier or from {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext#commit}
  * itself.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings({"serial", "squid:S1948", "squid:MaximumInheritanceDepth"})
 public class RecordIndexUniquenessViolation extends RecordCoreException {
     @Nonnull private Index index;

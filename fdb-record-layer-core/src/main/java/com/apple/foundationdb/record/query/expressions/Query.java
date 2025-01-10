@@ -43,7 +43,7 @@ import java.util.List;
 /**
  * Holder class for creating querying expressions.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class Query {
 
     /**

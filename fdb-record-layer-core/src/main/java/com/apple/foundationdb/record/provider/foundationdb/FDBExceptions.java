@@ -38,7 +38,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * Namespace for exceptions that wrap the underlying exceptions from the FDB API.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class FDBExceptions {
 
     private static final Object[] EMPTY_KEYS_AND_VALUES = new Object[0];

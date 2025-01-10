@@ -35,7 +35,7 @@ import java.util.Map;
  * Validator for {@link RecordMetaData}.
  * @see MetaDataException
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class MetaDataValidator implements RecordMetaDataProvider {
     @Nonnull
     protected final RecordMetaData metaData;

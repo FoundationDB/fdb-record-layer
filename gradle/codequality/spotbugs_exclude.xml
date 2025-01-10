@@ -10,6 +10,10 @@
         <Source name="~.*/generated/.*" />
     </Match>
 
+    <Match>
+        <Source name="~.*/generated-src/.*" />
+    </Match>
+
     <!-- Ignore EI_EXPOSE_REP errors. There are a few too many false positives, often from collections, or from raw byte[] being used for performance. -->
     <Match>
         <Bug pattern="EI_EXPOSE_REP" />

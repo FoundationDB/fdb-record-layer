@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
 /**
  * Exception thrown when a {@link KeySpaceDirectory} does not have the named directory component.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class NoSuchDirectoryException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 

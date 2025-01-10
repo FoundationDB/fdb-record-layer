@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  * <li>optional secondary indexes.</li>
  * </ul>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements RecordTypeOrBuilder {
     @Nonnull
     private final Descriptors.Descriptor descriptor;

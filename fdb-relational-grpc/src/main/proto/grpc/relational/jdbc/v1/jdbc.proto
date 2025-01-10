@@ -1,0 +1,200 @@
+/*
+ * jdbc.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+package grpc.relational.jdbc.v1;
+
+option java_multiple_files = true;
+// Put the generated classes into grpc subpackage so I can exclude
+// these classes from checkstyle and spotbug checks.
+option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1";
+option java_outer_classname = "RelationalJDBCService";
+
+import "grpc/relational/jdbc/v1/result_set.proto";
+import "grpc/relational/jdbc/v1/column.proto";
+
+service JDBCService {
+  rpc getMetaData(DatabaseMetaDataRequest) returns (DatabaseMetaDataResponse) {}
+  rpc execute(StatementRequest) returns (StatementResponse) {}
+  rpc update(StatementRequest) returns (StatementResponse) {}
+  rpc insert(InsertRequest) returns (InsertResponse) {}
+  rpc get(GetRequest) returns (GetResponse) {}
+  rpc scan(ScanRequest) returns (ScanResponse) {}
+}
+
+message KeySetValue {
+  oneof values {
+    string string_value = 1;
+    int64 long_value = 2;
+    bytes bytes_value = 3;
+  }
+}
+
+message KeySet {
+  map<string, KeySetValue> fields = 1;
+}
+
+// Use 'optional' keyword to trigger 'explicit presence':
+// https://github.com/protocolbuffers/protobuf/blob/main/docs/field_presence.md#how-to-enable-explicit-presence-in-proto3
+message ScanRequest {
+  optional KeySet key_set = 1;
+  optional string database = 2;
+  optional string schema = 3;
+  optional string table_name = 4;
+}
+
+message ScanResponse {
+  grpc.relational.jdbc.v1.ResultSet result_set = 1;
+}
+
+message GetRequest {
+  optional KeySet key_set = 1;
+  optional string database = 2;
+  optional string schema = 3;
+  optional string table_name = 4;
+}
+
+message GetResponse {
+  grpc.relational.jdbc.v1.ResultSet result_set = 1;
+}
+
+message InsertRequest {
+
+  // We use ResultSet to carry data from client to server -- inverting its
+  // usual intent.
+  ResultSet dataResultSet = 5;
+
+  optional string database = 2;
+  optional string schema = 3;
+  optional string table_name = 4;
+  // '5' is taken... see above in oneof 'data'.
+}
+
+message ListBytes {
+  repeated bytes bytes = 1;
+}
+
+message InsertResponse {
+  int32 row_count = 1;
+}
+
+// Parameters for PreparedStatement
+message Parameters {
+  repeated Parameter parameter = 1;
+}
+
+// A parameter has java sql type as well as actual parameter.
+message Parameter {
+  int32 java_sql_types_code = 1;
+  // Reuse the column type here. It has much of what we need carrying
+  // across parameters as well as null support, etc.
+  Column parameter = 2;
+}
+
+message Options {
+  optional int32 maxRows = 1;
+}
+
+message StatementRequest {
+  optional string sql = 1;
+  optional string database = 2;
+  optional string schema = 3;
+  // If present, then the sql is a preparedstatement and these are the parameters to populate the
+  // prepared statement with (The Relational planner wants sql and parameters separate).
+  Parameters parameters = 4;
+  Options options = 5;
+}
+
+// FYI: RS from Spanner https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/result_set.proto
+message StatementResponse {
+  int32 row_count = 1;
+  grpc.relational.jdbc.v1.ResultSet result_set = 2;
+}
+
+message DatabaseMetaDataRequest {}
+message DatabaseMetaDataResponse {
+  string url = 1;
+  string database_product_version = 2;
+
+      // From https://docs.oracle.com/en/java/javase/12/docs/api/java.sql/java/sql/DatabaseMetaData.html
+      // 
+      // Being careful about what we expose. Only add attributes that make sense for relational.
+      // Throw not implemented for all else.
+      //
+      // static int	bestRowNotPseudo
+      // static int	bestRowPseudo
+      // static int	bestRowSession
+      // static int	bestRowTemporary
+      // static int	bestRowTransaction
+      // static int	bestRowUnknown
+      // static int	columnNoNulls
+      // static int	columnNullable
+      // static int	columnNullableUnknown
+      // static int	functionColumnIn
+      // static int	functionColumnInOut
+      // static int	functionColumnOut
+      // static int	functionColumnResult
+      // static int	functionColumnUnknown
+      // static int	functionNoNulls
+      // static int	functionNoTable
+      // static int	functionNullable
+      // static int	functionNullableUnknown
+      // static int	functionResultUnknown
+      // static int	functionReturn
+      // static int	functionReturnsTable
+      // static int	importedKeyCascade
+      // static int	importedKeyInitiallyDeferred
+      // static int	importedKeyInitiallyImmediate
+      // static int	importedKeyNoAction
+      // static int	importedKeyNotDeferrable
+      // static int	importedKeyRestrict
+      // static int	importedKeySetDefault
+      // static int	importedKeySetNull
+      // static int	procedureColumnIn
+      // static int	procedureColumnInOut
+      // static int	procedureColumnOut
+      // static int	procedureColumnResult
+      // static int	procedureColumnReturn
+      // static int	procedureColumnUnknown
+      // static int	procedureNoNulls
+      // static int	procedureNoResult
+      // static int	procedureNullable
+      // static int	procedureNullableUnknown
+      // static int	procedureResultUnknown
+      // static int	procedureReturnsResult
+      // static int	sqlStateSQL
+      // static int	sqlStateSQL99
+      // static int	sqlStateXOpen
+      // static short	tableIndexClustered
+      // static short	tableIndexHashed
+      // static short	tableIndexOther
+      // static short	tableIndexStatistic
+      // static int	typeNoNulls
+      // static int	typeNullable
+      // static int	typeNullableUnknown
+      // static int	typePredBasic
+      // static int	typePredChar
+      // static int	typePredNone
+      // static int	typeSearchable
+      // static int	versionColumnNotPseudo
+      // static int	versionColumnPseudo
+      // static int	versionColumnUnknown
+      // etc.
+}

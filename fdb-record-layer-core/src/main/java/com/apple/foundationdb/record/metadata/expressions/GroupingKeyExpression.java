@@ -40,7 +40,7 @@ import java.util.List;
  * Zero or more <i>grouping</i> columns determine a subindex within which an aggregate or ranking is maintained.
  * The remaining (up to <code>Index.getColumnSize()</code>) <i>grouped</i> columns are the value to be aggregated / ranked.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Grouping-Key-Expression");
 

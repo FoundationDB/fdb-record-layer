@@ -28,6 +28,6 @@ import com.google.protobuf.Message;
  *
  * @param <M> type used to represent stored records
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface FDBIndexableRecord<M extends Message> extends FDBRecord<M>, FDBStoredSizes {
 }

@@ -44,7 +44,7 @@ import java.util.function.Supplier;
  * <li>Else {@code null}.</li>
  * </ul>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class AndComponent extends AndOrComponent {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Component");
 

@@ -1,0 +1,42 @@
+/*
+ * fdb-java-annotations.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: rootProject.file('gradle/publishing.gradle')
+
+dependencies {
+    // Note: the Java Poet dependency is only really required for annotation processing,
+    // so downstream projects should only require it if they use import this project as
+    // an annotationProcessor dependency (e.g., they use @GenerateVisitor). Ideally,
+    // we'd only include this as a dependency if it's being used in that case, but
+    // barring that, we can exclude it as a transitive dependency when importing
+    implementation "com.squareup:javapoet:${javaPoetVersion}"
+    compileOnly "com.google.auto.service:auto-service:undefined"
+    annotationProcessor "com.google.auto.service:auto-service:undefined"
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Common annotations used by FDB related Java projects.'
+            }
+        }
+    }
+}

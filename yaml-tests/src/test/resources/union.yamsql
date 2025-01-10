@@ -1,0 +1,171 @@
+#
+# union.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+    create index vi1 as select col1 from t1
+    create table t3(id bigint, a double, b bigint, primary key(id))
+    create index mv10 as select count(*) from t3 group by a
+    create table t4(id bigint, a bigint, b double, primary key(id))
+    create table t5(id bigint, a string, b string, primary key(id))
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (6, 20, 6),
+               (7, 20, 7)
+    - query: INSERT INTO T2(ID, COL1, COL2, COL3)
+        VALUES (1, 1, 1, 100),
+               (2, 1, 1, 1),
+               (3, 1, 2, 2),
+               (4, 1, 2, 200),
+               (5, 2, 1, 200),
+               (6, 2, 1, 3),
+               (7, 2, 1, 400),
+               (8, 2, 1, 400),
+               (9, 2, 1, 400)
+    - query: INSERT INTO T3(ID, A, B)
+        VALUES (1, 1.0f, 2)
+    - query: INSERT INTO T4(ID, A, B)
+        VALUES (10, 10, 20.0f)
+---
+test_block:
+  tests:
+    -
+      - query: select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*) as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x
+      - unorderedResult: [{A: 74 , B: 13}]
+    -
+      - query: select col1, col2 from t1 union all select col1, col2 from t1
+      - unorderedResult: [{COL1: 10, COL2: 1},
+                          {COL1: 10, COL2: 2},
+                          {COL1: 20, COL2: 6},
+                          {COL1: 20, COL2: 7},
+                          {COL1: 10, COL2: 1},
+                          {COL1: 10, COL2: 2},
+                          {COL1: 20, COL2: 6},
+                          {COL1: 20, COL2: 7}]
+    -
+      - query: select * from t1 union all select * from t1;
+      - unorderedResult: [{ID: 1, COL1: 10, COL2: 1},
+                          {ID: 2, COL1: 10, COL2: 2},
+                          {ID: 6, COL1: 20, COL2: 6},
+                          {ID: 7, COL1: 20, COL2: 7},
+                          {ID: 1, COL1: 10, COL2: 1},
+                          {ID: 2, COL1: 10, COL2: 2},
+                          {ID: 6, COL1: 20, COL2: 6},
+                          {ID: 7, COL1: 20, COL2: 7}]
+    -
+      - query: select * from t1 union all select id, col1, col2 from t1;
+      - unorderedResult: [{ID: 1, COL1: 10, COL2: 1},
+                          {ID: 2, COL1: 10, COL2: 2},
+                          {ID: 6, COL1: 20, COL2: 6},
+                          {ID: 7, COL1: 20, COL2: 7},
+                          {ID: 1, COL1: 10, COL2: 1},
+                          {ID: 2, COL1: 10, COL2: 2},
+                          {ID: 6, COL1: 20, COL2: 6},
+                          {ID: 7, COL1: 20, COL2: 7}]
+    -
+      - query: select id, col1, col2 from t1 union all select * from t1;
+      - unorderedResult: [{ID: 1, COL1: 10, COL2: 1},
+                          {ID: 2, COL1: 10, COL2: 2},
+                          {ID: 6, COL1: 20, COL2: 6},
+                          {ID: 7, COL1: 20, COL2: 7},
+                          {ID: 1, COL1: 10, COL2: 1},
+                          {ID: 2, COL1: 10, COL2: 2},
+                          {ID: 6, COL1: 20, COL2: 6},
+                          {ID: 7, COL1: 20, COL2: 7}]
+    -
+      - query: select id as W, col1 as X, col2 as Y from t1 union all select * from t1;
+      - unorderedResult: [{W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7},
+                          {W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7}]
+    -
+      - query: (select id as W, col1 as X, col2 as Y from t1) union all select * from t1;
+      - unorderedResult: [{W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7},
+                          {W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7}]
+    -
+      - query: select id as W, col1 as X, col2 as Y from t1 union all (select * from t1);
+      - unorderedResult: [{W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7},
+                          {W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7}]
+    -
+      - query: (select id as W, col1 as X, col2 as Y from t1 union all (select * from t1));
+      - unorderedResult: [{W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7},
+                          {W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7}]
+    -
+      - query: ((select id as W, col1 as X, col2 as Y from t1) union all select * from t1);
+      - unorderedResult: [{W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7},
+                          {W: 1, X: 10, Y: 1},
+                          {W: 2, X: 10, Y: 2},
+                          {W: 6, X: 20, Y: 6},
+                          {W: 7, X: 20, Y: 7}]
+    -
+      - query: select a, b from t3 union all select a, b from t4
+      - unorderedResult: [{A: 1.0, B: 2.0},
+                          {A: 10.0, B: 20.0}]
+    -
+      - query: select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X
+      - explain: "map(map(Unordered(map(map(AggregateIndexScan(Index(MV10 [[LESS_THAN promote(@c22 as DOUBLE)]] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as Y)])[($q8.Y as Y)]) ∪ map(map(Scan(<,>) | [T4][($q12 as _0)]) | AGGREGATE BY (count_star(()) as _0), GROUP BY null[($q16._0._0 as _0)]))[($q22 as _0)]) | AGGREGATE BY (sum_l($q71._0.Y) as _0), GROUP BY null[($q26._0._0 as S)])"
+      - result: [{S: 2}]
+    -
+      - query: select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X
+      - explain: "map(map(Unordered(map(map(map(Scan(<,>) | [T3][($q2 as _0)]) | AGGREGATE BY (count_star(()) as _0), GROUP BY null[($q6._0._0 as Y)])[($q8.Y as Y)]) ∪ map(map(Index(VI1 <,>)[($q12 as _0)]) | AGGREGATE BY (count_star(()) as _0), GROUP BY null[($q16._0._0 as _0)]))[($q22 as _0)]) | AGGREGATE BY (sum_l($q92._0.Y) as _0), GROUP BY null[($q26._0._0 as S)])"
+      - result: [{S: 5}]
+    -
+      - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)
+      - result: [{1}, {2}, {6}, {7}]
+    -
+      - query: select col1, col2 from t1 union all select col1 from t1
+      - error: "42F64"
+    -
+      - query: select col1, col2 from t1 union select col1 from t1
+      - error: "0AF00"
+    -
+      - query: select col1, col2 from t1 union all select a, b from t5
+      - error: "42F65"
+...

@@ -41,7 +41,7 @@ import java.util.concurrent.ForkJoinPool;
  * A cursor that returns the elements of a list.
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ListCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Executor executor;

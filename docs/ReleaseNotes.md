@@ -5,11 +5,15 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 3.5
+## 4.0
+
+### Features
+
+Several "FDB relational" sub-projects have been added which present a new relational front-end for accessing the database via JDBC. This also includes query support via a SQL dialect that leverages the pre-existing Cascades planner. The APIs associated with the relational layer are currently not fully formed, and their adoption is currently discouraged. Existing record stores should be compatible with the new system, with some limitations, and so existing users should generally wait until the API is more stable to transition their databases over to the new system. For now, the `TransactionBoundDatabase` API allows the user to access existing record stores via the new JDBC-based API if they want to try the new query engine.
 
 ### Breaking Changes
 
-The Apache Commons library has been removed as a dependency. There were a few locations where the `Pair` class from that library was exposed via the API. This has necessitated making API incompatible changes. These have mostly been replaced by classes defined in the repository, or with other JDK classes. 
+Our API stability annotations have been updated to reflect greater API instability. We have degraded existing `STABLE` and `MAINTAINED` APIs to `UNSTABLE`, and the `MAINTAINED` classification has been removed from the project. The new relational sub-projects' APIs are all `EXPERIMENTAL` (or `INTERNAL`). These APIs are expected to evolve in the future as more functionality is moved to the relational APIs. The API annotation class was moved to its own module, to avoid having the new sub-projects depend on the FDB java bindings.
 
 <!--
 // begin next release
@@ -38,6 +42,13 @@ The Apache Commons library has been removed as a dependency. There were a few lo
 
 // end next release
 -->
+
+## 3.5
+
+### Breaking Changes
+
+The Apache Commons library has been removed as a dependency. There were a few locations where the `Pair` class from that library was exposed via the API. This has necessitated making API incompatible changes. These have mostly been replaced by classes defined in the repository, or with other JDK classes. 
+
 
 ### 3.5.556.0
 

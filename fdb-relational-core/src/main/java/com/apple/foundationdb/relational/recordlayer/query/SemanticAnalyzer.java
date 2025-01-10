@@ -1,0 +1,753 @@
+/*
+ * SemanticAnalyzer.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.recordlayer.query;
+
+import com.apple.foundationdb.annotation.API;
+
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Correlated;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.JavaCallFunction;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Metadata;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.query.functions.FunctionCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
+import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Equivalence;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
+import com.google.protobuf.ByteString;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+/**
+ * Performs basic semantic analysis and resolution legwork.
+ */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@API(API.Status.EXPERIMENTAL)
+public class SemanticAnalyzer {
+
+    private static final int BITMAP_DEFAULT_ENTRY_SIZE = 10_000;
+    private static final Set<String> BITMAP_SCALAR_FUNCTIONS = ImmutableSet.of("bitmap_bucket_offset", "bitmap_bit_position");
+    @Nonnull
+    private final SchemaTemplate metadataCatalog;
+
+    @Nonnull
+    private final FunctionCatalog functionCatalog;
+
+    public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
+                            @Nonnull FunctionCatalog functionCatalog) {
+        this.metadataCatalog = metadataCatalog;
+        this.functionCatalog = functionCatalog;
+    }
+
+    /**
+     * If a string is single- or double-quoted, removes the quotation, otherwise, upper-case it.
+     *
+     * @param string                       The input string
+     * @param caseSensitive String is taken as is if true, upper-cased otherwise
+     * @return the normalized string
+     */
+    @Nullable
+    public static String normalizeString(@Nullable final String string, boolean caseSensitive) {
+        if (string == null) {
+            return null;
+        }
+        if (isQuoted(string, "'") || isQuoted(string, "\"")) {
+            return string.substring(1, string.length() - 1);
+        } else if (caseSensitive) {
+            return string;
+        } else {
+            return string.toUpperCase(Locale.ROOT);
+        }
+    }
+
+    /**
+     * Checks whether a string is properly quoted (same quote markers at the beginning and at the end).
+     * @param str The input string.
+     * @param quotationMark The quotation mark to look for
+     * @return <code>true</code> is the string is quoted, otherwise <code>false</code>.
+     */
+    private static boolean isQuoted(@Nonnull final String str, @Nonnull final String quotationMark) {
+        return str.startsWith(quotationMark) && str.endsWith(quotationMark);
+    }
+
+    public Optional<LogicalOperator> findCteMaybe(@Nonnull Identifier identifier, @Nonnull LogicalPlanFragment logicalPlanFragment) {
+        var currentFragment = Optional.of(logicalPlanFragment);
+        while (currentFragment.isPresent()) {
+            final var logicalOperators = currentFragment.get().getLogicalOperators();
+            final var matches = logicalOperators.stream().filter(logicalOperator -> logicalOperator.getName().isPresent() &&
+                    logicalOperator.getName().get().equals(identifier)).collect(ImmutableList.toImmutableList());
+            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS, () -> String.format("found '%s' more than once", identifier.getName()));
+            if (!matches.isEmpty()) {
+                return Optional.of(matches.get(0));
+            }
+            currentFragment = currentFragment.get().getParentMaybe();
+        }
+        return Optional.empty();
+    }
+
+    public boolean tableExists(@Nonnull Identifier tableIdentifier) {
+        if (tableIdentifier.getQualifier().size() > 1) {
+            return false;
+        }
+
+        if (tableIdentifier.isQualified()) {
+            final var qualifier = tableIdentifier.getQualifier().get(0);
+            if (!metadataCatalog.getName().equals(qualifier)) {
+                return false;
+            }
+        }
+
+        final var tableName = tableIdentifier.getName();
+        try {
+            return metadataCatalog.findTableByName(tableName).isPresent();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+    }
+
+    @Nonnull
+    public Table getTable(@Nonnull Identifier tableIdentifier) {
+        Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format("Unknown table %s", tableIdentifier));
+        if (tableIdentifier.isQualified()) {
+            final var qualifier = tableIdentifier.getQualifier().get(0);
+            Assert.thatUnchecked(metadataCatalog.getName().equals(qualifier), ErrorCode.UNDEFINED_DATABASE, () -> String.format("Unknown schema template %s", qualifier));
+        }
+        final var tableName = tableIdentifier.getName();
+        try {
+            final var tableMaybe = metadataCatalog.findTableByName(tableName);
+            Assert.thatUnchecked(tableMaybe.isPresent(), ErrorCode.UNDEFINED_TABLE, () -> String.format("Unknown table %s", tableName));
+            return tableMaybe.get();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+    }
+
+    public void validateIndexes(@Nonnull Identifier tableIdentifier, @Nonnull Set<AccessHint> requestedIndexes) {
+        final var table = getTable(tableIdentifier);
+        validateIndexes(table, requestedIndexes);
+    }
+
+    public void validateIndexes(@Nonnull Table table, @Nonnull Set<AccessHint> requestedIndexes) {
+        if (requestedIndexes.isEmpty()) {
+            return;
+        }
+        final var nonIndexAccessHints = requestedIndexes.stream().filter(accessHint -> !(accessHint instanceof IndexAccessHint))
+                .map(Object::getClass).map(Class::toString).collect(ImmutableSet.toImmutableSet());
+        Assert.thatUnchecked(nonIndexAccessHints.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index hint(s) %s", String.join(",", nonIndexAccessHints)));
+        final var tableIndexes = table.getIndexes().stream().map(Metadata::getName).collect(ImmutableSet.toImmutableSet());
+        final var unrecognizedIndexes = Sets.difference(requestedIndexes.stream().map(IndexAccessHint.class::cast).map(IndexAccessHint::getIndexName).collect(ImmutableSet.toImmutableSet()), tableIndexes);
+        Assert.thatUnchecked(unrecognizedIndexes.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index(es) %s", String.join(",", unrecognizedIndexes)));
+    }
+
+    public void validateOrderByColumns(@Nonnull Iterable<OrderByExpression> orderBys) {
+        final var duplicates = StreamSupport.stream(orderBys.spliterator(), false)
+                .map(OrderByExpression::getExpression)
+                .flatMap(expr -> expr.getName().stream())
+                .collect(Collectors.groupingBy(Functions.identity(), Collectors.counting()))
+                .entrySet()
+                .stream()
+                .filter(p -> p.getValue() > 1)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        Assert.thatUnchecked(duplicates.isEmpty(), ErrorCode.COLUMN_ALREADY_EXISTS,
+                () -> String.format("Order by column %s is duplicated in the order by clause",
+                        duplicates.stream().map(Identifier::toString).collect(Collectors.joining(","))));
+    }
+
+    @Nonnull
+    public Set<String> getAllTableNames() {
+        try {
+            return metadataCatalog.getTables().stream().map(Metadata::getName).collect(ImmutableSet.toImmutableSet());
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+    }
+
+    @Nonnull
+    public Expression resolveCorrelatedIdentifier(@Nonnull Identifier identifier,
+                                                  @Nonnull LogicalOperators operators) {
+        Assert.thatUnchecked(identifier.isQualified(), ErrorCode.UNDEFINED_TABLE, () -> String.format("Unknown table %s", identifier));
+        return resolveIdentifier(identifier, operators);
+    }
+
+    @Nonnull
+    public Star expandStar(@Nonnull Optional<Identifier> optionalQualifier,
+                           @Nonnull LogicalOperators operators) {
+        final var forEachOperators = operators.forEachOnly();
+        // Case 1: no qualifier, e.g. SELECT * FROM T, R;
+        if (optionalQualifier.isEmpty()) {
+            final var expansion = forEachOperators.getExpressions().nonEphemeral();
+            return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
+                    .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
+        }
+        // Case 2: qualifying a table, e.g. SELECT T.* FROM T, R;
+        final var qualifier = optionalQualifier.get();
+        final var logicalTableMaybe = Streams.stream(forEachOperators)
+                .filter(table -> table.getName().isPresent() && table.getName().get().equals(qualifier))
+                .findFirst();
+        if (logicalTableMaybe.isPresent()) {
+            return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
+                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeral());
+        }
+        // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
+        // differently.
+        // This mostly happens when the logical operator encompasses an internal modeling strategy
+        // rather than adhering to what the user _can_ semantically describe in SQL.
+        final var individualReferencedColumns = Expressions.of(forEachOperators.getExpressions().stream()
+                .filter(expr -> expr.getName().isPresent() && expr.getName().get().isQualified())
+                .filter(expr -> expr.getName().get().qualifiedWith(optionalQualifier.get()))
+                .collect(ImmutableList.toImmutableList()));
+        if (!individualReferencedColumns.isEmpty()) {
+            return Star.overIndividualExpressions(optionalQualifier, "unknown", individualReferencedColumns);
+        }
+        // Case 3: qualifying a column inside a table, e.g. SELECT T.A.* FROM T, R;
+        // TODO this is currently not supported as per parsing rules TODO (Expand nested struct fields)
+        final var expression = resolveIdentifier(qualifier, forEachOperators);
+        Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
+                () -> String.format("attempt to expand non-struct column %s", qualifier));
+        final var expressions = expandStructExpression(expression).nonEphemeral();
+        return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
+    }
+
+    @Nonnull
+    public Expression resolveIdentifier(@Nonnull Identifier identifier,
+                                        @Nonnull LogicalPlanFragment planFragment) {
+        // search throw all visible plan fragments:
+        // - in each plan fragment, search operators left to right.
+        // - if identifier is not resolve, go to parent plan fragment.
+        LogicalPlanFragment currentPlanFragment = planFragment;
+        var resolvedMaybe = resolveIdentifierMaybe(identifier, currentPlanFragment.getLogicalOperators());
+        if (resolvedMaybe.isPresent()) {
+            return resolvedMaybe.get();
+        }
+        while (currentPlanFragment.hasParent()) {
+            currentPlanFragment = currentPlanFragment.getParent();
+            resolvedMaybe = resolveIdentifierMaybe(identifier, currentPlanFragment.getLogicalOperators());
+            if (resolvedMaybe.isPresent()) {
+                return resolvedMaybe.get();
+            }
+        }
+        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format("Attempting to query non existing column '%s'", identifier));
+        return null; // unreachable.
+    }
+
+    @Nonnull
+    public Expression resolveIdentifier(@Nonnull Identifier identifier,
+                                        @Nonnull LogicalOperators operators) {
+        var attributes = lookup(identifier, operators, true);
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        if (attributes.isEmpty()) {
+            attributes = lookup(identifier, operators, false);
+        }
+        Assert.thatUnchecked(!attributes.isEmpty(), ErrorCode.UNDEFINED_COLUMN, () -> String.format("Unknown reference %s", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        return attributes.get(0);
+    }
+
+    @Nonnull
+    private Optional<Expression> resolveIdentifierMaybe(@Nonnull Identifier identifier,
+                                                        @Nonnull LogicalOperators operators) {
+        var attributes = lookup(identifier, operators, true);
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        if (attributes.isEmpty()) {
+            attributes = lookup(identifier, operators, false);
+        }
+        if (attributes.isEmpty()) {
+            return Optional.empty();
+        }
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        return Optional.of(attributes.get(0));
+    }
+
+    private static Optional<Expression> lookupPseudoField(@Nonnull LogicalOperator logicalOperator,
+                                                          @Nonnull Identifier identifier,
+                                                          boolean matchQualifiedOnly) {
+        if (matchQualifiedOnly && (!identifier.isQualified() || logicalOperator.getName().isEmpty())) {
+            return Optional.empty();
+        }
+        if (matchQualifiedOnly && identifier.isQualified() && identifier.fullyQualifiedName().size() != 2) {
+            return Optional.empty();
+        }
+        if (!identifier.isQualified()) {
+            return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
+        }
+        if (logicalOperator.getName().isEmpty()) {
+            return Optional.empty();
+        }
+        if (!identifier.prefixedWith(logicalOperator.getName().get())) {
+            return Optional.empty();
+        }
+        return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
+    }
+
+    @Nonnull
+    private List<Expression> lookup(@Nonnull Identifier referenceIdentifier,
+                                    @Nonnull LogicalOperators operators,
+                                    boolean matchQualifiedOnly) {
+        if (matchQualifiedOnly && !referenceIdentifier.isQualified()) {
+            return ImmutableList.of();
+        }
+        final ImmutableList.Builder<Expression> matchedAttributes = ImmutableList.builder();
+        for (final var operator : operators) {
+            if (operator.getQuantifier() instanceof Quantifier.Existential) {
+                continue;
+            }
+            final var operatorNameMaybe = operator.getName();
+            boolean checkForPseudoColumns = true;
+            for (final var attribute : operator.getOutput()) {
+                if (attribute.getName().isEmpty()) {
+                    continue;
+                }
+                final var attributeIdentifier = attribute.getName().get();
+                if (attributeIdentifier.equals(referenceIdentifier)) {
+                    matchedAttributes.add(attribute);
+                    checkForPseudoColumns = false;
+                    continue;
+                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                    matchedAttributes.add(attribute);
+                    checkForPseudoColumns = false;
+                    continue;
+                }
+                if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
+                    if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
+                        matchedAttributes.add(attribute);
+                        checkForPseudoColumns = false;
+                        continue;
+                    }
+                }
+                final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
+                if (nestedFieldMaybe.isPresent()) {
+                    matchedAttributes.add(nestedFieldMaybe.get());
+                    checkForPseudoColumns = false;
+                }
+            }
+            if (checkForPseudoColumns) {
+                lookupPseudoField(operator, referenceIdentifier, matchQualifiedOnly)
+                        .ifPresent(matchedAttributes::add);
+            }
+        }
+        return matchedAttributes.build();
+    }
+
+    @Nonnull
+    public Optional<Expression> lookupAlias(@Nonnull Identifier requestedAlias,
+                                            @Nonnull Expressions existingExpressions) {
+        if (requestedAlias.isQualified()) {
+            return Optional.empty();
+        }
+        final ImmutableList.Builder<Expression> matchedAttributesBuilder = ImmutableList.builder();
+        for (final var expression : existingExpressions) {
+            if (expression.getName().isEmpty()) {
+                continue;
+            }
+            if (expression.getName().get().isQualified()) {
+                continue;
+            }
+            if (expression.getName().get().equals(requestedAlias)) {
+                matchedAttributesBuilder.add(expression);
+            }
+        }
+        final var matchedAttributes = matchedAttributesBuilder.build();
+        if (matchedAttributes.size() > 1) {
+            Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, String.format("Ambiguous alias %s", requestedAlias));
+        }
+        return matchedAttributes.isEmpty() ? Optional.empty() : Optional.of(matchedAttributes.get(0));
+    }
+
+    @Nonnull
+    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
+                                                  @Nonnull Expression existingExpression,
+                                                  @Nonnull LogicalOperator logicalOperator,
+                                                  boolean matchQualifiedOnly) {
+        if (existingExpression.getName().isEmpty() || requestedIdentifier.fullyQualifiedName().size() <= 1) {
+            return Optional.empty();
+        }
+        final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
+                existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
+                existingExpression.clearQualifier();
+        var effectiveExprName = effectiveExistingExpr.getName().orElseThrow();
+        if (!requestedIdentifier.prefixedWith(effectiveExprName)) {
+            /*
+             * This is a special case where the expression is actually qualified while the containing logical operator
+             * is not representing a rare case,
+             * where a logical operator contains a mix of columns that are qualified differently.
+             */
+            if (existingExpression.getName().isPresent() &&
+                    requestedIdentifier.prefixedWith(existingExpression.getName().get())) {
+                effectiveExprName = existingExpression.getName().get();
+            } else {
+                return Optional.empty();
+            }
+        }
+        final var remainingPath = requestedIdentifier.fullyQualifiedName().subList(effectiveExprName.fullyQualifiedName().size(), requestedIdentifier.fullyQualifiedName().size());
+        if (remainingPath.isEmpty()) {
+            return Optional.of(existingExpression.withName(requestedIdentifier));
+        }
+        final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
+        DataType type = existingExpression.getDataType();
+        for (String s : remainingPath) {
+            if (type.getCode() != DataType.Code.STRUCT) {
+                return Optional.empty();
+            }
+            final var fields = ((DataType.StructType) type).getFields();
+            var found = false;
+            for (int j = 0; j < fields.size(); j++) {
+                if (fields.get(j).getName().equals(s)) {
+                    accessors.add(new FieldValue.Accessor(fields.get(j).getName(), j));
+                    type = fields.get(j).getType();
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return Optional.empty();
+            }
+        }
+        final var fieldPath = FieldValue.resolveFieldPath(existingExpression.getUnderlying().getResultType(), accessors.build());
+        final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlying(), fieldPath);
+        final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), type, attributeExpression);
+        return Optional.of(nestedAttribute);
+    }
+
+    @Nonnull
+    public DataType lookupType(@Nonnull Identifier typeIdentifier, boolean isNullable, boolean isRepeated,
+                               @Nonnull Function<String, Optional<DataType>> dataTypeProvider) {
+        DataType type = null;
+        final var typeName = typeIdentifier.getName();
+        switch (typeName.toUpperCase(Locale.ROOT)) {
+            case "STRING":
+                type = isNullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
+                break;
+            case "INTEGER":
+                type = isNullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
+                break;
+            case "BIGINT":
+                type = isNullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
+                break;
+            case "DOUBLE":
+                type = isNullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
+                break;
+            case "BOOLEAN":
+                type = isNullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
+                break;
+            case "BYTES":
+                type = isNullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+                break;
+            case "FLOAT":
+                type = isNullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
+                break;
+            default:
+                Assert.notNullUnchecked(metadataCatalog);
+                // assume it is a custom type, will fail in upper layers if the type can not be resolved.
+                // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
+                final var maybeFound = dataTypeProvider.apply(typeName);
+                // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
+                type = maybeFound.orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
+                break;
+        }
+
+        if (isRepeated) {
+            return DataType.ArrayType.from(type.withNullable(false), isNullable);
+        } else {
+            return type;
+        }
+    }
+
+    @Nonnull
+    private static Expressions expandStructExpression(@Nonnull Expression expression) {
+        Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
+                () -> String.format("attempt to expand non-struct expression %s", expression));
+        final ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
+        final var underlying = expression.getUnderlying();
+        final var type = Assert.castUnchecked(expression.getDataType(), DataType.StructType.class);
+        var colCount = 0;
+        for (final var field : type.getFields()) {
+            final var expandedExpressionValue = FieldValue.ofOrdinalNumber(underlying, colCount);
+            final var expandedExpressionQuantifier = expression.getName().map(Identifier::fullyQualifiedName).orElse(ImmutableList.of());
+            final var expandedExpressionName = field.getName();
+            final var expandedExpressionType = DataTypeUtils.toRelationalType(expandedExpressionValue.getResultType());
+            resultBuilder.add(new Expression(Optional.of(Identifier.of(expandedExpressionName, expandedExpressionQuantifier)),
+                    expandedExpressionType, expandedExpressionValue));
+            colCount++;
+        }
+        return Expressions.of(resultBuilder.build());
+    }
+
+    public void validateInListItems(@Nonnull Expressions inListItems) {
+        for (final var inListItem : inListItems) {
+            final var resultType = inListItem.getUnderlying().getResultType();
+            Assert.thatUnchecked(resultType != Type.NULL, ErrorCode.WRONG_OBJECT_TYPE, "NULL values are not allowed in the IN list");
+            Assert.thatUnchecked(!resultType.isUnresolved(), ErrorCode.UNKNOWN_TYPE,  String.format("Type cannot be determined for element `%s` in the IN list", inListItem));
+        }
+    }
+
+    public static void validateGroupByAggregates(@Nonnull Expressions groupByExpressions) {
+        final var nestedAggregates = groupByExpressions.stream()
+                .filter(expression -> expression.getUnderlying() instanceof AggregateValue)
+                .filter(agg -> agg.getUnderlying().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
+                .collect(ImmutableSet.toImmutableSet());
+        Assert.thatUnchecked(nestedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format("unsupported nested aggregate(s) %s",
+                nestedAggregates.stream().map(ex -> ex.getUnderlying().toString()).collect(Collectors.joining(","))));
+    }
+
+    /**
+     * Checks that the logical operator forming the legs of a {@code UNION} have compatible types. The rules are:
+     * <ul>
+     *     <li>each leg must project the same number of columns</li>
+     *     <li>the ith columns of each union leg have either the same type or have a common type promotion, in other
+     *     words, their maximum type is well defined.
+     * </ul>
+     * @param unionLegs The logical operators representing the legs of the union.
+     * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
+     * representing the maximum type of each column calculated pairwise.
+     */
+    @Nonnull
+    public static Optional<Type.Record> validateUnionTypes(@Nonnull LogicalOperators unionLegs) {
+        final var distinctTypesCount = unionLegs.stream().map(exp -> exp.getOutput().expanded().size()).distinct().count();
+        Assert.thatUnchecked(distinctTypesCount == 1, ErrorCode.UNION_INCORRECT_COLUMN_COUNT,
+                "UNION legs do not have the same number of columns");
+        Type.Record result = null;
+        boolean requiresPromotion = false;
+        for (final var unionLegType : unionLegs.stream().map(leg -> leg.getQuantifier().getFlowedObjectType())
+                .map(type -> Assert.castUnchecked(type, Type.Record.class)).collect(ImmutableList.toImmutableList())) {
+            if (result == null) {
+                result = unionLegType;
+                continue;
+            }
+            if (requiresPromotion) {
+                result = Assert.castUnchecked(Type.maximumType(result, unionLegType), Type.Record.class);
+                continue;
+            }
+            final var oldType = result;
+            result = Assert.castUnchecked(Assert.notNullUnchecked(Type.maximumType(result, unionLegType), ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
+                            "Incompatible column types in UNION legs"),
+                    Type.Record.class);
+            if (!oldType.equals(result)) {
+                requiresPromotion = true;
+            }
+        }
+        return requiresPromotion ? Optional.of(Assert.notNullUnchecked(result)) : Optional.empty();
+    }
+
+    @Nonnull
+    public Type.Array resolveArrayTypeFromValues(@Nonnull Expressions arrayItems) {
+        final var arrayItemsTypes = Streams
+                .stream(arrayItems)
+                .map(Expression::getUnderlying)
+                .map(Value::getResultType)
+                .collect(ImmutableList.toImmutableList());
+        return resolveArrayTypeFromElementTypes(arrayItemsTypes);
+    }
+
+    public static boolean isComposableFrom(@Nonnull Expression expression,
+                                           @Nonnull Expressions parts,
+                                           @Nonnull AliasMap aliasMap,
+                                           @Nonnull Set<CorrelationIdentifier> constantCorrelations) {
+        final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(aliasMap);
+        final var boundParts = Streams.stream(parts).map(Expression::getUnderlying).map(boundEquivalence::wrap)
+                .collect(ImmutableSet.toImmutableSet());
+        return isComposableFromInternal(expression.getUnderlying(), boundParts, boundEquivalence, constantCorrelations);
+    }
+
+    private static boolean isComposableFromInternal(@Nonnull Value value,
+                                                    @Nonnull Set<Equivalence.Wrapper<Value>> parts,
+                                                    @Nonnull Correlated.BoundEquivalence<Value> boundEquivalence,
+                                                    @Nonnull Set<CorrelationIdentifier> constantCorrelations) {
+        final var boundValue = boundEquivalence.wrap(value);
+        if (parts.contains(boundValue)) {
+            return true;
+        }
+        if (value.isConstant()) {
+            return true;
+        }
+        if (constantCorrelations.containsAll(value.getCorrelatedTo())) {
+            return true;
+        }
+        if (value instanceof ArithmeticValue ||
+                value instanceof RecordConstructorValue ||
+                value instanceof RelOpValue.BinaryRelOpValue ||
+                value instanceof AndOrValue ||
+                value instanceof NotValue ||
+                value instanceof InOpValue) {
+            for (final var child : value.getChildren()) {
+                if (!isComposableFromInternal(child, parts, boundEquivalence, constantCorrelations)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Nonnull
+    private static Type.Array resolveArrayTypeFromElementTypes(@Nonnull List<Type> types) {
+        Type elementType;
+        if (types.isEmpty()) {
+            elementType = Type.nullType();
+        } else {
+            // all values must have the same type.
+            final var distinctTypes = types.stream().filter(type -> type != Type.nullType()).distinct().collect(Collectors.toList());
+            Assert.thatUnchecked(distinctTypes.size() == 1, ErrorCode.DATATYPE_MISMATCH, "could not determine type of constant array");
+            elementType = distinctTypes.get(0);
+        }
+        return new Type.Array(elementType);
+    }
+
+    /**
+     * validates that a SQL {@code LIMIT} expression is within allowed limits of {@code [1, Integer.MAX_VALUE]}.
+     * @param expression The {@code LIMIT} literal expression.
+     */
+    public static void validateLimit(@Nonnull Expression expression) {
+        final long minInclusive = 1;
+        final long maxInclusive = Integer.MAX_VALUE;
+        final var underlying = expression.getUnderlying();
+        Assert.thatUnchecked(underlying instanceof LiteralValue<?>);
+        final var value = ((LiteralValue<?>) underlying).getLiteralValue();
+        Assert.notNullUnchecked(value, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
+                () -> String.format("limit value out of range [1, %s]", Integer.MAX_VALUE));
+        if (value.getClass() == Integer.class) {
+            Assert.thatUnchecked(minInclusive <= ((Integer) value) && ((Integer) value) <= maxInclusive,
+                    ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
+                    () -> String.format("limit value out of range [1, %s]", Integer.MAX_VALUE));
+            return;
+        }
+        if (value.getClass() == Long.class) {
+            Assert.thatUnchecked(minInclusive <= ((Long) value) && ((Long) value) <= maxInclusive,
+                    ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
+                    () -> String.format("limit value out of range [1, %s]", Integer.MAX_VALUE));
+            return;
+        }
+        Assert.failUnchecked("unexpected limit type " + value.getClass());
+    }
+
+    public static void validateDatabaseUri(@Nonnull Identifier path) {
+        Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
+                ErrorCode.INVALID_PATH, () -> String.format("invalid database path '%s'", path));
+    }
+
+    public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
+        final var expressions = logicalOperator.getOutput().expanded();
+        Assert.thatUnchecked(expressions.size() == columnAliases.size(), ErrorCode.INVALID_COLUMN_REFERENCE,
+                () -> String.format("cte query has %d column(s), however %s aliases defined", expressions.size(), columnAliases.size()));
+    }
+
+    @Nonnull
+    public static NonnullPair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final Identifier schemaIdentifier) {
+        final var id = schemaIdentifier.getName();
+        Assert.notNullUnchecked(id);
+        if (id.startsWith("/")) {
+            validateDatabaseUri(schemaIdentifier);
+            int separatorIdx = id.lastIndexOf("/");
+            Assert.thatUnchecked(separatorIdx < id.length() - 1);
+            return NonnullPair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
+        } else {
+            return NonnullPair.of(Optional.empty(), id);
+        }
+    }
+
+    public static void validateContinuation(@Nonnull Expression continuation) {
+        // currently, this only validates that the underlying Value is a byte string.
+        // in the future, we might add more context-aware checks.
+        final var underlying = continuation.getUnderlying();
+        Assert.thatUnchecked(underlying instanceof LiteralValue<?>, ErrorCode.INVALID_CONTINUATION,
+                "Unexpected continuation parameter of type %s", underlying.getClass().getSimpleName());
+        final var continuationBytes = Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
+        Assert.notNullUnchecked(continuationBytes);
+        Assert.thatUnchecked(continuationBytes instanceof ByteString, ErrorCode.INVALID_CONTINUATION,
+                "Unexpected continuation parameter of type %s", continuationBytes.getClass().getSimpleName());
+    }
+
+    /**
+     * Resolves a function given its name and a list of arguments by looking it up in the {@link FunctionCatalog}.
+     * <br>
+     * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
+     * whether the single-item records should be flattened or not.
+     * Currently almost all supported SQL functions do not expect {@code Record} objects,
+     * so this is probably ok, however, this does not necessarily hold for the future.
+     * See {@link SqlFunctionCatalog#flattenRecordWithOneField(Typed)} for more information.
+     * @param functionName The function name.
+     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
+     *                                 content, otherwise {@code false}.
+     * @param arguments The function arguments.
+     * @return A resolved SQL function {@code Expression}.
+     */
+    @Nonnull
+    public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords,
+                                      @Nonnull Expression... arguments) {
+        Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
+                () -> String.format("Unsupported operator %s", functionName));
+        final var builtInFunction = functionCatalog.lookUpFunction(functionName);
+        List<Expression> argumentList = new ArrayList<>();
+        argumentList.addAll(List.of(arguments));
+        if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
+            argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
+        }
+        final List<? extends Typed> valueArgs = argumentList.stream().map(Expression::getUnderlying)
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .collect(ImmutableList.toImmutableList());
+        final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
+        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
+    }
+
+    public boolean isUdfFunction(@Nonnull String functionName) {
+        return functionCatalog.lookUpFunction(functionName).getClass().equals(JavaCallFunction.class);
+    }
+}

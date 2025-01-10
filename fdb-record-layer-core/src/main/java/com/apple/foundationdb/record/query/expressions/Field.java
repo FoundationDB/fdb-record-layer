@@ -35,7 +35,7 @@ import java.util.function.Function;
  * {@link #oneOfThem()} and {@link #matches(QueryComponent)} allow you to create other components, while
  * the remaining functions allow you to match on the value of the associated field directly.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class Field {
     @Nonnull
     private final String fieldName;

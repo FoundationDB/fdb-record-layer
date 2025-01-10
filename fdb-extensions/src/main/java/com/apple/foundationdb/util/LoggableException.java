@@ -31,7 +31,7 @@ import java.util.Map;
  * be logged in a way that better supports searching later.
  */
 @SuppressWarnings("serial")
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class LoggableException extends RuntimeException implements LoggableKeysAndValues<LoggableException> {
     @Nonnull private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();
 

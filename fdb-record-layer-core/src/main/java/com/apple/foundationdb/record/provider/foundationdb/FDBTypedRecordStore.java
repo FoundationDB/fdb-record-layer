@@ -77,7 +77,7 @@ import java.util.function.Supplier;
  * @see FDBRecordStore
  * @see FDBRecordStoreBase
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBase<M> {
 
     @Nonnull

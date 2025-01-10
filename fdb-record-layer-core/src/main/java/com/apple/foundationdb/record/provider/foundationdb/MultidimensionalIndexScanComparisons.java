@@ -53,7 +53,7 @@ import java.util.Set;
 /**
  * {@link ScanComparisons} for use in a multidimensional index scan.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class MultidimensionalIndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final ScanComparisons prefixScanComparisons;
