@@ -39,11 +39,14 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -54,11 +57,13 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -348,7 +353,10 @@ public class LogicalOperator {
         final var groupByExpression = new GroupByExpression(groupingValue.getColumns().isEmpty() ? null : groupingValue, aggregateValue,
                 GroupByExpression::nestedResults, Iterables.getOnlyElement(logicalOperators).quantifier);
 
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(groupByExpression));
+        final var groupByReference = Reference.of(groupByExpression);
+        final var resultingQuantifier = groupByExpression.getGroupingValue() == null
+                                        ? Quantifier.forEachWithNullOnEmpty(groupByReference)
+                                        : Quantifier.forEach(groupByReference);
 
         // this must be aligned with _how_ the GroupByExpression composes its result set.
         final var output = groupByExpressions.concat(aggregates).pullUp(groupByExpression.getResultValue(), resultingQuantifier.getAlias(),
@@ -509,5 +517,25 @@ public class LogicalOperator {
         final var union = Quantifier.forEach(Reference.of(new LogicalUnionExpression(promotedUnionLegs.getQuantifiers())));
         final var output = promotedUnionLegs.first().getOutput().rewireQov(union.getFlowedObjectValue());
         return LogicalOperator.newUnnamedOperator(output, union);
+    }
+
+    @Nonnull
+    public static Expressions adjustCountOnEmpty(@Nonnull final Expressions expressions) {
+        return Expressions.of(expressions.expanded().stream().map(expression -> {
+            final var underlyingValue = expression.getUnderlying();
+            final Set<Value> visited = Sets.newIdentityHashSet();
+            return expression.withUnderlying(Objects.requireNonNull(underlyingValue.replace(subValue -> {
+                if (!visited.add(subValue)) {
+                    return subValue;
+                }
+                // as per SQL standard section 4.16.4 (Aggregate functions):
+                // "If no row qualifies, then the result of COUNT is 0 (zero), and the result of any other aggregate function is the null value.
+                if (subValue instanceof CountValue) {
+                    final var zero = LiteralValue.ofScalar(0L);
+                    return (Value) new VariadicFunctionValue.CoalesceFn().encapsulate(ImmutableList.of(subValue, zero));
+                }
+                return subValue;
+            })));
+        }).collect(ImmutableList.toImmutableList()));
     }
 }

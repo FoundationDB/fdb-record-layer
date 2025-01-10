@@ -26,6 +26,10 @@ schema_template:
     create index mv10 as select count(*) from t3 group by a
     create table t4(id bigint, a bigint, b double, primary key(id))
     create table t5(id bigint, a string, b string, primary key(id))
+    create table t6(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create table t7(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index mv11 as select count(*) from t6
+    create index mv12 as select count(*) from t7
 ---
 setup:
   steps:
@@ -150,11 +154,11 @@ test_block:
                           {A: 10.0, B: 20.0}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X
-      - explain: "AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | MAP (_._0._0 AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | MAP (_._0._0 AS S)"
+      - explain: "AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
       - result: [{S: 2}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X
-      - explain: "SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | MAP (_._0._0 AS Y) | MAP (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | MAP (_._0._0 AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | MAP (_._0._0 AS S)"
+      - explain: "SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
       - result: [{S: 5}]
     -
       - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)
@@ -168,4 +172,8 @@ test_block:
     -
       - query: select col1, col2 from t1 union all select a, b from t5
       - error: "42F65"
+    -
+      - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
+      - explain: "AISCAN(MV11 <,> BY_GROUP -> [_0: [_0: VALUE[0]]]) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ AISCAN(MV12 <,> BY_GROUP -> [_0: [_0: VALUE[0]]]) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
+      - result: [{0}]
 ...
