@@ -214,7 +214,7 @@ public abstract class QueryConfig {
                 return "explain " + query;
             }
 
-            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable resource persists beyond method
+            @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"}) // lifetime of autocloseable resource persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
