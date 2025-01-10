@@ -224,6 +224,9 @@ public abstract class QueryConfig {
                 var success = isExact ? getVal().equals(actualPlan) : actualPlan.contains((String) getVal());
                 if (success) {
                     logger.debug("✅️ plan match!");
+                    while (resultSet.next()) {
+                        // Exhaust the result set
+                    }
                 } else {
                     final var expectedPlan = getValueString();
                     final var diffGenerator = DiffRowGenerator.create()
