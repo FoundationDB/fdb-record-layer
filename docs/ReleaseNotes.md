@@ -29,11 +29,11 @@ Our API stability annotations have been updated to reflect greater API instabili
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add tests for Lucene "all-match" scan [(Issue #2991)](https://github.com/FoundationDB/fdb-record-layer/issues/2991)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Associate index scrubbing with index maintainers [(Issue #2984)](https://github.com/FoundationDB/fdb-record-layer/issues/2984)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -42,6 +42,11 @@ Our API stability annotations have been updated to reflect greater API instabili
 
 // end next release
 -->
+
+### 4.0.559.0
+
+* **Feature** Add tests for Lucene "all-match" scan [(Issue #2991)](https://github.com/FoundationDB/fdb-record-layer/issues/2991)
+* **Feature** Associate index scrubbing with index maintainers [(Issue #2984)](https://github.com/FoundationDB/fdb-record-layer/issues/2984)
 
 ## 3.5
 
