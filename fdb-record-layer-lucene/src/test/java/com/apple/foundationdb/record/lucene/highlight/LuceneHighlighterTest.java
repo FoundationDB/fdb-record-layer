@@ -368,7 +368,7 @@ public class LuceneHighlighterTest {
                             "Content-Transfer-Encoding: 7bit";
 
         //prefix the entire email
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:bcc70@a*e.com", 4);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:bcc70@e*e.com", 4);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
