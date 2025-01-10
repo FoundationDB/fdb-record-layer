@@ -30,6 +30,7 @@ import java.sql.DriverManager;
 /**
  * A version of {@link YamlIntegrationTests} that points to an external running server.
  */
+@Disabled("Depends on an external running service, don't run anywhere automatically")
 public class JDBCExternalYamlIntegrationTests extends JDBCYamlIntegrationTests {
     private static final Logger LOG = LogManager.getLogger(JDBCExternalYamlIntegrationTests.class);
 
