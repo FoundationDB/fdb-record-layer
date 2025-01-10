@@ -76,9 +76,25 @@ public class ResultSetContinuationTest {
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
 
         try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
-            byte[] returnedContinuation = resultSet.getContinuation().serialize();
+            // Spend all the rows so we can get the continuation
+            List<List<Integer>> rows = toRows(deserializedResultSet, 3);
+            byte[] returnedContinuation = deserializedResultSet.getContinuation().serialize();
             byte[] expectedContinuation = continuation.serialize();
             Assertions.assertArrayEquals(expectedContinuation, returnedContinuation);
+        }
+    }
+
+    @Test
+    void testMidContinuationFails() throws Exception {
+        RelationalResultSet resultSet = TestUtils.resultSet(
+                "TestType",
+                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
+                MockContinuation.BEGIN,
+                TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
+        ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
+
+        try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
+            Assertions.assertThrows(SQLException.class, () -> deserializedResultSet.getContinuation());
         }
     }
 
