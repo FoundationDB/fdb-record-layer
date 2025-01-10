@@ -24,10 +24,10 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.DatabaseMetaData;
@@ -38,9 +38,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A connection factory that creates a connection that can be used with multiple servers.
@@ -65,7 +62,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     private final int initialConnection;
     @Nonnull
     private final YamlRunner.YamlConnectionFactory defaultFactory;
-    @Nullable
+    @Nonnull
     private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
 
     public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
@@ -97,19 +94,15 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         return versionsUnderTest;
     }
 
-    @Nullable
+    @Nonnull
     private List<RelationalConnection> alternateConnections(URI connectPath) {
-        if (alternateFactories == null) {
-            return null;
-        } else {
-            return alternateFactories.stream().map(factory -> {
-                try {
-                    return factory.getNewConnection(connectPath);
-                } catch (SQLException e) {
-                    throw new IllegalStateException("Failed to create a connection", e);
-                }
-            }).collect(Collectors.toList());
-        }
+        return alternateFactories.stream().map(factory -> {
+            try {
+                return factory.getNewConnection(connectPath);
+            } catch (SQLException e) {
+                throw new IllegalStateException("Failed to create a connection", e);
+            }
+        }).collect(Collectors.toList());
     }
 
     /**
@@ -129,15 +122,13 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         public MultiServerRelationalConnection(@Nonnull ConnectionSelectionPolicy connectionSelectionPolicy,
                                              final int initialConnecion,
                                              @Nonnull final RelationalConnection defaultConnection,
-                                             @Nullable List<RelationalConnection> alternateConnections) {
+                                             @Nonnull List<RelationalConnection> alternateConnections) {
             this.connectionSelectionPolicy = connectionSelectionPolicy;
             this.currentConnectionSelector = initialConnecion;
             allConnections = new ArrayList<>();
             // The default connection is always the one at location 0
             allConnections.add(defaultConnection);
-            if (alternateConnections != null) {
-                allConnections.addAll(alternateConnections);
-            }
+            allConnections.addAll(alternateConnections);
         }
 
         @Override
