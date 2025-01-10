@@ -20,14 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.Function;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 
 import javax.annotation.Nonnull;
 
 public interface FunctionCatalog {
     @Nonnull
-    BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull String name);
+    Function<? extends Typed> lookUpFunction(@Nonnull String name);
 
     boolean containsFunction(@Nonnull String name);
 }

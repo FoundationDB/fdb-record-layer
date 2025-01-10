@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.functions.FunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
@@ -84,7 +85,7 @@ public class SemanticAnalyzer {
         this.functionCatalog = functionCatalog;
         // add UDFs to functionCatalog
         for (Udf udf: ((RecordLayerSchemaTemplate) metadataCatalog).getAllUdfs()) {
-            ((SqlFunctionCatalog)this.functionCatalog).addFunction(UserDefinedFunctionDefinition.fromUdf(udf));
+            ((SqlFunctionCatalog)this.functionCatalog).addFunction(udf);
         }
     }
 

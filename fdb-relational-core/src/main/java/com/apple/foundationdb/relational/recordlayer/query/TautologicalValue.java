@@ -82,6 +82,12 @@ public final class TautologicalValue extends AbstractValue implements BooleanVal
         return ImmutableList.of();
     }
 
+    @Nonnull
+    @Override
+    public ExplainTokensWithPrecedence explain(@Nonnull Iterable<Supplier<ExplainTokensWithPrecedence>> iterable) {
+        return null;
+    }
+
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {

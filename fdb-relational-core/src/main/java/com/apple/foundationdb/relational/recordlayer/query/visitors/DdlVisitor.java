@@ -21,10 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.values.MacroFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.metadata.UserDefinedFunctionDefinition;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
@@ -53,7 +52,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 
 @API(API.Status.EXPERIMENTAL)
@@ -182,7 +180,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public UserDefinedFunctionDefinition visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
+    public Udf visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
         final var ddlCatalog = metadataBuilder.build();
         // parse the function definition using the newly constructed metadata.
         getDelegate().replaceCatalog(ddlCatalog);
@@ -203,7 +201,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Optional<Value> fieldValue = semanticAnalyzer.lookUpNestedField(functionBody, paramNameId, argumentValue, returnType);
         Assert.thatUnchecked(fieldValue.isPresent(), "couldn't resolve function definition");
 
-        return new UserDefinedFunctionDefinition(ctx.functionName.getText(), MacroFunctionValue.of(List.of(argumentValue), fieldValue.get()));
+        return new Udf(new MacroFunction(ctx.functionName.getText(), List.of(argumentValue.getResultType()), List.of(argumentValue.getAlias()), fieldValue.get()));
     }
 
     @Nonnull
@@ -265,8 +263,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);
         }
-        final var functions = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
-        final var udfs = functions.stream().map(v -> v.toUdf()).collect(Collectors.toList());
+        final var udfs = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
         metadataBuilder.addUdfs(udfs);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }

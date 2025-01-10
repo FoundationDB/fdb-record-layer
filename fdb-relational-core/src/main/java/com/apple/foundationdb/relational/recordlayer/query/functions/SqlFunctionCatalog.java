@@ -21,8 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.Function;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -51,14 +52,20 @@ public final class SqlFunctionCatalog implements FunctionCatalog {
     @Nonnull
     private final ImmutableMap<String, BuiltInFunction<? extends Typed>> synonyms;
 
+    @Nonnull
+    private final Map<String, Function<? extends Typed>> udfMap;
+
     private SqlFunctionCatalog() {
         this.synonyms = createSynonyms();
     }
 
     @Nonnull
     @Override
-    public BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull String name) {
-        return Assert.notNullUnchecked(synonyms.get(name.toLowerCase(Locale.ROOT)));
+    public Function<? extends Typed> lookUpFunction(@Nonnull String name) {
+        if (synonyms.get(name.toLowerCase(Locale.ROOT)) != null) {
+            return Objects.requireNonNull(synonyms.get(name.toLowerCase(Locale.ROOT)));
+        }
+        return Assert.notNullUnchecked(udfMap.get(name.toLowerCase(Locale.ROOT)));
     }
 
     @Override
@@ -116,9 +123,9 @@ public final class SqlFunctionCatalog implements FunctionCatalog {
     }
 
     @Nonnull
-    public BuiltInFunction<? extends Typed> addFunction(@Nonnull UserDefinedFunctionDefinition functionDefinition) {
-        final var func = functionDefinition.getBuiltInFunction();
-        udfMap.put(functionDefinition.getName(), func);
+    public Function<? extends Typed> addFunction(@Nonnull Udf udf) {
+        final var func = udf.getMacroFunction();
+        udfMap.put(udf.getFunctionName(), func);
         return func;
     }
 
