@@ -66,11 +66,11 @@ test_block:
       - unorderedResult: []
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X
-      - explain: "map(map(Unordered(map(map(AggregateIndexScan(Index(MV10 [[LESS_THAN promote(@c22 as DOUBLE)]] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as Y)])[($q8.Y as Y)]) ∪ map(map(Scan(<,>) | [T4][($q12 as _0)]) | AGGREGATE BY (count_star(()) as _0), GROUP BY null[($q16._0._0 as _0)]))[($q22 as _0)]) | AGGREGATE BY (sum_l($q71._0.Y) as _0), GROUP BY null[($q26._0._0 as S)])"
+      - explain: "AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | MAP (_._0._0 AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | MAP (_._0._0 AS S)"
       - unorderedResult: [{0}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X
-      - explain: "map(map(Unordered(map(map(map(Scan(<,>) | [T3][($q2 as _0)]) | AGGREGATE BY (count_star(()) as _0), GROUP BY null[($q6._0._0 as Y)])[($q8.Y as Y)]) ∪ map(map(Scan(<,>) | [T1][($q12 as _0)]) | AGGREGATE BY (count_star(()) as _0), GROUP BY null[($q16._0._0 as _0)]))[($q22 as _0)]) | AGGREGATE BY (sum_l($q78._0.Y) as _0), GROUP BY null[($q26._0._0 as S)])"
+      - explain: "SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | MAP (_._0._0 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | MAP (_._0._0 AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | MAP (_._0._0 AS S)"
       - unorderedResult: [{0}]
     -
       - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)

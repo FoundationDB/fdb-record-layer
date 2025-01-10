@@ -42,7 +42,7 @@ test_block:
   tests:
     -
       - query: select * from t where b + c > 7;
-      - explain: "Index(BPLUSC [[GREATER_THAN promote(@c10 as LONG)]])"
+      - explain: "ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])"
       - unorderedResult: [
           {A: 1, B: 1, C: 10, D: 3, E: 'alpha'},
           {A: 2, B: 2, C:  8, D: 2, E: 'beta'},
@@ -51,7 +51,7 @@ test_block:
         ]
     -
       - query: select a, b + c AS sum from t where e = 'alpha' order by b + c;
-      - explain: "map(Index(BPLUSCBYE [EQUALS promote(@c14 as STRING)])[($q2.A as A, add_ll($q2.B, $q2.C) as SUM)])"
+      - explain: "ISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)"
       - result: [
           { A: 9, SUM:  3 },
           { A: 7, SUM:  5 },
@@ -78,7 +78,7 @@ test_block:
     #     ]
     -
       - query: select * from t where d & 1 = 1;
-      - explainContains: "Index(DMASK1 [EQUALS promote"
+      - explainContains: "ISCAN(DMASK1 [EQUALS promote"
       - unorderedResult: [
           {A: 1, B: 1, C: 10, D: 3, E: 'alpha'},
           {A: 3, B: 3, C:  6, D: 1, E: 'alpha'},
@@ -88,7 +88,7 @@ test_block:
         ]
     -
       - query: select * from t where d & 1 = 0;
-      - explain: "Index(DMASK1 [EQUALS promote(@c10 as LONG)])"
+      - explain: "ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])"
       - unorderedResult: [
           {A: 2, B: 2, C:  8, D: 2, E: 'beta'},
           {A: 4, B: 4, C:  4, D: 0, E: 'beta'},
@@ -97,7 +97,7 @@ test_block:
         ]
     -
       - query: select * from t where d & 2 = 2;
-      - explainContains: "Index(DMASK2 [EQUALS promote"
+      - explainContains: "ISCAN(DMASK2 [EQUALS promote"
       - unorderedResult: [
           {A: 1, B: 1, C: 10, D: 3, E: 'alpha'},
           {A: 2, B: 2, C:  8, D: 2, E: 'beta'},
@@ -107,7 +107,7 @@ test_block:
         ]
     -
       - query: select * from t where d & 2 = 0;
-      - explain: "Index(DMASK2 [EQUALS promote(@c10 as LONG)])"
+      - explain: "ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])"
       - unorderedResult: [
           {A: 3, B: 3, C:  6, D: 1, E: 'alpha'},
           {A: 4, B: 4, C:  4, D: 0, E: 'beta'},

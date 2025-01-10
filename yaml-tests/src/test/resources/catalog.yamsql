@@ -46,17 +46,17 @@ test_block:
     -
       # How many databases exist in this cluster?
       - query: select count(*) from databases;
-      - explainContains: 'map(AggregateIndexScan(Index(DATABASES_COUNT_INDEX'
+      - explainContains: 'AISCAN(DATABASES_COUNT_INDEX'
     -
       # How many schemas exist in this cluster?
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
             group by template_name, template_version) as t;
-      - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
+      - explainContains: 'AISCAN(TEMPLATES_COUNT_INDEX'
     -
       # How many schemas with the specified schemaTemplateName exist in this cluster?
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
               group by template_name, template_version having template_name = 't') as t;
-      - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
+      - explainContains: 'AISCAN(TEMPLATES_COUNT_INDEX'
     -
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
           group by template_name, template_version having template_name = 'TEST_TEMPLATE_1') as t;
@@ -65,7 +65,7 @@ test_block:
       # How many schemas with the specified schemaTemplateName and schemaTemplateVersion exist in this cluster?
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
             group by template_name, template_version having template_name = 't' and template_version = 1) as t;
-      - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
+      - explainContains: 'AISCAN(TEMPLATES_COUNT_INDEX'
     -
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
           group by template_name, template_version having template_name = 'TEST_TEMPLATE_1' and template_version = 1) as t;
@@ -74,7 +74,7 @@ test_block:
       # how many unique templates in a cluster?
       - query: select count(*) from (select count(*), template_name, template_version from schemas
             group by template_name, template_version) as t;
-      - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
+      - explainContains: 'AISCAN(TEMPLATES_COUNT_INDEX'
 #    -
 #      # Which templates are used in a cluster?
 #      - query: select distinct(template_name) from (select count(*) as count, template_name, template_version from T
@@ -84,18 +84,18 @@ test_block:
       # Which templates are used in a cluster?
       - query: select template_name, template_version from (select count(*) as cnt, template_name, template_version from schemas
           group by template_name, template_version) as t;
-      - explainContains: 'map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
+      - explainContains: 'AISCAN(TEMPLATES_COUNT_INDEX'
     -
       # which schemas have the specified schemaTemplateName?
       - query: select database_id, schema_name from schemas where template_name = 't';
-      - explainContains: 'map(Covering(Index(TEMPLATES_VALUE_INDEX'
+      - explainContains: 'COVERING(TEMPLATES_VALUE_INDEX'
     -
       - query: select database_id, schema_name from schemas where template_name = 'TEST_TEMPLATE_1';
       - result: [{/FRL/TEST_DB_1, S_11}, {/FRL/TEST_DB_1, S_12}, {/FRL/TEST_DB_2, S_21}, {/FRL/TEST_DB_2, S_22}]
     -
       # which schemas have the specified schemaTemplateName and a schemaTemplateVersion lower than X?
       - query: select database_id, schema_name from schemas where template_name = 't' and template_version = 3;
-      - explainContains: 'map(Covering(Index(TEMPLATES_VALUE_INDEX'
+      - explainContains: 'COVERING(TEMPLATES_VALUE_INDEX'
     -
       - query: select database_id, schema_name from schemas where template_name = 'TEST_TEMPLATE_1' and template_version < 2;
       - result: [{/FRL/TEST_DB_1, S_11}, {/FRL/TEST_DB_1, S_12}, {/FRL/TEST_DB_2, S_21}, {/FRL/TEST_DB_2, S_22}]
