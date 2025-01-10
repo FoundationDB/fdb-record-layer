@@ -22,15 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Main interface for defining a built-in function that can be evaluated against a number of arguments.
@@ -42,6 +39,8 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class BuiltInFunction<T extends Typed> extends Function<T>{
+    @Nonnull
+    private final EncapsulationFunction<T> encapsulationFunction;
     /**
      * Creates a new instance of {@link BuiltInFunction}.
      * @param functionName The name of the function.
@@ -49,7 +48,8 @@ public abstract class BuiltInFunction<T extends Typed> extends Function<T>{
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
     public BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
-        super(functionName, parameterTypes, null, encapsulationFunction);
+        super(functionName, parameterTypes, null);
+        this.encapsulationFunction = encapsulationFunction;
     }
 
     /**
@@ -60,7 +60,13 @@ public abstract class BuiltInFunction<T extends Typed> extends Function<T>{
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
-        super(functionName, parameterTypes, variadicSuffixType, encapsulationFunction);
+        super(functionName, parameterTypes, variadicSuffixType);
+        this.encapsulationFunction = encapsulationFunction;
+    }
+
+    @Nonnull
+    public EncapsulationFunction<T> getEncapsulationFunction() {
+        return encapsulationFunction;
     }
 
     /**

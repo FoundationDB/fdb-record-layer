@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 
 import javax.annotation.Nonnull;
@@ -32,32 +32,27 @@ import javax.annotation.Nonnull;
  * Defines a User-defined-function.
  */
 public class Udf {
-    @Nonnull private final String functionName;
     @Nonnull
-    private final Value functionValue;
+    private final MacroFunction macroFunction;
 
-    public Udf(@Nonnull String functionName, @Nonnull Value functionValue) {
-        this.functionName = functionName;
-        this.functionValue = functionValue;
+    public Udf(@Nonnull MacroFunction functionValue) {
+        this.macroFunction = functionValue;
     }
 
     @Nonnull
-    public String getFunctionName() {
-        return functionName;
+    public MacroFunction getMacroFunction() {
+        return macroFunction;
     }
 
     @Nonnull
-    public Value getValue() {
-        return functionValue;
-    }
+    public String getFunctionName() {return macroFunction.getFunctionName();}
 
     @Nonnull
     public RecordMetaDataProto.Udf toProto() {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         return RecordMetaDataProto.Udf.newBuilder()
-                .setFunctionName(functionName)
-                .setFunctionValue(functionValue.toValueProto(serializationContext))
+                .setFunctionValue(macroFunction.toProto(serializationContext))
                 .build();
     }
 }

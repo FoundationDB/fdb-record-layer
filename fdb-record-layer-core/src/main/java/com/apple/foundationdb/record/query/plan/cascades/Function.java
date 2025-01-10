@@ -28,16 +28,10 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Main interface for defining a built-in function that can be evaluated against a number of arguments.
- *
- * A function could have a fixed number of arguments such as <code>Value Add(Value, Value)</code>, or a
- * variable number of arguments, such as <code>Value TEXT_CONTAINS_ALL_PREFIXES(Value, Value, Value, Value, ...)</code>.
- *
+ * Main interface for defining a function that can be evaluated against a number of arguments.
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
@@ -54,31 +48,16 @@ public abstract class Function<T extends Typed>{
     @Nullable
     final Type variadicSuffixType;
 
-    @Nonnull
-    final EncapsulationFunction<T> encapsulationFunction;
-
-    /**
-     * Creates a new instance of {@link Function}.
-     * @param functionName The name of the function.
-     * @param parameterTypes The type of the parameter(s).
-     * @param encapsulationFunction An encapsulation of the function's runtime computation.
-     */
-    public Function(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
-        this(functionName, parameterTypes, null, encapsulationFunction);
-    }
-
     /**
      * Creates a new instance of {@link Function}.
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param variadicSuffixType The type of the function's vararg.
-     * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
-    protected Function(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+    public Function(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType) {
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
         this.variadicSuffixType = variadicSuffixType;
-        this.encapsulationFunction = encapsulationFunction;
     }
 
     @Nonnull
@@ -124,12 +103,6 @@ public abstract class Function<T extends Typed>{
     }
 
     @Nonnull
-    public EncapsulationFunction<T> getEncapsulationFunction() {
-        return encapsulationFunction;
-    }
-
-    @Nonnull
-    // in Function abstract encapsulate()
     public abstract T encapsulate(@Nonnull final List<? extends Typed> arguments);
 
     @Nonnull

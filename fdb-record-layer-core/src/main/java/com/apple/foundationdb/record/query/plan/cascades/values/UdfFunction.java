@@ -57,7 +57,7 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
     @SuppressWarnings("unchecked")
     @Nonnull
     @Override
-    public final Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public final Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         arguments.forEach(argument -> Verify.verify(argument instanceof Value));
         final List<Type> parameterTypes = getParameterTypes();
         if (arguments.size() != parameterTypes.size()) {

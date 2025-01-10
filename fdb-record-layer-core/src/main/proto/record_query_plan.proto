@@ -247,8 +247,9 @@ message PValue {
 }
 
 message PMacroFunctionValue {
-  repeated PValue arguments = 1;
-  optional PValue body = 2;
+  optional string function_name = 1;
+  repeated PValue arguments = 2;
+  optional PValue body = 3;
 }
 
 message PAbstractArrayConstructorValue {

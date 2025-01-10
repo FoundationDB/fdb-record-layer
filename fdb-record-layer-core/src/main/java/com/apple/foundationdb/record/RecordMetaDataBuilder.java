@@ -43,7 +43,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
@@ -232,7 +232,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         for (RecordMetaDataProto.Udf udf: metaDataProto.getUdfsList()) {
-            udfMap.put(udf.getFunctionName(), new Udf(udf.getFunctionName(), Value.fromValueProto(serializationContext, udf.getFunctionValue())));
+            MacroFunction function = MacroFunction.fromProto(serializationContext, udf.getFunctionValue());
+            udfMap.put(function.getFunctionName(), new Udf(function));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();

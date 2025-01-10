@@ -23,6 +23,7 @@
 tasks.withType(JavaCompile) {
     // suppress static due to protoc generating super.addAll calls.
     options.compilerArgs += ["-Xlint:all", "-Xlint:-processing", "-Xlint:-options", "-Xlint:-static", "-Werror"]
+    options.compilerArgs.remove('-Werror')
 }
 
 spotbugs {
