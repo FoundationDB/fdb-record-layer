@@ -186,7 +186,7 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .as("Planner should select Record Layer defined index in plan")
-                                .contains("Covering(Index(bWithA");
+                                .contains("COVERING(bWithA");
 
                         RelationalResultSetAssert.assertThat(resultSet).hasNoNextRow();
                     }
@@ -253,7 +253,7 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .doesNotContain("unnestedIndex")
-                                .contains("Index(cIndex");
+                                .contains("ISCAN(cIndex");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -280,7 +280,7 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .doesNotContain(countIndex)
-                                .contains("Scan(<,>)");
+                                .contains("SCAN(<,>)");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -311,7 +311,7 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .doesNotContain(countIndexName)
-                                .contains("Index(" + valueIndexName);
+                                .contains("ISCAN(" + valueIndexName);
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -342,7 +342,7 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .doesNotContain(countIndex)
-                                .contains("Index(" + valueIndexName + " [EQUALS ");
+                                .contains("ISCAN(" + valueIndexName + " [EQUALS ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -371,7 +371,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countIndexName + " <,> BY_GROUP)");
+                                .contains("AISCAN(" + countIndexName + " <,> BY_GROUP");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -445,7 +445,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countIndexName + " [EQUALS ");
+                                .contains("AISCAN(" + countIndexName + " [EQUALS ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -506,7 +506,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countIndexName + " [EQUALS ");
+                                .contains("AISCAN(" + countIndexName + " [EQUALS ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -597,7 +597,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countIndexName + " <,> BY_GROUP)");
+                                .contains("AISCAN(" + countIndexName + " <,> BY_GROUP");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -671,7 +671,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countIndexName + " [EQUALS ");
+                                .contains("AISCAN(" + countIndexName + " [EQUALS ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -733,7 +733,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countIndexName + " [EQUALS ");
+                                .contains("AISCAN(" + countIndexName + " [EQUALS ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -786,7 +786,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("Index(" + fBy2IndexName + " [[GREATER_THAN ");
+                                .contains("ISCAN(" + fBy2IndexName + " [[GREATER_THAN ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -796,7 +796,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("Index(" + fBy4IndexName + " [[GREATER_THAN ");
+                                .contains("ISCAN(" + fBy4IndexName + " [[GREATER_THAN ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -833,7 +833,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countFBy2IndexName + " [[GREATER_THAN ");
+                                .contains("AISCAN(" + countFBy2IndexName + " [[GREATER_THAN ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
@@ -843,7 +843,7 @@ public class TransactionBoundQueryTest {
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
-                                .contains("AggregateIndexScan(Index(" + countFBy4IndexName + " [[GREATER_THAN ");
+                                .contains("AISCAN(" + countFBy4IndexName + " [[GREATER_THAN ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }

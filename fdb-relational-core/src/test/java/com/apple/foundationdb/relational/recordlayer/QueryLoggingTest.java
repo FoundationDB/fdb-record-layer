@@ -94,7 +94,7 @@ public class QueryLoggingTest {
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RESTAURANT OPTIONS(LOG QUERY)")) {
             resultSet.next();
         }
-        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains(List.of("plan=", "NAME", "Index", "Covering"));
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains(List.of("plan=", "NAME", "COVERING"));
     }
 
     @Test

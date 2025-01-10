@@ -102,7 +102,7 @@ public class ExplainTests {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
-                            .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                             .hasColumn("PLAN_HASH", -1635569052L)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
@@ -128,7 +128,7 @@ public class ExplainTests {
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -159,7 +159,7 @@ public class ExplainTests {
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -190,7 +190,7 @@ public class ExplainTests {
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);

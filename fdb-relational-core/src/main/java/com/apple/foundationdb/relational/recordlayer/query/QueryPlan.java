@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesPro
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
@@ -186,7 +187,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         public String explain() {
             final var executeProperties = queryExecutionParameters.getExecutionPropertiesBuilder();
             List<String> explainComponents = new ArrayList<>();
-            explainComponents.add(recordQueryPlan.toString());
+            explainComponents.add(ExplainPlanVisitor.toStringForExternalExplain(recordQueryPlan));
             if (executeProperties.getReturnedRowLimit() != ReadTransaction.ROW_LIMIT_UNLIMITED) {
                 explainComponents.add("(limit=" + executeProperties.getReturnedRowLimit() + ")");
             }
