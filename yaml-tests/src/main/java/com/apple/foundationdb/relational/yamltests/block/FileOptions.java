@@ -36,7 +36,7 @@ import java.util.Set;
  *     This supports the following sub-commands:
  *     <ul>
  *         <li>{@code supported_version}: if this is set, it will disable the test when running against a server
- *         of a specific version (or newer). The special yaml tag {@code !current_version} can be used to indicate that
+ *         older than a specific version. The special yaml tag {@code !current_version} can be used to indicate that
  *         it should work against the current code, but is not expected to work with any older versions.
  *         In the future, the release script will update these automatically to the version being released.
  *         <p>

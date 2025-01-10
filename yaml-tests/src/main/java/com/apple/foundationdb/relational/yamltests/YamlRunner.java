@@ -35,6 +35,7 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
+import javax.annotation.Nonnull;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,8 +48,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
-import javax.annotation.Nonnull;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner {
@@ -82,7 +81,8 @@ public final class YamlRunner {
          *     versions that we're testing. In the future we may want to support tests that don't run against the
          *     current version, but that's not currently needed, so not supported.
          * </p>
-         * @return A set of versions that we are testing against
+         * @return A set of versions that we are testing against, or an empty set if just testing against the current
+         * version
          */
         Set<String> getVersionsUnderTest();
     }
