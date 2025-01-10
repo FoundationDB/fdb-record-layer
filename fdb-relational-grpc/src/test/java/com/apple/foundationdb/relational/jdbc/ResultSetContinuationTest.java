@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -54,13 +55,30 @@ public class ResultSetContinuationTest {
                 List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
                 continuation,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
-        ResultSet converted = TypeConversion.toProtobuf(resultSet);
+        ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
 
-        try (RelationalResultSetFacade convertedResultSet = new RelationalResultSetFacade(converted)) {
-            List<List<Integer>> rows = toRows(convertedResultSet, 3);
+        try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
+            List<List<Integer>> rows = toRows(deserializedResultSet, 3);
             Assertions.assertEquals(List.of(List.of(1, 2, 3), List.of(4, 5, 6)), rows);
-            Continuation convertedContinuation = convertedResultSet.getContinuation();
+            Continuation convertedContinuation = deserializedResultSet.getContinuation();
             assertContinuation(continuation, convertedContinuation);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("continuationSource")
+    void testContinuationRoundTrip(Continuation continuation) throws Exception {
+        RelationalResultSet resultSet = TestUtils.resultSet(
+                "TestType",
+                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
+                continuation,
+                TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
+        ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
+
+        try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
+            byte[] returnedContinuation = resultSet.getContinuation().serialize();
+            byte[] expectedContinuation = continuation.serialize();
+            Assertions.assertArrayEquals(expectedContinuation, returnedContinuation);
         }
     }
 

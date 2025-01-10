@@ -44,6 +44,7 @@ public class MockContinuation implements Continuation {
         this.atBeginning = atBeginning;
         this.atEnd = atEnd;
     }
+
     @Override
     public Reason getReason() {
         return reason;
