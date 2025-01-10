@@ -33,22 +33,22 @@ test_block:
   tests:
     -
       - query: select tombstone from t1 where tombstone is null
-      - explainContains: "Scan(<,>)"
+      - explainContains: "SCAN(<,>)"
     -
       - query: select tombstone from t1 where tombstone is not null
-      - explainContains: "Scan(<,>)"
+      - explainContains: "SCAN(<,>)"
     -
       - query: select tombstone from t2 where tombstone is null
-      - explainContains: "Covering(Index(T2$TOMBSTONE"
+      - explainContains: "COVERING(T2$TOMBSTONE"
     -
       - query: select tombstone from t2 where tombstone is not null
-      - explainContains: "Covering(Index(T2$TOMBSTONE"
+      - explainContains: "COVERING(T2$TOMBSTONE"
     -
       - query: select tombstone from t3 where tombstone is null
-      - explainContains: "Scan(<,>)"
+      - explainContains: "SCAN(<,>)"
     -
       - query: select tombstone from t3 where tombstone is not null
-      - explainContains: "Scan(<,>)"
+      - explainContains: "SCAN(<,>)"
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"

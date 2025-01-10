@@ -36,28 +36,28 @@ test_block:
   tests:
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
-      - explainContains: "map(Covering(Index(I4 <,>"
+      - explainContains: "COVERING(I4 <,>"
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
-      - explainContains: "map(Covering(Index(I4 <,>"
+      - explainContains: "COVERING(I4 <,>"
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
-      - explainContains: "map(Covering(Index(I4 <,>"
+      - explainContains: "COVERING(I4 <,>"
     -
       - query: select tombstone from t2 where tombstone is null
-      - explainContains: "map(Scan("
+      - explainContains: "SCAN("
     -
       - query: select tombstone from t2 where tombstone is not null
-      - explainContains: "map(Covering(Index(I3 ([null],>)"
+      - explainContains: "COVERING(I3 ([null],>"
     -
       - query: select id from t5 where col1 < 40 or col1 > 90
-      - explainContains: "map(Covering(Index(I6 <,>"
+      - explainContains: "COVERING(I6 <,>"
     -
       - query: select id from t5 where col1 < 40 or col1 > 90
-      - explainContains: "map(Covering(Index(I6 <,>"
+      - explainContains: "COVERING(I6 <,>"
     -
       - query: select id from t5 where col1 < 40 or col1 > 90
-      - explainContains: "map(Covering(Index(I6 <,>"
+      - explainContains: "COVERING(I6 <,>"
 ---
 # Following tests are executed in order as the index used depends on which query warms up the cache. In this particular
 # scenario, the first query puts the plan in cache, which cannot be used by second query that would use the one with
@@ -68,21 +68,21 @@ test_block:
   tests:
     -
       - query: select id from t1 where col1 < 100
-      - explainContains: "map(Covering(Index(I1 "
+      - explainContains: "COVERING(I1 "
       - result: []
     -
       - query: select id from t1 where col1 < 453
-      - explainContains: "map(Covering(Index(I2 "
+      - explainContains: "COVERING(I2 "
       - result: []
     -
       - query: select col1 from t1 where col1 > 55 and col1 < 100
-      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@c8 as INT) && LESS_THAN promote(@c12 as INT)]]"
+      - explainContains: "COVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]]"
     -
       - query: select col1 from t1 where col1 > 55 and col1 < 199
-      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@c8 as INT) && LESS_THAN promote(@c12 as INT)]]"
+      - explainContains: "COVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]]"
     -
       - query: select col1 from t1 where col1 > 50 and col1 < 350
-      - explainContains: "map(Covering(Index(I2 [[GREATER_THAN promote(@c8 as INT) && LESS_THAN promote(@c12 as INT)]]"
+      - explainContains: "COVERING(I2 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]]"
 ---
 setup:
   steps:
@@ -99,19 +99,19 @@ test_block:
   tests:
     -
       - query: select id from t1 where col1 < 200
-      - explainContains: "map(Covering(Index(I1 "
+      - explainContains: "COVERING(I1 "
       - result: [{ID: 1}]
     -
       - query: select id from t1 where col1 < 201
-      - explainContains: "map(Covering(Index(I2 "
+      - explainContains: "COVERING(I2 "
       - result: [{ID: 1}, {ID: 2}]
     -
       - query: select id from t1 where col1 < 250
-      - explainContains: "map(Covering(Index(I2 "
+      - explainContains: "COVERING(I2 "
       - result: [{ID: 1}, {ID: 2}, {ID: 3}]
     -
       - query: select id from t1 where col1 < 500
-      - explainContains: "map(Covering(Index(I2"
+      - explainContains: "COVERING(I2"
       - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
     -
       - query: select id from t1 use index (i1)
@@ -122,6 +122,6 @@ test_block:
     -
       - query: select id from t1
       # Without a predicate matching any of these sparse indexes, this needs to fall back to a scan
-      - explainContains: "Scan("
+      - explainContains: "SCAN("
       - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}, {ID: 5}, {ID: 6}]
 ...

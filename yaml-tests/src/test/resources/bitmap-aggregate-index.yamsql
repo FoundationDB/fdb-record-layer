@@ -48,31 +48,31 @@ test_block:
   tests:
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id)
-      - explain: "map(AggregateIndexScan(Index(BITMAPINDEX1 <,> BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as BITMAP, $q6._0._0 as OFFSET)])"
+      - explain: "AISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)"
       - unorderedResult: [{BITMAP: xStartsWith_1250'060000c', 'OFFSET':0}, {BITMAP: xStartsWith_1250'02', 'OFFSET':10000}]
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY category, bitmap_bucket_offset(id)
-      - explain: "map(AggregateIndexScan(Index(BITMAPINDEX2 <,> BY_GROUP) -> [_0: [_0: KEY[0], _1: KEY[1]], _1: [_0: VALUE[0]]])[($q6._1._0 as BITMAP, $q6._0._0 as CATEGORY, $q6._0._1 as OFFSET)])"
+      - explain: "AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: [_0: KEY[0], _1: KEY[1]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)"
       - unorderedResult: [{BITMAP: xStartsWith_1250'0200004', 'CATEGORY': 'hello', 'OFFSET':0},
                           {BITMAP: xStartsWith_1250'02', 'CATEGORY': 'hello', 'OFFSET':10000},
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id)
-      - explain: "map(AggregateIndexScan(Index(BITMAPINDEX3 <,> BY_GROUP) -> [_0: [_0: KEY[0], _1: KEY[1], _2: KEY[2]], _1: [_0: VALUE[0]]])[($q6._1._0 as BITMAP, $q6._0._0 as OFFSET)])"
+      - explain: "AISCAN(BITMAPINDEX3 <,> BY_GROUP -> [_0: [_0: KEY[0], _1: KEY[1], _2: KEY[2]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)"
       - unorderedResult: [{BITMAP: xStartsWith_1250'060000c', 'OFFSET':0}, {BITMAP: xStartsWith_1250'02', 'OFFSET':10000}]
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), category, bitmap_bucket_offset(id)
-      - explain: "map(AggregateIndexScan(Index(BITMAPINDEX4 <,> BY_GROUP) -> [_0: [_0: KEY[0], _1: KEY[1], _2: KEY[2]], _1: [_0: VALUE[0]]])[($q6._1._0 as BITMAP, $q6._0._1 as CATEGORY, $q6._0._0 as OFFSET)])"
+      - explain: "AISCAN(BITMAPINDEX4 <,> BY_GROUP -> [_0: [_0: KEY[0], _1: KEY[1], _2: KEY[2]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS BITMAP, _._0._1 AS CATEGORY, _._0._0 AS OFFSET)"
       - unorderedResult: [{BITMAP: xStartsWith_1250'0200004', 'CATEGORY': 'hello', 'OFFSET':0},
                           {BITMAP: xStartsWith_1250'02', 'CATEGORY': 'hello', 'OFFSET':10000},
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY bitmap_bucket_offset(id)
-      - explain: "map(map(Index(AGG_INDEX_1 <,>)[($q2 as _0)]) | AGGREGATE BY (bitmap_construct_agg_l(bitmap_bit_position_li($q37._0.ID, 10000)) as _0), GROUP BY (bitmap_bucket_offset_li($q37._0.ID, 10000) as _0)[($q6._1._0 as BITMAP, $q6._0._0 as OFFSET)])"
+      - explain: "ISCAN(AGG_INDEX_1 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset 10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)"
       - unorderedResult: [{BITMAP: xStartsWith_1250'060000c', 'OFFSET':0}, {BITMAP: xStartsWith_1250'02', 'OFFSET':10000}]
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY category, bitmap_bucket_offset(id)
-      - explain: "map(map(Index(AGG_INDEX_2 <,>)[($q2 as _0)]) | AGGREGATE BY (bitmap_construct_agg_l(bitmap_bit_position_li($q37._0.ID, 10000)) as _0), GROUP BY ($q37._0.CATEGORY as _0, bitmap_bucket_offset_li($q37._0.ID, 10000) as _1)[($q6._1._0 as BITMAP, $q6._0._0 as CATEGORY, $q6._0._1 as OFFSET)])"
+      - explain: "ISCAN(AGG_INDEX_2 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY (_._0.CATEGORY AS _0, (_._0.ID) bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)"
       - unorderedResult: [{BITMAP: xStartsWith_1250'0200004', 'CATEGORY': 'hello', 'OFFSET':0},
                           {BITMAP: xStartsWith_1250'02', 'CATEGORY': 'hello', 'OFFSET':10000},
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]

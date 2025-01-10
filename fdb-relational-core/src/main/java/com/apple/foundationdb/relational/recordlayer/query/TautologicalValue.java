@@ -38,15 +38,20 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 @API(API.Status.EXPERIMENTAL)
 public final class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
@@ -57,6 +62,13 @@ public final class TautologicalValue extends AbstractValue implements BooleanVal
     private static final TautologicalValue INSTANCE = new TautologicalValue();
 
     private TautologicalValue() {
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        Verify.verify(Iterables.isEmpty(explainSuppliers));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("TRUE"));
     }
 
     @Override

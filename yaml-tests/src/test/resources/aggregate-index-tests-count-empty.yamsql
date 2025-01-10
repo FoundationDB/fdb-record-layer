@@ -31,37 +31,37 @@ test_block:
   tests:
     -
       - query: select count(*) from t1
-      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
+      - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: [_0: VALUE[0]]]) | MAP (_._0._0 AS _0)"
       - result: []
     -
       - query: select count(*) from t1 group by col2
-      - explainContains: "AggregateIndexScan(Index(MV2 <,> BY_GROUP)"
+      - explain: "AISCAN(MV2 <,> BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
       - result: []
     -
       - query: select count(col1) from t1
-      - explainContains: "AggregateIndexScan(Index(MV3 <,> BY_GROUP)"
+      - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: [_0: VALUE[0]]]) | MAP (_._0._0 AS _0)"
       - result: []
     -
       - query: select count(col1) from t1 group by col2
-      - explainContains: "AggregateIndexScan(Index(MV4 <,> BY_GROUP)"
+      - explain: "AISCAN(MV4 <,> BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
       - result: []
     -
       - query: select * from t2
       - result: []
     -
       - query: select count(*) from t2
-      - explainContains: "AGGREGATE BY (count_star("
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | MAP (_._0._0 AS _0)"
       - result: [{0}]
     -
       - query: select count(*) from t2 group by col2
-      - explainContains: "AGGREGATE BY (count_star("
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
       - result: []
     -
       - query: select count(col1) from t2
-      - explainContains: "AGGREGATE BY (count("
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | MAP (_._0._0 AS _0)"
       - result: [{0}]
     -
       - query: select count(col1) from t2 group by col2
-      - explainContains: "AGGREGATE BY (count("
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
       - result: []
 ...
