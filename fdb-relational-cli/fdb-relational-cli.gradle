@@ -46,31 +46,31 @@ dependencies {
     // move it to a more appropriate package such as utils or something similar so we can
     // consume it from there.
     implementation project(path: coreProject, configuration: 'tests')
-    implementation("io.dropwizard.metrics:metrics-core:${dropwizardVersion}") {
+    implementation(libs.dropwizard) {
         exclude group: 'org.slf4j'
     }
+    implementation(libs.asciitable) {
+        exclude group: 'org.slf4j'
+    }
+    implementation(libs.sqlline)
+    implementation(libs.protobuf.util)
 
-    implementation "com.google.protobuf:protobuf-java-util:${protobufVersion}"
-    compileOnly "com.google.auto.service:auto-service:undefined"
-    annotationProcessor "com.google.auto.service:auto-service:undefined"
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
 
     // See diagram on this page: https://logging.apache.org/log4j/2.x/faq.html#which_jars
-    implementation("org.apache.logging.log4j:log4j-api:${log4jVersion}")
+    implementation(libs.log4j.api)
     // slf4j binding. Allows RL dependencies to log to same place as Relational
-    runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-jul:${log4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    runtimeOnly(libs.log4j.slf4jBinding)
+    runtimeOnly(libs.log4j.julBinding)
+    runtimeOnly(libs.log4j.impl)
 
-    implementation("de.vandermeer:asciitable:${asciitableVersion}") {
-        exclude group: 'org.slf4j'
-    }
-    implementation "sqlline:sqlline:1.12.0"
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    testImplementation(libs.apache.commonsCollections)
 
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
-    testImplementation 'org.apache.commons:commons-collections4:4.4'
-
-    antlr "org.antlr:antlr4:${antlrVersion}"
+    antlr(libs.antlr)
 }
 
 jar {

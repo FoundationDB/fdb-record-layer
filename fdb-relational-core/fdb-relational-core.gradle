@@ -31,40 +31,36 @@ dependencies {
     implementation(project(coreProject))
     implementation project(":fdb-relational-api")
 
-    implementation "io.dropwizard.metrics:metrics-core:${dropwizardVersion}"
-    compileOnly "com.google.auto.service:auto-service:undefined"
-    annotationProcessor "com.google.auto.service:auto-service:undefined"
-    implementation "com.google.code.findbugs:jsr305:${jsr305Version}"
-    implementation "com.google.guava:guava:${guavaVersion}"
-    implementation "org.antlr:antlr4:${antlrVersion}"
-    implementation("org.apache.logging.log4j:log4j-api:${log4jVersion}")
-    implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
-    implementation("com.github.ben-manes.caffeine:guava:${caffeineVersion}")
+    implementation(libs.dropwizard)
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
+    implementation(libs.jsr305)
+    implementation(libs.guava)
+    implementation(libs.antlr)
+    implementation(libs.log4j.impl)
+    implementation(libs.caffeine)
+    implementation(libs.caffeine.guava)
 
+    antlr(libs.antlr)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation project(path: coreProject, configuration: 'tests')
     testImplementation(testFixtures(project(":fdb-relational-api")))
-    testImplementation "org.assertj:assertj-core:${assertjVersion}"
-    testImplementation "org.mockito:mockito-core:${mockitoVersion}"
-    testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:${junitVersion}")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
-    testImplementation("com.google.guava:guava-testlib:${guavaVersion}")
-    testImplementation 'com.h2database:h2:1.3.148'
-    testImplementation "com.opencsv:opencsv:4.6"
-    testRuntimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}")
-    testImplementation("org.apache.logging.log4j:log4j-core:${log4jVersion}") // Needed in implementation for LogAppenderRule
-    testImplementation("biz.aQute.bnd:biz.aQute.bnd.annotation:6.3.1")
-
-    antlr "org.antlr:antlr4:${antlrVersion}"
+    testImplementation(libs.guava.testlib)
+    testImplementation(libs.h2)
+    testImplementation(libs.opencsv)
+    testImplementation(libs.bndtools) // for one annotation used by log4j
 
     // Support for the fdb-relational-core test fixture.
     testFixturesImplementation(project(":fdb-relational-api"))
-    testFixturesImplementation("com.google.protobuf:protobuf-java:${protobufVersion}")
-    testFixturesImplementation("org.assertj:assertj-core:${assertjVersion}")
-    testFixturesImplementation "com.google.code.findbugs:jsr305:${jsr305Version}"
+    testFixturesImplementation(libs.protobuf)
+    testFixturesImplementation(libs.assertj)
+    testFixturesImplementation(libs.jsr305)
     // This is included just for ResultSetAssert. It does a bunch of this
     // Type.Record record = ProtobufDdlUtil.recordFromDescriptor(((Message) colValue).getDescriptorForType());
-    testFixturesImplementation(project((coreProject)))
+    testFixturesImplementation(project(coreProject))
 }
 
 /*

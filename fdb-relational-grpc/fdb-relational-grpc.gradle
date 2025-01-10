@@ -30,7 +30,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 protobuf {
     plugins {
         grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+            artifact = "io.grpc:protoc-gen-grpc-java:${libs.versions.grpc.asProvider().get()}"
         }
     }
     generateProtoTasks {
@@ -54,22 +54,22 @@ dependencies {
     // Having grpc depend on api makes it so we can add utility here shared by
     // server and client, both of which depend on grpc and api.
     implementation project(":fdb-relational-api")
-    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    implementation "javax.annotation:javax.annotation-api:1.3.2"
-    implementation "com.google.api.grpc:proto-google-common-protos:2.9.6"
-    implementation "io.grpc:grpc-netty:${grpcVersion}"
-    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
-    implementation "io.grpc:grpc-stub:${grpcVersion}"
-    implementation "io.grpc:grpc-services:${grpcVersion}"
-    testImplementation "io.grpc:grpc-testing:${grpcVersion}"
-    // implementation "io.dropwizard.metrics:metrics-core"
+    compileOnly(libs.jsr305)
+    implementation(libs.generatedAnnotation)
+    implementation(libs.grpc.commonProtos)
+    implementation(libs.grpc.netty)
+    implementation(libs.grpc.protobuf)
+    implementation(libs.grpc.stub)
+    implementation(libs.grpc.services)
+    implementation(libs.protobuf)
+    implementation(libs.log4j.api)
+    runtimeOnly(libs.log4j.impl)
     // slf4j binding. Allows RL dependencies to log to same place as Relational
-    implementation("org.apache.logging.log4j:log4j-api:${log4jVersion}")
-    runtimeOnly("org.apache.logging.log4j:log4j-core:${log4jVersion}")
-    runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}")
-    implementation("com.google.protobuf:protobuf-java:${protobufVersion}")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+    runtimeOnly(libs.log4j.slf4jBinding)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testImplementation(libs.grpc.testing)
 }
 
 javadoc {

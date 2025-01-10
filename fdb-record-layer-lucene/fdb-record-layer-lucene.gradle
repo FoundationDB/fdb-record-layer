@@ -24,28 +24,23 @@ apply from: rootProject.file('gradle/publishing.gradle')
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)
-    api "org.apache.lucene:lucene-core:${luceneVersion}"
-    api "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
-    implementation "org.apache.lucene:lucene-queryparser:${luceneVersion}"
-    implementation "org.apache.lucene:lucene-suggest:${luceneVersion}"
-    implementation "org.apache.lucene:lucene-highlighter:${luceneVersion}"
-    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
-    testImplementation project(path: coreProject, configuration: 'tests')
-    testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    compileOnly "com.google.auto.service:auto-service:undefined"
-    annotationProcessor "com.google.auto.service:auto-service:undefined"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    api(libs.lucene.core)
+    api(libs.lucene.analyzers)
+    implementation(libs.lucene.queryParser)
+    implementation(libs.lucene.suggest)
+    implementation(libs.lucene.highlighter)
+    implementation(libs.slf4j.api)
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
 
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
-    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:${junitVersion}")
-    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
-    testImplementation "org.apache.lucene:lucene-test-framework:${luceneVersion}"
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
-    testCompileOnly "com.google.auto.service:auto-service:undefined"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
-    testAnnotationProcessor "com.google.auto.service:auto-service:undefined"
+    testImplementation project(path: coreProject, configuration: 'tests')
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    testAnnotationProcessor(libs.autoService)
+    testRuntimeOnly(libs.junit.vintange)
+    testImplementation(libs.lucene.testFramework)
 }
 
 // Disable blocking detection, because we do this *a lot* in lucene

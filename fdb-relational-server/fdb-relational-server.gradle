@@ -21,7 +21,7 @@
 plugins {
     id 'java-test-fixtures'
     id 'application'
-    id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
+    alias(libs.plugins.shadow)
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -89,36 +89,34 @@ dependencies {
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-core")
     implementation project(":fdb-relational-grpc")
-    implementation "io.grpc:grpc-inprocess:${grpcVersion}"
-    implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
-    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
-    implementation "io.grpc:grpc-stub:${grpcVersion}"
-    implementation "io.grpc:grpc-services:${grpcVersion}"
-    implementation "io.grpc:grpc-util:${grpcVersion}"
-    // https://mvnrepository.com/artifact/me.dinowernli/java-grpc-prometheus
-    implementation "me.dinowernli:java-grpc-prometheus:0.6.0"
-    // https://mvnrepository.com/artifact/io.prometheus/simpleclient
-    // Pull in the client for the fixture and httpserver
-    def prometheusVersion = '0.16.0'
-    implementation "io.prometheus:simpleclient_httpserver:${prometheusVersion}"
+    implementation(libs.grpc.inprocess)
+    implementation(libs.grpc.netty)
+    implementation(libs.grpc.protobuf)
+    implementation(libs.grpc.stub)
+    implementation(libs.grpc.services)
+    implementation(libs.grpc.util)
+    implementation(libs.prometheus.grpc)
+    implementation(libs.promethus.httpserver)
+    implementation(libs.protobuf)
+    implementation(libs.dropwizard)
+    implementation(libs.log4j.api)
+    implementation(libs.commonscli)
+    // See diagram on this page for logging dependencies: https://logging.apache.org/log4j/2.x/faq.html#which_jars
+    runtimeOnly(libs.log4j.julBinding)
+    runtimeOnly(libs.log4j.slf4jBinding)
+    runtimeOnly(libs.log4j.impl)
+
     testFixturesImplementation(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
     }
-    testFixturesImplementation "io.prometheus:simpleclient:${prometheusVersion}"
-    testImplementation "io.grpc:grpc-testing:${grpcVersion}"
-    implementation "io.dropwizard.metrics:metrics-core:${dropwizardVersion}"
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "commons-cli:commons-cli:1.5.0"
-    // See diagram on this page: https://logging.apache.org/log4j/2.x/faq.html#which_jars
-    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-jul:${log4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    testFixturesImplementation(libs.promethus.simpleclient)
+    testFixturesImplementation(libs.log4j.api)
 
-    testFixturesImplementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
-    testImplementation "org.apache.httpcomponents.client5:httpclient5:5.2.1"
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    testImplementation(libs.grpc.testing)
+    testImplementation(libs.apache.httpclient)
 }
 
 application {
