@@ -39,8 +39,7 @@ import java.util.jar.Manifest;
  * Extension to run an external server, add as a field, annotated with {@link org.junit.jupiter.api.extension.RegisterExtension}.
  * <p>
  *     For example:
- *     <pre>{@code
- * @RegisterExtension
+ *     <pre>{@code @RegisterExtension
  * static final RunExternalServerExtension = new RunExternalServerExtension();
  *     }</pre>
  */
