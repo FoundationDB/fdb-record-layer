@@ -288,7 +288,7 @@ public class LuceneHighlighterTest {
         final String text = "Date: Thu, 10 Mar 2022 02:21:41 -0800 (PST)\n" +
                             "From: Jamison Gisele Lilia Bank Alerts <alerts@JamisonGiseleLilia.com>\n" +
                             "To: jannette.rawhouser@demo.org\n" +
-                            "Bcc: bcc70@apple.com\n" +
+                            "Bcc: bcc70@example.com\n" +
                             "Message-ID: <659260106.1.1646907701959@localhost>\n" +
                             "Subject: much out.  And we 'll do it\n" +
                             "MIME-Version: 1.0\n" +
@@ -299,12 +299,12 @@ public class LuceneHighlighterTest {
                             "Content-Type: text/plain; charset=us-ascii\n" +
                             "Content-Transfer-Encoding: 7bit";
 
-        final HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:bcc70@apple.com", 4);
+        final HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:bcc70@example.com", 4);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
             int e = result.getHighlightEnd(i);
-            Assertions.assertEquals("bcc70@apple.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
+            Assertions.assertEquals("bcc70@example.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
         }
     }
 
@@ -317,7 +317,7 @@ public class LuceneHighlighterTest {
         final String text = "Date: Thu, 10 Mar 2022 02:21:41 -0800 (PST)\n" +
                             "From: Jamison Gisele Lilia Bank Alerts <alerts@JamisonGiseleLilia.com>\n" +
                             "To: jannette.rawhouser@demo.org\n" +
-                            "Bcc: bcc70@apple.com\n" +
+                            "Bcc: bcc70@example.com\n" +
                             "Message-ID: <659260106.1.1646907701959@localhost>\n" +
                             "Subject: much out.  And we 'll do it\n" +
                             "MIME-Version: 1.0\n" +
@@ -329,12 +329,12 @@ public class LuceneHighlighterTest {
                             "Content-Transfer-Encoding: 7bit";
 
         //prefix the entire email
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:bcc70@apple.com*", 4);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:bcc70@example.com*", 4);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
             int e = result.getHighlightEnd(i);
-            Assertions.assertEquals("bcc70@apple.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
+            Assertions.assertEquals("bcc70@example.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
         }
 
         //prefix the part before the @
@@ -343,7 +343,7 @@ public class LuceneHighlighterTest {
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
             int e = result.getHighlightEnd(i);
-            Assertions.assertEquals("bcc70@apple.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
+            Assertions.assertEquals("bcc70@example.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
         }
     }
 
@@ -356,7 +356,7 @@ public class LuceneHighlighterTest {
         final String text = "Date: Thu, 10 Mar 2022 02:21:41 -0800 (PST)\n" +
                             "From: Jamison Gisele Lilia Bank Alerts <alerts@JamisonGiseleLilia.com>\n" +
                             "To: jannette.rawhouser@demo.org\n" +
-                            "Bcc: bcc70@apple.com\n" +
+                            "Bcc: bcc70@example.com\n" +
                             "Message-ID: <659260106.1.1646907701959@localhost>\n" +
                             "Subject: much out.  And we 'll do it\n" +
                             "MIME-Version: 1.0\n" +
@@ -373,7 +373,7 @@ public class LuceneHighlighterTest {
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
             int e = result.getHighlightEnd(i);
-            Assertions.assertEquals("bcc70@apple.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
+            Assertions.assertEquals("bcc70@example.com", result.getSummarizedText().substring(s, e), "Incorrect highlight positions!");
         }
     }
 
