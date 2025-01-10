@@ -39,13 +39,13 @@ import java.util.stream.Collectors;
  */
 public class MacroFunction extends Function<com.apple.foundationdb.record.query.plan.cascades.values.Value>{
     @Nonnull
-    private final com.apple.foundationdb.record.query.plan.cascades.values.Value body;
-    private final List<CorrelationIdentifier> identifiers;
+    private final com.apple.foundationdb.record.query.plan.cascades.values.Value bodyValue;
+    private final List<CorrelationIdentifier> parameterIdentifiers;
 
-    public MacroFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final List<CorrelationIdentifier> identifiers, @Nonnull final com.apple.foundationdb.record.query.plan.cascades.values.Value body) {
+    public MacroFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final List<CorrelationIdentifier> parameterIdentifiers, @Nonnull final com.apple.foundationdb.record.query.plan.cascades.values.Value bodyValue) {
         super(functionName, parameterTypes, null);
-        this.identifiers = ImmutableList.copyOf(identifiers);
-        this.body = body;
+        this.parameterIdentifiers = ImmutableList.copyOf(parameterIdentifiers);
+        this.bodyValue = bodyValue;
     }
 
     @Nonnull
@@ -58,20 +58,20 @@ public class MacroFunction extends Function<com.apple.foundationdb.record.query.
             // check that arguments[i] type matches with parameterTypes[i]
             final int finalI = i;
             SemanticException.check(arguments.get(finalI).getResultType().equals(parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
-            translationMapBuilder.when(identifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
+            translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
         }
-        return body.translateCorrelations(translationMapBuilder.build());
+        return bodyValue.translateCorrelations(translationMapBuilder.build());
     }
 
     @Nonnull
     public PMacroFunctionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PMacroFunctionValue.Builder builder = PMacroFunctionValue.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
-            builder.addArguments(QuantifiedObjectValue.of(identifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
+            builder.addArguments(QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
         }
         return builder
                 .setFunctionName(functionName)
-                .setBody(body.toValueProto(serializationContext))
+                .setBody(bodyValue.toValueProto(serializationContext))
                 .build();
     }
 

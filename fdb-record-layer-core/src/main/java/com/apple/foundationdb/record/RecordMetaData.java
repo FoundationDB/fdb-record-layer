@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -84,7 +85,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Map<String, Udf> udfMap;
+    private final Set<Udf> udfs;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -115,7 +116,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
-                Collections.unmodifiableMap(orig.udfMap),
+                Collections.unmodifiableSet(orig.udfs),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -135,7 +136,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Map<String, Udf> udfMap,
+                             @Nonnull Set<Udf> udfs,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -152,7 +153,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.udfMap = udfMap;
+        this.udfs = udfs;
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
@@ -348,14 +349,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return formerIndexes;
     }
 
-    @Nullable
-    public Udf getUdf(@Nonnull String name) {
-        return udfMap.get(name);
-    }
-
     @Nonnull
     public Collection<Udf> getAllUdfs() {
-        return udfMap.values();
+        return udfs;
     }
 
     public boolean isSplitLongRecords() {
@@ -709,7 +705,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
 
         // Add in the final options.
-        builder.addAllUdfs(udfMap.values().stream().map(Udf::toProto).collect(Collectors.toList()));
+        builder.addAllUdfs(udfs.stream().map(Udf::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
