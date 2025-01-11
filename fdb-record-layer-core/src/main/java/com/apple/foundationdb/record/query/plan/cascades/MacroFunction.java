@@ -37,14 +37,14 @@ import java.util.stream.Collectors;
 /**
  * Main interface for defining a user-defined function that can be evaluated against a number of arguments.
  */
-public class MacroFunction extends Function<com.apple.foundationdb.record.query.plan.cascades.values.Value>{
+public class MacroFunction extends Function<com.apple.foundationdb.record.query.plan.cascades.values.Value> {
     @Nonnull
     private final com.apple.foundationdb.record.query.plan.cascades.values.Value bodyValue;
     private final List<CorrelationIdentifier> parameterIdentifiers;
 
-    public MacroFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final List<CorrelationIdentifier> parameterIdentifiers, @Nonnull final com.apple.foundationdb.record.query.plan.cascades.values.Value bodyValue) {
-        super(functionName, parameterTypes, null);
-        this.parameterIdentifiers = ImmutableList.copyOf(parameterIdentifiers);
+    public MacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final com.apple.foundationdb.record.query.plan.cascades.values.Value bodyValue) {
+        super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(Collectors.toList()), null);
+        this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(Collectors.toList());
         this.bodyValue = bodyValue;
     }
 
@@ -57,6 +57,7 @@ public class MacroFunction extends Function<com.apple.foundationdb.record.query.
         for (int i = 0; i < arguments.size(); i++) {
             // check that arguments[i] type matches with parameterTypes[i]
             final int finalI = i;
+            System.out.println("argument[i]:" + arguments.get(finalI).getResultType() + " class:" + arguments.get(finalI).getResultType().getClass() + " parameterTYpes:" + parameterTypes.get(i));
             SemanticException.check(arguments.get(finalI).getResultType().equals(parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
             translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
         }
@@ -85,8 +86,7 @@ public class MacroFunction extends Function<com.apple.foundationdb.record.query.
     @Nonnull
     public static MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMacroFunctionValue functionValue) {
         return new MacroFunction(functionValue.getFunctionName(),
-                functionValue.getArgumentsList().stream().map(pvalue -> Value.fromValueProto(serializationContext, pvalue).getResultType()).collect(Collectors.toList()),
-                functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue)).getAlias()).collect(Collectors.toList()),
+                functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
                 Value.fromValueProto(serializationContext, functionValue.getBody()));
     }
 }

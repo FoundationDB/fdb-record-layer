@@ -45,7 +45,9 @@ public class Udf {
     }
 
     @Nonnull
-    public String getFunctionName() {return macroFunction.getFunctionName();}
+    public String getFunctionName() {
+        return macroFunction.getFunctionName();
+    }
 
     @Nonnull
     public RecordMetaDataProto.Udf toProto() {

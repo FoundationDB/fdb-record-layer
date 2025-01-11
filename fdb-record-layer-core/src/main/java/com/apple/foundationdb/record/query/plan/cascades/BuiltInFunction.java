@@ -38,9 +38,10 @@ import java.util.Optional;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class BuiltInFunction<T extends Typed> extends Function<T>{
+public abstract class BuiltInFunction<T extends Typed> extends Function<T> {
     @Nonnull
     private final EncapsulationFunction<T> encapsulationFunction;
+
     /**
      * Creates a new instance of {@link BuiltInFunction}.
      * @param functionName The name of the function.

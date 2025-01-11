@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class Function<T extends Typed>{
+public abstract class Function<T extends Typed> {
     @Nonnull
     final String functionName;
 
