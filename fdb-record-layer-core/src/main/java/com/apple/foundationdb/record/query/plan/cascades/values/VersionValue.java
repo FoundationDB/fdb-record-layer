@@ -113,17 +113,9 @@ public class VersionValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public ExplainInfo explain(@Nonnull final Formatter formatter,
-                               @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions) {
-        return ExplainInfo.of("version(" +
-                Iterables.getOnlyElement(explainFunctions).apply(formatter).getExplainString() + ")");
-    }
-
-    @Nonnull
-    @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("version",
-                new ExplainTokens().addAliasReference(baseAlias)));
+                Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens()));
     }
 
     @Override

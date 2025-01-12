@@ -33,19 +33,22 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * A value representing the quantifier as an object. For example, this is used to represent non-nested repeated fields.
@@ -119,10 +122,10 @@ public class QuantifiedRecordValue extends AbstractValue implements QuantifiedVa
 
     @Nonnull
     @Override
-    public ExplainInfo explain(@Nonnull final Formatter formatter,
-                               @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions) {
-        return ExplainInfo.of("[" +
-                (alias.equals(Quantifier.current()) ? "_" : formatter.getQuantifierName(alias)) + "]");
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        Verify.verify(Iterables.isEmpty(explainSuppliers));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningSquareBracket().addOptionalWhitespace()
+                .addAliasReference(alias).addOptionalWhitespace().addClosingSquareBracket());
     }
 
     @Override

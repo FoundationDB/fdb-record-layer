@@ -25,15 +25,15 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.DefaultFormatter;
-import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value.ExplainInfo;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MaxMatchMapSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Suppliers;
@@ -838,7 +838,8 @@ public class MaxMatchMap {
      * {@code rcv(■, q.c)}
      */
     private abstract static class IncrementalValueMatcher {
-        private static final ExplainInfo UNMATCHED = ExplainInfo.of("■");
+        private static final ExplainTokensWithPrecedence UNMATCHED =
+                ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("■"));
         @Nonnull
         private final Value currentQueryValue;
 
@@ -864,8 +865,7 @@ public class MaxMatchMap {
         public abstract List<NonnullPair<Value, QueryPlanConstraint>> computeMatchingCandidateValues();
 
         @Nonnull
-        public abstract ExplainInfo explain(@Nonnull Formatter formatter,
-                                            @Nonnull Iterable<Function<Formatter, ExplainInfo>> explainFunctions);
+        public abstract ExplainTokensWithPrecedence explain(@Nonnull Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
 
         public boolean anyMatches() {
             return !getMatchingCandidateValues().isEmpty();
@@ -873,9 +873,10 @@ public class MaxMatchMap {
 
         @Override
         public String toString() {
-            final var explainString = explain(new DefaultFormatter(),
-                    Collections.nCopies(Iterables.size(currentQueryValue.getChildren()),
-                            formatter -> UNMATCHED)).getExplainString();
+            final var explainTokens =
+                    explain(Collections.nCopies(Iterables.size(currentQueryValue.getChildren()),
+                            () -> UNMATCHED)).getExplainTokens();
+            final var explainString = explainTokens.render(DefaultExplainFormatter.forDebugging()).toString();
             return anyMatches() ? explainString : explainString + " → ∅";
         }
 
@@ -907,20 +908,19 @@ public class MaxMatchMap {
 
                 @Nonnull
                 @Override
-                public ExplainInfo explain(@Nonnull final Formatter formatter,
-                                           @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions) {
-                    Verify.verify(Iterables.size(explainFunctions) == Iterables.size(currentQueryValue.getChildren()));
+                public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+                    Verify.verify(Iterables.size(explainSuppliers) == Iterables.size(currentQueryValue.getChildren()));
                     final var parentExplainFunctionsBuilder =
-                            ImmutableList.<Function<Formatter, ExplainInfo>>builder();
+                            ImmutableList.<Supplier<ExplainTokensWithPrecedence>>builder();
                     final var parentSize = Iterables.size(parent.getCurrentQueryValue().getChildren());
                     for (int i = 0; i < parentSize; i ++) {
                         if (i != descendOrdinal) {
-                            parentExplainFunctionsBuilder.add(f -> UNMATCHED);
+                            parentExplainFunctionsBuilder.add(() -> UNMATCHED);
                         } else {
-                            parentExplainFunctionsBuilder.add(f -> currentQueryValue.explain(formatter, explainFunctions));
+                            parentExplainFunctionsBuilder.add(() -> currentQueryValue.explain(explainSuppliers));
                         }
                     }
-                    return parent.explain(formatter, parentExplainFunctionsBuilder.build());
+                    return parent.explain(parentExplainFunctionsBuilder.build());
                 }
             };
         }
@@ -952,9 +952,8 @@ public class MaxMatchMap {
 
                 @Nonnull
                 @Override
-                public ExplainInfo explain(@Nonnull final Formatter formatter,
-                                           @Nonnull final Iterable<Function<Formatter, ExplainInfo>> explainFunctions) {
-                    return getCurrentQueryValue().explain(formatter, explainFunctions);
+                public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+                    return getCurrentQueryValue().explain(explainSuppliers);
                 }
             };
         }
