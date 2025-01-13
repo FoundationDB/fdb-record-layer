@@ -48,7 +48,6 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.function.Function;
 
 /**
  * A predicate with a constant boolean value.

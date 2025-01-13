@@ -87,8 +87,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * A scalar value type.

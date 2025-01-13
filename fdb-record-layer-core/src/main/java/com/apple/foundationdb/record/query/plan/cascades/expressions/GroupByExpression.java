@@ -100,7 +100,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     private final Supplier<RequestedOrdering> computeRequestedOrderingSupplier;
 
     @Nonnull
-    private final Quantifier inner;
+    private final Quantifier innerQuantifier;
 
     /**
      * Creates a new instance of {@link GroupByExpression}.
@@ -108,18 +108,18 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
      * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null} indicating no grouping.
      * @param aggregateValue The aggregation {@code Value} applied to each group.
      * @param resultValueFunction a bi-function that allows us to create the actual result value of this expression
-     * @param inner The underlying source of tuples to be grouped.
+     * @param innerQuantifier The underlying source of tuples to be grouped.
      */
     public GroupByExpression(@Nullable final Value groupingValue,
                              @Nonnull final AggregateValue aggregateValue,
                              @Nonnull final BiFunction<Value /* groupingValue */, Value, Value> resultValueFunction,
-                             @Nonnull final Quantifier inner) {
+                             @Nonnull final Quantifier innerQuantifier) {
         this.groupingValue = groupingValue;
         this.aggregateValue = aggregateValue;
         this.resultValueFunction = resultValueFunction;
         this.computeResultSupplier = Suppliers.memoize(() -> resultValueFunction.apply(groupingValue, aggregateValue));
         this.computeRequestedOrderingSupplier = Suppliers.memoize(this::computeRequestedOrdering);
-        this.inner = inner;
+        this.innerQuantifier = innerQuantifier;
     }
 
     @Override
@@ -147,12 +147,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(inner);
+        return ImmutableList.of(innerQuantifier);
     }
 
     @Nonnull
-    public Quantifier getInner() {
-        return inner;
+    public Quantifier getInnerQuantifier() {
+        return innerQuantifier;
     }
 
     @Override
@@ -276,6 +276,24 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         final var candidateGroupByExpression = (GroupByExpression)candidateExpression;
+        final var candidateInnerQuantifier = candidateGroupByExpression.getInnerQuantifier();
+
+        if (!(innerQuantifier instanceof Quantifier.ForEach)) {
+            return ImmutableList.of();
+        }
+
+        final var candidateAlias = bindingAliasMap.getTarget(innerQuantifier.getAlias());
+        if (candidateAlias == null) {
+            return ImmutableList.of();
+        }
+        Verify.verify(candidateAlias.equals(candidateInnerQuantifier.getAlias()));
+        if (!(candidateInnerQuantifier instanceof Quantifier.ForEach)) {
+            return ImmutableList.of();
+        }
+        if (((Quantifier.ForEach)innerQuantifier).isNullOnEmpty() !=
+                ((Quantifier.ForEach)candidateInnerQuantifier).isNullOnEmpty()) {
+            return ImmutableList.of();
+        }
 
         final var translationMapOptional =
                 RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
@@ -323,8 +341,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         final var subsumedGroupings =
                 subsumedAggregations
-                        .compose(ignored -> groupingSubsumedBy(candidateGroupByExpression.getInner(),
-                                Objects.requireNonNull(partialMatchMap.getUnwrapped(inner)), candidateGroupingValue,
+                        .compose(ignored -> groupingSubsumedBy(candidateInnerQuantifier,
+                                Objects.requireNonNull(partialMatchMap.getUnwrapped(innerQuantifier)), candidateGroupingValue,
                                 translationMap, valueEquivalence));
 
         if (subsumedGroupings.isFalse()) {
@@ -498,13 +516,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         Verify.verify(groupingValueType.isRecord());
 
         final var currentGroupingValue =
-                groupingValue.rebase(AliasMap.ofAliases(inner.getAlias(), Quantifier.current()));
+                groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
 
         return RequestedOrdering.ofParts(
                 ImmutableList.of(new RequestedOrderingPart(currentGroupingValue, RequestedSortOrder.ANY)),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
                 false,
-                inner.getCorrelatedTo());
+                innerQuantifier.getCorrelatedTo());
     }
 
     @Nonnull

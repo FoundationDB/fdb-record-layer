@@ -53,7 +53,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value} and a {@link Comparison}.

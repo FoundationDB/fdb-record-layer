@@ -162,8 +162,8 @@ public class PullUp {
         @Nonnull
         @Override
         public PullUp visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
-            return of(parentPullUp, nestingAlias, logicalTypeFilterExpression.getInner().getAlias(),
-                    logicalTypeFilterExpression.getInner().getFlowedObjectType(),
+            return of(parentPullUp, nestingAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
+                    logicalTypeFilterExpression.getInnerQuantifier().getFlowedObjectType(),
                     Quantifiers.aliases(logicalTypeFilterExpression.getQuantifiers()));
         }
 

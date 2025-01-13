@@ -62,7 +62,7 @@ test_block:
       - error: "0AF00"
     -
       - query: select count(*) from T2;
-      - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: [_0: VALUE[0]]]) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: %VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{0}]
     -
       - query: select count(*) from T2 where col1 = 0;
@@ -74,15 +74,15 @@ test_block:
       - result: [{0}]
     -
       - query: select count(*) from T2 group by col1;
-      - explain: "AISCAN(T2_I2 <,> BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I2 <,> BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select count(*) from T2 where col1 = 0 group by col1;
-      - explain: "AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select count(*) from T2 where col1 > 0 group by col1;
-      - explain: "AISCAN(T2_I2 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I2 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select count(*) from T3;
@@ -137,7 +137,7 @@ test_block:
       - error: "0AF00"
     -
       - query: select count(col2) from T2;
-      - explain: "AISCAN(T2_I3 <,> BY_GROUP -> [_0: [_0: VALUE[0]]]) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "AISCAN(T2_I3 <,> BY_GROUP -> [_0: %VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{0}]
     -
       - query: select count(col2) from T2 where col1 = 0;
@@ -149,15 +149,15 @@ test_block:
       - result: [{0}]
     -
       - query: select count(col2) from T2 group by col1;
-      - explain: "AISCAN(T2_I4 <,> BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I4 <,> BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select count(col2) from T2 where col1 = 0 group by col1;
-      - explain: "AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select count(col2) from T2 where col1 > 0 group by col1;
-      - explain: "AISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select count(col2) from T3;
@@ -205,7 +205,7 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2;
-      - explain: "AISCAN(T2_I5 <,> BY_GROUP -> [_0: [_0: VALUE[0]]]) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "AISCAN(T2_I5 <,> BY_GROUP -> [_0: %VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 = 0;
@@ -228,14 +228,14 @@ test_block:
       - error: "0AF00"
     -
       - query: select sum(col1) from T2 where col2 = 0 group by col2;
-      - explain: "AISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select sum(col1) from T2 where col1 > 0 group by col2;
       - error: "0AF00"
     -
       - query: select sum(col1) from T2 where col2 > 0 group by col2;
-      - explain: "AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]]) | MAP (_._1._0 AS _0)"
+      - explain: "AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: %KEY:[0], _1: %VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select sum(col1) from T3;

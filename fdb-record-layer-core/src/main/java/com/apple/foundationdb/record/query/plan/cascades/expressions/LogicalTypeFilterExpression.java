@@ -65,26 +65,26 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
-    private final Quantifier inner;
+    private final Quantifier innerQuantifier;
     @Nonnull
     private final Type resultType;
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner, @Nonnull Type resultType) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
         this.recordTypes = recordTypes;
-        this.inner = inner;
+        this.innerQuantifier = innerQuantifier;
         this.resultType = resultType;
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
+        return QuantifiedObjectValue.of(innerQuantifier.getAlias(), resultType);
     }
 
     @Override
     @Nonnull
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(getInner());
+        return ImmutableList.of(getInnerQuantifier());
     }
 
     @Override
@@ -99,8 +99,8 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     }
 
     @Nonnull
-    public Quantifier getInner() {
-        return inner;
+    public Quantifier getInnerQuantifier() {
+        return innerQuantifier;
     }
 
     @Nonnull
@@ -137,7 +137,32 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
+        // the candidate must be a GROUP-BY expression.
+        if (candidateExpression.getClass() != this.getClass()) {
+            return ImmutableList.of();
+        }
+
         if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
+            return ImmutableList.of();
+        }
+
+        final var candidateTypeFilterExpression = (LogicalTypeFilterExpression)candidateExpression;
+        final var candidateInnerQuantifier = candidateTypeFilterExpression.getInnerQuantifier();
+
+        if (!(innerQuantifier instanceof Quantifier.ForEach)) {
+            return ImmutableList.of();
+        }
+
+        final var candidateAlias = bindingAliasMap.getTarget(innerQuantifier.getAlias());
+        if (candidateAlias == null) {
+            return ImmutableList.of();
+        }
+        Verify.verify(candidateAlias.equals(candidateInnerQuantifier.getAlias()));
+        if (!(candidateInnerQuantifier instanceof Quantifier.ForEach)) {
+            return ImmutableList.of();
+        }
+        if (((Quantifier.ForEach)innerQuantifier).isNullOnEmpty() !=
+                ((Quantifier.ForEach)candidateInnerQuantifier).isNullOnEmpty()) {
             return ImmutableList.of();
         }
 
@@ -163,12 +188,12 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
         final PartialMatch childPartialMatch =
                 Objects.requireNonNull(regularMatchInfo
-                        .getChildPartialMatchMaybe(inner)
+                        .getChildPartialMatchMaybe(innerQuantifier)
                         .orElseThrow(() -> new RecordCoreException("expected a match child")));
 
         final var childCompensation =
                 childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
-                        Objects.requireNonNull(bindingAliasMap.getTarget(inner.getAlias())));
+                        Objects.requireNonNull(bindingAliasMap.getTarget(innerQuantifier.getAlias())));
 
         if (childCompensation.isImpossible() ||
                 childCompensation.isNeededForFiltering()) {

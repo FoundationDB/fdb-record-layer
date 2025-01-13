@@ -318,15 +318,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             return ImmutableList.of();
         }
         final var candidateSelectExpression = (SelectExpression)candidateExpression;
-
-        final var translationMapOptional =
-                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
-        if (translationMapOptional.isEmpty()) {
-            return ImmutableList.of();
-        }
-        final var translationMap = translationMapOptional.get();
-
-        final Collection<MatchInfo> matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
+        final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 
         // merge parameter maps -- early out if a binding clashes
         final var parameterBindingMaps =
@@ -363,6 +355,26 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // Loop through all for-each quantifiers on the query side to ensure that they are all matched.
         // If any are not matched we cannot establish a match at all.
         //
+        final var candidateQuantifierMap =
+                Quantifiers.aliasToQuantifierMap(candidateExpression.getQuantifiers());
+        for (final var quantifier : getQuantifiers()) {
+            if (quantifier instanceof Quantifier.ForEach) {
+                final var candidateAlias = bindingAliasMap.getTarget(quantifier.getAlias());
+                if (candidateAlias == null) {
+                    return ImmutableList.of();
+                }
+                final var candidateQuantifier =
+                        Objects.requireNonNull(candidateQuantifierMap.get(candidateAlias));
+                if (!(candidateQuantifier instanceof Quantifier.ForEach)) {
+                    return ImmutableList.of();
+                }
+                if (((Quantifier.ForEach)quantifier).isNullOnEmpty() !=
+                        ((Quantifier.ForEach)candidateQuantifier).isNullOnEmpty()) {
+                    return ImmutableList.of();
+                }
+            }
+        }
+
         final var allForEachQuantifiersMatched =
                 getQuantifiers()
                         .stream()
@@ -398,7 +410,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         //
         if (getQuantifiers()
                 .stream()
-                .filter(quantifier -> quantifier instanceof Quantifier.Existential && bindingAliasMap.containsSource(quantifier.getAlias()))
+                .filter(quantifier -> quantifier instanceof Quantifier.Existential &&
+                        bindingAliasMap.containsSource(quantifier.getAlias()))
                 .anyMatch(quantifier -> getPredicates()
                         .stream()
                         .noneMatch(predicate -> predicate instanceof ExistsPredicate &&
@@ -406,6 +419,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 )) {
             return ImmutableList.of();
         }
+
+        final var translationMapOptional =
+                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
+        if (translationMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
+        final var translationMap = translationMapOptional.get();
 
         //
         // Check the result values of both expressions to see if we can match and if we can, whether we need a
@@ -456,7 +476,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var correlationOrder = getCorrelationOrder();
         final var localAliases = correlationOrder.getSet();
         final var dependsOnMap = correlationOrder.getTransitiveClosure();
-        final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
+        final var quantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
 
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
@@ -481,7 +501,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     //      way the match cannot be used by itself but can participate in an intersection that may
                     //      eliminate that impossible compensation
                     //
-                    if (aliasToQuantifierMap.get(correlatedAlias) instanceof Quantifier.Existential) {
+                    if (quantifierMap.get(correlatedAlias) instanceof Quantifier.Existential) {
                         final var correlatedDependsOn = dependsOnMap.get(correlatedAlias);
                         for (final var dependsOnAlias : correlatedDependsOn) {
                             if (!bindingAliasMap.containsSource(dependsOnAlias)) {
