@@ -103,7 +103,7 @@ public abstract class Function<T extends Typed> {
     }
 
     @Nonnull
-    public abstract T encapsulate(@Nonnull final List<? extends Typed> arguments);
+    public abstract T encapsulate(@Nonnull List<? extends Typed> arguments);
 
     @Nonnull
     @Override

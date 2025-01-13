@@ -23,12 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PMacroFunctionValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -37,12 +35,12 @@ import java.util.stream.Collectors;
 /**
  * Main interface for defining a user-defined function that can be evaluated against a number of arguments.
  */
-public class MacroFunction extends Function<com.apple.foundationdb.record.query.plan.cascades.values.Value> {
+public class MacroFunction extends Function<Value> {
     @Nonnull
-    private final com.apple.foundationdb.record.query.plan.cascades.values.Value bodyValue;
+    private final Value bodyValue;
     private final List<CorrelationIdentifier> parameterIdentifiers;
 
-    public MacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final com.apple.foundationdb.record.query.plan.cascades.values.Value bodyValue) {
+    public MacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final Value bodyValue) {
         super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(Collectors.toList()), null);
         this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(Collectors.toList());
         this.bodyValue = bodyValue;
@@ -50,14 +48,13 @@ public class MacroFunction extends Function<com.apple.foundationdb.record.query.
 
     @Nonnull
     @Override
-    public com.apple.foundationdb.record.query.plan.cascades.values.Value encapsulate(@Nonnull List<? extends Typed> arguments) {
+    public Value encapsulate(@Nonnull List<? extends Typed> arguments) {
         // replace the QuantifiedObjectValue in body with arguments
         SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
         TranslationMap.Builder translationMapBuilder = new TranslationMap.Builder();
         for (int i = 0; i < arguments.size(); i++) {
             // check that arguments[i] type matches with parameterTypes[i]
             final int finalI = i;
-            System.out.println("argument[i]:" + arguments.get(finalI).getResultType() + " class:" + arguments.get(finalI).getResultType().getClass() + " parameterTYpes:" + parameterTypes.get(i));
             SemanticException.check(arguments.get(finalI).getResultType().equals(parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
             translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
         }
