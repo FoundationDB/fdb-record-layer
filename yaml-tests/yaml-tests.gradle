@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.asciitable)
     implementation(libs.jsr305)
     implementation(libs.junit.api)
+    implementation(libs.junit.params)
     implementation(libs.log4j.api)
     implementation(libs.protobuf)
     implementation(libs.protobuf.util)
