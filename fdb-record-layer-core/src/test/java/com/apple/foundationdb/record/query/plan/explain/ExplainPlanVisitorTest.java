@@ -86,13 +86,14 @@ import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,6 +106,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -129,6 +131,13 @@ public class ExplainPlanVisitorTest {
             letters[i] = (char)((r.nextBoolean() ? 'a' : 'A') + letter);
         }
         return new String(letters);
+    }
+
+    static Stream<Long> manyRandomSeeds(long seedSeed, int count) {
+        Random r = new Random(seedSeed);
+        return LongStream.generate(r::nextLong)
+                .limit(count)
+                .boxed();
     }
 
     @Nonnull
@@ -505,9 +514,15 @@ public class ExplainPlanVisitorTest {
         return randomPlanAndString(r, 1.0);
     }
 
-    @RepeatedTest(500)
-    void randomPlanRepresentation() {
-        final var seed = System.nanoTime();
+    @Nonnull
+    static Stream<Long> randomPlanRepresentation() {
+        long seedSeed = RandomizedTestUtils.includeRandomTests() ? System.nanoTime() : 0x5ca1ab1eL;
+        return manyRandomSeeds(seedSeed, 500);
+    }
+
+    @ParameterizedTest(name = "randomPlanRepresentation[seed={0}]")
+    @MethodSource
+    void randomPlanRepresentation(long seed) {
         Random r = new Random(seed);
         logger.info("randomPlanRepresentation seed {}", seed);
         NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
@@ -515,9 +530,15 @@ public class ExplainPlanVisitorTest {
         assertEquals(planAndString.getRight(), ExplainPlanVisitor.toStringForDebugging(planAndString.getLeft()));
     }
 
-    @RepeatedTest(100)
-    void shrinkPlansToFit() {
-        final var seed = System.nanoTime();
+    @Nonnull
+    static Stream<Long> shrinkPlansToFit() {
+        long seedSeed = RandomizedTestUtils.includeRandomTests() ? System.nanoTime() : 0x0fdb5ca1eL;
+        return manyRandomSeeds(seedSeed, 100);
+    }
+
+    @ParameterizedTest(name = "shrinkPlansToFit[seed={0}]")
+    @MethodSource
+    void shrinkPlansToFit(long seed) {
         Random r = new Random(seed);
         logger.info("shrinkPlansToFit seed {}", seed);
         Pair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
@@ -529,9 +550,15 @@ public class ExplainPlanVisitorTest {
         }
     }
 
-    @Test
-    void doNotEvaluateOutsideOfLimit() {
-        long seed = System.nanoTime();
+    @Nonnull
+    static Stream<Long> doNotEvaluateOutsideOfLimit() {
+        long seedSeed = RandomizedTestUtils.includeRandomTests() ? System.nanoTime() : 0x5ca1e0fdbL;
+        return manyRandomSeeds(seedSeed, 50);
+    }
+
+    @ParameterizedTest(name = "doNotEvaluateOutsideOfLimit[seed={0}]")
+    @MethodSource
+    void doNotEvaluateOutsideOfLimit(long seed) {
         Random r = new Random(seed);
         logger.info("doNotEvaluateOutsideOfLimit seed={}", seed);
         List<RecordQueryPlan> plans = new ArrayList<>();
