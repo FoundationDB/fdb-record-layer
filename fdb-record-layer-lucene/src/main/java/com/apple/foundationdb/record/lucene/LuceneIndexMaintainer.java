@@ -764,8 +764,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager, indexAnalyzerSelector);
                 }
                 return null;
-            case DANGLING:
-                return new LuceneIndexScrubbingToolsDangling(state);
             default:
                 return null;
         }
