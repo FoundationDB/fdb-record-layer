@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -44,13 +45,17 @@ public class InjectedFailureRepository {
         LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC,
         LUCENE_DELETE_FILE_INTERNAL,
         LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX,
-        LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL,
         LUCENE_GET_ALL_FIELDS_INFO_STREAM
+    }
+
+    public enum Flags {
+        LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL,
     }
 
     // The injected failure state
     private EnumMap<Methods, FailureDescription> failureDescriptions = new EnumMap<>(Methods.class);
     private EnumMap<Methods, AtomicLong> invocationCounts = new EnumMap<>(Methods.class);
+    private EnumMap<Flags, Boolean> flagsMap = new EnumMap<>(Flags.class);
 
     public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count) {
         failureDescriptions.put(method, new FailureDescription(method, exception, count));
@@ -64,6 +69,18 @@ public class InjectedFailureRepository {
     public void clear() {
         failureDescriptions.clear();
         invocationCounts.clear();
+    }
+
+    public void setFlag(@Nonnull Flags flag) {
+        setFlag(flag, true);
+    }
+
+    public void setFlag(@Nonnull Flags flag, Boolean value) {
+        flagsMap.put(flag, value);
+    }
+
+    public boolean hasFlag(@Nonnull Flags flag) {
+        return Optional.ofNullable(flagsMap.get(flag)).orElse(false);
     }
 
     public void checkFailureForIoException(@Nonnull final Methods method) throws IOException {
@@ -96,18 +113,6 @@ public class InjectedFailureRepository {
                 throw failureDescription.getException();
             }
         }
-    }
-
-    public boolean shouldFailWithoutException(@Nonnull Methods method) {
-        // Return true "count" times, then return false
-        // (Note that it's a reverse logic of "checkFailure" - which will succeed "count" times, then repeatedly throw an exception)
-        FailureDescription failureDescription = failureDescriptions.get(method);
-        if (failureDescription != null) {
-            AtomicLong count = invocationCounts.computeIfAbsent(method, m -> new AtomicLong(0));
-            long invocations = count.incrementAndGet();
-            return invocations < failureDescription.getCount();
-        }
-        return false;
     }
 
     /**

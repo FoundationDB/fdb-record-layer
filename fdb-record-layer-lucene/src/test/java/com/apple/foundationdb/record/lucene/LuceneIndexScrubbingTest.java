@@ -31,12 +31,10 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.util.pair.Pair;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.TimeoutException;
-
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
-import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Methods.LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL;
+import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository.Flags.LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -106,9 +104,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
             Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, SIMPLE_DOC, index, isUseCascadesPlanner(), registry);
             this.recordStore = pair.getLeft();
             this.planner = pair.getRight();
-            injectedFailures.addFailure(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL,
-                    new LuceneConcurrency.AsyncToSyncTimeoutException("", new TimeoutException("Dummy")), 3);
-
+            injectedFailures.setFlag(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(7771547L, WAYLON, 1));
             recordStore.saveRecord(createSimpleDocument(7772222L, WAYLON + " who?", 1));
