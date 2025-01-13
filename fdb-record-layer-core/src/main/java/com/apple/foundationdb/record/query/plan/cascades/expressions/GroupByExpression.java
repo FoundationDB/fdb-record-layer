@@ -470,10 +470,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                             comparisons = ((PredicateWithComparisons)predicate).getComparisons();
                         }
 
-                        // TODO only test for isEquality()
                         return comparisons.stream()
                                 .anyMatch(comparison -> comparison.getType().isEquality() &&
-                                        comparison.getType() == Comparisons.Type.NOT_EQUALS);
+                                        comparison.getType() == Comparisons.Type.EQUALS);
                     }
                     return false;
                 });
