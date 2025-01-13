@@ -36,11 +36,11 @@ dependencies {
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation project(path: coreProject, configuration: 'tests')
     testImplementation(libs.bundles.test.impl)
+    testImplementation(libs.lucene.testFramework)
+    testRuntimeOnly(libs.junit.vintange)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testAnnotationProcessor(libs.autoService)
-    testRuntimeOnly(libs.junit.vintange)
-    testImplementation(libs.lucene.testFramework)
 }
 
 // Disable blocking detection, because we do this *a lot* in lucene
