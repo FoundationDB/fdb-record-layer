@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
@@ -36,7 +35,6 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.ResultSetTestUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -106,19 +104,14 @@ public class CursorTest {
     public void continuationOnEdgesOfRecordCollection() throws SQLException, RelationalException {
         insertRecordsAndTest(3, (List<RelationalStruct> records, RelationalConnection conn) -> {
             try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
-                // get continuation before iterating on the result set (should point to the first record).
-                Continuation continuation = resultSet.getContinuation();
-                Assertions.assertEquals(ContinuationImpl.BEGIN, continuation, "Incorrect starting continuation!");
+                // get continuation before iterating on the result set (should fail).
+                Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
 
                 StructMetaData smd = resultSet.getMetaData();
                 boolean called = false;
                 while (resultSet.next()) {
                     called = true;
-                    Row resumedRow = readFirstRecordWithContinuation(conn.createStatement(), continuation);
-                    Row mainRow = ResultSetTestUtils.currentRow(resultSet);
-                    RelationalStructAssert.assertThat(new ImmutableRowStruct(mainRow, smd)).isEqualTo(new ImmutableRowStruct(resumedRow, smd));
-
-                    continuation = resultSet.getContinuation();
+                    // We cannot make any assertions about the continuation here because the continuation is only available at the end of the iteration
                 }
 
                 Assertions.assertTrue(called, "Did not return any records!");
@@ -130,7 +123,7 @@ public class CursorTest {
                 Assertions.assertTrue(lastContinuation.atEnd());
                 Assertions.assertEquals(lastContinuation.getExecutionState(), ContinuationImpl.END.getExecutionState());
 
-            } catch (RelationalException | SQLException e) {
+            } catch (SQLException e) {
                 Assertions.fail("failed to parse ", e);
             }
         });
@@ -169,7 +162,7 @@ public class CursorTest {
             try (final var s = conn.createStatement()) {
                 s.setMaxRows(5);
                 try (final var resultSet = s.executeQuery("select * from RESTAURANT")) {
-                    Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                    Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
                     final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
                     for (int i = 0; i < 5; i++) {
                         resultSetAssert.hasNextRow();
@@ -183,7 +176,7 @@ public class CursorTest {
             try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
                 try (final var resultSet = preparedStatement.executeQuery()) {
-                    Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                    Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
                     final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
                     for (int i = 0; i < 5; i++) {
                         resultSetAssert.hasNextRow();
@@ -207,7 +200,7 @@ public class CursorTest {
         try (final var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn.setSchema(database.getSchemaName());
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
-                Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
                 while (true) {
                     if (resultSet.next()) {
                         numRowsReturned++;
@@ -225,7 +218,7 @@ public class CursorTest {
             try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
                 try (final var resultSet = preparedStatement.executeQuery()) {
-                    Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                    Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
                     while (true) {
                         if (resultSet.next()) {
                             numRowsReturned++;
