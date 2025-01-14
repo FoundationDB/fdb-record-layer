@@ -94,14 +94,18 @@ public class ResultSetContinuationTest {
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
 
         try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
+            // No continuation before any row
             Assertions.assertThrows(SQLException.class, deserializedResultSet::getContinuation);
             Assertions.assertTrue(deserializedResultSet.next());
+            // No continuation on first row
             Assertions.assertThrows(SQLException.class, deserializedResultSet::getContinuation);
             toRow(deserializedResultSet, 3);
             Assertions.assertTrue(deserializedResultSet.next());
-            Assertions.assertThrows(SQLException.class, deserializedResultSet::getContinuation);
+            // Has continuation while on last row
+            deserializedResultSet.getContinuation();
             toRow(deserializedResultSet, 3);
             Assertions.assertFalse(deserializedResultSet.next());
+            // Has continuation after all rows exhausted
             deserializedResultSet.getContinuation();
             Assertions.assertFalse(deserializedResultSet.next());
             deserializedResultSet.getContinuation();

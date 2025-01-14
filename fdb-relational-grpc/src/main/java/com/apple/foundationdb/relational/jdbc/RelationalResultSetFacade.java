@@ -74,7 +74,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     public boolean hasNext() {
-        return rowIndex < rows;
+        return rowIndex < (rows - 1);
     }
 
     @Override
