@@ -527,7 +527,6 @@ KEY_BLOCK_SIZE:                      'KEY_BLOCK_SIZE';
 LANGUAGE:                            'LANGUAGE';
 LAST:                                'LAST';
 LEAVES:                              'LEAVES';
-LEFTARG:                             'LEFTARG';
 LESS:                                'LESS';
 LEVEL:                               'LEVEL';
 LIST:                                'LIST';
