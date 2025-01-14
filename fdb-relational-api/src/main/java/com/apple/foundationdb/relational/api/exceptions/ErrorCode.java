@@ -120,6 +120,7 @@ public enum ErrorCode {
     INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in the result set
     INVALID_TABLE_DEFINITION("42F16"),
     UNKNOWN_TYPE("42F18"),
+    INVALID_RECURSION("42F19"),
     /**
      * Indicates that a schema with the given name is already mapped to a schema template.
      */
