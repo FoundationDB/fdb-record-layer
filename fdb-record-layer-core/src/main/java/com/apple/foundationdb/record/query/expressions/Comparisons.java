@@ -1579,16 +1579,13 @@ public class Comparisons {
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
-            final var replacedComparandValueOptional = replacementFunction.apply(getValue());
-            if (replacedComparandValueOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            final var replacedComparandValue = replacedComparandValueOptional.get();
-            if (replacedComparandValue == getValue()) {
-                return Optional.of(this);
-            } else {
-                return Optional.of(withValue(replacedComparandValue));
-            }
+            return replacementFunction.apply(getValue())
+                    .map(replacedComparandValue -> {
+                        if (replacedComparandValue == getValue()) {
+                            return this;
+                        }
+                        return withValue(replacedComparandValue);
+                    });
         }
 
         @Nullable
@@ -2776,15 +2773,13 @@ public class Comparisons {
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
-            final var replacedInnerOptional = inner.replaceValuesMaybe(replacementFunction);
-            if (replacedInnerOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            final var replacedInner = replacedInnerOptional.get();
-            if (replacedInner == inner) {
-                return Optional.of(this);
-            }
-            return Optional.of(new MultiColumnComparison(replacedInner));
+            return inner.replaceValuesMaybe(replacementFunction)
+                    .map(replacedInner -> {
+                        if (replacedInner == inner) {
+                            return this;
+                        }
+                        return new MultiColumnComparison(replacedInner);
+                    });
         }
 
         @Nonnull
@@ -3072,17 +3067,13 @@ public class Comparisons {
         @Override
         @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
         public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
-            final var translatedOriginalComparisonOptional =
-                    originalComparison.replaceValuesMaybe(replacementFunction);
-            if (translatedOriginalComparisonOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            final var translatedOriginalComparison = translatedOriginalComparisonOptional.get();
-            if (translatedOriginalComparison == originalComparison) {
-                return Optional.of(this);
-            } else {
-                return Optional.of(new InvertedFunctionComparison(function, translatedOriginalComparison, type));
-            }
+            return originalComparison.replaceValuesMaybe(replacementFunction)
+                    .map(translatedOriginalComparison -> {
+                        if (translatedOriginalComparison == originalComparison) {
+                            return this;
+                        }
+                        return new InvertedFunctionComparison(function, translatedOriginalComparison, type);
+                    });
         }
 
         @Nonnull

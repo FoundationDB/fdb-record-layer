@@ -1,9 +1,9 @@
 /*
- * ComposeFieldValueOverRecordConstructorRule.java
+ * ExpandFusedFieldValueRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.ofFields;
 
 /**
- * A rule that composes a field access and an underlying record construction.
+ * A rule that decomposes a {@link FieldValue} that uses multiple steps into two {@link FieldValue}s as follows:
+ * <pre>
+ * {@code
+ *     FieldValue(val, [s1.s2.....sn])) ==> FieldValue(FieldValue(val, [s1.s2.....sn-1])), sn)
+ * }
+ * </pre>
+ * <br>
+ * Note that this rule is the conceptual opposite of {@link ComposeFieldValueOverFieldValueRule}. These rules should
+ * not be placed into the same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

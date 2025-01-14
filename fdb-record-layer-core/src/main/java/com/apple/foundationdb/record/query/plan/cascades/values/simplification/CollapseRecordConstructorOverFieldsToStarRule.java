@@ -1,9 +1,9 @@
 /*
- * ComposeFieldValueOverRecordConstructorRule.java
+ * CollapseRecordConstructorOverFieldsToStarRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * <br>
  * {@code ((q.a as a, q.b as b)} is transformed to {@code q} if the type of {@code q} is just composed of the fields
  * {@code a}, and {@code b}.
+ * <br>
+ * Note that this rule is the conceptual opposite of {@link ExpandRecordRule}. These rules should not be placed into the
+ * same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -71,16 +74,17 @@ public class CollapseRecordConstructorOverFieldsToStarRule extends ValueSimplifi
         for (var iterator = fieldValues.iterator(); iterator.hasNext(); i ++) {
             final var fieldValue = iterator.next();
             final var fieldPath = fieldValue.getFieldPath();
+
+            if (fieldPath.getLastFieldAccessor().getOrdinal() != i) {
+                return;
+            }
+
             final Value childValue;
             if (fieldPath.size() > 1) {
                 childValue = FieldValue.ofFields(fieldValue.getChild(), fieldPath.getFieldPrefix());
             } else {
                 Verify.verify(fieldPath.size() == 1);
                 childValue = fieldValue.getChild();
-            }
-
-            if (fieldPath.getLastFieldAccessor().getOrdinal() != i) {
-                return;
             }
 
             if (commonChildValue == null) {

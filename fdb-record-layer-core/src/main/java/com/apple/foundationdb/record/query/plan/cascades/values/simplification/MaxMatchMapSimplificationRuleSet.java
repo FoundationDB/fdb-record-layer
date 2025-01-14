@@ -1,9 +1,9 @@
 /*
- * DefaultValueSimplificationRuleSet.java
+ * MaxMatchMapSimplificationRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,15 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
- * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
+ * A set of rules for use by the maximum map computation logic. As the expressions reasoned over by the max match map
+ * logic are already considered optimal with respect to simplification, the rules in this set do not further simplify
+ * the value in the basic simplification sense. These rules transform the query side value into a different value, that
+ * is not simpler but more <em>matchable</em> to the candidate side.
+ * <br>
+ * For instance, a query side value of {@code qov(q1)} is per se not matchable to
+ * {@code rcv(fv(qov(q1), "b"), fv(qov(q1), "a"), fv(qov(q1), "c")}, however, expanding {@code qov(q1)} to
+ * {@code rcv(fv(qov(q1), "a"), fv(qov(q1), "b"), fv(qov(q1), "c")} will create matches for
+ * {@code rcv(fv(qov(q1), "a")}, {@code fv(qov(q1), "b")}, and {@code fv(qov(q1), "c")} respectively.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")

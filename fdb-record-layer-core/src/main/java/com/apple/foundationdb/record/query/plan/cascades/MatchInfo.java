@@ -315,7 +315,22 @@ public interface MatchInfo {
     }
 
     /**
-     * A {@link MatchInfo} that is based on another underlying {@link MatchInfo}.
+     * An adjusted {@link MatchInfo} that is based on another underlying {@link MatchInfo}. Adjusted match infos are
+     * created by the logic in {@link com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule}, i.e.
+     * when an existing match is refined by walking up the {@link Traversal} on the candidate side. Due to the
+     * limitations of adjusted matches, there are only a few things that can get <i>adjusted</i>:
+     * <ul>
+     *     <li>
+     *         The matched ordering. This is adjusted when matching a
+     *         {@link com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression} on the
+     *         candidate side. Usually only happens exactly once per {@link MatchCandidate}.
+     *     </li>
+     *     <li>
+     *         The {@link MaxMatchMap}. The maximum match map has to be adjusted whenever we match through a simple
+     *         {@link com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression}, i.e. a select
+     *         expression that only owns exactly one quantifier and does not apply any predicates.
+     *     </li>
+     * </ul>
      */
     class AdjustedMatchInfo implements MatchInfo {
         @Nonnull
@@ -399,7 +414,7 @@ public interface MatchInfo {
     }
 
     /**
-     * Builder for a {@link MatchInfo}.
+     * Builder for an adjusted {@link MatchInfo}.
      */
     @SuppressWarnings("unused")
     class AdjustedBuilder {

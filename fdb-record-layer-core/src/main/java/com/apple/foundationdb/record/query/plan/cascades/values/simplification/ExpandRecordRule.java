@@ -1,5 +1,5 @@
 /*
- * ComposeFieldValueOverRecordConstructorRule.java
+ * ExpandRecordRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -41,7 +41,18 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
 /**
- * A rule that composes a field access and an underlying record construction.
+ * A rule that expands a {@link Value} of type {@link Type.Record} into a record constructor over its constituent parts
+ * as follows:
+ * <br>
+ * <pre>
+ * {@code
+ *     some non rcv value v ==> rcv(FieldValue(v, f1), FieldValue(v, f2), ..., FieldValue(v, fn))) for all fields
+ *                              f1, ..., fn in the type produced by v
+ * }
+ * </pre>
+ * <br>
+ * Note that this rule is the conceptual opposite of {@link CollapseRecordConstructorOverFieldsToStarRule}. These rules
+ * should not be placed into the same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -80,7 +91,6 @@ public class ExpandRecordRule extends ValueSimplificationRule<Value> {
         final var resultBuilder = ImmutableList.<Column<? extends Value>>builder();
         for (int i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
-            //resultBuilder.add(Column.unnamedOf(FieldValue.ofOrdinalNumberAndFuseIfPossible(value, i)));
             resultBuilder.add(Column.of(field, FieldValue.ofOrdinalNumberAndFuseIfPossible(value, i)));
         }
         final var resultValue =
