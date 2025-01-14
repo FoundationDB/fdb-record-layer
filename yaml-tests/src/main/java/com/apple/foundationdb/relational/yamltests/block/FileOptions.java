@@ -22,11 +22,12 @@ package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assumptions;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -55,18 +56,33 @@ public class FileOptions {
 
     public static Block parse(int lineNumber, Object document, YamlExecutionContext executionContext) {
         final Map<?, ?> options = Matchers.map(document, OPTIONS);
-        Object supportedVersion = options.get(SUPPORTED_VERSION);
-        if (supportedVersion instanceof CurrentVersion) {
+        Object rawVersion = options.get(SUPPORTED_VERSION);
+        if (rawVersion instanceof CurrentVersion) {
             final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
             // IntelliJ, at least, doesn't display the reason, so log it
-            logger.info(
-                    "Skipping test that only works against the current version, when we're running with these versions: {}",
-                    versionsUnderTest);
+            if (!versionsUnderTest.isEmpty()) {
+                logger.info(
+                        "Skipping test that only works against the current version, when we're running with these versions: {}",
+                        versionsUnderTest);
+            }
             Assumptions.assumeTrue(versionsUnderTest.isEmpty(),
                     () -> "Test only works against the current version, but we are running with these versions: " +
                     versionsUnderTest);
+        } else if (rawVersion instanceof String) {
+            final SemanticVersion supported = SemanticVersion.parse((String)rawVersion);
+            final List<SemanticVersion> unsupportedVersions = supported.lesserVersions(
+                    executionContext.getConnectionFactory().getVersionsUnderTest());
+            if (!unsupportedVersions.isEmpty()) {
+                logger.info(
+                        "Skipping test that only works against {} and later, but we are running with these older versions: {}",
+                        supported, unsupportedVersions);
+            }
+            Assumptions.assumeTrue(unsupportedVersions.isEmpty(),
+                    () -> "Test only works against " + supported +
+                            " and later, but we are running with these older versions: " +
+                            unsupportedVersions);
         } else {
-            throw new RuntimeException("Unsupported supported_version: " + supportedVersion);
+            throw new RuntimeException("Unsupported supported_version: " + rawVersion);
         }
         return new NoOpBlock(lineNumber);
     }

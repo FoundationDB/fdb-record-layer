@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -139,6 +140,14 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
             return versionComparison;
         }
         return comparePrerelease(o);
+    }
+
+    @Nonnull
+    public List<SemanticVersion> lesserVersions(@Nonnull Collection<String> rawVersions) {
+        return rawVersions.stream()
+                .map(SemanticVersion::parse)
+                .filter(other -> other.compareTo(this) < 0)
+                .collect(Collectors.toList());
     }
 
     private int compareVersionNumbers(@Nonnull SemanticVersion o) {
