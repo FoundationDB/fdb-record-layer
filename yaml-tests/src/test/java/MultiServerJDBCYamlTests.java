@@ -21,12 +21,10 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
@@ -79,9 +77,10 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
 
     @BeforeAll
     public static void startServer() throws IOException, InterruptedException {
-        Assumptions.abort(); // Will be able to re-enable when we have a published external server to use here
         final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-        final File[] externalServers = externalDirectory.listFiles(file -> file.getName().endsWith(".jar"));
+        final File[] externalServers = Objects.requireNonNull(
+                externalDirectory.listFiles(file -> file.getName().endsWith(".jar")),
+                "No external servers to start");
         Assertions.assertEquals(1, externalServers.length);
         File jar = externalServers[0];
         LOG.info("Starting " + jar);
@@ -121,44 +120,32 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     }
 
     @Override
-    @Disabled("Test asserts about quantifiers")
-    public void updateDeleteReturning() throws Exception {
-        super.updateDeleteReturning();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void aggregateIndexTests() throws Exception {
-        super.aggregateIndexTests();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void indexedFunctions() throws Exception {
-        super.indexedFunctions();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void bitmap() throws Exception {
-        super.bitmap();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void cte() throws Exception {
-        super.cte();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void unionEmptyTables() throws Exception {
-        super.unionEmptyTables();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
+    @Disabled("Plans changed between 4.0.559.0 and unreleased 4.0.560.0")
     public void union() throws Exception {
         super.union();
+    }
+
+    @Override
+    @Disabled("Plans changed between 4.0.559.0 and unreleased 4.0.560.0")
+    public void aggregateEmptyTable() throws Exception {
+        super.aggregateEmptyTable();
+    }
+
+    @Override
+    @Disabled("Should be in 4.0.560.0")
+    public void aggregateIndexTestsCountEmpty() throws Exception {
+        super.aggregateIndexTestsCountEmpty();
+    }
+
+    @Override
+    @Disabled("Should be in 4.0.560.0")
+    public void recursiveCte() throws Exception {
+        super.recursiveCte();
+    }
+
+    @Override
+    @Disabled("Plans changes between 4.0.559.0 and 4.0.560.0")
+    public void unionEmptyTables() throws Exception {
+        super.unionEmptyTables();
     }
 }
