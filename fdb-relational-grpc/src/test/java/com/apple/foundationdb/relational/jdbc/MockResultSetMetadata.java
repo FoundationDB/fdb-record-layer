@@ -62,7 +62,7 @@ public class MockResultSetMetadata implements RelationalResultSetMetaData {
 
     @Override
     public String getColumnName(int column) throws SQLException {
-        throw new SQLException("Unsupported operation", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return "Column " + column;
     }
 
     @Override
