@@ -90,11 +90,7 @@ public class ProtobufConversionTest {
     }
 
     private void assertContinuation(byte[] state, RpcContinuationReason reason, RpcContinuation actual) {
-        if (state == null) {
-            Assertions.assertNull(actual.getInternalState().toByteArray());
-        } else {
-            Assertions.assertArrayEquals(state, actual.getInternalState().toByteArray());
-        }
+        Assertions.assertArrayEquals(state, actual.getInternalState().toByteArray());
         Assertions.assertEquals(reason, actual.getReason());
     }
 

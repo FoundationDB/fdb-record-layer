@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -46,12 +47,12 @@ public class MockResultSetMetadata implements RelationalResultSetMetaData {
 
     @Override
     public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
-        return null;
+        throw new SQLException("Unsupported operation", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     public ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
-        return null;
+        throw new SQLException("Unsupported operation", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
@@ -61,7 +62,7 @@ public class MockResultSetMetadata implements RelationalResultSetMetaData {
 
     @Override
     public String getColumnName(int column) throws SQLException {
-        return "";
+        throw new SQLException("Unsupported operation", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
