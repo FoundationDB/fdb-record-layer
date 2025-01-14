@@ -27,7 +27,7 @@ dependencies {
     implementation(libs.protobuf)
     implementation(libs.slf4j.api)
     runtimeOnly(libs.log4j.slf4jBinding) // binding
-    runtimeOnly(libs.log4j.impl) // library
+    runtimeOnly(libs.log4j.core) // library
 }
 
 mainClassName = 'com.apple.foundationdb.record.sample.Main'

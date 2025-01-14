@@ -100,9 +100,9 @@ javaPoet = { module = "com.squareup:javapoet", version.ref = "javaPoet" }
 jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
 jts = { module = "org.locationtech.jts.io:jts-io-common", version.ref = "jts" }
 log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
 log4j-julBinding = { module = "org.apache.logging.log4j:log4j-jul", version.ref = "log4j" }
 log4j-slf4jBinding = { module = "org.apache.logging.log4j:log4j-slf4j-impl", version.ref = "log4j" }
-log4j-impl = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
 lucene-analyzers = { module = "org.apache.lucene:lucene-analyzers-common", version.ref = "lucene" }
 lucene-core = { module = "org.apache.lucene:lucene-core", version.ref = "lucene" }
 lucene-highlighter = { module = "org.apache.lucene:lucene-highlighter", version.ref = "lucene" }
@@ -144,7 +144,7 @@ spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", ve
 
 [bundles]
 
-test-impl = [ "assertj", "hamcrest", "junit-api", "junit-params", "log4j-impl", "mockito" ]
+test-impl = [ "assertj", "hamcrest", "junit-api", "junit-params", "log4j-core", "mockito" ]
 test-runtime = [ "junit-engine", "log4j-slf4jBinding"]
 test-compileOnly = [ "autoService", "jsr305" ]
 

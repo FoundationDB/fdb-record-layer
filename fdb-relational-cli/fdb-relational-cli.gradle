@@ -63,7 +63,7 @@ dependencies {
     // slf4j binding. Allows RL dependencies to log to same place as Relational
     runtimeOnly(libs.log4j.slf4jBinding)
     runtimeOnly(libs.log4j.julBinding)
-    runtimeOnly(libs.log4j.impl)
+    runtimeOnly(libs.log4j.core)
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)

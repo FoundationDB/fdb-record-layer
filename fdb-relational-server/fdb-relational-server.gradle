@@ -104,7 +104,7 @@ dependencies {
     // See diagram on this page for logging dependencies: https://logging.apache.org/log4j/2.x/faq.html#which_jars
     runtimeOnly(libs.log4j.julBinding)
     runtimeOnly(libs.log4j.slf4jBinding)
-    runtimeOnly(libs.log4j.impl)
+    runtimeOnly(libs.log4j.core)
 
     testFixturesImplementation(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")

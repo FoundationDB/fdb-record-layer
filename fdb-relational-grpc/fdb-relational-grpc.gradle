@@ -63,7 +63,7 @@ dependencies {
     implementation(libs.grpc.services)
     implementation(libs.protobuf)
     implementation(libs.log4j.api)
-    runtimeOnly(libs.log4j.impl)
+    runtimeOnly(libs.log4j.core)
     // slf4j binding. Allows RL dependencies to log to same place as Relational
     runtimeOnly(libs.log4j.slf4jBinding)
 
