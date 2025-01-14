@@ -102,19 +102,22 @@ public class CursorTest {
 
     @Test
     public void continuationOnEdgesOfRecordCollection() throws SQLException, RelationalException {
-        insertRecordsAndTest(3, (List<RelationalStruct> records, RelationalConnection conn) -> {
+        final int numRecords = 3;
+        insertRecordsAndTest(numRecords, (List<RelationalStruct> records, RelationalConnection conn) -> {
             try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 // get continuation before iterating on the result set (should fail).
                 Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
 
                 StructMetaData smd = resultSet.getMetaData();
-                boolean called = false;
+                int called = 0;
                 while (resultSet.next()) {
-                    called = true;
-                    // We cannot make any assertions about the continuation here because the continuation is only available at the end of the iteration
+                    // Continuation is not available until the result set is exhausted
+                    if (++called < numRecords) {
+                        Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
+                    }
                 }
 
-                Assertions.assertTrue(called, "Did not return any records!");
+                Assertions.assertTrue(called > 0, "Did not return any records!");
 
                 // get continuation at the last record (should point to FINISHED).
                 Continuation lastContinuation = resultSet.getContinuation();
@@ -162,7 +165,7 @@ public class CursorTest {
             try (final var s = conn.createStatement()) {
                 s.setMaxRows(5);
                 try (final var resultSet = s.executeQuery("select * from RESTAURANT")) {
-                    Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
+                    Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
                     final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
                     for (int i = 0; i < 5; i++) {
                         resultSetAssert.hasNextRow();
@@ -176,7 +179,7 @@ public class CursorTest {
             try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
                 try (final var resultSet = preparedStatement.executeQuery()) {
-                    Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
+                    Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
                     final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
                     for (int i = 0; i < 5; i++) {
                         resultSetAssert.hasNextRow();
@@ -200,7 +203,7 @@ public class CursorTest {
         try (final var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn.setSchema(database.getSchemaName());
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
-                Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
+                Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
                 while (true) {
                     if (resultSet.next()) {
                         numRowsReturned++;
@@ -218,7 +221,7 @@ public class CursorTest {
             try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
                 try (final var resultSet = preparedStatement.executeQuery()) {
-                    Assertions.assertThrows(SQLException.class, () -> resultSet.getContinuation().atBeginning());
+                    Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
                     while (true) {
                         if (resultSet.next()) {
                             numRowsReturned++;
