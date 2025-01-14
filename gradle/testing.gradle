@@ -21,7 +21,7 @@
 apply plugin: 'jacoco'
 // configure for test, other *Test are configured below
 jacoco {
-    toolVersion = jacocoVersion
+    toolVersion = libs.versions.jacoco.get()
 }
 jacocoTestReport {
     reports {
