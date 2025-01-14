@@ -43,7 +43,7 @@ public class ResultSetContinuationTest {
                 Arguments.of(MockContinuation.BEGIN),
                 Arguments.of(MockContinuation.END),
                 Arguments.of(new MockContinuation(Continuation.Reason.TRANSACTION_LIMIT_REACHED, new byte[]{1}, false, false)),
-                Arguments.of(new MockContinuation(Continuation.Reason.CURSOR_AFTER_LAST, new byte[]{1}, false, true)),
+                Arguments.of(new MockContinuation(Continuation.Reason.CURSOR_AFTER_LAST, new byte[]{2}, false, true)),
                 Arguments.of(new MockContinuation(Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED, new byte[0], false, true)));
     }
 
@@ -95,6 +95,12 @@ public class ResultSetContinuationTest {
 
         try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
             Assertions.assertThrows(SQLException.class, () -> deserializedResultSet.getContinuation());
+        }
+        // Just to make sure it has a valid continuation
+        try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
+            // Spend all the rows so we can get the continuation
+            List<List<Integer>> rows = toRows(deserializedResultSet, 3);
+            deserializedResultSet.getContinuation();
         }
     }
 
