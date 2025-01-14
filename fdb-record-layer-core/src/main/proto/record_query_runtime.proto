@@ -21,7 +21,6 @@ syntax = "proto2";
 
 package com.apple.foundationdb.record.planprotos;
 import "google/protobuf/descriptor.proto";
-import "record_metadata.proto";
 import "record_query_plan.proto";
 
 option java_outer_classname = "RecordQueryRuntimeProto";

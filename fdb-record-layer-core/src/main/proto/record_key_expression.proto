@@ -19,7 +19,7 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record;
+package com.apple.foundationdb.record.expressions;
 import "google/protobuf/descriptor.proto";
 
 option java_outer_classname = "RecordKeyExpressionProto";

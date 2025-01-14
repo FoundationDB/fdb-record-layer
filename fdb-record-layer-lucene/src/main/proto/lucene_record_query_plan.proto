@@ -30,7 +30,7 @@ option java_multiple_files = true;
 message PLuceneIndexQueryPlan {
   optional PRecordQueryIndexPlan super = 1;
   optional bool has_stored_fields = 2;
-  repeated KeyExpression stored_fields = 3;
+  repeated com.apple.foundationdb.record.expressions.KeyExpression stored_fields = 3;
 }
 
 message PLuceneScanParameters {

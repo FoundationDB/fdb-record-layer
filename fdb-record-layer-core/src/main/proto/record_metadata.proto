@@ -30,7 +30,7 @@ message DataStoreInfo {
   optional int32 formatVersion = 1;
   optional int32 metaDataversion = 2;
   optional int32 userVersion = 3;
-  optional KeyExpression record_count_key = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression record_count_key = 4;
   optional uint64 lastUpdateTime = 5;
   optional bool omit_unsplit_record_suffix = 6;
   optional bool cacheable = 7;
@@ -53,11 +53,11 @@ message Index {
   repeated string record_type = 1;
   optional Type index_type = 2 [deprecated = true]; // Use type.
   optional string name = 3;
-  optional KeyExpression root_expression = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression root_expression = 4;
   optional bytes subspace_key = 5;
   optional int32 last_modified_version = 6;
   // value_expression should now be expressed as a KeyWithValue() root expression
-  optional KeyExpression value_expression = 7 [deprecated = true];
+  optional com.apple.foundationdb.record.expressions.KeyExpression value_expression = 7 [deprecated = true];
   optional string type = 8;
   repeated Option options = 9;
   message Option {
@@ -71,9 +71,9 @@ message Index {
 
 message RecordType {
   required string name = 1;
-  optional KeyExpression primary_key = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression primary_key = 2;
   optional int32 since_version = 3;
-  optional Value explicit_key = 4;
+  optional com.apple.foundationdb.record.expressions.Value explicit_key = 4;
   extensions 1000 to 2000;
 }
 
@@ -92,7 +92,7 @@ message MetaData {
   optional bool split_long_records = 4;
   optional int32 version = 5;
   repeated FormerIndex former_indexes = 6;
-  optional KeyExpression record_count_key = 7 [deprecated = true];
+  optional com.apple.foundationdb.record.expressions.KeyExpression record_count_key = 7 [deprecated = true];
   optional bool store_record_versions = 8;
   repeated google.protobuf.FileDescriptorProto dependencies = 9;
   optional int64 subspace_key_counter = 10;
@@ -109,7 +109,7 @@ message ScalarValuedFunction {
 
 message JoinedRecordType {
   optional string name = 1;
-  optional Value record_type_key = 4;
+  optional com.apple.foundationdb.record.expressions.Value record_type_key = 4;
 
   message JoinConstituent {
     optional string name = 1;
@@ -119,9 +119,9 @@ message JoinedRecordType {
 
   message Join {
     optional string left = 1;
-    optional KeyExpression left_expression = 2;
+    optional com.apple.foundationdb.record.expressions.KeyExpression left_expression = 2;
     optional string right = 3;
-    optional KeyExpression right_expression = 4;
+    optional com.apple.foundationdb.record.expressions.KeyExpression right_expression = 4;
   }
 
   repeated JoinConstituent join_constituents = 10;
@@ -130,13 +130,13 @@ message JoinedRecordType {
 
 message UnnestedRecordType {
   optional string name = 1;
-  optional Value record_type_key = 2;
+  optional com.apple.foundationdb.record.expressions.Value record_type_key = 2;
 
   message NestedConstituent {
     optional string name = 1;
     optional string parent = 2;
     optional string type_name = 3;
-    optional KeyExpression nesting_expression = 4;
+    optional com.apple.foundationdb.record.expressions.KeyExpression nesting_expression = 4;
   }
 
   repeated NestedConstituent nested_constituents = 3;
@@ -158,7 +158,7 @@ enum ComparisonType {
 
 message SimpleComparison {
   optional ComparisonType type = 1;
-  optional Value operand = 2;
+  optional com.apple.foundationdb.record.expressions.Value operand = 2;
 }
 
 // in Comparisons.Comparison we have a special NullComparison that takes care of comparing

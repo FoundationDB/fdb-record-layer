@@ -975,7 +975,7 @@ message PSimpleComparison {
 message PConversionSimpleComparison {
   optional PComparison.PComparisonType type = 1;
   optional PComparableObject object = 2;
-  optional KeyExpression conversion = 3;
+  optional com.apple.foundationdb.record.expressions.KeyExpression conversion = 3;
 }
 
 message PParameterComparison {
@@ -995,7 +995,7 @@ message PConversionParameterComparison {
   optional PComparison.PComparisonType type = 1;
   optional string parameter = 2;
   optional PParameterComparison.PBindingKind internal = 3;
-  optional KeyExpression conversion = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression conversion = 4;
 }
 
 message PValueComparison {
@@ -1021,7 +1021,7 @@ message PMultiColumnComparison {
 }
 
 message PInvertedFunctionComparison {
-  optional Function function = 1;
+  optional com.apple.foundationdb.record.expressions.Function function = 1;
   optional PComparison original_comparison = 2;
   optional PComparison.PComparisonType type = 3;
 }
@@ -1346,7 +1346,7 @@ message PRecordQueryFlatMapPlan {
 //
 message PRecordQueryIndexPlan {
   optional string index_name = 1;
-  optional KeyExpression common_primary_key = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression common_primary_key = 2;
   optional PIndexScanParameters scan_parameters = 3;
   optional PIndexFetchMethod index_fetch_method = 4;
   optional PFetchIndexRecords fetch_index_records = 5;
@@ -1515,7 +1515,7 @@ message PRecordQueryIntersectionPlan {
 
 message PComparisonKeyFunction {
   message POnKeyExpression {
-    optional KeyExpression comparison_key_expression = 1;
+    optional com.apple.foundationdb.record.expressions.KeyExpression comparison_key_expression = 1;
   }
   message POnValues {
     optional string base_alias = 1;
@@ -1606,7 +1606,7 @@ message PRecordQuerySortPlan {
 }
 
 message PRecordQuerySortKey {
-  optional KeyExpression key = 1;
+  optional com.apple.foundationdb.record.expressions.KeyExpression key = 1;
   optional bool reverse = 2;
 }
 
@@ -1617,7 +1617,7 @@ message PRecordQueryScanPlan {
   optional bool has_record_types = 1;
   repeated string record_types = 2;
   optional PType flowed_type = 3;
-  optional KeyExpression common_primary_key = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression common_primary_key = 4;
   optional PScanComparisons comparisons = 5;
   optional bool reverse = 6;
   optional bool strictly_sorted = 7;
@@ -1651,7 +1651,7 @@ message PScoreForRank {
 
 message PIndexAggregateFunction {
   optional string name = 1;
-  optional KeyExpression operand = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression operand = 2;
   optional string index = 3;
 }
 
@@ -1704,7 +1704,7 @@ message PRecordQueryUnionPlan {
 //
 message PRecordQueryUnorderedDistinctPlan {
   optional PPhysicalQuantifier inner = 1;
-  optional KeyExpression comparison_key = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression comparison_key = 2;
 }
 
 //
@@ -1752,7 +1752,7 @@ message PFDBRecordVersion {
 
 message PComparableObject {
   oneof specific_object {
-    Value primitive_object = 1;
+    com.apple.foundationdb.record.expressions.Value primitive_object = 1;
     PEnumLightValue enum_object = 2;
     PUUID uuid = 3;
     PFDBRecordVersion fdb_record_version = 4;
