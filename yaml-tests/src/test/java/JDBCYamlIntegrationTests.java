@@ -26,36 +26,6 @@ import org.junit.jupiter.api.Test;
  * through JDBC.
  */
 public abstract class JDBCYamlIntegrationTests extends YamlIntegrationTests {
-    @Override
-    @Test
-    public void fieldIndexTestsProto() throws Exception {
-        super.fieldIndexTestsProto();
-    }
-
-    @Override
-    @Test
-    public void standardTestsWithProto() throws Exception {
-        super.standardTestsWithProto();
-    }
-
-    @Override
-    @Test
-    public void standardTestsWithMetaData() throws Exception {
-        super.standardTestsWithMetaData();
-    }
-
-    @Override
-    @Test
-    public void disabledIndexWithProto() throws Exception {
-        super.disabledIndexWithProto();
-    }
-
-    @Override
-    @Test
-    @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
-    public void deprecatedFieldsTestsWithProto() throws Exception {
-        super.deprecatedFieldsTestsWithProto();
-    }
 
     @Override
     @Test
