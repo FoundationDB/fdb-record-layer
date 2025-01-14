@@ -94,12 +94,16 @@ public class ResultSetContinuationTest {
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
 
         try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
-            Assertions.assertThrows(SQLException.class, () -> deserializedResultSet.getContinuation());
-        }
-        // Just to make sure it has a valid continuation
-        try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
-            // Spend all the rows so we can get the continuation
-            List<List<Integer>> rows = toRows(deserializedResultSet, 3);
+            Assertions.assertThrows(SQLException.class, deserializedResultSet::getContinuation);
+            Assertions.assertTrue(deserializedResultSet.next());
+            Assertions.assertThrows(SQLException.class, deserializedResultSet::getContinuation);
+            toRow(deserializedResultSet, 3);
+            Assertions.assertTrue(deserializedResultSet.next());
+            Assertions.assertThrows(SQLException.class, deserializedResultSet::getContinuation);
+            toRow(deserializedResultSet, 3);
+            Assertions.assertFalse(deserializedResultSet.next());
+            deserializedResultSet.getContinuation();
+            Assertions.assertFalse(deserializedResultSet.next());
             deserializedResultSet.getContinuation();
         }
     }
@@ -119,7 +123,7 @@ public class ResultSetContinuationTest {
         Assertions.assertEquals(expected.atEnd(), actual.atEnd());
         Assertions.assertEquals(expected.getReason(), actual.getReason());
         // This, again, assumes that the entire inner continuation is serialized as the state
-        Assertions.assertArrayEquals(expected.serialize(), actual.getExecutionState());
+        Assertions.assertArrayEquals(expected.serialize(), actual.serialize());
     }
 
     private List<List<Integer>> toRows(RelationalResultSetFacade convertedResultSet, int numColumns) throws SQLException {

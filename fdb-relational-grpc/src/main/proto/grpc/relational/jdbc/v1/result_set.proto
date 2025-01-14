@@ -44,7 +44,7 @@ message ResultSet {
   repeated Struct row = 2;
 
   // Optional continuation that can continue the query from the point the current results ended.
-  // A result set is non-null for the RelationalResultSet API but is not always supported (exception thrown when not).
+  // A continuation is non-null for the RelationalResultSet API but is not always supported (exception thrown when not).
   optional RpcContinuation continuation = 3;
 }
 
