@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
-import com.apple.foundationdb.record.metadata.Udf;
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -85,7 +85,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Set<Udf> udfs;
+    private final Set<ScalarValuedFunction> scalarValuedFunctions;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -116,7 +116,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
-                Collections.unmodifiableSet(orig.udfs),
+                Collections.unmodifiableSet(orig.scalarValuedFunctions),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -136,7 +136,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Set<Udf> udfs,
+                             @Nonnull Set<ScalarValuedFunction> scalarValuedFunctions,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -153,7 +153,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.udfs = udfs;
+        this.scalarValuedFunctions = scalarValuedFunctions;
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
@@ -350,8 +350,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Collection<Udf> getAllUdfs() {
-        return udfs;
+    public Collection<ScalarValuedFunction> getAllScalarValuedFunctions() {
+        return scalarValuedFunctions;
     }
 
     public boolean isSplitLongRecords() {
@@ -705,7 +705,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
 
         // Add in the final options.
-        builder.addAllUdfs(udfs.stream().map(Udf::toProto).collect(Collectors.toList()));
+        builder.addAllScalarValuedFunction(scalarValuedFunctions.stream().map(ScalarValuedFunction::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);

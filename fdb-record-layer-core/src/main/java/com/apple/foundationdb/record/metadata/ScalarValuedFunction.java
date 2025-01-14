@@ -29,13 +29,13 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import javax.annotation.Nonnull;
 
 /**
- * Defines a User-defined-function.
+ * Defines a scalar User-defined-function.
  */
-public class Udf {
+public class ScalarValuedFunction {
     @Nonnull
     private final MacroFunction macroFunction;
 
-    public Udf(@Nonnull MacroFunction functionValue) {
+    public ScalarValuedFunction(@Nonnull MacroFunction functionValue) {
         this.macroFunction = functionValue;
     }
 
@@ -50,18 +50,18 @@ public class Udf {
     }
 
     @Nonnull
-    public RecordMetaDataProto.Udf toProto() {
+    public RecordMetaDataProto.ScalarValuedFunction toProto() {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        return RecordMetaDataProto.Udf.newBuilder()
+        return RecordMetaDataProto.ScalarValuedFunction.newBuilder()
                 .setFunctionValue(macroFunction.toProto(serializationContext))
                 .build();
     }
 
     @Nonnull
-    public static Udf fromProto(RecordMetaDataProto.Udf proto) {
+    public static ScalarValuedFunction fromProto(RecordMetaDataProto.ScalarValuedFunction proto) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        return new Udf(MacroFunction.fromProto(serializationContext, proto.getFunctionValue()));
+        return new ScalarValuedFunction(MacroFunction.fromProto(serializationContext, proto.getFunctionValue()));
     }
 }

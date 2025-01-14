@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
-import com.apple.foundationdb.record.metadata.Udf;
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -111,7 +111,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
-    private final Set<Udf> udfs;
+    private final Set<ScalarValuedFunction> scalarValuedFunctions;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -147,7 +147,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
         evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
         syntheticRecordTypes = new HashMap<>();
-        udfs = new HashSet<>();
+        scalarValuedFunctions = new HashSet<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -226,8 +226,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
             }
         }
-        for (RecordMetaDataProto.Udf udf: metaDataProto.getUdfsList()) {
-            udfs.add(Udf.fromProto(udf));
+        for (RecordMetaDataProto.ScalarValuedFunction scalarValuedFunction: metaDataProto.getScalarValuedFunctionList()) {
+            scalarValuedFunctions.add(ScalarValuedFunction.fromProto(scalarValuedFunction));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1186,12 +1186,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(formerIndex);
     }
 
-    public void addUdf(@Nonnull Udf udf) {
-        udfs.add(udf);
+    public void addScalarValuedFunction(@Nonnull ScalarValuedFunction scalarValuedFunction) {
+        scalarValuedFunctions.add(scalarValuedFunction);
     }
 
-    public void addUdfs(@Nonnull Iterable<? extends Udf> udfs) {
-        udfs.forEach(udf -> this.udfs.add(udf));
+    public void addScalarValuedFunctions(@Nonnull Iterable<? extends ScalarValuedFunction> scalarValuedFunctions) {
+        scalarValuedFunctions.forEach(this.scalarValuedFunctions::add);
     }
 
     public boolean isSplitLongRecords() {
@@ -1435,7 +1435,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, udfs,
+                indexes, universalIndexes, formerIndexes, scalarValuedFunctions,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
