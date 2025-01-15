@@ -68,7 +68,6 @@ dependencies {
     runtimeOnly(libs.log4j.slf4jBinding)
 
     testImplementation(libs.bundles.test.impl)
-    testImplementation("org.junit.jupiter:junit-jupiter-params:${junitVersion}")
     testRuntimeOnly(libs.bundles.test.runtime)
     testImplementation(libs.grpc.testing)
 }
