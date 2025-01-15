@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
