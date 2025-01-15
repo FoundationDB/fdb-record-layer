@@ -138,7 +138,7 @@ public class IntermingledTablesTest {
         }
 
         for (int group = 0; group < groupCount; group++) {
-            try (RelationalResultSet resultSet = statement.executeQuery(String.format("SELECT * FROM t1 WHERE group = %d", group))) {
+            try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM t1 WHERE group = " + group)) {
                 ResultSetAssert.assertThat(resultSet).containsRowsExactly(List.of(
                         new Object[]{group, "t1_0", 0},
                         new Object[]{group, "t1_1", 10},
