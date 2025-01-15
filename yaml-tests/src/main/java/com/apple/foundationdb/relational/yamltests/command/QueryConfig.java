@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.Continuation;
@@ -66,7 +67,7 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_PLAN_HASH = "planHash";
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
     public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
-    public static final String QUERY_CONFIG_SUPPORTED_VERSION = "supported_version";
+    public static final String QUERY_CONFIG_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
 
     @Nullable private final Object value;
     private final int lineNumber;

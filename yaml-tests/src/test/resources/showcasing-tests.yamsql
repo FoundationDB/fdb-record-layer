@@ -157,6 +157,9 @@ test_block:
     # For `block` the connection is created just once and all the tests are executed in that connection.
     # optional. default: test
     connection_lifecycle: block
+    # Like the options at the top of the file, a supported_version can be specified for
+    # an individual test_block. This overrides the version specified in the file
+    supported_version: 4.0.560.0
   tests:
     -
       # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause
