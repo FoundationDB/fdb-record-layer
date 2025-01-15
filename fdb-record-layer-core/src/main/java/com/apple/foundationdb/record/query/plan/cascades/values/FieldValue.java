@@ -70,7 +70,7 @@ import java.util.stream.Collectors;
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FieldValue extends AbstractValue implements ValueWithChild {
+public class FieldValue extends AbstractValue implements ValueWithChild, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull

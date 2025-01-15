@@ -241,4 +241,9 @@ public abstract class YamlIntegrationTests extends YamlTestBase {
     public void recursiveCte() throws Exception {
         doRun("recursive-cte.yamsql");
     }
+
+    @Test
+    public void enumTest() throws Exception {
+        doRun("enum.yamsql");
+    }
 }

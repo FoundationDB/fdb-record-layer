@@ -87,7 +87,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
         NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in),
         NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
-        STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> ((Descriptors.EnumDescriptor)descriptor).findValueByName((String)in)));
+        STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> stringToEnumValue((Descriptors.EnumDescriptor) descriptor, (String) in)));
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
@@ -137,6 +137,12 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull PPhysicalOperator physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        public static Descriptors.EnumValueDescriptor stringToEnumValue(Descriptors.EnumDescriptor enumDescriptor, String value) {
+            final var maybeValue = enumDescriptor.findValueByName(value);
+            SemanticException.check(maybeValue != null, SemanticException.ErrorCode.INVALID_ENUM_VALUE, value);
+            return maybeValue;
         }
 
         @Nonnull
