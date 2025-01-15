@@ -74,9 +74,6 @@ import java.util.stream.Collectors;
  * Here, the parameter can randomly take different values between 2 and 9 in each binding.
  */
 public final class QueryInterpreter {
-    /**
-     * The original query string with embedded parameter injections.
-     */
     @Nonnull
     private final String query;
     private final int lineNumber;
@@ -201,6 +198,14 @@ public final class QueryInterpreter {
         this.lineNumber = lineNumber;
         this.injections = getInjections(query);
         this.executionContext = executionContext;
+    }
+
+    /**
+     * The original query string with embedded parameter injections.
+     */
+    @Nonnull
+    String getQuery() {
+        return query;
     }
 
     private List<Pair<String, Parameter>> getInjections(@Nonnull String query) {

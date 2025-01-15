@@ -33,19 +33,18 @@ import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A {@link QueryCommand} is one of the possible {@link Command} supported in the YAML testing framework that is used
@@ -114,6 +113,9 @@ public final class QueryCommand extends Command {
         }
         this.queryInterpreter = interpreter;
         this.queryConfigs = configs;
+        Assert.thatUnchecked(queryConfigs.stream()
+                .filter(config -> config instanceof QueryConfig.SkipConfig).count() < 2,
+                "Too many skips in a Query " + lineNumber);
     }
 
     public void execute(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
@@ -144,6 +146,13 @@ public final class QueryCommand extends Command {
         Continuation continuation = null;
         int maxRows = 0;
         boolean exhausted = false;
+        final List<String> skips = queryConfigs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
+                .map(config -> ((QueryConfig.SkipConfig)config).getMessage())
+                .collect(Collectors.toList());
+        if (!skips.isEmpty()) {
+            logger.info(skips.stream().collect(Collectors.joining("\n")));
+            return;
+        }
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
@@ -162,7 +171,7 @@ public final class QueryCommand extends Command {
                 // results
                 int finalMaxRows1 = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
-            } else {
+            } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
                 }
@@ -192,6 +201,17 @@ public final class QueryCommand extends Command {
     @Nonnull
     public QueryExecutor instantiateExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         return queryInterpreter.getExecutor(random, runAsPreparedStatement);
+    }
+
+    public Optional<String> skipMessage() {
+        return queryConfigs.stream()
+                .filter(config -> config instanceof QueryConfig.SkipConfig)
+                .map(config -> ((QueryConfig.SkipConfig)config).getMessage())
+                .findFirst();
+    }
+
+    public String getQuery() {
+        return queryInterpreter.getQuery();
     }
 
     static void reportTestFailure(@Nonnull String message) {

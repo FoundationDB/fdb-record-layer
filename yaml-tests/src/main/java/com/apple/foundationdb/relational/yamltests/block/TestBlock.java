@@ -334,13 +334,21 @@ public final class TestBlock extends ConnectedBlock {
                 final var test = Matchers.arrayList(testObject, "test");
                 final var resolvedCommand = Objects.requireNonNull(Command.parse(test, executionContext));
                 Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
-                queryCommands.add((QueryCommand) resolvedCommand);
+                final QueryCommand queryCommand = (QueryCommand)resolvedCommand;
+                final Optional<String> skipMessage = queryCommand.skipMessage();
+                if (skipMessage.isPresent()) {
+                    if (logger.isInfoEnabled()) {
+                        logger.info("Line " + queryCommand.getLineNumber() + ": '" + queryCommand.getQuery() + "' --  " + skipMessage.get());
+                    }
+                    continue;
+                }
+                queryCommands.add(queryCommand);
                 var runAsPreparedMix = getRunAsPreparedMix(options.statementType, options.repetition, randomGenerator);
                 for (int i = 0; i < options.repetition; i++) {
-                    executables.add(createTestExecutable((QueryCommand) resolvedCommand, false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
+                    executables.add(createTestExecutable(queryCommand, false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
                 }
                 if (options.checkCache) {
-                    executableTestsWithCacheCheck.add(createTestExecutable((QueryCommand) resolvedCommand, true, randomGenerator, runAsPreparedMix.getRight()));
+                    executableTestsWithCacheCheck.add(createTestExecutable(queryCommand, true, randomGenerator, runAsPreparedMix.getRight()));
                 }
             }
             if (options.mode != ExecutionMode.ORDERED) {
@@ -449,7 +457,7 @@ public final class TestBlock extends ConnectedBlock {
 
     @Nonnull
     private static Consumer<RelationalConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                                     @Nonnull Random random, boolean runAsPreparedStatement) {
+                                                                       @Nonnull Random random, boolean runAsPreparedStatement) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> queryCommand.execute(connection, checkCache, executor);
     }

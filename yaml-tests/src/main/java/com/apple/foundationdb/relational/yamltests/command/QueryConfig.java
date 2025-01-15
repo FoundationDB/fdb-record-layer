@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -65,6 +66,7 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_PLAN_HASH = "planHash";
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
     public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
+    public static final String QUERY_CONFIG_SUPPORTED_VERSION = "supported_version";
 
     @Nullable private final Object value;
     private final int lineNumber;
@@ -378,6 +380,19 @@ public abstract class QueryConfig {
         };
     }
 
+    private static QueryConfig getSupportedVersionConfig(final Object value, final int lineNumber, final YamlExecutionContext executionContext) {
+        final SupportedVersionCheck check = SupportedVersionCheck.parse(value, executionContext);
+        if (!check.isSupported()) {
+            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext, check.getMessage());
+        }
+        return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext) {
+            @Override
+            void checkResultInternal(@Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
+                // Nothing to do, this query is supported
+            }
+        };
+    }
+
     public static QueryConfig parse(@Nonnull Object object, @Nonnull YamlExecutionContext executionContext) {
         final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
@@ -401,6 +416,8 @@ public abstract class QueryConfig {
                 return getCheckResultConfig(false, key, value, lineNumber, executionContext);
             } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
                 return getMaxRowConfig(value, lineNumber, executionContext);
+            } else if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
+                return getSupportedVersionConfig(value, lineNumber, executionContext);
             } else {
                 Assert.failUnchecked("‼️ '%s' is not a valid configuration");
             }
@@ -408,6 +425,24 @@ public abstract class QueryConfig {
             return null;
         } catch (Exception e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
+        }
+    }
+
+    public static class SkipConfig extends QueryConfig {
+        private final String message;
+
+        public SkipConfig(final String configMap, final Object value, final int lineNumber, final YamlExecutionContext executionContext, final String message) {
+            super(configMap, value, lineNumber, executionContext);
+            this.message = message;
+        }
+
+        @Override
+        void checkResultInternal(@Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
+            logger.info("Line: " + getLineNumber() + " " + message);
+        }
+
+        public String getMessage() {
+            return message;
         }
     }
 }
