@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
@@ -32,8 +33,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,6 +48,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of block that serves the purpose of running tests. The block consists of:
@@ -72,7 +74,7 @@ import java.util.stream.IntStream;
  * </ul>
  */
 @SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
-public final class TestBlock extends Block {
+public final class TestBlock extends ConnectedBlock {
 
     private static final Logger logger = LogManager.getLogger(TestBlock.class);
 
@@ -303,7 +305,14 @@ public final class TestBlock extends Block {
 
     public static TestBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
         try {
-            final var testsMap = Matchers.map(document, "test_block");
+            // Since `options` is also a top-level block, the `CustomYamlConstructor` will add the line numbers,
+            // changing it from a `String` to a `LinedObject` so that we know the line numbers when logging an error,
+            // but that makes it hard to look it up in the map. The call to `unlineKeys` changes it back to a String.
+            // There might be a way to have it on the value, but I couldn't find it.
+            // The other option would be to allow `Block` to not have a line number, and make `options` not have a line
+            // number.
+            final var testsMap = CustomYamlConstructor.LinedObject.unlineKeys(
+                    Matchers.map(document, "test_block"));
             final var options = new TestBlockOptions();
             // check if the preset is present, if yes, set the options according to it.
             if (testsMap.get(TEST_BLOCK_PRESET) != null) {

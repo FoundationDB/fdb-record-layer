@@ -21,21 +21,17 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
+import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.io.File;
-import java.io.IOException;
+import javax.annotation.Nonnull;
+import java.net.URI;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 
 /**
  * A test runner to launch the YAML tests with multiple servers.
@@ -45,11 +41,8 @@ import java.util.Objects;
  */
 public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrationTests {
 
-    private static final Logger LOG = LogManager.getLogger(JDBCExternalYamlIntegrationTests.class);
-    public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
-    public static final String SERVER_PORT = "1111";
-
-    private static Process serverProcess;
+    @RegisterExtension
+    static RunExternalServerExtension externalServer = new RunExternalServerExtension();
 
     private final int initialConnection;
 
@@ -77,26 +70,6 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         }
     }
 
-    @BeforeAll
-    public static void startServer() throws IOException, InterruptedException {
-        Assumptions.abort(); // Will be able to re-enable when we have a published external server to use here
-        final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-        final File[] externalServers = externalDirectory.listFiles(file -> file.getName().endsWith(".jar"));
-        Assertions.assertEquals(1, externalServers.length);
-        File jar = externalServers[0];
-        LOG.info("Starting " + jar);
-        ProcessBuilder processBuilder = new ProcessBuilder("java", "-jar", jar.getAbsolutePath());
-        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
-
-        serverProcess = processBuilder.start();
-        // TODO: There should be a better way to figure out that the server is fully up and  running
-        Thread.sleep(3000);
-        if ((serverProcess == null) || !serverProcess.isAlive()) {
-            Assertions.fail("Failed to start the external server");
-        }
-    }
-
     @Override
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
         return new MultiServerConnectionFactory(
@@ -107,17 +80,18 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     }
 
     YamlRunner.YamlConnectionFactory createExternalServerConnection() {
-        return connectPath -> {
-            String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + SERVER_PORT);
-            return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
-        };
-    }
+        return new YamlRunner.YamlConnectionFactory() {
+            @Override
+            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+                String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
+                return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
+            }
 
-    @AfterAll
-    public static void shutdownServer() {
-        if ((serverProcess != null) && serverProcess.isAlive()) {
-            serverProcess.destroy();
-        }
+            @Override
+            public Set<String> getVersionsUnderTest() {
+                return Set.of(externalServer.getVersion());
+            }
+        };
     }
 
     @Override
