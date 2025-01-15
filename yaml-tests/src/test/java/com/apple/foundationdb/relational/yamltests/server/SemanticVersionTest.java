@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.server;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -44,7 +45,7 @@ class SemanticVersionTest {
         final SemanticVersion versionB = SemanticVersion.parse(rawVersionB);
         Assertions.assertAll(
                 () -> assertEquals(0, versionA.compareTo(versionB)),
-                () -> assertEquals(0, versionA.compareTo(versionB)));
+                () -> assertEquals(0, versionB.compareTo(versionA)));
     }
 
     @ParameterizedTest
@@ -77,9 +78,9 @@ class SemanticVersionTest {
     void alignsWithComparator(int versionA, int versionB) {
         // Ensure that the signage aligns with the standard `compare` methods
         // the value doesn't have to, but it does, and this is easier than asserting that they have the same sign
-        assertEquals(Integer.compare(versionA, versionB),
-                SemanticVersion.parse(versionA + ".0.0").compareTo(
-                        SemanticVersion.parse(versionB + ".0.0")));
+        assertEquals(Integer.signum(Integer.compare(versionA, versionB)),
+                Integer.signum(SemanticVersion.parse(versionA + ".0.0").compareTo(
+                        SemanticVersion.parse(versionB + ".0.0"))));
     }
 
     @ParameterizedTest
@@ -89,7 +90,7 @@ class SemanticVersionTest {
             "3, 3.0-SNAPSHOT",
             "3.3, 3.3.0",
             "3.2-SNAPSHOT, 3.2.0",
-            "3.2-SNAPSHOT, 3.2.1",
+            "3.2-SNAPSHOT, 3.2.1"
     })
     void incomparible(String rawVersionA, String rawVersionB) {
         final SemanticVersion versionA = SemanticVersion.parse(rawVersionA);
@@ -98,7 +99,15 @@ class SemanticVersionTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> versionA.compareTo(versionB)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> versionA.compareTo(versionB)));
+                        () -> versionB.compareTo(versionA)));
+    }
+
+
+    @Test
+    void compareToNull() throws Exception {
+        final SemanticVersion versionA = SemanticVersion.parse("4.0.559.0");
+        assertThrows(NullPointerException.class,
+                () -> versionA.compareTo(null));
     }
 
     // Comparing pre-releases is complicated, but we only ever use "SNAPSHOT", so forbid everything else.
@@ -115,9 +124,14 @@ class SemanticVersionTest {
             "3.2-RELEASE",
             "1.a",
             "3.4.a",
-            "4.2.3+boo",
+            "4.2.3+boo"
     })
     void badVersion(String rawVersion) throws Exception {
         assertThrows(IllegalArgumentException.class, () -> SemanticVersion.parse(rawVersion));
+    }
+
+    @Test
+    void parseNull() throws Exception {
+        assertThrows(NullPointerException.class, () -> SemanticVersion.parse(null));
     }
 }
