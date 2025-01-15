@@ -21,20 +21,23 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.AfterAll;
+import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+
+import static com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension.EXTERNAL_SERVER_PROPERTY_NAME;
 
 /**
  * A test runner to launch the YAML tests with multiple servers.
@@ -70,27 +73,6 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     public static class MultiServerInitialConnectionExternalTests extends MultiServerJDBCYamlTests {
         public MultiServerInitialConnectionExternalTests() {
             super(1);
-        }
-    }
-
-    @BeforeAll
-    public static void startServer() throws IOException, InterruptedException {
-        final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-        final File[] externalServers = Objects.requireNonNull(
-                externalDirectory.listFiles(file -> file.getName().endsWith(".jar")),
-                "No downloaded server jars were found");
-        Assertions.assertEquals(1, externalServers.length);
-        File jar = externalServers[0];
-        LOG.info("Starting " + jar);
-        ProcessBuilder processBuilder = new ProcessBuilder("java", "-jar", jar.getAbsolutePath());
-        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
-
-        serverProcess = processBuilder.start();
-        // TODO: There should be a better way to figure out that the server is fully up and  running
-        Thread.sleep(3000);
-        if ((serverProcess == null) || !serverProcess.isAlive()) {
-            Assertions.fail("Failed to start the external server");
         }
     }
 
