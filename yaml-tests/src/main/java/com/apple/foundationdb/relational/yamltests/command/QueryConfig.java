@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests.command;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
@@ -154,7 +153,7 @@ public abstract class QueryConfig {
         if (!currentQuery.isEmpty() && currentQuery.charAt(currentQuery.length() - 1) == ';') {
             currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
         }
-        if (continuation instanceof ContinuationImpl) {
+        if (continuation != null) {
             String result;
             if (continuation.atBeginning()) {
                 result = "START";
@@ -215,7 +214,7 @@ public abstract class QueryConfig {
                 return "explain " + query;
             }
 
-            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable resource persists beyond method
+            @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"}) // lifetime of autocloseable resource persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
