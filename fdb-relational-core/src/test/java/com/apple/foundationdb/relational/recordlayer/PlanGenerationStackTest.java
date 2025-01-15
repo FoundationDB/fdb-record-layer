@@ -149,14 +149,20 @@ public class PlanGenerationStackTest {
                     Arguments.of(63, "select * from restaurant USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", "Unknown index(es) REVIEWER_NAME_IDX"),
                     Arguments.of(64, "select * from restaurant with continuation", "syntax error[[]]select * from restaurant with continuation[[]]                                          ^^"),
                     Arguments.of(65, "select X.rest_no from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", null),
-                    Arguments.of(66, "select X.UNKNOWN from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", "Attempting to query non existing column 'X.UNKNOWN'"),
+                    Arguments.of(  66, "select X.UNKNOWN from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", "Attempting to query non existing column 'X.UNKNOWN'"),
                     Arguments.of(67, "select X.rest_no from (select Y.rest_no from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) Y where 42 >= Y.rest_no OR 42 > Y.rest_no) X", null),
                     Arguments.of(68, "select X.rating from restaurant AS Rec, (select rating from Rec.reviews) X", null),
                     Arguments.of(69, "select COUNT(MAX(Y.rating)) FROM (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY Y.rest_no", "unsupported nested aggregate(s) count(max_l"),
                     Arguments.of(70, "select rating from restaurant GROUP BY rest_no", "Attempting to query non existing column 'RATING'"),
                     // TODO understand why the query below cannot be planned
                     //Arguments.of(71, "select rating + rest_no, MAX(rest_no) from (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY rest_no, rating", null),
-                    Arguments.of(72, "insert into restaurant_reviewer values (42, \"wrong\", null, null)", "Attempting to query non existing column 'wrong'")
+                    Arguments.of(72, "insert into restaurant_reviewer values (42, \"wrong\", null, null)", "Attempting to query non existing column 'wrong'"),
+                    Arguments.of(73, "with recursive c as (with c as (select * from restaurant) select * from c) select * from c", "ambiguous nested recursive CTE name"),
+                    Arguments.of(74, "with recursive c as (with c1 as (select * from restaurant) select * from c1) select * from c", null),
+                    Arguments.of(75, "with recursive c as (select * from t, c) select * from c", "recursive CTE does not contain non-recursive term"),
+                    Arguments.of(76, "with recursive c1 as (select * from restaurant union all select * from c1) select * From c1", null),
+                    Arguments.of(77, "with recursive c as (with recursive c1 as (select * from restaurant union all select * from c1) select * From c1 union all select * from restaurant, c) select * from c", null),
+                    Arguments.of(78, "with recursive c as (with c as (select * from restaurant) select * from c union all select * from restaurant) select * from c union all select * from restaurant", "ambiguous nested recursive CTE name")
             );
         }
     }

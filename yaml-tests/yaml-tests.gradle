@@ -51,57 +51,71 @@ dependencies {
     implementation project(coreProject)
     implementation project(path: coreProject, configuration: 'tests')
     implementation project(":fdb-relational-api")
-    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "com.google.protobuf:protobuf-java-util:${protobufVersion}"
     implementation project(":fdb-relational-core")
-    implementation "org.yaml:snakeyaml:${snakeyamlVersion}"
-    implementation "com.google.code.findbugs:jsr305:${jsr305Version}"
-    implementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    implementation(libs.asciitable)
+    implementation(libs.jsr305)
+    implementation(libs.junit.api)
+    implementation(libs.log4j.api)
+    implementation(libs.protobuf)
+    implementation(libs.protobuf.util)
+    implementation(libs.snakeyaml)
 
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation project(":fdb-relational-server")
     testImplementation project(":fdb-relational-jdbc")
-    implementation "de.vandermeer:asciitable:${asciitableVersion}"
-    implementation "io.github.java-diff-utils:java-diff-utils:4.12"
-    // slf4j binding. Allows Record Layer dependencies to log to same place as Relational
-    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    implementation(libs.diffutils)
 }
 
-ext.resolveOtherServer = { ->
+// This "method" resolves the latest shadowJar version of the valkyrie-server, and returns the file reference to it
+// which can be used in `Copy` tasks.
+ext.resolveOtherServer = { Set<String> rejectedVersions ->
     def configurationName = "resolveArtifact-${UUID.randomUUID()}"
     return rootProject.with {
         configurations.create(configurationName, {
             resolutionStrategy {
-                failOnChangingVersions()
                 // Note: In the root of the project we set cacheChangingModulesFor and cacheDynamicVersionFor to 0
                 // We explicitly change that for changing modules, because we should reject those anyways.
                 cacheChangingModulesFor 1000, "days" // TTL for snapshots
             }
         })
-        // I tried setting the version to 'latest.release', but that causes it to download all of the snapshots
-        // every time you execute. This is because `latest.release` becomes `LatestVersionSelector` which
-        // `requiresMetadata`, because it looks at the metadata for the module to determine if it is a release.
-        // I also tried just setting it to `+`, but that causes it to fetch the latest snapshot, which isn't exactly
-        // what we want.
+        // If you're wondering why this doesn't just use `latest.release`:
+        // `latest.release` becomes `LatestVersionSelector` which `requiresMetadata` in order to determine if the
+        // version in question is a release. This means that it can't just look at the version listing, it has to
+        // download all of them, and reject them. This adds a frustrating amount of time to the build.
+        // Instead we specify `+` which does not require the metadata, and then reject a list of versions.
+        // Every time we get a version that has `-SNAPSHOT` we add it to the `rejectedVersions` list, and recurse
+        // until we find a version that doesn't have a `-SNAPSHOT`, and that's what we use.
         dependencies.add(configurationName,
                 ['group': 'org.foundationdb',
                  'name': 'fdb-relational-server',
-                 'version': '3.5-SNAPSHOT', // todo: will have to set to a known version once a build is published
                  // the all classifier specifies that we want to fetch the shadow jar, which includes all the
                  // dependencies
                  'classifier': 'all'],
                 {
+                    version {
+                        strictly '+'
+                        if (rejectedVersions.size() > 0) {
+                            reject rejectedVersions.toArray(new String[0])
+                        }
+                    }
                     // we don't want to take in any transitive dependencies.
                     // There shouldn't be any external dependencies, but commenting this out, this fails with a missing
                     // grpc dependency.
                     transitive=false
-                    changing=true
                 })
         def configuration = configurations.getByName(configurationName, { })
 
         def resolution = configuration.resolve()[0]
+        def versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
+        if (versionMatch.size() != 0) {
+            System.out.println("Rejecting old external server: " + resolution.getName())
+            def version = versionMatch[0][1]
+            // check that the version is new, to more obviously catch potential infinite loops
+            assert rejectedVersions.add(version)
+            return resolveOtherServer(rejectedVersions)
+        }
         System.out.println("Downloaded old external server: " + resolution.getName())
         return resolution
     }
@@ -113,8 +127,7 @@ task cleanExternalServerDirectory(type: Delete) {
 
 task downloadExternalServer(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
-    // todo: will be able to uncomment once other server has been published
-    // from resolveOtherServer()
+    from resolveOtherServer(new HashSet<String>())
     into project.layout.buildDirectory.dir('externalServer')
 }
 

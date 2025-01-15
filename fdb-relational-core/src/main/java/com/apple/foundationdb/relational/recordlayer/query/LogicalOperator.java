@@ -38,6 +38,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -480,6 +482,9 @@ public class LogicalOperator {
     public static LogicalOperator generateUnionAll(@Nonnull LogicalOperators unionLegs,
                                                    @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
         Assert.thatUnchecked(!unionLegs.isEmpty());
+        if (unionLegs.size() == 1) {
+            return unionLegs.first();
+        }
         final var quantifiers = unionLegs.getQuantifiers();
         final var maybeType = SemanticAnalyzer.validateUnionTypes(LogicalOperators.of(unionLegs));
         if (maybeType.isEmpty()) {
@@ -537,5 +542,28 @@ public class LogicalOperator {
                 return subValue;
             })));
         }).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    public static LogicalOperator newTemporaryTableScan(@Nonnull final Identifier operatorId,
+                                                        @Nonnull final Identifier tempTableId,
+                                                        @Nonnull final Type type) {
+        final var tempTableAlias = CorrelationIdentifier.of(tempTableId.getName());
+        final var tempTableScan = TempTableScanExpression.ofCorrelated(tempTableAlias, type);
+        final var quantifier = Quantifier.forEach(Reference.of(tempTableScan));
+        final var expressions = Expressions.fromQuantifier(quantifier);
+        return LogicalOperator.newNamedOperator(operatorId, expressions, quantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator newTemporaryTableInsert(@Nonnull final LogicalOperator input,
+                                                          @Nonnull final Identifier identifier,
+                                                          @Nonnull final Type type) {
+        final var tempTableAlias = CorrelationIdentifier.of(identifier.getName());
+        final var tempTableInsert = TempTableInsertExpression.ofCorrelated(input.getQuantifier().narrow(Quantifier.ForEach.class),
+                tempTableAlias, type);
+        final var quantifier = Quantifier.forEach(Reference.of(tempTableInsert));
+        final var expressions = Expressions.fromQuantifier(quantifier);
+        return LogicalOperator.newUnnamedOperator(expressions, quantifier);
     }
 }

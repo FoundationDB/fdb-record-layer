@@ -19,7 +19,7 @@
  */
 
 plugins {
-    id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
+    alias(libs.plugins.shadow)
 }
 
 def coreProject = ":${ext.coreProjectName}"
