@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -48,6 +49,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -83,6 +85,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
+    private final Set<ScalarValuedFunction> scalarValuedFunctions;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -112,6 +116,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
+                Collections.unmodifiableSet(orig.scalarValuedFunctions),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -131,6 +136,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
+                             @Nonnull Set<ScalarValuedFunction> scalarValuedFunctions,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -147,6 +153,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
+        this.scalarValuedFunctions = scalarValuedFunctions;
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
@@ -340,6 +347,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     public List<FormerIndex> getFormerIndexes() {
         return formerIndexes;
+    }
+
+    @Nonnull
+    public Collection<ScalarValuedFunction> getAllScalarValuedFunctions() {
+        return scalarValuedFunctions;
     }
 
     public boolean isSplitLongRecords() {
@@ -693,6 +705,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
 
         // Add in the final options.
+        builder.addAllScalarValuedFunction(scalarValuedFunctions.stream().map(ScalarValuedFunction::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
