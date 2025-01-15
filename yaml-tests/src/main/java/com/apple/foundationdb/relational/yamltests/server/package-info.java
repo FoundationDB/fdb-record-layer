@@ -19,6 +19,6 @@
  */
 
 /**
- * Classes to support running the yaml tests against an external server.
+ * Utilities for interacting with an external server while running yaml tests.
  */
 package com.apple.foundationdb.relational.yamltests.server;

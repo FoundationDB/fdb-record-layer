@@ -28,7 +28,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.DatabaseMetaData;
@@ -36,7 +35,9 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A connection factory that creates a connection that can be used with multiple servers.
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
 public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFactory {
     // The fixed index of the default connection
     public static final int DEFAULT_CONNECTION = 0;
+    private final Set<String> versionsUnderTest;
 
     /**
      * Server selection policy.
@@ -60,22 +62,26 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     private final int initialConnection;
     @Nonnull
     private final YamlRunner.YamlConnectionFactory defaultFactory;
-    @Nullable
+    @Nonnull
     private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
 
     public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nullable final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
+                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
         this(ConnectionSelectionPolicy.DEFAULT, 0, defaultFactory, alternateFactories);
     }
 
     public MultiServerConnectionFactory(@Nonnull final ConnectionSelectionPolicy connectionSelectionPolicy,
                                         final int initialConnection,
                                         @Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nullable final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
+                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
         this.connectionSelectionPolicy = connectionSelectionPolicy;
         this.initialConnection = initialConnection;
         this.defaultFactory = defaultFactory;
         this.alternateFactories = alternateFactories;
+        this.versionsUnderTest =
+                Stream.concat(Stream.of(defaultFactory), alternateFactories.stream())
+                        .flatMap(yamlConnectionFactory -> yamlConnectionFactory.getVersionsUnderTest().stream())
+                        .collect(Collectors.toSet());
     }
 
     @Override
@@ -83,19 +89,20 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         return new MultiServerRelationalConnection(connectionSelectionPolicy, initialConnection, defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
     }
 
-    @Nullable
+    @Override
+    public Set<String> getVersionsUnderTest() {
+        return versionsUnderTest;
+    }
+
+    @Nonnull
     private List<RelationalConnection> alternateConnections(URI connectPath) {
-        if (alternateFactories == null) {
-            return null;
-        } else {
-            return alternateFactories.stream().map(factory -> {
-                try {
-                    return factory.getNewConnection(connectPath);
-                } catch (SQLException e) {
-                    throw new IllegalStateException("Failed to create a connection", e);
-                }
-            }).collect(Collectors.toList());
-        }
+        return alternateFactories.stream().map(factory -> {
+            try {
+                return factory.getNewConnection(connectPath);
+            } catch (SQLException e) {
+                throw new IllegalStateException("Failed to create a connection", e);
+            }
+        }).collect(Collectors.toList());
     }
 
     /**
@@ -115,15 +122,13 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         public MultiServerRelationalConnection(@Nonnull ConnectionSelectionPolicy connectionSelectionPolicy,
                                              final int initialConnecion,
                                              @Nonnull final RelationalConnection defaultConnection,
-                                             @Nullable List<RelationalConnection> alternateConnections) {
+                                             @Nonnull List<RelationalConnection> alternateConnections) {
             this.connectionSelectionPolicy = connectionSelectionPolicy;
             this.currentConnectionSelector = initialConnecion;
             allConnections = new ArrayList<>();
             // The default connection is always the one at location 0
             allConnections.add(defaultConnection);
-            if (alternateConnections != null) {
-                allConnections.addAll(alternateConnections);
-            }
+            allConnections.addAll(alternateConnections);
         }
 
         @Override
