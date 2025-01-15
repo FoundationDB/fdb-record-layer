@@ -48,8 +48,9 @@ public interface Block {
      *
      * @param document a region in the file
      * @param executionContext information needed to carry out the execution
+     * @param blockCount the number of previous blocks in the file
      */
-    static Block parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+    static Block parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext, final int blockCount) {
         final var blockObject = Matchers.map(document, "block");
         Assert.thatUnchecked(blockObject.size() == 1, "Illegal Format: A block is expected to be a map of size 1");
         final var entry = Matchers.firstEntry(blockObject, "block key-value");
@@ -63,6 +64,8 @@ public interface Block {
             case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
                 return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
             case FileOptions.OPTIONS:
+                Assert.thatUnchecked(blockCount == 0,
+                        "File level options must be the first block, but found one at line " + lineNumber);
                 return FileOptions.parse(lineNumber, entry.getValue(), executionContext);
             default:
                 throw new RuntimeException("Cannot recognize the type of block");
