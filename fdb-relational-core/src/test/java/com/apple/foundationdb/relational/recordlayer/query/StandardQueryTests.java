@@ -932,7 +932,7 @@ public class StandardQueryTests {
                 "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
                 "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
                 "CREATE FUNCTION lat(x Location) RETURNS string AS x.coord.latitude\n" +
-                "CREATE FUNCTION name(x Location) RETURNS string AS x.name\n" +
+                "CREATE FUNCTION \"name\"(x Location) RETURNS string AS x.name\n" +
                 "CREATE FUNCTION id(x bigint) RETURNS bigint AS x";
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {

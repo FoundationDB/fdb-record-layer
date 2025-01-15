@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.RecordKeyExpressionProto;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import com.google.protobuf.DescriptorProtos;

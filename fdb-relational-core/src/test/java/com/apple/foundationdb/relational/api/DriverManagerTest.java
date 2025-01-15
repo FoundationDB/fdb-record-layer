@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +29,7 @@ import org.mockito.Mockito;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;

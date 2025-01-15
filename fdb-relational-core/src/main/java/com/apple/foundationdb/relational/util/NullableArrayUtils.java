@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 

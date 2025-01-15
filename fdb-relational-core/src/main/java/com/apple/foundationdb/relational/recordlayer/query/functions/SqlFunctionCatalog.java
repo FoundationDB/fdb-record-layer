@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Udf;
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Function;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -32,7 +32,10 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.StreamSupport;
 
 import static java.util.stream.Collectors.toList;
@@ -53,7 +56,7 @@ public final class SqlFunctionCatalog implements FunctionCatalog {
     private final ImmutableMap<String, BuiltInFunction<? extends Typed>> synonyms;
 
     @Nonnull
-    private final Map<String, Function<? extends Typed>> udfMap;
+    private final Map<String, Function<? extends Typed>> scalarValuedFunctionMap = new HashMap<>();
 
     private SqlFunctionCatalog() {
         this.synonyms = createSynonyms();
@@ -65,12 +68,12 @@ public final class SqlFunctionCatalog implements FunctionCatalog {
         if (synonyms.get(name.toLowerCase(Locale.ROOT)) != null) {
             return Objects.requireNonNull(synonyms.get(name.toLowerCase(Locale.ROOT)));
         }
-        return Assert.notNullUnchecked(udfMap.get(name.toLowerCase(Locale.ROOT)));
+        return Assert.notNullUnchecked(scalarValuedFunctionMap.get(name.toLowerCase(Locale.ROOT)));
     }
 
     @Override
     public boolean containsFunction(@Nonnull String name) {
-        return synonyms.containsKey(name.toLowerCase(Locale.ROOT));
+        return synonyms.containsKey(name.toLowerCase(Locale.ROOT)) || scalarValuedFunctionMap.containsKey(name.toLowerCase(Locale.ROOT));
     }
 
     @Nonnull
@@ -123,9 +126,9 @@ public final class SqlFunctionCatalog implements FunctionCatalog {
     }
 
     @Nonnull
-    public Function<? extends Typed> addFunction(@Nonnull Udf udf) {
-        final var func = udf.getMacroFunction();
-        udfMap.put(udf.getFunctionName(), func);
+    public Function<? extends Typed> addFunction(@Nonnull ScalarValuedFunction scalarValuedFunction) {
+        final var func = scalarValuedFunction.getMacroFunction();
+        scalarValuedFunctionMap.put(scalarValuedFunction.getFunctionName(), func);
         return func;
     }
 

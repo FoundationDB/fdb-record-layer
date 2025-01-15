@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Udf;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -36,8 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.api.metadata.FunctionDefinition;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
@@ -118,6 +115,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
+        System.out.println("visitSelectElements is called");
         return Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
@@ -183,7 +181,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext functionCon) {
-        System.out.println("visitAggregateFunctionCall called");
         return visitAggregateWindowedFunction(functionCon.aggregateWindowedFunction());
     }
 
@@ -254,6 +251,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
+        System.out.println("visitUserDefinedFunctionCall called");
         final var functionName = ctx.userDefinedFunctionName().getText();
         Expressions arguments = visitFunctionArgs(ctx.functionArgs());
         return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
@@ -704,6 +702,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     private Expressions parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
                                           @Nullable List<Type.Record.Field> targetFields) {
+        System.out.println("parseRecordFields is called");
         Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
         final var resultsBuilder = ImmutableList.<Expression>builder();
         for (int i = 0; i < parserRuleContexts.size(); i++) {

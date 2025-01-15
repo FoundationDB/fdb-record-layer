@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Udf;
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -180,7 +180,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Udf visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
+    public ScalarValuedFunction visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
         final var ddlCatalog = metadataBuilder.build();
         // parse the function definition using the newly constructed metadata.
         getDelegate().replaceCatalog(ddlCatalog);
@@ -201,7 +201,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Optional<Value> fieldValue = semanticAnalyzer.lookUpNestedField(functionBody, paramNameId, argumentValue, returnType);
         Assert.thatUnchecked(fieldValue.isPresent(), "couldn't resolve function definition");
 
-        return new Udf(new MacroFunction(ctx.functionName.getText(), List.of(argumentValue.getResultType()), List.of(argumentValue.getAlias()), fieldValue.get()));
+        return new ScalarValuedFunction(new MacroFunction(ctx.functionName.getText(), List.of(argumentValue), fieldValue.get()));
     }
 
     @Nonnull
@@ -264,7 +264,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             metadataBuilder.addTable(tableWithIndex);
         }
         final var udfs = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
-        metadataBuilder.addUdfs(udfs);
+        metadataBuilder.addScalarValuedFunctions(udfs);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 

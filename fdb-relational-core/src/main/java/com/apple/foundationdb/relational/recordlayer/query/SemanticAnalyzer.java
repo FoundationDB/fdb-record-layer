@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Udf;
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.*;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -84,8 +85,8 @@ public class SemanticAnalyzer {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
         // add UDFs to functionCatalog
-        for (Udf udf: ((RecordLayerSchemaTemplate) metadataCatalog).getAllUdfs()) {
-            ((SqlFunctionCatalog)this.functionCatalog).addFunction(udf);
+        for (ScalarValuedFunction scalarValuedFunction: ((RecordLayerSchemaTemplate) metadataCatalog).getAllScalarValuedFunctions()) {
+            ((SqlFunctionCatalog)this.functionCatalog).addFunction(scalarValuedFunction);
         }
     }
 
@@ -765,6 +766,7 @@ public class SemanticAnalyzer {
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords,
                                       @Nonnull Expression... arguments) {
+        System.out.println("functionName:" + functionName);
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format("Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookUpFunction(functionName);

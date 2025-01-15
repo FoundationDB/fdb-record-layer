@@ -60,8 +60,8 @@ public class RecordMetadataDeserializer {
                 .setEnableLongRows(recordMetaData.isSplitLongRecords())
                 .setName(schemaTemplateName)
                 .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
-        for (final var u: recordMetaData.getAllUdfs()) {
-            schemaTemplateBuilder.addUdf(u);
+        for (final var u: recordMetaData.getAllScalarValuedFunctions()) {
+            schemaTemplateBuilder.addScalarValuedFunction(u);
         }
         final var nameToTableBuilder = new HashMap<String, RecordLayerTable.Builder>();
         for (final var registeredType : registeredTypes) {

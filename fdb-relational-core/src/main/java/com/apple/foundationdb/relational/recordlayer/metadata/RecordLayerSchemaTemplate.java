@@ -25,13 +25,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.Udf;
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
-import com.apple.foundationdb.relational.api.metadata.FunctionDefinition;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
@@ -72,7 +71,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerTable> tables;
 
     @Nonnull
-    private final Set<Udf> udfs;
+    private final Set<ScalarValuedFunction> scalarValuedFunctions;
+
     private final int version;
 
     private final boolean enableLongRows;
@@ -90,12 +90,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<Udf> udfs,
+                                      @Nonnull final Set<ScalarValuedFunction> scalarValuedFunctions,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions) {
         this.name = name;
         this.tables = tables;
+        this.scalarValuedFunctions = scalarValuedFunctions;
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -106,7 +107,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<Udf> udfs,
+                                      @Nonnull final Set<ScalarValuedFunction> scalarValuedFunctions,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -114,6 +115,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.name = name;
         this.version = version;
         this.tables = tables;
+        this.scalarValuedFunctions = scalarValuedFunctions;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
@@ -155,8 +157,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    public Set<Udf> getAllUdfs() {
-        return udfs;
+    public Set<ScalarValuedFunction> getAllScalarValuedFunctions() {
+        return scalarValuedFunctions;
     }
 
     @Nonnull
@@ -190,7 +192,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull RecordMetaData metaData,
                                                                @Nonnull String templateName,
                                                                int version) {
-        System.out.println("RecordLayerSchemaTemplate.fromRecordMetadata is called");
         final var deserializer = new RecordMetadataDeserializer(metaData);
         final var builder = deserializer.getSchemaTemplate(templateName, version);
         return builder.setCachedMetadata(metaData).build();
@@ -211,7 +212,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public Optional<Table> findTableByName(@Nonnull final String tableName) {
         for (final var table : getTables()) {
-            System.out.println("findTableByName:" + table.getName());
             if (table.getName().equals(tableName)) {
                 return Optional.of(table);
             }
@@ -323,12 +323,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private final Map<String, RecordLayerTable> tables;
 
+        private final Set<ScalarValuedFunction> scalarValuedFunctions;
+
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
 
         private RecordMetaData cachedMetadata;
 
         private Builder() {
             tables = new LinkedHashMap<>();
+            scalarValuedFunctions = new HashSet<>();
             auxiliaryTypes = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
@@ -417,15 +420,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder addUdf(@Nonnull Udf Udf) {
-            Assert.thatUnchecked(!udfMap.containsKey(Udf.getFunctionName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, Udf.getFunctionName());
-            udfMap.put(Udf.getFunctionName(), Udf);
+        public Builder addScalarValuedFunction(@Nonnull ScalarValuedFunction scalarValuedFunction) {
+            scalarValuedFunctions.add(scalarValuedFunction);
             return this;
         }
 
         @Nonnull
-        public Builder addUdfs(@Nonnull Collection<Udf> Udf) {
-            Udf.forEach(this::addUdf);
+        public Builder addScalarValuedFunctions(@Nonnull Collection<ScalarValuedFunction> scalarValuedFunctions) {
+            scalarValuedFunctions.forEach(this::addScalarValuedFunction);
             return this;
         }
 
@@ -445,13 +447,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         public RecordLayerTable extractTable(@Nonnull final String name) {
             Assert.thatUnchecked(tables.containsKey(name), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
             return tables.remove(name);
-        }
-
-        @Nonnull
-        public DataType.Named extractAuxiliaryType(@Nonnull final String name) {
-            System.out.println("extractAuxiliaryType called with:" + name + " map:" + auxiliaryTypes);
-            Assert.thatUnchecked(auxiliaryTypes.containsKey(name.toUpperCase(Locale.ROOT)), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
-            return auxiliaryTypes.remove(name.toUpperCase(Locale.ROOT));
         }
 
         @Nonnull
@@ -493,11 +488,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             if (needsResolution) {
                 resolveTypes();
             }
-            System.out.println("RecordLayerSchemaTemplate name:" + name + " is build with auxiliary type size:" + auxiliaryTypes.size());
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions, cachedMetadata);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), scalarValuedFunctions, version, enableLongRows, storeRowVersions, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), scalarValuedFunctions, version, enableLongRows, storeRowVersions);
             }
         }
 
