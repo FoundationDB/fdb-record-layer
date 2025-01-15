@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,11 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
-import org.junit.jupiter.api.Disabled;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -70,6 +73,27 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         }
     }
 
+    @BeforeAll
+    public static void startServer() throws IOException, InterruptedException {
+        final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
+        final File[] externalServers = Objects.requireNonNull(
+                externalDirectory.listFiles(file -> file.getName().endsWith(".jar")),
+                "No downloaded server jars were found");
+        Assertions.assertEquals(1, externalServers.length);
+        File jar = externalServers[0];
+        LOG.info("Starting " + jar);
+        ProcessBuilder processBuilder = new ProcessBuilder("java", "-jar", jar.getAbsolutePath());
+        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+
+        serverProcess = processBuilder.start();
+        // TODO: There should be a better way to figure out that the server is fully up and  running
+        Thread.sleep(3000);
+        if ((serverProcess == null) || !serverProcess.isAlive()) {
+            Assertions.fail("Failed to start the external server");
+        }
+    }
+
     @Override
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
         return new MultiServerConnectionFactory(
@@ -92,41 +116,5 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
                 return Set.of(externalServer.getVersion());
             }
         };
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void updateDeleteReturning() throws Exception {
-        super.updateDeleteReturning();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void indexedFunctions() throws Exception {
-        super.indexedFunctions();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void bitmap() throws Exception {
-        super.bitmap();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void cte() throws Exception {
-        super.cte();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void unionEmptyTables() throws Exception {
-        super.unionEmptyTables();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void union() throws Exception {
-        super.union();
     }
 }

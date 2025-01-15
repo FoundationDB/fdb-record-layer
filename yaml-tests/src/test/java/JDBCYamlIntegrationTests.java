@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,69 +26,6 @@ import org.junit.jupiter.api.Test;
  * through JDBC.
  */
 public abstract class JDBCYamlIntegrationTests extends YamlIntegrationTests {
-
-    @Override
-    @Test
-    @Disabled("TODO: Flakey")
-    public void orderBy() throws Exception {
-        super.orderBy();
-    }
-
-    @Override
-    @Test
-    @Disabled("TODO: Flakey")
-    public void scenarioTests() throws Exception {
-        super.scenarioTests();
-    }
-
-    @Override
-    @Test
-    @Disabled("Requires continuation support")
-    public void versionsTests() throws Exception {
-        super.versionsTests();
-    }
-
-    @Override
-    @Test
-    @Disabled("TODO: Need to work on supporting labels")
-    public void maxRows() throws Exception {
-        super.maxRows();
-    }
-
-    @Override
-    @Test
-    @Disabled("TODO")
-    public void selectAStar() throws Exception {
-        super.selectAStar();
-    }
-
-    @Override
-    @Test
-    @Disabled("TODO: Flakey")
-    public void aggregateIndexTestsCount() throws Exception {
-        super.aggregateIndexTestsCount();
-    }
-
-    @Override
-    @Test
-    @Disabled("TODO: Flakey")
-    public void joinTests() throws Exception {
-        super.joinTests();
-    }
-
-    @Override
-    @Test
-    @Disabled("TODO: Flakey")
-    public void nested() throws Exception {
-        super.nested();
-    }
-
-    @Override
-    @Test
-    @Disabled("TODO: Flakey")
-    public void showcasingTests() throws Exception {
-        super.showcasingTests();
-    }
 
     @Override
     @Test
