@@ -87,7 +87,6 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
-        Assumptions.abort(); // Will be able to re-enable when we have a published external server to use here
         File jar;
         if (jarName == null) {
             final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
