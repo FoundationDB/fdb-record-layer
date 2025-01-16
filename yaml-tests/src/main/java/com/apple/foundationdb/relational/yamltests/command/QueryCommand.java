@@ -161,7 +161,11 @@ public final class QueryCommand extends Command {
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
                 int finalMaxRows1 = maxRows;
-                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
+                // Do not run explains when running in multi-server mode. This is done because explains
+                // can change between versions (which is OK) and we only compare them with the current version
+                if (! connection.isMultiServer()) {
+                    runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
+                }
             } else {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");

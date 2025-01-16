@@ -346,4 +346,14 @@ public interface RelationalConnection extends java.sql.Connection {
     default ExpressionFactory createExpressionBuilderFactory() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
+
+    /**
+     * Whether the connection supports multiple servers.
+     * There are some changes to the behavior that are to be expected when running the tests in multi-server mode,
+     * this method allows the system to make that decision.
+     * @return TRUE if this connection can support multiple servers, false otherwise.
+     */
+    default boolean isMultiServer() {
+        return false;
+    }
 }
