@@ -26,10 +26,8 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -74,14 +72,50 @@ public class QueryExecutor {
 
     public Continuation execute(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
                                 @Nonnull QueryConfig config, boolean checkCache, int maxRows) throws RelationalException, SQLException {
-        Continuation continuationAfter = ContinuationImpl.END;
-        final var currentQuery = config.decorateQuery(query, continuation);
+        final var currentQuery = config.decorateQuery(query);
+        if (continuation == null || continuation.atBeginning()) {
+            return executeQuery(connection, config, currentQuery, checkCache, maxRows);
+        } else {
+            return executeContinuation(connection, continuation, config, maxRows);
+        }
+    }
+
+    @SuppressWarnings({
+            "PMD.CloseResource", // lifetime of autocloseable resource persists beyond current method
+            "PMD.CompareObjectsWithEquals" // pointer equality used on purpose
+    })
+    private Object executeStatementAndCheckCacheIfNeeded(@Nonnull Statement s, @Nonnull RelationalConnection connection,
+                                                     @Nullable String queryString, boolean checkCache) throws SQLException, RelationalException {
+        if (!checkCache) {
+            return executeStatement(s, queryString);
+        }
+        final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
+        final var preMetricCollector = embeddedRelationalConnection.getMetricCollector();
+        final var preValue = preMetricCollector != null &&
+                preMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
+                preMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
+        final var toReturn = executeStatement(s, queryString);
+        final var postMetricCollector = embeddedRelationalConnection.getMetricCollector();
+        final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
+                postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
+        final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
+        if (!planFound) {
+            reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
+        } else {
+            logger.debug("🎁 Retrieved the plan from the cache!");
+        }
+        return toReturn;
+    }
+
+    private Continuation executeQuery(@Nonnull RelationalConnection connection, @Nonnull QueryConfig config,
+                                      @Nonnull String currentQuery, boolean checkCache, int maxRows) throws RelationalException {
+        Continuation continuationAfter = null;
         try {
             if (parameters == null) {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.createStatement()) {
                     s.setMaxRows(maxRows);
-                    final var queryResult = executeQueryAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache);
+                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache);
                     config.checkResult(queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -92,7 +126,7 @@ public class QueryExecutor {
                 try (var s = connection.prepareStatement(currentQuery)) {
                     s.setMaxRows(maxRows);
                     setParametersInPreparedStatement(s, connection);
-                    final var queryResult = executeQueryAndCheckCacheIfNeeded(s, connection, null, checkCache);
+                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, null, checkCache);
                     config.checkResult(queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -106,35 +140,34 @@ public class QueryExecutor {
         return continuationAfter;
     }
 
-    @SuppressWarnings({
-            "PMD.CloseResource", // lifetime of autocloseable resource persists beyond current method
-            "PMD.CompareObjectsWithEquals" // pointer equality used on purpose
-    })
-    private Object executeQueryAndCheckCacheIfNeeded(@Nonnull Statement s, @Nonnull RelationalConnection connection,
-                                                     @Nullable String queryString, boolean checkCache)
-            throws SQLException, RelationalException {
-        if (!checkCache) {
-            return executeQuery(s, queryString);
+    private Continuation executeContinuation(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
+                                             @Nonnull QueryConfig config, int maxRows) {
+        Continuation continuationAfter = null;
+        try {
+            logger.debug("⏳ Executing continuation for query '{}'", this.toString());
+            try (var s = connection.prepareStatement("EXECUTE CONTINUATION ?continuation;")) {
+                s.setMaxRows(maxRows);
+                if (parameters != null) {
+                    setParametersInPreparedStatement(s, connection);
+                }
+                // set continuation
+                s.setObject("continuation", continuation.serialize());
+                // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
+                // for caching.
+                final var queryResult = executeStatement(s, null);
+                config.checkResult(queryResult, this.toString());
+                if (queryResult instanceof RelationalResultSet) {
+                    continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
+                }
+            }
+            logger.debug("👍 Finished Executing continuation for query '{}'", this.toString());
+        } catch (SQLException sqle) {
+            config.checkError(sqle, query);
         }
-        final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
-        final var preMetricCollector = embeddedRelationalConnection.getMetricCollector();
-        final var preValue = preMetricCollector != null &&
-                preMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
-                preMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
-        final var toReturn = executeQuery(s, queryString);
-        final var postMetricCollector = embeddedRelationalConnection.getMetricCollector();
-        final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
-                postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
-        final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
-        if (!planFound) {
-            reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
-        } else {
-            logger.debug("🎁 Retrieved the plan from the cache!");
-        }
-        return toReturn;
+        return continuationAfter;
     }
 
-    private static Object executeQuery(@Nonnull Statement s, @Nullable String q) throws SQLException {
+    private static Object executeStatement(@Nonnull Statement s, @Nullable String q) throws SQLException {
         final var execResult = q == null ? ((PreparedStatement) s).execute() : s.execute(q);
         return execResult ? s.getResultSet() : s.getUpdateCount();
     }

@@ -33,19 +33,17 @@ import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A {@link QueryCommand} is one of the possible {@link Command} supported in the YAML testing framework that is used
@@ -167,7 +165,7 @@ public final class QueryCommand extends Command {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
                 }
 
-                if (exhausted && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName())) {
+                if (exhausted && (QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(queryConfig.getConfigName()))) {
                     Assert.fail(String.format("‼️ Expecting more results, however no more rows are available to fetch at line %d%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                             "%s%n" +
