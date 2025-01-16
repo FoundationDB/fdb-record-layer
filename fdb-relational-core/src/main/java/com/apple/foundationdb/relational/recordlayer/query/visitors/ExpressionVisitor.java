@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -116,6 +115,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
+        System.out.println("visitSelectElements is called");
         return Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
@@ -216,7 +216,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var classNameExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
                 final var result = visitFunctionArg(argumentNodes.get(0));
                 Assert.thatUnchecked(result.getUnderlying() instanceof LiteralValue,
-                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect UDF '%s'",
+                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect Udf '%s'",
                                 result.getUnderlying()));
                 return result;
             });
@@ -246,6 +246,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             pickerValues.add(defaultConsequent.getUnderlying());
         }
         return Expression.ofUnnamed(new PickValue(new ConditionSelectorValue(implications.build()), pickerValues.build()));
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
+        System.out.println("visitUserDefinedFunctionCall called");
+        final var functionName = ctx.userDefinedFunctionName().getText();
+        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
     }
 
     @Nonnull
@@ -693,6 +702,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     private Expressions parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
                                           @Nullable List<Type.Record.Field> targetFields) {
+        System.out.println("parseRecordFields is called");
         Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
         final var resultsBuilder = ImmutableList.<Expression>builder();
         for (int i = 0; i < parserRuleContexts.size(); i++) {

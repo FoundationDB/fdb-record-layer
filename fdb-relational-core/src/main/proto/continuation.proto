@@ -22,7 +22,6 @@ syntax = "proto3";
 package com.apple.foundationdb.relational.continuation;
 import "record_metadata.proto";
 import "record_query_plan.proto";
-import "record_query_runtime.proto";
 
 option java_multiple_files = true;
 option java_package = "com.apple.foundationdb.relational.continuation";

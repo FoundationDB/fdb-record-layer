@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
@@ -30,19 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.JavaCallFunction;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.*;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -52,6 +40,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.functions.FunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
@@ -101,6 +90,10 @@ public class SemanticAnalyzer {
                             @Nonnull FunctionCatalog functionCatalog) {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
+        // add UDFs to functionCatalog
+        for (ScalarValuedFunction scalarValuedFunction: ((RecordLayerSchemaTemplate) metadataCatalog).getAllScalarValuedFunctions()) {
+            ((SqlFunctionCatalog)this.functionCatalog).addFunction(scalarValuedFunction);
+        }
     }
 
     /**
@@ -380,7 +373,7 @@ public class SemanticAnalyzer {
                         continue;
                     }
                 }
-                final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
+                final var nestedFieldMaybe = lookUpNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
                     checkForPseudoColumns = false;
@@ -420,7 +413,7 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
+    public Optional<Expression> lookUpNestedField(@Nonnull Identifier requestedIdentifier,
                                                   @Nonnull Expression existingExpression,
                                                   @Nonnull LogicalOperator logicalOperator,
                                                   boolean matchQualifiedOnly) {
@@ -472,6 +465,47 @@ public class SemanticAnalyzer {
         final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlying(), fieldPath);
         final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), type, attributeExpression);
         return Optional.of(nestedAttribute);
+    }
+
+    @Nonnull
+    public Optional<Value> lookUpNestedField(@Nonnull Identifier requestedIdentifier,
+                                             @Nonnull Identifier paramId,
+                                             @Nonnull QuantifiedObjectValue existingValue,
+                                             @Nonnull DataType targetDataType) {
+        Assert.thatUnchecked(requestedIdentifier.prefixedWith(paramId), "Invalid function definition");
+
+        // x -> x
+        if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {
+            Assert.thatUnchecked(existingValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
+            return Optional.of(existingValue);
+        }
+        // find nested field path
+        final var remainingPath = requestedIdentifier.removePrefix(paramId);
+        final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
+        DataType existingDataType = DataTypeUtils.toRelationalType(existingValue.getResultType());
+        for (String s : remainingPath) {
+            if (existingDataType.getCode() != DataType.Code.STRUCT) {
+                return Optional.empty();
+            }
+            final var fields = ((DataType.StructType) existingDataType).getFields();
+            var found = false;
+            for (int j = 0; j < fields.size(); j++) {
+                if (fields.get(j).getName().equals(s)) {
+                    accessors.add(new FieldValue.Accessor(fields.get(j).getName(), j));
+                    existingDataType = fields.get(j).getType();
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return Optional.empty();
+            }
+        }
+        // probably need to check if currentDataType = targetDataType
+        final var fieldPath = FieldValue.resolveFieldPath(existingValue.getResultType(), accessors.build());
+        final var fieldValue = FieldValue.ofFieldsAndFuseIfPossible(existingValue, fieldPath);
+        Assert.thatUnchecked(fieldValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
+        return Optional.of(fieldValue);
     }
 
     @Nonnull
@@ -739,6 +773,7 @@ public class SemanticAnalyzer {
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords,
                                       @Nonnull Expression... arguments) {
+        System.out.println("functionName:" + functionName);
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format("Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookUpFunction(functionName);

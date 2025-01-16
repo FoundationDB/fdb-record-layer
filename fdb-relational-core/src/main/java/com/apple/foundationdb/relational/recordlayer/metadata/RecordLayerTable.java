@@ -337,7 +337,6 @@ public final class RecordLayerTable implements Table {
             Assert.thatUnchecked(!columnsList.isEmpty(), ErrorCode.INVALID_TABLE_DEFINITION, "Attempting to create table %s without columns", name);
 
             final var indexesSet = ImmutableSet.copyOf(indexes);
-
             return new RecordLayerTable(name, columnsList, indexesSet, getPrimaryKey(), generations, dataType, record);
         }
 
