@@ -49,3 +49,23 @@ jobs:
           fdb-relational-jdbc/.out/reports
           fdb-relational-server/.out/reports
           yaml-tests/.out/reports
+    - name: Test Summary
+      if: always()
+      uses: test-summary/action@v2
+      with:
+        paths: |
+          fdb-java-annotations/.out/test-results/**/TEST-*.xml
+          fdb-extensions/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-core/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-icu/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-spatial/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-lucene/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-jmh/.out/test-results/**/TEST-*.xml
+          examples/.out/test-results/**/TEST-*.xml
+          fdb-relational-api/.out/test-results/**/TEST-*.xml
+          fdb-relational-core/.out/test-results/**/TEST-*.xml
+          fdb-relational-cli/.out/test-results/**/TEST-*.xml
+          fdb-relational-grpc/.out/test-results/**/TEST-*.xml
+          fdb-relational-jdbc/.out/test-results/**/TEST-*.xml
+          fdb-relational-server/.out/test-results/**/TEST-*.xml
+          yaml-tests/.out/test-results/**/TEST-*.xml
