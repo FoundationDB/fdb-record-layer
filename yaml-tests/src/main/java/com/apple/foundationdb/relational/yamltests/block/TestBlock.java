@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
+import com.apple.foundationdb.relational.yamltests.command.SkippedCommand;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -342,15 +343,12 @@ public final class TestBlock extends ConnectedBlock {
             for (var testObject : tests) {
                 final var test = Matchers.arrayList(testObject, "test");
                 final var resolvedCommand = Objects.requireNonNull(Command.parse(test, executionContext));
-                Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
-                final QueryCommand queryCommand = (QueryCommand)resolvedCommand;
-                final Optional<String> skipMessage = queryCommand.skipMessage();
-                if (skipMessage.isPresent()) {
-                    if (logger.isInfoEnabled()) {
-                        logger.info("Line " + queryCommand.getLineNumber() + ": '" + queryCommand.getQuery() + "' --  " + skipMessage.get());
-                    }
+                if (resolvedCommand instanceof SkippedCommand) {
+                    ((SkippedCommand)resolvedCommand).log();
                     continue;
                 }
+                Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
+                final QueryCommand queryCommand = (QueryCommand)resolvedCommand;
                 queryCommands.add(queryCommand);
                 var runAsPreparedMix = getRunAsPreparedMix(options.statementType, options.repetition, randomGenerator);
                 for (int i = 0; i < options.repetition; i++) {

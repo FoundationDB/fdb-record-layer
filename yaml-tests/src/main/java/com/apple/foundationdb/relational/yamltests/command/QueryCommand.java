@@ -41,7 +41,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -78,7 +77,7 @@ public final class QueryCommand extends Command {
     }
 
     @Nonnull
-    public static QueryCommand parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
         final var lineNumber = Matchers.notNull(linedObject, "query").getLineNumber();
@@ -92,6 +91,14 @@ public final class QueryCommand extends Command {
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
                     queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, executionContext)).collect(Collectors.toList());
+            final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
+                    .collect(Collectors.toList());
+            Assert.thatUnchecked(skipConfigs.size() < 2, "Query should not have more than one skip");
+            if (!skipConfigs.isEmpty()) {
+                return new SkippedCommand(lineNumber, executionContext,
+                        ((QueryConfig.SkipConfig)skipConfigs.get(0)).getMessage(),
+                        queryInterpreter.getQuery());
+            }
             return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext);
         } catch (Exception e) {
             throw executionContext.wrapContext(e,
@@ -113,9 +120,8 @@ public final class QueryCommand extends Command {
         }
         this.queryInterpreter = interpreter;
         this.queryConfigs = configs;
-        Assert.thatUnchecked(queryConfigs.stream()
-                .filter(config -> config instanceof QueryConfig.SkipConfig).count() < 2,
-                "Too many skips in a Query " + lineNumber);
+        Assert.thatUnchecked(queryConfigs.stream().noneMatch(config -> config instanceof QueryConfig.SkipConfig),
+                "SkipConfig should not have gotten into QueryCommand " + lineNumber);
     }
 
     public void execute(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
@@ -146,13 +152,6 @@ public final class QueryCommand extends Command {
         Continuation continuation = null;
         int maxRows = 0;
         boolean exhausted = false;
-        final List<String> skips = queryConfigs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
-                .map(config -> ((QueryConfig.SkipConfig)config).getMessage())
-                .collect(Collectors.toList());
-        if (!skips.isEmpty()) {
-            logger.info(skips.stream().collect(Collectors.joining("\n")));
-            return;
-        }
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
@@ -201,17 +200,6 @@ public final class QueryCommand extends Command {
     @Nonnull
     public QueryExecutor instantiateExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         return queryInterpreter.getExecutor(random, runAsPreparedStatement);
-    }
-
-    public Optional<String> skipMessage() {
-        return queryConfigs.stream()
-                .filter(config -> config instanceof QueryConfig.SkipConfig)
-                .map(config -> ((QueryConfig.SkipConfig)config).getMessage())
-                .findFirst();
-    }
-
-    public String getQuery() {
-        return queryInterpreter.getQuery();
     }
 
     static void reportTestFailure(@Nonnull String message) {

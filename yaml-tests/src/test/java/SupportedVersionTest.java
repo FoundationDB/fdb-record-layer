@@ -81,7 +81,8 @@ public class SupportedVersionTest extends YamlTestBase {
                 "current-version-at-block",
                 "current-version-at-query",
                 "higher-at-block",
-                "higher-at-query"
+                "higher-at-query",
+                "fully-supported"
         );
     }
 
