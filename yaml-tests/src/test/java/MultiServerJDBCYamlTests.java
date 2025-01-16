@@ -22,22 +22,15 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
-import java.io.File;
-import java.io.IOException;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
-
-import static com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension.EXTERNAL_SERVER_PROPERTY_NAME;
 
 /**
  * A test runner to launch the YAML tests with multiple servers.
