@@ -237,6 +237,11 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
             return getNextConnection("getPath").getPath();
         }
 
+        @Override
+        public boolean isMultiServer() {
+            return true;
+        }
+
         private RelationalConnection getNextConnection(String op) {
             switch (connectionSelectionPolicy) {
                 case DEFAULT:
