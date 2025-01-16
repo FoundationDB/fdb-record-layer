@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  *     a sequence of positive numbers ({@code 0|[1-9]\\d*} separated by {@code .}s, and an optional {@code -SNAPSHOT}
  *     at the end. Each version component is compared as integers, and versions with a different number of components
  *     are not comparable. A version with {@code -SNAPSHOT} version added to a version the less than the same set of
- *     numbers without {@code -SNAPSHOT} (e.g. {@code 3.4.5.1-SNAPSHOT < 3.4.5.1).
+ *     numbers without {@code -SNAPSHOT} (e.g. {@code 3.4.5.1-SNAPSHOT < 3.4.5.1}).
  * @see <a href="https://github.com/FoundationDB/fdb-record-layer/blob/main/docs/Versioning.md#semantic-versioning">Versioning</a>
  */
 public class SemanticVersion implements Comparable<SemanticVersion> {
