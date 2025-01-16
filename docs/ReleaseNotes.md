@@ -43,6 +43,10 @@ Our API stability annotations have been updated to reflect greater API instabili
 // end next release
 -->
 
+### 4.0.562.0
+
+* **Bug fix** Merge META-INFO/services in relational-server-all.jar [(Issue #3052)](https://github.com/FoundationDB/fdb-record-layer/issues/3052)
+
 ### 4.0.561.0
 
 * **Feature** Introduce SQL support to Recursive CTEs [(Issue #3034)](https://github.com/FoundationDB/fdb-record-layer/issues/3034)

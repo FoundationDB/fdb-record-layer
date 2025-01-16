@@ -176,7 +176,7 @@ public final class QueryCommand extends Command {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
                 }
 
-                if (exhausted && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName())) {
+                if (exhausted && (QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(queryConfig.getConfigName()))) {
                     Assert.fail(String.format("‼️ Expecting more results, however no more rows are available to fetch at line %d%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                             "%s%n" +

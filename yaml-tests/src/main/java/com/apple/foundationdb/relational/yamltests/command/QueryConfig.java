@@ -20,16 +20,15 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
-import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
@@ -39,7 +38,6 @@ import org.opentest4j.AssertionFailedError;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
@@ -106,7 +104,7 @@ public abstract class QueryConfig {
         }
     }
 
-    String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+    String decorateQuery(@Nonnull String query) {
         return query;
     }
 
@@ -151,33 +149,9 @@ public abstract class QueryConfig {
 
     }
 
-    private static String appendWithContinuationIfPresent(@Nonnull String queryString, @Nullable Continuation continuation) {
-        String currentQuery = queryString;
-        if (!currentQuery.isEmpty() && currentQuery.charAt(currentQuery.length() - 1) == ';') {
-            currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
-        }
-        if (continuation != null) {
-            String result;
-            if (continuation.atBeginning()) {
-                result = "START";
-            } else if (continuation.atEnd()) {
-                result = "END";
-            } else {
-                result = Base64.getEncoder().encodeToString(continuation.serialize());
-            }
-            currentQuery += String.format(" with continuation b64'%s'", result);
-        }
-        return currentQuery;
-    }
-
     private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName,
                                                     @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
-
-            @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return appendWithContinuationIfPresent(query, continuation);
-            }
 
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
@@ -213,8 +187,8 @@ public abstract class QueryConfig {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return "explain " + query;
+            String decorateQuery(@Nonnull String query) {
+                return "EXPLAIN " + query;
             }
 
             @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"}) // lifetime of autocloseable resource persists beyond method
@@ -267,11 +241,6 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_ERROR, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return appendWithContinuationIfPresent(query, continuation);
-            }
-
-            @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
                 if (actual instanceof ErrorCapturingResultSet) {
@@ -314,11 +283,6 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_COUNT, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return appendWithContinuationIfPresent(query, continuation);
-            }
-
-            @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
@@ -335,8 +299,8 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return "explain " + query;
+            String decorateQuery(@Nonnull String query) {
+                return "EXPLAIN " + query;
             }
 
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
