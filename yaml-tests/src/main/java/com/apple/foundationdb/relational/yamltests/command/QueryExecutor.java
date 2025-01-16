@@ -70,6 +70,7 @@ public class QueryExecutor {
         this.parameters = parameters;
     }
 
+    @Nullable
     public Continuation execute(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
                                 @Nonnull QueryConfig config, boolean checkCache, int maxRows) throws RelationalException, SQLException {
         final var currentQuery = config.decorateQuery(query);
@@ -107,6 +108,7 @@ public class QueryExecutor {
         return toReturn;
     }
 
+    @Nullable
     private Continuation executeQuery(@Nonnull RelationalConnection connection, @Nonnull QueryConfig config,
                                       @Nonnull String currentQuery, boolean checkCache, int maxRows) throws RelationalException {
         Continuation continuationAfter = null;
@@ -140,7 +142,8 @@ public class QueryExecutor {
         return continuationAfter;
     }
 
-    private Continuation executeContinuation(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
+    @Nullable
+    private Continuation executeContinuation(@Nonnull RelationalConnection connection, @Nonnull Continuation continuation,
                                              @Nonnull QueryConfig config, int maxRows) {
         Continuation continuationAfter = null;
         try {
