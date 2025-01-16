@@ -94,6 +94,11 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         return versionsUnderTest;
     }
 
+    @Override
+    public boolean isMultiServer() {
+        return true;
+    }
+
     @Nonnull
     private List<RelationalConnection> alternateConnections(URI connectPath) {
         return alternateFactories.stream().map(factory -> {
@@ -235,11 +240,6 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         @Override
         public URI getPath() {
             return getNextConnection("getPath").getPath();
-        }
-
-        @Override
-        public boolean isMultiServer() {
-            return true;
         }
 
         private RelationalConnection getNextConnection(String op) {

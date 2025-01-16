@@ -75,6 +75,10 @@ public class QueryExecutor {
     public Continuation execute(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
                                 @Nonnull QueryConfig config, boolean checkCache, int maxRows) throws RelationalException, SQLException {
         Continuation continuationAfter = ContinuationImpl.END;
+        if (!config.shouldExecute()) {
+            logger.debug("👍 Skipped for query '{}'", this.toString());
+            return continuation;
+        }
         final var currentQuery = config.decorateQuery(query, continuation);
         try {
             if (parameters == null) {

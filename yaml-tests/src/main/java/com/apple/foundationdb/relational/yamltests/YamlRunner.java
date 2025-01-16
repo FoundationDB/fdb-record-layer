@@ -85,6 +85,16 @@ public final class YamlRunner {
          * version
          */
         Set<String> getVersionsUnderTest();
+
+        /**
+         * Whether the connection supports multiple servers.
+         * There are some changes to the behavior that are to be expected when running the tests in multi-server mode,
+         * this method allows the system to make that decision.
+         * @return TRUE if this connection factory can support multiple servers, false otherwise.
+         */
+        default boolean isMultiServer() {
+            return false;
+        }
     }
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
