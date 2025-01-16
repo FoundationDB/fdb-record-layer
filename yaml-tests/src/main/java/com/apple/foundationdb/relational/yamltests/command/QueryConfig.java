@@ -146,6 +146,15 @@ public abstract class QueryConfig {
 
     }
 
+    /**
+     * Allow the config to control whether it should be executed or not.
+     * The executor will skip the execution and validation if the config returns false.
+     * @return true if the config should go on for execution, false if not.
+     */
+    boolean shouldExecute() {
+        return true;
+    }
+
     private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName,
                                                     @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
@@ -182,6 +191,12 @@ public abstract class QueryConfig {
     private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value,
                                                      int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
+            @Override
+            boolean shouldExecute() {
+                // Explain is not supported on multi-server configurations. The explain can change
+                // frequently so we don't want to fail the test running it on the old version.
+                return (! executionContext.getConnectionFactory().isMultiServer());
+            }
 
             @Override
             String decorateQuery(@Nonnull String query) {
