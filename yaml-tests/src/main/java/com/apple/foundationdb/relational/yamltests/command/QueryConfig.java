@@ -155,25 +155,6 @@ public abstract class QueryConfig {
         return true;
     }
 
-    private static String appendWithContinuationIfPresent(@Nonnull String queryString, @Nullable Continuation continuation) {
-        String currentQuery = queryString;
-        if (!currentQuery.isEmpty() && currentQuery.charAt(currentQuery.length() - 1) == ';') {
-            currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
-        }
-        if (continuation != null) {
-            String result;
-            if (continuation.atBeginning()) {
-                result = "START";
-            } else if (continuation.atEnd()) {
-                result = "END";
-            } else {
-                result = Base64.getEncoder().encodeToString(continuation.serialize());
-            }
-            currentQuery += String.format(" with continuation b64'%s'", result);
-        }
-        return currentQuery;
-    }
-
     private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName,
                                                     @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
@@ -210,13 +191,6 @@ public abstract class QueryConfig {
     private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value,
                                                      int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
-            @Override
-            boolean shouldExecute() {
-                // Explain is not supported on multi-server configurations. The explain can change
-                // frequently so we don't want to fail the test running it on the old version.
-                return (! executionContext.getConnectionFactory().isMultiServer());
-            }
-
             @Override
             boolean shouldExecute() {
                 // Explain is not supported on multi-server configurations. The explain can change
