@@ -91,6 +91,11 @@ public final class QueryCommand extends Command {
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
                     queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, executionContext)).collect(Collectors.toList());
+
+            Assert.thatUnchecked(configs.stream().skip(1)
+                    .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
+                    "supported_version must be the first config in a query (after the query itself)");
+
             final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
                     .collect(Collectors.toList());
             Assert.thatUnchecked(skipConfigs.size() < 2, "Query should not have more than one skip");

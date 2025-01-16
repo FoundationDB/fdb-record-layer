@@ -60,7 +60,8 @@ public class SupportedVersionTest extends YamlTestBase {
                 "supported-at-query",
                 "unspecified",
                 "lower-at-block",
-                "lower-at-query"
+                "lower-at-query",
+                "late-query-supported-version"
         );
     }
 
@@ -82,7 +83,8 @@ public class SupportedVersionTest extends YamlTestBase {
                 "current-version-at-query",
                 "higher-at-block",
                 "higher-at-query",
-                "fully-supported"
+                "fully-supported",
+                "query-with-multiple-configs"
         );
     }
 
