@@ -77,6 +77,10 @@ public class QueryExecutor {
             logger.debug("👍 Skipped for query '{}'", this.toString());
             return continuation;
         }
+        if (!config.shouldExecute()) {
+            logger.debug("👍 Skipped for query '{}'", this.toString());
+            return continuation;
+        }
         final var currentQuery = config.decorateQuery(query);
         if (continuation == null || continuation.atBeginning()) {
             return executeQuery(connection, config, currentQuery, checkCache, maxRows);
