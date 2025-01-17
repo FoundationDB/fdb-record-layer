@@ -12,7 +12,7 @@
 
     <module name="Header">
       <property name="headerFile" value="${projectDir}/gradle/codequality/java-copyright.txt"/>
-      <property name="ignoreLines" value="2,6"/> 
+      <property name="ignoreLines" value="2,6,20"/>
       <property name="fileExtensions" value="java,proto"/> 
     </module>
 

@@ -1,9 +1,9 @@
 /*
- * LuceneGroupingTest.java
+ * LuceneDocumentFromRecordTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

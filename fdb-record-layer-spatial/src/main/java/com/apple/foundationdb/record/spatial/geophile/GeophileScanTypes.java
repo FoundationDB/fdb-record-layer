@@ -1,5 +1,5 @@
 /*
- * SpatialScanTypes.java
+ * GeophileScanTypes.java
  *
  * This source file is part of the FoundationDB open source project
  *

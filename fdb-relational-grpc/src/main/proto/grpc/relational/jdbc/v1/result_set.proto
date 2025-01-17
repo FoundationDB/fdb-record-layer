@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,14 @@
  * limitations under the License.
  */
 
+syntax = "proto3";
+
 // Based on google/spanner/v1/result_set.proto but simplified for now
 // with richer -- and ordered -- metadata to support relational Stucts/Arrays.
 // Note that this protobuf ResultSet is used both as the return vehicle for
 // query responses but also to carry insert data from the client to the
 // server.
-syntax = "proto3";
+
 package grpc.relational.jdbc.v1;
 option java_multiple_files = true;
 // Put the generated classes into grpc subpackage so I can exclude

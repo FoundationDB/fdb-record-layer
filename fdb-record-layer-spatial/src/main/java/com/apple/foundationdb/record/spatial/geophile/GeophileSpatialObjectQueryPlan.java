@@ -1,5 +1,5 @@
 /*
- * SpatialObjectQueryPlan.java
+ * GeophileSpatialObjectQueryPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *

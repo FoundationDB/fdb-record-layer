@@ -18,10 +18,6 @@
  * limitations under the License.
  */
 
-// Continuation support for the GRPC client-server implementation.
-// This is modeled after the internal continuation.
-// The model has its own "reason" so that it can communicate that at the API level, as well as a wrapper around any
-// internal state it needs to communicate to the server in order to recreate the internal continuation instance.
 syntax = "proto3";
 package grpc.relational.jdbc.v1;
 option java_multiple_files = true;

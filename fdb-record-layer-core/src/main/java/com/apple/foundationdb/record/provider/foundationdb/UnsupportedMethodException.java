@@ -1,5 +1,5 @@
 /*
- * UnsupportedFormatVersionException.java
+ * UnsupportedMethodException.java
  *
  * This source file is part of the FoundationDB open source project
  *
