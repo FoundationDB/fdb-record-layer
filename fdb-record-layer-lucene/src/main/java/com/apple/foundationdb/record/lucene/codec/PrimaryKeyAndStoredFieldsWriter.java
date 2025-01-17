@@ -56,7 +56,7 @@ class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter 
     public void writeField(FieldInfo info, IndexableField field) throws IOException {
         super.writeField(info, field);
         try {
-            if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(info.name) && lucenePrimaryKeySegmentIndex != null) {
+            if (LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME.equals(info.name)) {
                 final byte[] primaryKey = field.binaryValue().bytes;
                 lucenePrimaryKeySegmentIndex.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, info.name);
                 // TODO we store this twice, but we'll probably want to optimize and only store this once
