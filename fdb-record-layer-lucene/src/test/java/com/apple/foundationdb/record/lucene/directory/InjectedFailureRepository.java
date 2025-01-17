@@ -49,7 +49,7 @@ public class InjectedFailureRepository {
     }
 
     public enum Flags {
-        LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX_FORCE_NULL,
+        LUCENE_MAINTAINER_SKIP_INDEX_UPDATE,
     }
 
     // The injected failure state

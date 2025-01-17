@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,22 +21,23 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
+import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexScrubbingToolsMissing;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -47,20 +48,20 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
  * Index Scrubbing Toolbox for a Lucene index maintainer. Scrub missing value index entries - i.e. detect record(s) that should
- * cannot be found in the segment index.
+ * have been indexed, but cannot be found in the segment index.
  */
-public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBStoredRecord<Message>> {
+public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMissing {
     private Collection<RecordType> recordTypes = null;
     private Index index;
+    private boolean isSynthetic;
 
     @Nonnull
     private final LucenePartitioner partitioner;
@@ -81,23 +82,9 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
     public void presetCommonParams(Index index, boolean allowRepair, boolean isSynthetic, Collection<RecordType> types) {
         this.recordTypes = types;
         this.index = index;
-    }
-
-    @Override
-    public RecordCursor<FDBStoredRecord<Message>> getCursor(final TupleRange range, final FDBRecordStore store, final int limit) {
-        final IsolationLevel isolationLevel = IsolationLevel.SNAPSHOT;
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(isolationLevel)
-                .setReturnedRowLimit(limit);
-
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build(), false);
-        return store.scanRecords(range, null, scanProperties);
-    }
-
-    @Override
-    public Tuple getKeyFromCursorResult(final RecordCursorResult<FDBStoredRecord<Message>> result) {
-        final FDBStoredRecord<Message> storedRecord = result.get();
-        return storedRecord == null ? null : storedRecord.getPrimaryKey();
+        this.isSynthetic = isSynthetic;
+        // call super, but force allowRepair as false
+        super.presetCommonParams(index, false, isSynthetic, types);
     }
 
     /**
@@ -110,6 +97,7 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
     }
 
     @Override
+    @Nullable
     public CompletableFuture<Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
             throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
@@ -120,12 +108,12 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
             return CompletableFuture.completedFuture(null);
         }
 
-        return detectMissingIndexKeys(rec)
+        return detectMissingIndexKeys(store, rec)
                 .thenApply(missingIndexesKeys -> {
                     if (missingIndexesKeys == null) {
                         return null;
                     }
-                    // Here: Oh, No! the index is missing!!
+                    // Here: Oh, No! an index entry is missing!!
                     // (Maybe) report an error
                     return new Issue(
                             KeyValueLogMessage.build("Scrubber: missing index entry",
@@ -137,59 +125,78 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
                 });
     }
 
-    public CompletableFuture<Pair<MissingIndexReason, Tuple>> detectMissingIndexKeys(FDBStoredRecord<Message> rec) {
-        // return the first missing (if any).
+    @SuppressWarnings("PMD.CloseResource")
+    private CompletableFuture<Pair<MissingIndexReason, Tuple>> detectMissingIndexKeys(final FDBRecordStore store, FDBStoredRecord<Message> rec) {
+        // Generate synthetic record (if applicable) and return the first detected missing (if any).
+        final AtomicReference<Pair<MissingIndexReason, Tuple>> issue = new AtomicReference<>();
+
+        if (!isSynthetic) {
+            return checkMissingIndexKey(rec, issue).thenApply(ignore -> issue.get());
+        }
+        final RecordQueryPlanner queryPlanner =
+                new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(index.getName())));
+        final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store, queryPlanner);
+        SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(index);
+        final RecordCursor<FDBSyntheticRecord> recordCursor = syntheticPlan.execute(store, rec);
+
+        return AsyncUtil.whenAll(
+                recordCursor.asStream().map(syntheticRecord -> checkMissingIndexKey(syntheticRecord, issue))
+                        .collect(Collectors.toList()))
+                .whenComplete((ret, e) -> recordCursor.close())
+                .thenApply(ignore -> issue.get());
+
+    }
+
+    private CompletableFuture<Void> checkMissingIndexKey(FDBIndexableRecord<Message> rec,
+                                                         AtomicReference<Pair<MissingIndexReason, Tuple>> issue) {
+        // Iterate grouping keys (if any) and detect missing index entry (if any)
         final KeyExpression root = index.getRootExpression();
         final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> recordFields = LuceneDocumentFromRecord.getRecordFields(root, rec);
         if (recordFields.isEmpty()) {
-            // Could recordFields be an empty map?
-            return CompletableFuture.completedFuture(Pair.of(MissingIndexReason.EMPTY_RECORDS_FIELDS, null));
+            // recordFields should not be an empty map
+            issue.compareAndSet(null, Pair.of(MissingIndexReason.EMPTY_RECORDS_FIELDS, null));
+            return AsyncUtil.DONE;
         }
         if (recordFields.size() == 1) {
-            // A single grouping key
-            return checkMissingIndexKey(rec, recordFields.keySet().stream().findFirst().get());
+            // A single grouping key, simple check.
+            return checkMissingIndexKey(rec, recordFields.keySet().stream().iterator().next(), issue);
         }
 
-        // Here: more than one grouping key
-        final Map<Tuple, MissingIndexReason> keys = Collections.synchronizedMap(new HashMap<>());
+        // Here: more than one grouping key, declare an issue if at least one of them is missing
         return AsyncUtil.whenAll( recordFields.keySet().stream().map(groupingKey ->
-                        checkMissingIndexKey(rec, groupingKey)
-                                .thenApply(missing -> keys.put(missing.getValue(), missing.getKey()))
+                        checkMissingIndexKey(rec, groupingKey, issue)
                 ).collect(Collectors.toList()))
-                .thenApply(ignore -> {
-                    final Optional<Map.Entry<Tuple, MissingIndexReason>> first = keys.entrySet().stream().findFirst();
-                    return first.map(tupleStringEntry -> Pair.of(tupleStringEntry.getValue(), tupleStringEntry.getKey())).orElse(null);
-                });
+                .thenApply(ignore -> null);
     }
 
-    private CompletableFuture<Pair<MissingIndexReason, Tuple>> checkMissingIndexKey(FDBStoredRecord<Message> rec, Tuple groupingKey) {
+    private CompletableFuture<Void> checkMissingIndexKey(FDBIndexableRecord<Message> rec, Tuple groupingKey, AtomicReference<Pair<MissingIndexReason, Tuple>> issue) {
+        // Get partition (if applicable) and detect missing index entry (if any)
         if (!partitioner.isPartitioningEnabled()) {
-            return CompletableFuture.completedFuture(
-                    isMissingIndexKey(rec, null, groupingKey) ?
-                    Pair.of(MissingIndexReason.NOT_IN_PK_SEGMENT_INDEX, null) :
-                    null);
+            if (isMissingIndexKey(rec, null, groupingKey)) {
+                issue.compareAndSet(null, Pair.of(MissingIndexReason.NOT_IN_PK_SEGMENT_INDEX, null));
+            }
+            return AsyncUtil.DONE;
         }
         return partitioner.tryGetPartitionInfo(rec, groupingKey).thenApply(partitionInfo -> {
             if (partitionInfo == null) {
-                return Pair.of(MissingIndexReason.NOT_IN_PARTITION, groupingKey);
-            }
-            if (isMissingIndexKey(rec, partitionInfo.getId(), groupingKey)) {
-                return Pair.of(MissingIndexReason.NOT_IN_PK_SEGMENT_INDEX, groupingKey);
+                issue.compareAndSet(null, Pair.of(MissingIndexReason.NOT_IN_PARTITION, groupingKey));
+            } else if (isMissingIndexKey(rec, partitionInfo.getId(), groupingKey)) {
+                issue.compareAndSet(null, Pair.of(MissingIndexReason.NOT_IN_PK_SEGMENT_INDEX, groupingKey));
             }
             return null;
         });
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private boolean isMissingIndexKey(FDBStoredRecord<Message> rec, Integer partitionId, Tuple groupingKey) {
+    private boolean isMissingIndexKey(FDBIndexableRecord<Message> rec, Integer partitionId, Tuple groupingKey) {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
         if (segmentIndex == null) {
-            // Here: iternal error, getIndexScrubbingTools should have indicated that scrub missing is not supported.
-            throw new IllegalStateException("This scrubber should not have been used");
+            // Here: internal error, getIndexScrubbingTools should have indicated that scrub missing is not supported.
+            throw new IllegalStateException("LucneIndexScrubbingToolsMissing without a LucenePrimaryKeySegmentIndex");
         }
 
         try {
-            // TODO: this is called to initilize the writer, else we get an exception at getDirectoryReader. Should it really be done for a RO operation?
+            // TODO: this is called to initialize the writer, else we get an exception at getDirectoryReader. Should it really be done for a RO operation?
             directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(""));
         } catch (IOException e) {
             throw LuceneExceptions.toRecordCoreException("failed getIndexWriter", e);
@@ -202,7 +209,7 @@ public class LuceneIndexScrubbingToolsMissing implements IndexScrubbingTools<FDB
                 return true;
             }
         } catch (IOException ex) {
-            // Here: probably an fdb exception. Unwrap and rethrow.
+            // Here: an unexpected exception. Unwrap and rethrow.
             throw LuceneExceptions.toRecordCoreException("Error while finding document", ex);
         }
         return false;
