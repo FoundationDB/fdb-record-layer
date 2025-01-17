@@ -1,5 +1,5 @@
 /*
- * TestKeySpacePathExtension.java
+ * TestKeySpacePathManagerExtension.java
  *
  * This source file is part of the FoundationDB open source project
  *

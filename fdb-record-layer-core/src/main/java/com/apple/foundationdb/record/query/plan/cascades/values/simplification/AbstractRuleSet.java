@@ -1,5 +1,5 @@
 /*
- * AbstractValueRuleSet.java
+ * AbstractRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *

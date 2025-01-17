@@ -1,5 +1,5 @@
 /*
- * OnlineIndexerBaseBuilder.java
+ * OnlineIndexOperationBaseBuilder.java
  *
  * This source file is part of the FoundationDB open source project
  *

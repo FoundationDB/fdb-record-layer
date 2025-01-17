@@ -1,5 +1,5 @@
 /*
- * LogicalDistinctPlan.java
+ * LogicalDistinctExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *

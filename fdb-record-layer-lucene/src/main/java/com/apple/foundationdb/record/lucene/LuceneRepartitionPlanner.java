@@ -1,5 +1,5 @@
 /*
- * LucenePartitionPlanner.java
+ * LuceneRepartitionPlanner.java
  *
  * This source file is part of the FoundationDB open source project
  *

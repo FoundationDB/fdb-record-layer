@@ -39,6 +39,7 @@ plugins {
     alias(libs.plugins.artifactory)
     alias(libs.plugins.download)
     alias(libs.plugins.sonarqube)
+    alias(libs.plugins.spotless)
 }
 
 ext {
@@ -266,6 +267,23 @@ subprojects {
     }
 
     check.dependsOn quickCheck
+}
+
+// Spotless
+
+spotless {
+    ratchetFrom('HEAD')
+    java {
+        target "**/src/main/java/**/*.java", "**/src/test/java/**/*.java", "**/src/testFixtures/java/**/*.java"
+        // target "fdb-record-layer-core/src/main/java/", "fdb-record-layer-core/src/test/java/", "fdb-record-layer-core/src/testFixtures/java/"
+        targetExclude "**/.out/", "**/protogen/", "fdb-record-layer-lucene/src/main/java/org/apache/"
+        licenseHeaderFile("${rootDir}/gradle/codequality/java-copyright.txt")
+        removeUnusedImports()
+    }
+    protobuf {
+        target "**/src/main/proto/**/*.proto", "**/src/test/proto/**/*.proto", "**/src/testFixtures/proto/**/*.proto"
+        licenseHeaderFile("${rootDir}/gradle/codequality/java-copyright.txt")
+    }
 }
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
