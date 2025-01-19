@@ -312,7 +312,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlan, resultValue, groupByResultValue);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlan, resultValue);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }

@@ -312,13 +312,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         final var translatedAggregateValue =
                 aggregateValue.translateCorrelations(translationMap, true);
-        final var aggregateValues =
+        final var translatedAggregateValues =
                 Values.primitiveAccessorsForType(translatedAggregateValue.getResultType(),
                                 () -> translatedAggregateValue).stream()
                         .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
                                 ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
-        if (aggregateValues.size() != 1) {
+        if (translatedAggregateValues.size() != 1) {
             return ImmutableList.of();
         }
 
@@ -328,12 +328,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                         .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(AliasMap.emptyMap(),
                                 ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
-        if (aggregateValues.size() != 1) {
+        if (translatedAggregateValues.size() != 1) {
             return ImmutableList.of();
         }
 
         final var subsumedAggregations =
-                Iterables.getOnlyElement(aggregateValues).semanticEquals(Iterables.getOnlyElement(otherAggregateValues),
+                Iterables.getOnlyElement(translatedAggregateValues).semanticEquals(Iterables.getOnlyElement(otherAggregateValues),
                         valueEquivalence);
         if (subsumedAggregations.isFalse()) {
             return ImmutableList.of();
@@ -375,17 +375,17 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return falseValue();
         }
 
-        final Set<Value> groupingValues;
+        final Set<Value> translatedGroupingValues;
         if (groupingValue != null) {
             final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap, true);
-            groupingValues =
+            translatedGroupingValues =
                     Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
                                     () -> translatedGroupingValue).stream()
                             .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
                                     ImmutableSet.of()))
                             .collect(ImmutableSet.toImmutableSet());
         } else {
-            groupingValues = ImmutableSet.of();
+            translatedGroupingValues = ImmutableSet.of();
         }
 
         final var candidateGroupingValues =
@@ -398,7 +398,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         //
         // If there are more groupingValues than candidateGroupingValues, we cannot match the index.
         //
-        if (groupingValues.size() > candidateGroupingValues.size()) {
+        if (translatedGroupingValues.size() > candidateGroupingValues.size()) {
             return falseValue();
         }
 
@@ -417,7 +417,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         //
         final var unmatchedCandidateValues = new LinkedHashSet<>(candidateGroupingValues);
         var booleanWithConstraint = alwaysTrue();
-        for (final var groupingPartValue : groupingValues) {
+        for (final var groupingPartValue : translatedGroupingValues) {
             var found = false;
 
             for (final var iterator = unmatchedCandidateValues.iterator(); iterator.hasNext(); ) {

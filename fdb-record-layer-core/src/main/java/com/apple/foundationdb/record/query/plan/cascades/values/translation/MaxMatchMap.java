@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MaxMatchMapSimplificationRuleSet;
@@ -338,38 +340,83 @@ public class MaxMatchMap {
             logger.debug("calculate begin queryValue={}, candidateValue={}", queryValue, candidateValue);
         }
 
-        //
-        // Call the recursive part of the matching logic.
-        //
-        final var resultsMap =
-                recurseQueryResultValue(queryValue, candidateValue, rangedOverAliases,
-                        valueEquivalence, new IdentityHashMap<>(), -1, new ArrayDeque<>(),
-                        Integer.MAX_VALUE, new HashSet<>());
-
-        //
-        // Pick a match which has the minimum max depth among all the matches.
-        //
-        int currentMaxDepth = Integer.MAX_VALUE;
         MaxMatchMap bestMaxMatchMap = null;
-        for (final var resultEntry : resultsMap.entrySet()) {
-            final var result = resultEntry.getValue();
-            if (result.getMaxDepth() < currentMaxDepth) {
-                bestMaxMatchMap = new MaxMatchMap(result.getValueMap(), resultEntry.getKey(), candidateValue,
-                        rangedOverAliases, result.getQueryPlanConstraint(), valueEquivalence);
-                currentMaxDepth = result.getMaxDepth();
+        try {
+            final var maxMatchOptional =
+                    shortCircuitMaybe(queryValue, candidateValue, rangedOverAliases, valueEquivalence);
+            if (maxMatchOptional.isPresent()) {
+                return maxMatchOptional.get();
+            }
+
+            //
+            // Call the recursive part of the matching logic.
+            //
+            final var resultsMap =
+                    recurseQueryResultValue(queryValue, candidateValue, rangedOverAliases,
+                            valueEquivalence, new IdentityHashMap<>(), -1, new ArrayDeque<>(),
+                            Integer.MAX_VALUE, new HashSet<>());
+
+            //
+            // Pick a match which has the minimum max depth among all the matches.
+            //
+            int currentMaxDepth = Integer.MAX_VALUE;
+            for (final var resultEntry : resultsMap.entrySet()) {
+                final var result = resultEntry.getValue();
+                if (result.getMaxDepth() < currentMaxDepth) {
+                    bestMaxMatchMap = new MaxMatchMap(result.getValueMap(), resultEntry.getKey(), candidateValue,
+                            rangedOverAliases, result.getQueryPlanConstraint(), valueEquivalence);
+                    currentMaxDepth = result.getMaxDepth();
+                }
+            }
+
+            if (bestMaxMatchMap == null) {
+                bestMaxMatchMap = new MaxMatchMap(ImmutableMap.of(), queryValue, candidateValue, rangedOverAliases,
+                        QueryPlanConstraint.tautology(), valueEquivalence);
+            }
+        } finally {
+            if (logger.isDebugEnabled()) {
+                logger.debug("calculate end bestMaxMatchMap={}", bestMaxMatchMap);
             }
         }
 
-        if (bestMaxMatchMap == null) {
-            bestMaxMatchMap = new MaxMatchMap(ImmutableMap.of(), queryValue, candidateValue, rangedOverAliases,
-                    QueryPlanConstraint.tautology(), valueEquivalence);
-        }
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("calculate end bestMaxMatchMap={}", bestMaxMatchMap);
-        }
-
         return bestMaxMatchMap;
+    }
+
+    @Nonnull
+    private static Optional<MaxMatchMap> shortCircuitMaybe(final @Nonnull Value queryValue,
+                                                           final @Nonnull Value candidateValue,
+                                                           final @Nonnull Set<CorrelationIdentifier> rangedOverAliases,
+                                                           final @Nonnull ValueEquivalence valueEquivalence) {
+        if (rangedOverAliases.size() != 1) {
+            return Optional.empty();
+        }
+
+        final var singularRangedOverAlias = Iterables.getOnlyElement(rangedOverAliases);
+
+        //
+        // Attempt to short-circuit if the candidate is simple
+        //
+        if ((!(candidateValue instanceof QuantifiedObjectValue)) ||
+                !((QuantifiedObjectValue)candidateValue).getAlias()
+                        .equals(singularRangedOverAlias)) {
+            return Optional.empty();
+        }
+
+        if (!queryValue.getCorrelatedTo().contains(singularRangedOverAlias)) {
+            return Optional.empty();
+        }
+
+        for (final var value : queryValue.preOrderIterable()) {
+            if (value instanceof QuantifiedValue) {
+                if (!(value instanceof QuantifiedObjectValue)) {
+                    return Optional.empty();
+                }
+            }
+        }
+
+        return Optional.of(new MaxMatchMap(ImmutableMap.of(candidateValue, candidateValue),
+                queryValue, candidateValue, rangedOverAliases, QueryPlanConstraint.tautology(),
+                valueEquivalence));
     }
 
     /**
@@ -822,7 +869,7 @@ public class MaxMatchMap {
      * matches is empty and any further descending will only continue to produce empty match lists.
      * <br>
      * Example 1: We attempt to match {@code rcv(rcv(q.x, q.y), rcv(q.a, q.b))} to {@code rcv(q.x, rcv(q.a, q.c))}.
-     * On the top level, the {@code rcv(■, ■)} on the query side potentiall matches the {@code rcv(q.x, rcv(q.a, q.c))}
+     * On the top level, the {@code rcv(■, ■)} on the query side potentially matches the {@code rcv(q.x, rcv(q.a, q.c))}
      * on the candidate side at root level ({@code ■} denoting an opaque, not-yet considered subtree). Let's say, we now
      * descend into the second child on the query side. {@code rcv(■, rcv(■, ■))} still partially matches
      * {@code rcv(■, rcv(q.a, q.c))} on the candidate side. We now descend into the first child of the query side and

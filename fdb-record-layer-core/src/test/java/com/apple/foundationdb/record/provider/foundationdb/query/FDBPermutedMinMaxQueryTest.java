@@ -375,7 +375,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         private final int legacyPlanHash;
         private final int continuationPlanHash;
 
-        protected InComparisonCase(@Nonnull String name, @Nonnull Comparisons.Comparison comparison, @Nonnull Function<List<?>, Bindings> bindingsFunction, @Nonnull int legacyPlanHash, int continuationPlanHash) {
+        protected InComparisonCase(@Nonnull String name, @Nonnull Comparisons.Comparison comparison, @Nonnull Function<List<?>, Bindings> bindingsFunction, int legacyPlanHash, int continuationPlanHash) {
             this.name = name;
             this.comparison = comparison;
             this.bindingsFunction = bindingsFunction;
@@ -411,12 +411,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     static Stream<InComparisonCase> selectMaxWithInOrderByMax() {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), 2026350341, -4350789),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), 2026350341, -272644765),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(-1, -1)), nv2List -> {
                     Assumptions.assumeTrue(nv2List.equals(List.of(-1, -1)));
                     return Bindings.EMPTY_BINDINGS;
-                }, -1983342670, 280923496),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -591261801, 1673004365)
+                }, -1983342670, 12629520),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -591261801, 1404710389)
         );
     }
 
@@ -491,12 +491,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     static Stream<InComparisonCase> testMaxWithInAndDupes() {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 2106093264, 2140001484),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 2106093264, 1809779597),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of("even", "odd")), strValueList -> {
                     Assumptions.assumeTrue(strValueList.equals(List.of("even", "odd")));
                     return Bindings.EMPTY_BINDINGS;
-                }, -1932450623, -1898542403),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 747556219, 781464439)
+                }, -1932450623, 2066203006),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 747556219, 451242552)
         );
     }
 
@@ -607,7 +607,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     )
             );
 
-            assertEquals(-1538601633, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(616507734, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
 
             for (String strValue : List.of("even", "odd")) {
@@ -631,12 +631,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     static Stream<InComparisonCase> testSortedMaxWithInOnRepeater() {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "xValueList"), xValueList -> Bindings.newBuilder().set("xValueList", xValueList).build(), -1502950720, -1293152775),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "xValueList"), xValueList -> Bindings.newBuilder().set("xValueList", xValueList).build(), -1502950720, -1056018522),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(0, 0)), strValueList -> {
                     Assumptions.assumeTrue(strValueList.equals(List.of(0, 0)));
                     return Bindings.EMPTY_BINDINGS;
-                }, 645291999, 855089944),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 2037371876, -2047797475)
+                }, 645291999, 1092224197),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 2037371876, -1810663222)
         );
     }
 
@@ -893,7 +893,6 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 return Reference.of(sortExpression(List.of(FieldValue.ofOrdinalNumber(selectHavingQun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, selectHavingQun));
             });
 
-
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
                     RecordQueryPlanMatchers.predicatesFilterPlan(
                             RecordQueryPlanMatchers.aggregateIndexPlan()
@@ -902,8 +901,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     )
             );
 
-            assertEquals(reverse ? 1169277238 : 1341052144, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-
+            assertEquals(reverse ? 165935152 : 171476278, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             for (int i = -1; i < 4; i++) {
                 final int nv2 = i;
