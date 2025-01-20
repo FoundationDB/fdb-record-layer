@@ -116,6 +116,19 @@ public class PullUp {
         return new PullUp(parentPullUp, nestingAlias, lowerPullThroughValue, rangedOverAliases);
     }
 
+    /**
+     * Pull up a {@link Value} expressed in the appropriate scope of matching (some expression in the matching path)
+     * using this {@link PullUp}. The current pull-up is maintained during the computation of compensation. Whenever,
+     * we need to e.g. reapply a predicate or in general compute a {@link Value} compensating for a shortcoming of
+     * an e.g. index scan, we need to reapply that {@link Value} in terms of the result of the index scan, not in terms
+     * of the intermediate match target of some nested
+     * {@link com.apple.foundationdb.record.query.plan.cascades.PartialMatch} in the matching path. If there is such a
+     * pulled up value, the compensation can be expressed and realized by a filter or map or similar. Note that it is
+     * possible that the passed in value cannot be pulled up. This method returns {@code Optional.empty()} in such case.
+     * @param value the {@link Value} to be pulled up
+     * @return an optional contained the pulled up {@link Value} of {@code value} or {@code Optional.empty()} if
+     *         {@code value} could not be pulled up.
+     */
     @Nonnull
     public Optional<Value> pullUpMaybe(@Nonnull final Value value) {
         //

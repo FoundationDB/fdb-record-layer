@@ -114,7 +114,7 @@ import java.util.stream.Stream;
  * Continuing from the modifying the example above, it can be observed that the value tree {@code q.b} is reachable from
  * the root {@code v} at {@code rcv(q.c + q.b + q.c, q.c as c, q.a as a)} as we can retrieve {@code q.b} by computing
  * {@code v._0 - v.c - v.a}. We cannot compute the way how to reach {@code x} from {@code v} (yet). Thus, for the
- * purpose of the logic in this class we treat these unattainable cases as if they were unreachable only say that a
+ * purpose of the logic in this class we treat these unattainable cases as if they were unreachable, and only say that a
  * subtree is reachable from a root if we can actually synthesize the value tree to reach {@code x} from {@code v}.
  * Specifically, we currently only really understand record construction and field accesses as their inverse.
  * <br>
@@ -155,8 +155,8 @@ public class MaxMatchMap {
     @Nonnull
     private final Value candidateValue;
     /**
-     * A set of aliases that is considered whose referred quantifiers are owned by the expression the candidate
-     * {@link Value} lives in. These aliases are not deep correlations, they are not constant.
+     * A set of aliases that refers to quantifiers are owned by the expression the candidate {@link Value} lives in.
+     * These aliases are not deep correlations, i.e. they are not constant.
      */
     @Nonnull
     private final Set<CorrelationIdentifier> rangedOverAliases;
@@ -244,7 +244,7 @@ public class MaxMatchMap {
         // to a candidate value pulled up along the candidateAlias. We also have this max match map, which
         // encapsulates a map from query values to candidate value.
         // In other words we have in this max match map m1 := MAP(queryValues over q -> candidateValues over q') and
-        // we just computed m2 := MAP(candidateValues over p' -> candidateValues over candidateAlias). We now
+        // we just computed m2 := MAP(candidateValues over q' -> candidateValues over candidateAlias). We now
         // chain these two maps to get m1 ○ m2 := MAP(queryValues over q -> candidateValues over candidateAlias).
         //
         final var pulledUpMaxMatchMapBuilder =
@@ -532,9 +532,9 @@ public class MaxMatchMap {
         final var isCurrentMatching = currentMatcher.anyMatches();
 
         //
-        // Keep a results map that maps from a Value variant to a match result. Note that if we have don't have
-        // a potential parent match we can make local decisions in this method, specifically, we can prune the variants
-        // that are being generated early on.
+        // Keep a results map that maps from a Value variant to a match result. Note that if we don't have a potential
+        // parent match we can make local decisions in this method, specifically, we can prune the variants that are
+        // being generated early on.
         //
         final var bestMatches = new BestMatches(currentQueryValue, !anyParentsMatching);
 
@@ -855,7 +855,7 @@ public class MaxMatchMap {
      * Class that functions as a partial matcher between a {@link Value} on the query and a reachable {@link Value} on
      * the candidate side.
      * <br>
-     * Normally, we establish semantic equality between two {@link Value} by considering not just the values themselves
+     * Normally, we establish semantic equality between two {@link Value}s by considering not just the values themselves
      * but the subtrees rooted at these values. In order to compute semantic equality, we call
      * {@link Value#equalsWithoutChildren(Value)} and if successful recurse into the subtrees and establish semantic
      * equality for the children. The approach this class takes is somewhat the other way around. For a value
@@ -880,7 +880,7 @@ public class MaxMatchMap {
      * Example 2: We attempt to match {@code rcv(q.a, q.b))} to {@code rcv(q.x, rcv(q.a, q.b), rcv(q.a, q.c))}.
      * On top level, nothing matches to the top level of the candidate side. We can, however, establish two
      * reachable potential matches for {@code rcv(■, ■)} on the candidate side: {@code rcv(q.a, q.b)} and
-     * {@code rcv(q.a, q.b)}. When we now descend further into the second child on the query side, one of these two
+     * {@code rcv(q.a, q.c)}. When we now descend further into the second child on the query side, one of these two
      * matches is invalidated: {@code rcv(■, q.b)} still matches {@code rcv(■, q.b)}, but does not match
      * {@code rcv(■, q.c)}
      */

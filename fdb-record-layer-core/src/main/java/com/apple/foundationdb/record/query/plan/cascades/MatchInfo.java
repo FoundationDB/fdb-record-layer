@@ -46,7 +46,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * This class represents the result of matching one expression against a candidate.
+ * This interface represents the result of matching one expression against an expression from a {@link MatchCandidate}.
  */
 public interface MatchInfo {
     @Nonnull

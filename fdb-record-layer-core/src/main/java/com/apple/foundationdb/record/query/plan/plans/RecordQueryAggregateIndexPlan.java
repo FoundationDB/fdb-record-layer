@@ -96,7 +96,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
      * @param indexPlan The underlying index.
      * @param recordTypeName The name of the base record, used for debugging.
      * @param indexEntryToPartialRecordConverter A converter from index entry to record.
-     * @param resultValue the r
+     * @param resultValue the result value this plan produces.
      * @param groupByResultValue The result value.
      * @param constraint The index filter.
      */

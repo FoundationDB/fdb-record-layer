@@ -375,15 +375,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
         }
 
-        final var allForEachQuantifiersMatched =
-                getQuantifiers()
-                        .stream()
-                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                        .allMatch(quantifier -> bindingAliasMap.containsSource(quantifier.getAlias()));
-        if (!allForEachQuantifiersMatched) {
-            return ImmutableList.of();
-        }
-
         //
         // Loop through all for-each quantifiers on the other side to ensure that they are all matched.
         // If any are not matched we cannot establish a match at all.
@@ -434,8 +425,15 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var translatedResultValue =
                 getResultValue().translateCorrelations(translationMap, true);
 
-        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
-                .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
+        //
+        // Construct a value equivalence that contains the information of the bindingAliasMap and all the equalities
+        // derived from the given evaluation context. Note that even though we translate Value trees to the candidate
+        // side, we also have to define deeply-correlated references as equivalent (as indicated only by the binding
+        // alias maps) which is not contained in the translationMap.
+        //
+        final var bindingValueEquivalence =
+                ValueEquivalence.fromAliasMap(bindingAliasMap)
+                        .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
         //
         // Map predicates on the query side to predicates on the candidate side. Record parameter bindings and/or

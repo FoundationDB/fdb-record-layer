@@ -137,7 +137,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        // the candidate must be a GROUP-BY expression.
+        // the candidate must be a type filter expression.
         if (candidateExpression.getClass() != this.getClass()) {
             return ImmutableList.of();
         }
@@ -195,8 +195,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                 childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
                         Objects.requireNonNull(bindingAliasMap.getTarget(innerQuantifier.getAlias())));
 
-        if (childCompensation.isImpossible() ||
-                childCompensation.isNeededForFiltering()) {
+        if (childCompensation.isImpossible()) {
             return Compensation.impossibleCompensation();
         }
 

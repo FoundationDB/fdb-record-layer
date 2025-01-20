@@ -285,7 +285,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
         final var deconstructedValues = deconstructedValuesBuilder.build();
 
-        //final var deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
         final var aliasMap =
                 AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()),
                         Quantifier.current());

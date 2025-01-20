@@ -142,7 +142,7 @@ public class Simplification {
      * starting from {code current} it attempts to exhaustively apply the rules over this {@code current}.
      * @param <RESULT> type parameter for results
      * @param <CALL> type parameter for the rule call object to be used
-     * @param <BASE> type parameter ths rule set matches
+     * @param <BASE> type parameter this rule set matches
      * @param root the root value of the simplification/computation. This information is needed for some rules as
      *             they may only fire if {@code current} is/is not the root.
      * @param current the current value that the rule set should be executed on
@@ -326,7 +326,7 @@ public class Simplification {
      * the rule set is important.
      * @param <RESULT> type parameter for results
      * @param <CALL> type parameter for the rule call object to be used
-     * @param <BASE> type parameter ths rule set matches
+     * @param <BASE> type parameter this rule set matches
      * @param root the root value of the simplification/computation. This information is needed for some rules as
      *             they may only fire if {@code current} is/is not the root.
      * @param current the current value that the rule set should be executed on
@@ -434,7 +434,7 @@ public class Simplification {
      * TODO write this.
      * @param <ELEMENT>> type parameter for results elements
      * @param <CALL> type parameter for the rule call object to be used
-     * @param <BASE> type parameter ths rule set matches
+     * @param <BASE> type parameter this rule set matches
      * @param root the root value of the simplification/computation. This information is needed for some rules as
      *             they may only fire if {@code current} is/is not the root.
      * @param ruleSet the rule set

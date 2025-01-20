@@ -51,8 +51,8 @@ import java.util.function.Supplier;
  * result from the raw base data set. For those purposes, it makes more sense to relax the matching requirement to just
  * require that the materialized view side of matching {@code Q} can subsume the query side {@code M} which means that
  * executing {@code M} at least contains the result that executing {@code Q} would yield. That execution, however,
- * may produce also extraneous records. Compensation corrects for that problem by applying certain post-operations such as
- * filtering, distincting or resorting.
+ * may produce also extraneous records. Compensation corrects for that problem by applying certain post-operations
+ * such as filtering, distinct-ing or resorting.
  *
  * <p>
  * Example in SQL terms:
@@ -210,7 +210,8 @@ public interface Compensation {
 
     /**
      * When applied to a reference this method returns a {@link RelationalExpression} consuming the
-     * reference passed in that applies additional predicates as expressed by the predicate compensation map.
+     * reference passed in that applies additional predicates as expressed by e.g. the predicate compensation map in
+     * {@link WithSelectCompensation}.
      * @param memoizer the memoizer for new {@link Reference}s
      * @param relationalExpression root of graph to apply compensation to
      * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
@@ -219,6 +220,15 @@ public interface Compensation {
     @Nonnull
     RelationalExpression apply(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression);
 
+    /**
+     * When applied to a reference this method returns a {@link RelationalExpression} consuming the
+     * reference passed in that applies a final shape correction as needed by e.g. the result compensation function in
+     * {@link WithSelectCompensation}.
+     * @param memoizer the memoizer for new {@link Reference}s
+     * @param relationalExpression root of graph to apply compensation to
+     * @return a new relational expression that corrects the result of {@code reference} by applying a final shape
+     *         correction of the resulting records.
+     */
     @Nonnull
     RelationalExpression applyFinal(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression);
 
@@ -247,6 +257,13 @@ public interface Compensation {
         return true;
     }
 
+    /**
+     * Method that indicates if this compensation needs to be applied if it is the top compensation in the chain of
+     * compensations. Just like the regular usage of a compensation might not be needed (as for instance all predicates
+     * have already been used as sargables), it might also be unnecessary to apply the final compensation part.
+     * @return {@code true} if the caller must call {@code applyFinal()} if this compensation is the top compensation
+     *         of a compensation chain.
+     */
     default boolean isFinalNeeded() {
         return true;
     }
@@ -730,6 +747,8 @@ public interface Compensation {
         @Override
         public RelationalExpression apply(@Nonnull final Memoizer memoizer,
                                           @Nonnull RelationalExpression relationalExpression) {
+            Verify.verify(!isImpossible());
+
             // apply the child as needed
             if (childCompensation.isNeededForFiltering()) {
                 relationalExpression = childCompensation.apply(memoizer, relationalExpression);
@@ -841,6 +860,7 @@ public interface Compensation {
         @Override
         public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
                                                @Nonnull RelationalExpression relationalExpression) {
+            Verify.verify(!isImpossible());
             Verify.verify(resultCompensationFunction.isNeeded());
 
             final var matchedForEachAlias = getMatchedForEachAlias();
