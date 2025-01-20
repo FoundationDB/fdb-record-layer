@@ -103,11 +103,4 @@ public abstract class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     public void prepared() throws Exception {
         super.prepared();
     }
-
-    @Override
-    @Test
-    @Disabled("TODO: Continuations not supported in JDBC")
-    public void aggregateIndexTests() throws Exception {
-        super.aggregateIndexTests();
-    }
 }

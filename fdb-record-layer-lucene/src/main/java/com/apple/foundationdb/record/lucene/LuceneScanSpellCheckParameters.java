@@ -126,7 +126,8 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
 
     @Nonnull
     @Override
-    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap) {
+    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                     final boolean shouldSimplifyValues) {
         return this;
     }
 

@@ -896,6 +896,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
+     * Interface for classes that can be erased, i.e. enums, records, arrays.
+     */
+    interface Erasable extends Type {
+        boolean isErased();
+    }
+
+    /**
      * A primitive type.
      */
     class Primitive implements Type {
@@ -1338,7 +1345,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Special {@link Type.Record} that is undefined.
      */
-    class AnyRecord implements Type {
+    class AnyRecord implements Type, Erasable {
         private final boolean isNullable;
 
         @Nonnull
@@ -1376,6 +1383,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             } else {
                 return new AnyRecord(newIsNullable);
             }
+        }
+
+        @Override
+        public boolean isErased() {
+            return true;
         }
 
         /**
@@ -1753,7 +1765,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A structured {@link Type} that contains a list of {@link Field} types.
      */
-    class Record implements Type {
+    class Record implements Type, Erasable {
         @Nullable
         private final String name;
 
@@ -1948,7 +1960,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * Checks whether the {@link Record} type instance is erased or not.
          * @return <code>true</code> if the {@link Record} type is erased, other <code>false</code>.
          */
-        boolean isErased() {
+        @Override
+        public boolean isErased() {
             return fields == null;
         }
 
@@ -2152,7 +2165,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          */
         @Nonnull
         public static Record fromFieldDescriptorsMap(@Nonnull final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
-            return fromFieldDescriptorsMap(true, fieldDescriptorMap);
+            return fromFieldDescriptorsMap(false, fieldDescriptorMap);
         }
 
         /**
@@ -2474,7 +2487,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Represents a relational type.
      */
-    class Relation implements Type {
+    class Relation implements Type, Erasable {
         /**
          * The type of the stream values.
          */
@@ -2552,6 +2565,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          *
          * @return <code>true</code> if the stream type is erased, otherwise <code>false</code>.
          */
+        @Override
         public boolean isErased() {
             return getInnerType() == null;
         }
@@ -2657,7 +2671,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A type representing an array of elements sharing the same type.
      */
-    class Array implements Type {
+    class Array implements Type, Erasable {
         /**
          * Whether the array is nullable or not.
          */
@@ -2744,6 +2758,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          *
          * @return <code>true</code> if the array type is erased, otherwise <code>false</code>.
          */
+        @Override
         public boolean isErased() {
             return getElementType() == null;
         }

@@ -22,7 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
@@ -147,6 +149,21 @@ public class TranslationMap {
         @Nonnull
         Value apply(@Nonnull CorrelationIdentifier sourceAlias,
                     @Nonnull LeafValue leafValue);
+
+        @Nonnull
+        static TranslationFunction adjustValueType(@Nonnull final Value translationTargetValue) {
+            final var translationTargetType = translationTargetValue.getResultType();
+            if (translationTargetValue instanceof QuantifiedObjectValue) {
+                if (translationTargetType instanceof Type.Erasable &&
+                        ((Type.Erasable)translationTargetType).isErased()) {
+                    return (source, quantifiedValue) -> QuantifiedObjectValue.of(((QuantifiedObjectValue)translationTargetValue).getAlias(),
+                            quantifiedValue.getResultType());
+                }
+            }
+            Verify.verify(!(translationTargetType instanceof Type.Erasable) ||
+                    !((Type.Erasable)translationTargetType).isErased());
+            return (ignored, ignored2) -> translationTargetValue;
+        }
     }
 
     /**

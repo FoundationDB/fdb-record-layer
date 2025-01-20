@@ -148,13 +148,13 @@ public class QueryExecutor {
         Continuation continuationAfter = null;
         try {
             logger.debug("⏳ Executing continuation for query '{}'", this.toString());
-            try (var s = connection.prepareStatement("EXECUTE CONTINUATION ?continuation;")) {
+            try (var s = connection.prepareStatement("EXECUTE CONTINUATION ?;")) {
                 s.setMaxRows(maxRows);
                 if (parameters != null) {
                     setParametersInPreparedStatement(s, connection);
                 }
                 // set continuation
-                s.setObject("continuation", continuation.serialize());
+                s.setBytes(1, continuation.serialize());
                 // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
                 // for caching.
                 final var queryResult = executeStatement(s, null);

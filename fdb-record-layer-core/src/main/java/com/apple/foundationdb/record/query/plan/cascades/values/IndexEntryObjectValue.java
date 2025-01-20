@@ -160,7 +160,8 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("%" + source + ":" + ordinalPath));
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(source.toString())
+                .addOptionalWhitespace().addToString(":").addIdentifier(ordinalPath.toString()));
     }
 
     @Nonnull
