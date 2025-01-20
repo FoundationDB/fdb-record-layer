@@ -43,8 +43,11 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
@@ -53,6 +56,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -254,7 +258,41 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return Compensation.impossibleCompensation();
         }
 
+        if (matchInfo.isRollupRequired()) {
+            final var baseQuantifier = Iterables.getOnlyElement(getQuantifiers()).getAlias();
+            final var rolledUpAggregations = getAggregateValueAsRollup(matchInfo, baseQuantifier);
+            final var rolledUpGroupBy = getGroupingValueAsRollup(matchInfo, baseQuantifier);
+            return new Compensation.RollupCompensation(rolledUpGroupBy, rolledUpAggregations, childCompensation.orElse(Compensation.noCompensation()), baseQuantifier);
+        }
+
         return Compensation.noCompensation();
+    }
+
+    @Nonnull
+    AggregateValue getAggregateValueAsRollup(@Nonnull MatchInfo matchInfo, @Nonnull CorrelationIdentifier baseQuantifier) {
+        final var maxMatchMap = matchInfo.getMaxMatchMap();
+        final var candidateResult = maxMatchMap.getCandidateResultValue();
+        final var aggregations = maxMatchMap.getQueryResultValue().preOrderStream()
+                .filter(v -> v instanceof StreamableAggregateValue || v instanceof IndexableAggregateValue).collect(ImmutableList.toImmutableList());
+        // replace each aggregate value child with the underlying aggregate reference, effectively creating a higher-order aggregate.
+        final var pulledUpAggregations = candidateResult.pullUp(aggregations, AliasMap.emptyMap(), ImmutableSet.of(), baseQuantifier);
+        final var rollUps = aggregations.stream().map(aggregation -> aggregation.withChildren(ImmutableList.of(pulledUpAggregations.get(aggregation))))
+                .collect(ImmutableList.toImmutableList());
+        return RecordConstructorValue.ofUnnamed(rollUps);
+    }
+
+    @Nullable
+    Value getGroupingValueAsRollup(@Nonnull MatchInfo matchInfo, @Nonnull CorrelationIdentifier baseQuantifier) {
+        if (groupingValue == null) {
+            return null;
+        }
+        final var maxMatchMap = matchInfo.getMaxMatchMap();
+        final var candidateResult = maxMatchMap.getCandidateResultValue();
+        // this pulls all group by expressions from the max match map.
+        final var groupByExpressions = ((RecordConstructorValue)((RecordConstructorValue)maxMatchMap.getQueryResultValue())
+                .getColumns().get(0).getValue()).getColumns().stream().map(Column::getValue).collect(ImmutableList.toImmutableList());
+        final var pulledUpGroupByExpressions = candidateResult.pullUp(groupByExpressions, AliasMap.emptyMap(), ImmutableSet.of(), baseQuantifier);
+        return RecordConstructorValue.ofUnnamed(groupByExpressions.stream().map(pulledUpGroupByExpressions::get).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull
@@ -285,16 +323,52 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
+        final MutableBoolean requiresRollup = new MutableBoolean(false);
         final var subsumedBy = aggregateValue.subsumedBy(otherAggregateValue, valueEquivalence)
                 .compose(ignored -> {
                     if (groupingValue == null && otherGroupingValue == null) {
                         return BooleanWithConstraint.alwaysTrue();
                     }
-                    if (groupingValue == null || otherGroupingValue == null) {
+                    if (otherGroupingValue == null) {
                         return BooleanWithConstraint.falseValue();
                     }
 
-                    return groupingValue.subsumedBy(otherGroupingValue, valueEquivalence);
+                    if (groupingValue == null) {
+                        requiresRollup.setTrue();
+                        return BooleanWithConstraint.alwaysTrue();
+                    }
+
+                    final var sameGrouping = groupingValue.subsumedBy(otherGroupingValue, valueEquivalence);
+                    if (sameGrouping.isTrue()) {
+                        return sameGrouping;
+                    }
+
+                    final var groupingColumns = Values.deconstructRecord(groupingValue);
+                    final var otherGroupingColumns = Values.deconstructRecord(otherGroupingValue);
+
+                    // this is very restrictive and should employ set semantics instead.
+                    if (groupingColumns.size() > otherGroupingColumns.size()) {
+                        return BooleanWithConstraint.falseValue();
+                    }
+
+                    var composedEquivalence = BooleanWithConstraint.alwaysTrue();
+                    boolean foundEquivalence = false;
+                    for (final var groupingColumn : groupingColumns) {
+                        for (final var otherGroupingColumn : otherGroupingColumns) {
+                            final var equivalenceResult = groupingColumn.subsumedBy(otherGroupingColumn, valueEquivalence);
+                            if (equivalenceResult.isTrue()) {
+                                composedEquivalence = composedEquivalence.compose(ignored2 -> equivalenceResult);
+                                foundEquivalence = true;
+                                break;
+                            }
+                        }
+                        if (!foundEquivalence) {
+                            return BooleanWithConstraint.falseValue();
+                        }
+                        foundEquivalence = false;
+                    }
+                    requiresRollup.setTrue();
+                    return composedEquivalence;
                 });
 
         if (subsumedBy.isTrue()) {
@@ -307,7 +381,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                             PredicateMap.empty(), Optional.empty(),
                             maxMatchMap, queryPlanConstraint)
-                    .map(ImmutableList::of)
+                    .map(matchInfo -> ImmutableList.of(matchInfo.withRequiredRollup(requiresRollup.booleanValue())))
                     .orElse(ImmutableList.of());
         }
         return ImmutableList.of();
