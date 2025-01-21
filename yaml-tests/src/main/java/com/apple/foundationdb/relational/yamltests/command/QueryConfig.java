@@ -33,6 +33,7 @@ import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
@@ -354,6 +355,8 @@ public abstract class QueryConfig {
             @Override
             void checkResultInternal(@Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
                 // Nothing to do, this query is supported
+                // SupportedVersion configs are not executed
+                Assertions.fail("Supported version configs are not meant to be executed.");
             }
         };
     }
@@ -403,7 +406,7 @@ public abstract class QueryConfig {
 
         @Override
         void checkResultInternal(@Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
-            logger.info("Line: " + getLineNumber() + " " + message);
+            Assertions.fail("Skipped config should not be executed: Line: " + getLineNumber() + " " + message);
         }
 
         public String getMessage() {

@@ -32,6 +32,8 @@ import java.sql.SQLException;
 
 /**
  * A command that should be skipped by the block.
+ * A SkippedCommand gets created when a command is deemed to be inappropriate for execution (because of a condition
+ * that makes it so). The SkippedCommand then is a placeholder for a command that is not executed.
  */
 public class SkippedCommand extends Command {
     private static final Logger logger = LogManager.getLogger(SkippedCommand.class);
