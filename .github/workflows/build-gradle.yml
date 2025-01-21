@@ -28,27 +28,28 @@ jobs:
       uses: gradle/actions/setup-gradle@v3
     - name: Run build
       run: GRADLE_OPTS="-XX:+HeapDumpOnOutOfMemoryError -Xverify:none -XX:+TieredCompilation -Xmx4096m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" ./gradlew --no-daemon --console=plain -b ./build.gradle build destructiveTest -PcoreNotStrict -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
-    - name: Publish Test Results
+    - run: mkdir -p test-reports && for d in fdb-java-annotations fdb-extensions fdb-record-layer-core fdb-record-layer-icu fdb-record-layer-spatial fdb-record-layer-lucene fdb-record-layer-jmh examples fdb-relational-api fdb-relational-core fdb-relational-cli fdb-relational-grpc fdb-relational-jdbc fdb-relational-server yaml-tests; do ln -s ../$d/.out/reports test-reports/$d; done
+    - name: Publish Test Reports
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: test-reports
         path: |
-          fdb-java-annotations/.out/reports
-          fdb-extensions/.out/reports
-          fdb-record-layer-core/.out/reports
-          fdb-record-layer-icu/.out/reports
-          fdb-record-layer-spatial/.out/reports
-          fdb-record-layer-lucene/.out/reports
-          fdb-record-layer-jmh/.out/reports
-          examples/.out/reports
-          fdb-relational-api/.out/reports
-          fdb-relational-core/.out/reports
-          fdb-relational-cli/.out/reports
-          fdb-relational-grpc/.out/reports
-          fdb-relational-jdbc/.out/reports
-          fdb-relational-server/.out/reports
-          yaml-tests/.out/reports
+          test-reports/fdb-java-annotations/
+          test-reports/fdb-extensions/
+          test-reports/fdb-record-layer-core/
+          test-reports/fdb-record-layer-icu/
+          test-reports/fdb-record-layer-spatial/
+          test-reports/fdb-record-layer-lucene/
+          test-reports/fdb-record-layer-jmh/
+          test-reports/examples/
+          test-reports/fdb-relational-api/
+          test-reports/fdb-relational-core/
+          test-reports/fdb-relational-cli/
+          test-reports/fdb-relational-grpc/
+          test-reports/fdb-relational-jdbc/
+          test-reports/fdb-relational-server/
+          test-reports/yaml-tests/
     - name: Test Summary
       if: always()
       uses: test-summary/action@v2
