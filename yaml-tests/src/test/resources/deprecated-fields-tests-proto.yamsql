@@ -21,10 +21,10 @@
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
-  - query: drop schema template deprecated_fields_tests_template
-  - query: drop database /FRL/DEPRECATED_FIELDS_YAML
+  - query: drop schema template if exists deprecated_fields_tests_template
+  - query: drop database if exists /FRL/DEPRECATED_FIELDS_YAML
   - query: create database /FRL/DEPRECATED_FIELDS_YAML
-  - load schema template: schema template DEPRECATED_FIELDS_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.deprecatedfields.DeprecatedFieldsTestsProto
+  - load schema template: DEPRECATED_FIELDS_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.deprecatedfields.DeprecatedFieldsTestsProto
   - query: create schema /FRL/DEPRECATED_FIELDS_YAML/test with template deprecated_fields_tests_template
 ---
 setup:
