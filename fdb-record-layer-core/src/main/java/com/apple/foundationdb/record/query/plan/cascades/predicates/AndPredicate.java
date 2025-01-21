@@ -35,7 +35,8 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -49,7 +50,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -125,21 +125,29 @@ public class AndPredicate extends AndOrPredicate {
 
     @Nonnull
     @Override
-    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
-        final var childrenInjectCompensationFunctions =
-                childrenResults.stream()
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(ImmutableList.toImmutableList());
-        if (childrenInjectCompensationFunctions.isEmpty()) {
-            return Optional.empty();
+    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
+        boolean isNeeded = false;
+        for (final var childPredicateCompensationFunction : childrenResults) {
+            isNeeded |= childPredicateCompensationFunction.isNeeded();
+            if (childPredicateCompensationFunction.isImpossible()) {
+                return PredicateCompensationFunction.impossibleCompensation();
+            }
         }
 
-        return Optional.of(translationMap -> childrenInjectCompensationFunctions.stream()
-                .flatMap(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap).stream())
-                .collect(LinkedIdentitySet.toLinkedIdentitySet()));
+        if (!isNeeded) {
+            return PredicateCompensationFunction.noCompensationNeeded();
+        }
+
+        return PredicateCompensationFunction.of(
+                baseAlias -> childrenResults.stream()
+                        .filter(PredicateCompensationFunction::isNeeded)
+                        .flatMap(predicateCompensationFunction ->
+                                predicateCompensationFunction.applyCompensationForPredicate(baseAlias).stream())
+                        .collect(LinkedIdentitySet.toLinkedIdentitySet()));
     }
 
     @Nonnull

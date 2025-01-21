@@ -293,11 +293,12 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Nonnull
     @Override
     public RecordQueryScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                     final boolean shouldSimplifyValues,
                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryScanPlan(recordTypes,
                 flowedType,
                 commonPrimaryKey,
-                comparisons.translateCorrelations(translationMap),
+                comparisons.translateCorrelations(translationMap, shouldSimplifyValues),
                 reverse,
                 strictlySorted,
                 matchCandidateOptional);

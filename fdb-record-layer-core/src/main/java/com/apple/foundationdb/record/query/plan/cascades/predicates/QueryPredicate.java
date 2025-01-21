@@ -38,14 +38,18 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.CompensatePredicateFunction;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensation;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -60,7 +64,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -157,6 +160,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * also represents a tautology.
      *
      * @param valueEquivalence the current value equivalence
+     * @param originalQueryPredicate original predicate on the query side
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
@@ -168,47 +172,89 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      */
     @Nonnull
     @SuppressWarnings("unused")
-    default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
-                                                                 @Nonnull final QueryPredicate candidatePredicate,
-                                                                 @Nonnull final EvaluationContext evaluationContext) {
+    default Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                      @Nonnull final QueryPredicate candidatePredicate,
+                                                                      @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate instanceof Placeholder) {
             return Optional.empty();
         }
 
         if (candidatePredicate.isTautology()) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
-                            .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
+                            .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                             .build());
         }
 
         final var semanticEquals = this.semanticEquals(candidatePredicate, valueEquivalence);
         return semanticEquals
                 .mapToOptional(queryPlanConstraint ->
-                        PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                        PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
+                                        candidatePredicate)
+                                .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                                 .setConstraint(queryPlanConstraint)
                                 .build());
     }
 
     /**
-     * Return a {@link CompensatePredicateFunction} that reapplies this predicate.
-     * @return a new {@link CompensatePredicateFunction} that reapplies this predicate.
+     * Return a {@link PredicateCompensation} that reapplies this predicate.
+     * @param originalQueryPredicate the original query predicate that was used to create this predicate
+     * @return a new {@link PredicateCompensation} that reapplies this predicate.
      */
     @Nonnull
-    default CompensatePredicateFunction getDefaultCompensatePredicateFunction() {
-        return (partialMatch, boundParameterPrefixMap) ->
-                Objects.requireNonNull(foldNullable(Function.identity(),
-                        (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
-                                boundParameterPrefixMap,
-                                ImmutableList.copyOf(childFunctions))));
+    default PredicateCompensation getDefaultPredicateCompensation(@Nonnull final QueryPredicate originalQueryPredicate) {
+        return (partialMatch, boundParameterPrefixMap, pullUp) ->
+                computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap, pullUp);
+    }
+
+    /**
+     * Return a {@link PredicateCompensationFunction} that reapplies this predicate.
+     * @param partialMatch the partial match that was established when this predicate was matched
+     * @param originalQueryPredicate the original query predicate that was used to when this predicate was translated
+     * @param boundParameterPrefixMap the bound parameter prefix map
+     * @param pullUp the pull-up structure used during compensation
+     * @return a new {@link PredicateCompensation} that reapplies this predicate.
+     */
+    @Nonnull
+    default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                      @Nonnull final PullUp pullUp) {
+        Debugger.sanityCheck(() ->
+                Verify.verify(Iterables.size(getChildren()) ==
+                        Iterables.size(originalQueryPredicate.getChildren())));
+
+        final var originalChildrenIterator =
+                originalQueryPredicate.getChildren().iterator();
+        final var childPredicateCompensations =
+                ImmutableList.<PredicateCompensationFunction>builder();
+        for (final var childPredicate : getChildren()) {
+            final var originalChildPredicate = originalChildrenIterator.next();
+            childPredicateCompensations.add(
+                    childPredicate.computeCompensationFunction(partialMatch, originalChildPredicate,
+                            boundParameterPrefixMap, pullUp));
+        }
+        return computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap,
+                childPredicateCompensations.build(), pullUp);
     }
 
     @Nonnull
-    default Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                 @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                 @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
-        return Optional.of(translationMap -> LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(translationMap)));
+    default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                      @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                      @Nonnull final PullUp pullUp) {
+        Verify.verify(this instanceof LeafQueryPredicate);
+        Verify.verify(childrenResults.isEmpty());
+
+        return toResidualPredicate()
+                .replaceValuesMaybe(pullUp::pullUpMaybe)
+                .map(queryPredicate ->
+                        PredicateCompensationFunction.of(baseAlias ->
+                                LinkedIdentitySet.of(queryPredicate.translateCorrelations(
+                                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
+                .orElse(PredicateCompensationFunction.impossibleCompensation());
     }
 
     /**
@@ -229,27 +275,30 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Method to find all mappings of this predicate in an {@link Iterable} of candidate predicates. If no mapping can
-     * be found at all, this method will then call {@link #impliesCandidatePredicate(ValueEquivalence, QueryPredicate, EvaluationContext)} using
+     * be found at all, this method will then call
+     * {@link #impliesCandidatePredicateMaybe(ValueEquivalence, QueryPredicate, QueryPredicate, EvaluationContext)} using
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
      * @param valueEquivalence the current alias map together with some other known equalities
      * @param candidatePredicates an {@link Iterable} of candiate predicates
      * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty collection of {@link PredicateMapping}s
      */
-    default Collection<PredicateMapping> findImpliedMappings(@NonNull ValueEquivalence valueEquivalence,
-                                                             @Nonnull Iterable<? extends QueryPredicate> candidatePredicates,
+    default Collection<PredicateMapping> findImpliedMappings(@NonNull final ValueEquivalence valueEquivalence,
+                                                             @Nonnull final QueryPredicate originalQueryPredicate,
+                                                             @Nonnull final Iterable<? extends QueryPredicate> candidatePredicates,
                                                              @Nonnull final EvaluationContext evaluationContext) {
         final Set<PredicateMapping.MappingKey> mappingKeys = Sets.newHashSet();
         final ImmutableList.Builder<PredicateMapping> mappingBuilder = ImmutableList.builder();
 
         for (final QueryPredicate candidatePredicate : candidatePredicates) {
-            final Optional<PredicateMapping> impliedByQueryPredicateOptional =
-                    impliesCandidatePredicate(valueEquivalence, candidatePredicate, evaluationContext);
-            impliedByQueryPredicateOptional.ifPresent(impliedByPredicate -> {
-                final var mappingKey = impliedByPredicate.getMappingKey();
+            final Optional<PredicateMapping> predicateMappingOptional =
+                    impliesCandidatePredicateMaybe(valueEquivalence, originalQueryPredicate, candidatePredicate,
+                            evaluationContext);
+            predicateMappingOptional.ifPresent(predicateMapping -> {
+                final var mappingKey = predicateMapping.getMappingKey();
                 if (!mappingKeys.contains(mappingKey)) {
                     mappingKeys.add(mappingKey);
-                    mappingBuilder.add(impliedByPredicate);
+                    mappingBuilder.add(predicateMapping);
                 }
             });
         }
@@ -261,7 +310,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             // constant predicate here.
             //
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
-            return impliesCandidatePredicate(valueEquivalence, tautologyPredicate, evaluationContext)
+            return impliesCandidatePredicateMaybe(valueEquivalence, originalQueryPredicate, tautologyPredicate,
+                    evaluationContext)
                     .map(ImmutableSet::of)
                     .orElseThrow(() -> new RecordCoreException("should have found at least one mapping"));
         }
@@ -401,23 +451,37 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @Override
     default QueryPredicate rebase(@Nonnull final AliasMap aliasMap) {
         final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
-        return translateCorrelations(translationMap);
+        return translateCorrelations(translationMap, false);
     }
 
     @Nonnull
-    default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+    default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify))
+                .orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nullable
     @SuppressWarnings("unused")
-    default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+    default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
         throw new RecordCoreException("implementor must override");
     }
 
     @Nonnull
     default Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(@Nonnull final EvaluationContext evaluationContext) {
         return Optional.empty();
+    }
+
+    @Nonnull
+    default Optional<QueryPredicate> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        return replaceLeavesMaybe(leafPredicate -> {
+            if (leafPredicate instanceof PredicateWithValue) {
+                final var predicateWithValue = (PredicateWithValue)leafPredicate;
+
+                return predicateWithValue.translateValueAndComparisonsMaybe(replacementFunction,
+                        comparison -> comparison.replaceValuesMaybe(replacementFunction)).orElse(null);
+            }
+            return leafPredicate;
+        });
     }
 
     @Nonnull
@@ -431,11 +495,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @Nonnull
     static List<QueryPredicate> translatePredicates(@Nonnull final TranslationMap translationMap,
-                                                    @Nonnull final List<QueryPredicate> predicates) {
+                                                    @Nonnull final List<QueryPredicate> predicates,
+                                                    final boolean shouldSimplifyValues) {
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         for (final var predicate : predicates) {
             final var newOuterInnerPredicate =
-                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap))
+                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, shouldSimplifyValues))
                             .orElseThrow(() -> new RecordCoreException("unable to translate predicate"));
             resultPredicatesBuilder.add(newOuterInnerPredicate);
         }

@@ -82,9 +82,10 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     private final String recordTypeName;
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
-
     @Nonnull
     private final Value resultValue;
+    @Nonnull
+    private final Value groupByResultValue;
 
     @Nonnull
     private final QueryPlanConstraint constraint;
@@ -95,33 +96,21 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
      * @param indexPlan The underlying index.
      * @param recordTypeName The name of the base record, used for debugging.
      * @param indexEntryToPartialRecordConverter A converter from index entry to record.
-     * @param resultValue The result value.
-     */
-    public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
-                                         @Nonnull final String recordTypeName,
-                                         @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
-                                         @Nonnull final Value resultValue) {
-        this(indexPlan, recordTypeName, indexEntryToPartialRecordConverter, resultValue, QueryPlanConstraint.tautology());
-    }
-
-    /**
-     * Creates an instance of {@link RecordQueryAggregateIndexPlan}.
-     *
-     * @param indexPlan The underlying index.
-     * @param recordTypeName The name of the base record, used for debugging.
-     * @param indexEntryToPartialRecordConverter A converter from index entry to record.
-     * @param resultValue The result value.
+     * @param resultValue the result value this plan produces.
+     * @param groupByResultValue The result value.
      * @param constraint The index filter.
      */
     public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
                                          @Nonnull final String recordTypeName,
                                          @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
                                          @Nonnull final Value resultValue,
+                                         @Nonnull final Value groupByResultValue,
                                          @Nonnull final QueryPlanConstraint constraint) {
         this.indexPlan = indexPlan;
         this.recordTypeName = recordTypeName;
         this.toRecord = indexEntryToPartialRecordConverter;
         this.resultValue = resultValue;
+        this.groupByResultValue = groupByResultValue;
         this.constraint = constraint;
     }
 
@@ -152,9 +141,9 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     public Optional<Value> getGroupingValueMaybe() {
-        final var hasGroupingValue = StreamSupport.stream(resultValue.getChildren().spliterator(), false).count() > 1;
+        final var hasGroupingValue = StreamSupport.stream(groupByResultValue.getChildren().spliterator(), false).count() > 1;
         if (hasGroupingValue) {
-            return Optional.of(resultValue.getChildren().iterator().next());
+            return Optional.of(groupByResultValue.getChildren().iterator().next());
         } else {
             return Optional.empty();
         }
@@ -208,7 +197,8 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Override
     public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
-        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord, resultValue);
+        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord,
+                resultValue, groupByResultValue, constraint);
     }
 
     @Nonnull
@@ -251,17 +241,24 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         final var result = ImmutableSet.<CorrelationIdentifier>builder();
         result.addAll(indexPlan.getCorrelatedTo());
         result.addAll(resultValue.getCorrelatedTo());
+        result.addAll(groupByResultValue.getCorrelatedTo());
         return result.build();
     }
 
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
-        final var maybeNewResult = resultValue.translateCorrelations(translationMap);
-        if (translatedIndexPlan != indexPlan || maybeNewResult != resultValue) {
-            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, maybeNewResult);
+    public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                               final boolean shouldSimplifyValues,
+                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap,
+                shouldSimplifyValues, translatedQuantifiers);
+        final var newResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final var newGroupByResultValue = groupByResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+
+        if (translatedIndexPlan != indexPlan || newResultValue != resultValue || newGroupByResultValue != groupByResultValue) {
+            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, newResultValue,
+                    newGroupByResultValue, constraint);
         }
         return this;
     }
@@ -278,9 +275,10 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         }
         final RecordQueryAggregateIndexPlan other = (RecordQueryAggregateIndexPlan) otherExpression;
         return indexPlan.structuralEquals(other.indexPlan, equivalencesMap) &&
-               recordTypeName.equals(other.recordTypeName) &&
-               toRecord.equals(other.toRecord) &&
-               resultValue.semanticEquals(other.resultValue, equivalencesMap);
+                recordTypeName.equals(other.recordTypeName) &&
+                toRecord.equals(other.toRecord) &&
+                resultValue.semanticEquals(other.resultValue, equivalencesMap) &&
+                groupByResultValue.semanticEquals(other.groupByResultValue, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -296,7 +294,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexPlan, recordTypeName, toRecord, resultValue);
+        return Objects.hash(indexPlan, recordTypeName, toRecord, resultValue, groupByResultValue);
     }
 
     @Override
@@ -360,6 +358,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
                 .setRecordTypeName(recordTypeName)
                 .setToRecord(toRecord.toProto(serializationContext))
                 .setResultValue(resultValue.toValueProto(serializationContext))
+                .setGroupByResultValue(groupByResultValue.toValueProto(serializationContext))
                 .setConstraint(constraint.toProto(serializationContext))
                 .build();
     }
@@ -377,6 +376,9 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
                 Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getRecordTypeName()),
                 IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
+                recordQueryAggregateIndexPlanProto.hasGroupByResultValue()
+                ? Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getGroupByResultValue()))
+                : Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
                 QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint())));
     }
 

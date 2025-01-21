@@ -180,23 +180,24 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     @Nonnull
     @Override
     public ComparisonRange rebase(@Nonnull final AliasMap aliasMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap), false);
     }
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ComparisonRange translateCorrelations(@Nonnull final TranslationMap translationMap) {
+    public ComparisonRange translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                 final boolean shouldSimplifyValues) {
         final var translatedEqualityComparison =
                 equalityComparison  == null
                 ? null
-                : equalityComparison.translateCorrelations(translationMap);
+                : equalityComparison.translateCorrelations(translationMap, shouldSimplifyValues);
 
         final List<Comparisons.Comparison> rebasedInequalityComparisons;
         if (inequalityComparisons != null) {
             boolean allRemainedSame = true;
             final var translatedInequalityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
             for (final var inequalityComparison : inequalityComparisons) {
-                final var translatedInequalityComparison = inequalityComparison.translateCorrelations(translationMap);
+                final var translatedInequalityComparison = inequalityComparison.translateCorrelations(translationMap, shouldSimplifyValues);
                 translatedInequalityComparisonsBuilder.add(translatedInequalityComparison);
                 if (inequalityComparison != translatedInequalityComparison) {
                     allRemainedSame = false;

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -33,7 +34,9 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySetValue;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
@@ -41,7 +44,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.util.PositionalIndex;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
@@ -324,6 +326,61 @@ public class TypeConversion {
             }
             resultSetBuilder.addRow(toRow(relationalResultSet));
         }
+        // Set the continuation after all the rows have been traversed
+        Continuation existingContinuation = relationalResultSet.getContinuation();
+        RpcContinuation rpcContinuation = toContinuation(existingContinuation);
+        resultSetBuilder.setContinuation(rpcContinuation);
+
         return resultSetBuilder.build();
+    }
+
+    private static RpcContinuation toContinuation(@Nonnull Continuation existingContinuation) {
+        RpcContinuation.Builder builder = RpcContinuation.newBuilder()
+                .setVersion(RelationalRpcContinuation.CURRENT_VERSION)
+                .setAtBeginning(existingContinuation.atBeginning())
+                .setAtEnd(existingContinuation.atEnd());
+        // Here, we serialize the entire continuation - this will make it easier to recreate the original once
+        // we send it back
+        byte[] state = existingContinuation.serialize();
+        if (state != null) {
+            builder.setInternalState(ByteString.copyFrom(state));
+        }
+        Continuation.Reason reason = existingContinuation.getReason();
+        if (reason != null) {
+            builder.setReason(toReason(reason));
+        }
+        return builder.build();
+    }
+
+    public static RpcContinuationReason toReason(Continuation.Reason reason) {
+        if (reason == null) {
+            return null;
+        }
+        switch (reason) {
+            case TRANSACTION_LIMIT_REACHED:
+                return RpcContinuationReason.TRANSACTION_LIMIT_REACHED;
+            case QUERY_EXECUTION_LIMIT_REACHED:
+                return RpcContinuationReason.QUERY_EXECUTION_LIMIT_REACHED;
+            case CURSOR_AFTER_LAST:
+                return RpcContinuationReason.CURSOR_AFTER_LAST;
+            default:
+                throw new IllegalStateException("Unrecognized continuation reason: " + reason);
+        }
+    }
+
+    public static Continuation.Reason toReason(RpcContinuationReason reason) {
+        if (reason == null) {
+            return null;
+        }
+        switch (reason) {
+            case TRANSACTION_LIMIT_REACHED:
+                return Continuation.Reason.TRANSACTION_LIMIT_REACHED;
+            case QUERY_EXECUTION_LIMIT_REACHED:
+                return Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED;
+            case CURSOR_AFTER_LAST:
+                return Continuation.Reason.CURSOR_AFTER_LAST;
+            default:
+                throw new IllegalStateException("Unrecognized continuation reason: " + reason);
+        }
     }
 }

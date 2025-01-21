@@ -47,7 +47,7 @@ protobuf {
         delete generatedFilesBaseDir
     }
     protoc {
-        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+        artifact = "com.google.protobuf:protoc:${libs.versions.protobuf.get()}"
     }
     generateProtoTasks {
         all().each { task ->

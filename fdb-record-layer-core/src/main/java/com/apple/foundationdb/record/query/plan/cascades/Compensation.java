@@ -21,26 +21,22 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -55,8 +51,8 @@ import java.util.function.Supplier;
  * result from the raw base data set. For those purposes, it makes more sense to relax the matching requirement to just
  * require that the materialized view side of matching {@code Q} can subsume the query side {@code M} which means that
  * executing {@code M} at least contains the result that executing {@code Q} would yield. That execution, however,
- * may produce also extraneous records. Compensation corrects for that problem by applying certain post-operations such as
- * filtering, distincting or resorting.
+ * may produce also extraneous records. Compensation corrects for that problem by applying certain post-operations
+ * such as filtering, distinct-ing or resorting.
  *
  * <p>
  * Example in SQL terms:
@@ -118,7 +114,6 @@ import java.util.function.Supplier;
  * compensation is required. In this example, no compensation is required as the individual indexes being intersected
  * complement each other nicely.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public interface Compensation {
     /**
      * Named object to indicate that this compensation is in fact no compensation, that is no additional operators
@@ -143,7 +138,15 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer,
+                                          @Nonnull final RelationalExpression relationalExpression) {
+            throw new RecordCoreException("this method should not be called");
+        }
+
+        @Nonnull
+        @Override
+        public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
+                                               @Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
@@ -179,14 +182,36 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer,
+                                          @Nonnull final RelationalExpression relationalExpression) {
+            throw new RecordCoreException("this method should not be called");
+        }
+
+        @Nonnull
+        @Override
+        public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
+                                               @Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
 
+    @Nonnull
+    default RelationalExpression applyAllNeededCompensations(@Nonnull final Memoizer memoizer,
+                                                             @Nonnull RelationalExpression relationalExpression) {
+        if (isNeededForFiltering()) {
+            relationalExpression = apply(memoizer, relationalExpression);
+        }
+        if (isFinalNeeded()) {
+            relationalExpression = applyFinal(memoizer, relationalExpression);
+        }
+
+        return relationalExpression;
+    }
+
     /**
      * When applied to a reference this method returns a {@link RelationalExpression} consuming the
-     * reference passed in that applies additional predicates as expressed by the predicate compensation map.
+     * reference passed in that applies additional predicates as expressed by e.g. the predicate compensation map in
+     * {@link WithSelectCompensation}.
      * @param memoizer the memoizer for new {@link Reference}s
      * @param relationalExpression root of graph to apply compensation to
      * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
@@ -194,6 +219,18 @@ public interface Compensation {
      */
     @Nonnull
     RelationalExpression apply(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression);
+
+    /**
+     * When applied to a reference this method returns a {@link RelationalExpression} consuming the
+     * reference passed in that applies a final shape correction as needed by e.g. the result compensation function in
+     * {@link WithSelectCompensation}.
+     * @param memoizer the memoizer for new {@link Reference}s
+     * @param relationalExpression root of graph to apply compensation to
+     * @return a new relational expression that corrects the result of {@code reference} by applying a final shape
+     *         correction of the resulting records.
+     */
+    @Nonnull
+    RelationalExpression applyFinal(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression);
 
     /**
      * Returns if this compensation object needs to be applied in order to correct the result of a match.
@@ -217,6 +254,17 @@ public interface Compensation {
      *         {@code false}.
      */
     default boolean isNeededForFiltering() {
+        return true;
+    }
+
+    /**
+     * Method that indicates if this compensation needs to be applied if it is the top compensation in the chain of
+     * compensations. Just like the regular usage of a compensation might not be needed (as for instance all predicates
+     * have already been used as sargables), it might also be unnecessary to apply the final compensation part.
+     * @return {@code true} if the caller must call {@code applyFinal()} if this compensation is the top compensation
+     *         of a compensation chain.
+     */
+    default boolean isFinalNeeded() {
         return true;
     }
 
@@ -262,7 +310,15 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
+            public RelationalExpression apply(@Nonnull final Memoizer memoizer,
+                                              @Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
+            }
+
+            @Nonnull
+            @Override
+            public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
+                                                   @Nonnull final RelationalExpression relationalExpression) {
                 return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
             }
         };
@@ -282,8 +338,18 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
-                return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
+            public RelationalExpression apply(@Nonnull final Memoizer memoizer,
+                                              @Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(memoizer,
+                        otherCompensation.apply(memoizer, relationalExpression));
+            }
+
+            @Nonnull
+            @Override
+            public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
+                                                   @Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(memoizer,
+                        otherCompensation.apply(memoizer, relationalExpression));
             }
         };
     }
@@ -311,40 +377,26 @@ public interface Compensation {
         return IMPOSSIBLE_COMPENSATION;
     }
 
-    /**
-     * Returns a specific compensation object that uses a mapping between predicates from a query to predicates that
-     * are used for the application of the compensation.
-     * @param isImpossible an indicator if this compensation can be applied, if not, this compensation
-     *        can only be used for intersections with other compensations
-     * @param childCompensation a compensation that should be applied before the compensation being created in this
-     *        method
-     * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
-     *        used for compensation
-     * @param matchedQuantifiers a set of quantifiers that are mapped in the original {@link PartialMatch}
-     * @param unmatchedQuantifiers a set of quantifiers that are not mapped in the original {@link PartialMatch}
-     * @param compensatedAliases a set of aliases this compensation covers and compensates for
-     * @param remainingComputationOptional an optional containing (if not empty) a {@link Value} that needs to be
-     *        computed by some means when this compensation is applied
-     * @return a new compensation
-     */
     @Nonnull
-    static Compensation ofChildCompensationAndPredicateMap(final boolean isImpossible,
-                                                           @Nonnull final Compensation childCompensation,
-                                                           @Nonnull final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
-                                                           @Nonnull final Set<Quantifier> matchedQuantifiers,
-                                                           @Nonnull final Set<Quantifier> unmatchedQuantifiers,
-                                                           @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
-                                                           @Nonnull final Optional<Value> remainingComputationOptional) {
+    default ForMatch derived(final boolean isImpossible,
+                             @Nonnull final LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap,
+                             @Nonnull final Collection<? extends Quantifier> matchedQuantifiers,
+                             @Nonnull final Set<? extends Quantifier> unmatchedQuantifiers,
+                             @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
+                             @Nonnull final ResultCompensationFunction resultCompensationFunction) {
         //
         // At least one of these conditions must be true:
-        // - there are predicates that need to be compensated
+        // - it is an impossible compensation (in which case the predicate compensation map may be empty)
         // - we need to change the shape of the record
+        // - there are predicates that need to be compensated
         // - there may be unmatched quantifiers that we need to deal with
-        // - any of this compensation's children need to compensate for something
+        // - any of this compensation's children need to compensate for something -- tested in isNeededForFiltering()
         //
-        Verify.verify(!predicateCompensationMap.isEmpty() || remainingComputationOptional.isPresent() ||
-                !unmatchedQuantifiers.isEmpty() || childCompensation.isNeeded());
-        return new ForMatch(isImpossible, childCompensation, predicateCompensationMap, matchedQuantifiers, unmatchedQuantifiers, compensatedAliases, remainingComputationOptional);
+        Verify.verify(isImpossible || !unmatchedQuantifiers.isEmpty() ||
+                !predicateCompensationMap.isEmpty() || resultCompensationFunction.isNeeded() || isNeededForFiltering());
+
+        return new ForMatch(isImpossible, this, predicateCompensationMap, matchedQuantifiers,
+                unmatchedQuantifiers, compensatedAliases, resultCompensationFunction);
     }
 
     /**
@@ -352,13 +404,12 @@ public interface Compensation {
      * {@link QueryPredicate}s.
      */
     interface WithSelectCompensation extends Compensation {
-
         @Override
         default boolean isNeeded() {
             return getChildCompensation().isNeeded() ||
                    !getUnmatchedForEachQuantifiers().isEmpty() ||
                    !getPredicateCompensationMap().isEmpty() ||
-                   getRemainingComputationValueOptional().isPresent();
+                   getResultCompensationFunction().isNeeded();
         }
 
         @Override
@@ -366,6 +417,11 @@ public interface Compensation {
             return getChildCompensation().isNeededForFiltering() ||
                    !getUnmatchedForEachQuantifiers().isEmpty() ||
                    !getPredicateCompensationMap().isEmpty();
+        }
+
+        @Override
+        default boolean isFinalNeeded() {
+            return getResultCompensationFunction().isNeeded();
         }
 
         @Nonnull
@@ -385,34 +441,10 @@ public interface Compensation {
         Set<Quantifier> getUnmatchedForEachQuantifiers();
 
         @Nonnull
-        Map<QueryPredicate, ExpandCompensationFunction> getPredicateCompensationMap();
+        Map<QueryPredicate, PredicateCompensationFunction> getPredicateCompensationMap();
 
         @Nonnull
-        Optional<Value> getRemainingComputationValueOptional();
-
-        /**
-         * Method to return a new compensation of at least type {@link WithSelectCompensation} based on the current
-         * compensation object. This method should be implemented by implementing classes and/or their sub classes.
-         * @param isImpossible an indicator if this compensation can be applied, if not, this compensation
-         *        can only be used for intersections with other compensations
-         * @param childCompensation a compensation that should be applied before the compensation being created in this
-         *        method
-         * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
-         *        used for compensation
-         * @param matchedQuantifiers a set of quantifiers that are matched in the original {@link PartialMatch}
-         * @param unmatchedQuantifiers a set of unmatched quantifiers
-         * @param compensatedAliases a set of aliases this compensation must compensate for
-         * @param remainingComputationOptional any remaining computation
-         * @return a new compensation
-         */
-        @Nonnull
-        WithSelectCompensation derivedWithPredicateCompensationMap(boolean isImpossible,
-                                                                   @Nonnull Compensation childCompensation,
-                                                                   @Nonnull IdentityHashMap<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
-                                                                   @Nonnull Collection<? extends Quantifier> matchedQuantifiers,
-                                                                   @Nonnull Set<? extends Quantifier> unmatchedQuantifiers,
-                                                                   @Nonnull Set<CorrelationIdentifier> compensatedAliases,
-                                                                   @Nonnull Optional<Value> remainingComputationOptional);
+        ResultCompensationFunction getResultCompensationFunction();
 
         /**
          * Specific implementation of union-ing two compensations both of type {@link WithSelectCompensation}.
@@ -451,19 +483,21 @@ public interface Compensation {
                 return impossibleCompensation();
             }
 
-            final var remainingComputationValueOptional = getRemainingComputationValueOptional();
-            final var otherWithSelectCompensationRemainingComputationValueOptional = otherWithSelectCompensation.getRemainingComputationValueOptional();
-            if (remainingComputationValueOptional.isPresent() && otherWithSelectCompensationRemainingComputationValueOptional.isPresent()) {
-                return impossibleCompensation();
+            final ResultCompensationFunction newResultResultCompensationFunction;
+            final var resultCompensationFunction = getResultCompensationFunction();
+            final var otherResultCompensationFunction = otherWithSelectCompensation.getResultCompensationFunction();
+            if (!resultCompensationFunction.isNeeded() &&
+                    !otherResultCompensationFunction.isNeeded()) {
+                newResultResultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            } else {
+                Verify.verify(resultCompensationFunction.isNeeded());
+                Verify.verify(otherResultCompensationFunction.isNeeded());
+                // pick the one from this side -- it does not matter as both candidates have the same shape
+                newResultResultCompensationFunction = resultCompensationFunction;
             }
 
-            final var resultRemainingCompensationValueOptional =
-                    remainingComputationValueOptional.isPresent()
-                    ? remainingComputationValueOptional
-                    : otherWithSelectCompensationRemainingComputationValueOptional;
-
             final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
-            final var combinedPredicateMap = Maps.<QueryPredicate, ExpandCompensationFunction>newIdentityHashMap();
+            final var combinedPredicateMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
 
             combinedPredicateMap.putAll(getPredicateCompensationMap());
 
@@ -490,21 +524,21 @@ public interface Compensation {
                 return Compensation.impossibleCompensation();
             }
 
-            if (!unionedChildCompensation.isNeeded() && resultRemainingCompensationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (!unionedChildCompensation.isNeededForFiltering() &&
+                    !newResultResultCompensationFunction.isNeeded() && combinedPredicateMap.isEmpty()) {
                 return Compensation.noCompensation();
             }
 
-            if (resultRemainingCompensationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (!newResultResultCompensationFunction.isNeeded() && combinedPredicateMap.isEmpty()) {
                 return unionedChildCompensation;
             }
 
-            return derivedWithPredicateCompensationMap(false,
-                    unionedChildCompensation,
+            return unionedChildCompensation.derived(false,
                     combinedPredicateMap,
                     unionedMatchedQuantifiers,
                     ImmutableSet.of(),
                     Sets.union(getCompensatedAliases(), otherWithSelectCompensation.getCompensatedAliases()),
-                    resultRemainingCompensationValueOptional);
+                    newResultResultCompensationFunction);
         }
 
         /**
@@ -525,25 +559,21 @@ public interface Compensation {
             }
             final var otherWithSelectCompensation = (WithSelectCompensation)otherCompensation;
 
-            final Optional<Value> resultRemainingComputationValueOptional;
-            final var remainingComputationValueOptional = getRemainingComputationValueOptional();
-            final var otherRemainingComputationValueOptional = otherWithSelectCompensation.getRemainingComputationValueOptional();
-            if (remainingComputationValueOptional.isPresent() &&
-                    otherRemainingComputationValueOptional.isPresent()) {
-                final var remainingComputationValue = remainingComputationValueOptional.get();
-                final var otherRemainingComputationValue = otherRemainingComputationValueOptional.get();
-
-                if (remainingComputationValue.equals(otherRemainingComputationValue)) {
-                    resultRemainingComputationValueOptional = remainingComputationValueOptional;
-                } else {
-                    return Compensation.impossibleCompensation();
-                }
+            final ResultCompensationFunction newResultResultCompensationFunction;
+            final var resultCompensationFunction = getResultCompensationFunction();
+            final var otherResultCompensationFunction = otherWithSelectCompensation.getResultCompensationFunction();
+            if (!resultCompensationFunction.isNeeded() &&
+                    !otherResultCompensationFunction.isNeeded()) {
+                newResultResultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
-                resultRemainingComputationValueOptional = Optional.empty();
+                Verify.verify(resultCompensationFunction.isNeeded());
+                Verify.verify(otherResultCompensationFunction.isNeeded());
+                // pick the one from this side -- it does not matter as both candidates have the same shape
+                newResultResultCompensationFunction = resultCompensationFunction;
             }
 
             final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
-            final var combinedPredicateMap = Maps.<QueryPredicate, ExpandCompensationFunction>newIdentityHashMap();
+            final var combinedPredicateMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
             for (final var entry : getPredicateCompensationMap().entrySet()) {
                 // if the other side does not have compensation for this key, we don't need compensation
                 if (otherCompensationMap.containsKey(entry.getKey())) {
@@ -566,11 +596,12 @@ public interface Compensation {
                 return Compensation.impossibleCompensation();
             }
 
-            if (!intersectedChildCompensation.isNeeded() && resultRemainingComputationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (!intersectedChildCompensation.isNeededForFiltering() &&
+                    !newResultResultCompensationFunction.isNeeded() && combinedPredicateMap.isEmpty()) {
                 return Compensation.noCompensation();
             }
 
-            if (resultRemainingComputationValueOptional.isEmpty() && combinedPredicateMap.isEmpty()) {
+            if (!newResultResultCompensationFunction.isNeeded() && combinedPredicateMap.isEmpty()) {
                 return intersectedChildCompensation;
             }
 
@@ -589,13 +620,12 @@ public interface Compensation {
                     .flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream())
                     .anyMatch(unmatchedQuantifierAliases::contains);
 
-            return derivedWithPredicateCompensationMap(isImpossible,
-                    intersectedChildCompensation,
+            return intersectedChildCompensation.derived(isImpossible,
                     combinedPredicateMap,
                     intersectedMatchedQuantifiers,
                     intersectedUnmatchedQuantifiers,
                     getCompensatedAliases(), // both compensated aliases must be identical, but too expensive to check
-                    resultRemainingComputationValueOptional);
+                    newResultResultCompensationFunction);
         }
     }
 
@@ -608,7 +638,7 @@ public interface Compensation {
         @Nonnull
         private final Compensation childCompensation;
         @Nonnull
-        final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap;
+        final Map<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap;
         @Nonnull
         private final Set<Quantifier> matchedQuantifiers;
         @Nonnull
@@ -623,18 +653,18 @@ public interface Compensation {
         @Nonnull
         private final Set<CorrelationIdentifier> compensatedAliases;
         @Nonnull
-        private final Optional<Value> remainingComputationValueOptional;
+        private final ResultCompensationFunction resultCompensationFunction;
 
         @Nonnull
-        private final Supplier<Set<Quantifier>> unmatchedForEachQuantifiersSuppplier;
+        private final Supplier<Set<Quantifier>> unmatchedForEachQuantifiersSupplier;
 
         private ForMatch(final boolean isImpossible,
                          @Nonnull final Compensation childCompensation,
-                         @Nonnull final Map<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
+                         @Nonnull final Map<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap,
                          @Nonnull final Collection<? extends Quantifier> matchedQuantifiers,
                          @Nonnull final Collection<? extends Quantifier> unmatchedQuantifiers,
                          @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
-                         @Nonnull final Optional<Value> remainingComputationOptional) {
+                         @Nonnull final ResultCompensationFunction resultCompensationFunction) {
             this.isImpossible = isImpossible;
             this.childCompensation = childCompensation;
             this.predicateCompensationMap = new LinkedIdentityMap<>();
@@ -644,8 +674,8 @@ public interface Compensation {
             this.unmatchedQuantifiers = new LinkedIdentitySet<>();
             this.unmatchedQuantifiers.addAll(unmatchedQuantifiers);
             this.compensatedAliases = ImmutableSet.copyOf(compensatedAliases);
-            this.remainingComputationValueOptional = remainingComputationOptional;
-            this.unmatchedForEachQuantifiersSuppplier = Suppliers.memoize(this::computeUnmatchedForEachQuantifiers);
+            this.resultCompensationFunction = resultCompensationFunction;
+            this.unmatchedForEachQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedForEachQuantifiers);
         }
 
         @Override
@@ -681,7 +711,7 @@ public interface Compensation {
         @Nonnull
         @Override
         public Set<Quantifier> getUnmatchedForEachQuantifiers() {
-            return unmatchedForEachQuantifiersSuppplier.get();
+            return unmatchedForEachQuantifiersSupplier.get();
         }
 
         @Nonnull
@@ -693,69 +723,44 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public Map<QueryPredicate, ExpandCompensationFunction> getPredicateCompensationMap() {
+        public Map<QueryPredicate, PredicateCompensationFunction> getPredicateCompensationMap() {
             return predicateCompensationMap;
         }
 
         @Nonnull
         @Override
-        public Optional<Value> getRemainingComputationValueOptional() {
-            return remainingComputationValueOptional;
-        }
-
-        @Override
-        public boolean canBeDeferred() {
-            return remainingComputationValueOptional.isEmpty();
-        }
-
-        @Nonnull
-        @Override
-        public WithSelectCompensation derivedWithPredicateCompensationMap(final boolean isImpossible,
-                                                                          @Nonnull final Compensation childCompensation,
-                                                                          @Nonnull final IdentityHashMap<QueryPredicate, ExpandCompensationFunction> predicateCompensationMap,
-                                                                          @Nonnull final Collection<? extends Quantifier> matchedQuantifiers,
-                                                                          @Nonnull final Set<? extends Quantifier> unmatchedQuantifiers,
-                                                                          @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
-                                                                          @Nonnull final Optional<Value> remainingComputationValueOptional) {
-            Verify.verify(!predicateCompensationMap.isEmpty() || remainingComputationValueOptional.isPresent());
-            return new ForMatch(isImpossible, childCompensation, predicateCompensationMap, matchedQuantifiers, unmatchedQuantifiers, compensatedAliases, remainingComputationValueOptional);
+        public ResultCompensationFunction getResultCompensationFunction() {
+            return resultCompensationFunction;
         }
 
         /**
          * When applied to a reference this method returns a {@link RelationalExpression} consuming the
          * reference passed in that applies additional predicates as expressed by the predicate compensation map.
-         * @param memoizer the the memoizer for new {@link Reference}s
+         *
+         * @param memoizer the memoizer for new {@link Reference}s
          * @param relationalExpression root of graph to apply compensation to
+         *
          * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
          * filters and/or transformations
          */
         @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer,
+                                          @Nonnull RelationalExpression relationalExpression) {
+            Verify.verify(!isImpossible());
+
             // apply the child as needed
-            if (childCompensation.isNeeded()) {
+            if (childCompensation.isNeededForFiltering()) {
                 relationalExpression = childCompensation.apply(memoizer, relationalExpression);
             }
 
-            final var matchedQuantifierMap =
-                    Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
-
-            final var matchedAliases =
-                    matchedQuantifierMap.keySet();
-            Verify.verify(compensatedAliases.equals(matchedAliases));
-
-            final var matchedForEachQuantifierAliases =
-                    matchedAliases
-                            .stream()
-                            .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
-                            .collect(ImmutableSet.toImmutableSet());
-
-            Verify.verify(matchedForEachQuantifierAliases.size() <= 1);
+            final var matchedForEachAlias = getMatchedForEachAlias();
 
             final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
             final var injectCompensationFunctions = predicateCompensationMap.values();
-            for (final var injectCompensationFunction : injectCompensationFunctions) {
-                compensatedPredicates.addAll(injectCompensationFunction.applyCompensationForPredicate(TranslationMap.empty()));
+            for (final var predicateCompensationFunction : injectCompensationFunctions) {
+                // TODO construct a translation map using matchedForEachAlias as target
+                compensatedPredicates.addAll(predicateCompensationFunction.applyCompensationForPredicate(matchedForEachAlias));
             }
 
             final var compensatedPredicatesCorrelatedTo =
@@ -805,11 +810,9 @@ public interface Compensation {
             //
             // At this point we definitely need a new SELECT expression.
             //
-            final var matchedForEachQuantifierAlias =
-                    Iterables.getOnlyElement(matchedForEachQuantifierAliases);
             final var newBaseQuantifier =
                     Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
-                            matchedForEachQuantifierAlias);
+                            matchedForEachAlias);
 
             //
             // TODO In the vast majority of cases the then branch is taken where the compensation does not create
@@ -833,6 +836,48 @@ public interface Compensation {
 
                 return completeExpansionBuilder.build().buildSimpleSelectOverQuantifier(newBaseQuantifier);
             }
+        }
+
+        @Nonnull
+        private CorrelationIdentifier getMatchedForEachAlias() {
+            final var matchedQuantifierMap =
+                    Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
+
+            final var matchedAliases =
+                    matchedQuantifierMap.keySet();
+            Verify.verify(compensatedAliases.equals(matchedAliases));
+
+            final var matchedForEachQuantifierAliases =
+                    matchedAliases
+                            .stream()
+                            .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
+                            .collect(ImmutableSet.toImmutableSet());
+
+            return Iterables.getOnlyElement(matchedForEachQuantifierAliases);
+        }
+
+        @Nonnull
+        @Override
+        public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
+                                               @Nonnull RelationalExpression relationalExpression) {
+            Verify.verify(!isImpossible());
+            Verify.verify(resultCompensationFunction.isNeeded());
+
+            final var matchedForEachAlias = getMatchedForEachAlias();
+
+            final var resultValue = resultCompensationFunction.applyCompensationForResult(matchedForEachAlias);
+
+            //
+            // At this point we definitely need a new SELECT expression.
+            //
+            final var newBaseQuantifier =
+                    Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                            matchedForEachAlias);
+
+            return GraphExpansion.builder()
+                    .addQuantifier(newBaseQuantifier)
+                    .build()
+                    .buildSelectWithResultValue(resultValue);
         }
     }
 }

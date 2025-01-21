@@ -203,6 +203,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Nonnull
     @Override
     public MatchableSortExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                         final boolean shouldSimplifyValues,
                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new MatchableSortExpression(getSortParameterIds(),
                 isReverse(),
@@ -212,8 +213,17 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Nonnull
     @Override
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
-        final var matchInfo = partialMatch.getMatchInfo();
-        return Optional.of(matchInfo.withOrderingInfo(forPartialMatch(partialMatch)));
+        final var childMatchInfo = partialMatch.getMatchInfo();
+        final var maxMatchMap = childMatchInfo.getMaxMatchMap();
+        final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
+        final var adjustedMaxMatchMapOptional =
+                maxMatchMap.adjustMaybe(innerQuantifier.getAlias(), getResultValue(), ImmutableSet.of(innerQuantifier.getAlias()));
+        return adjustedMaxMatchMapOptional
+                .map(adjustedMaxMatchMap ->
+                        childMatchInfo.adjustedBuilder()
+                                .setMaxMatchMap(adjustedMaxMatchMap)
+                                .setMatchedOrderingParts(forPartialMatch(partialMatch))
+                                .build());
     }
 
     /**

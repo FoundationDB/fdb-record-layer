@@ -47,6 +47,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner {
@@ -65,7 +66,25 @@ public final class YamlRunner {
     private final YamlExecutionContext executionContext;
 
     public interface YamlConnectionFactory {
+        /**
+         * Convert a connection uri into an actual connection.
+         * @param connectPath the path to connect to
+         * @return A new {@link RelationalConnection} for the given path appropriate for this test class
+         * @throws SQLException if we cannot connect
+         */
         RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+
+        /**
+         * The versions that the connection has, other than the current code.
+         * <p>
+         *     If we are just testing against the current code, this will be empty, but otherwise it will include the
+         *     versions that we're testing. In the future we may want to support tests that don't run against the
+         *     current version, but that's not currently needed, so not supported.
+         * </p>
+         * @return A set of versions that we are testing against, or an empty set if just testing against the current
+         * version
+         */
+        Set<String> getVersionsUnderTest();
     }
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
