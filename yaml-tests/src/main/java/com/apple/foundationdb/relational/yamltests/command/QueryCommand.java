@@ -77,7 +77,7 @@ public final class QueryCommand extends Command {
     }
 
     @Nonnull
-    public static QueryCommand parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
         final var lineNumber = Matchers.notNull(linedObject, "query").getLineNumber();
@@ -91,6 +91,19 @@ public final class QueryCommand extends Command {
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
                     queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, executionContext)).collect(Collectors.toList());
+
+            Assert.thatUnchecked(configs.stream().skip(1)
+                    .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
+                    "supported_version must be the first config in a query (after the query itself)");
+
+            final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
+                    .collect(Collectors.toList());
+            Assert.thatUnchecked(skipConfigs.size() < 2, "Query should not have more than one skip");
+            if (!skipConfigs.isEmpty()) {
+                return new SkippedCommand(lineNumber, executionContext,
+                        ((QueryConfig.SkipConfig)skipConfigs.get(0)).getMessage(),
+                        queryInterpreter.getQuery());
+            }
             return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext);
         } catch (Exception e) {
             throw executionContext.wrapContext(e,
@@ -112,6 +125,8 @@ public final class QueryCommand extends Command {
         }
         this.queryInterpreter = interpreter;
         this.queryConfigs = configs;
+        Assert.thatUnchecked(queryConfigs.stream().noneMatch(config -> config instanceof QueryConfig.SkipConfig),
+                "SkipConfig should not have gotten into QueryCommand " + lineNumber);
     }
 
     public void execute(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
@@ -160,7 +175,7 @@ public final class QueryCommand extends Command {
                 // results
                 int finalMaxRows1 = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
-            } else {
+            } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
                 }

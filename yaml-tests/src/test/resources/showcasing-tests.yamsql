@@ -36,6 +36,12 @@
 #       opaque as to how and where schemas are created, `setup` setup block gives the tester the option to execute
 #       whatever statements they want in whichever location.
 ---
+options:
+    # supported_version specifies what versions this works with
+    # Any version greater than the provided version is expected to work
+    # When developing a new feature use !current_version to specify that it only works with the current version
+    supported_version: 4.0.559.0
+---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
     create table t2(col1 bigint, primary key(col1))
@@ -97,6 +103,9 @@ test_block:
       # Having multiple `result` configs for the `query` command checks the result sets
       # (in order of appearance) with consecutive continuations of the query.
       - query: select * from t1;
+      # Like the options at the top of the file, a supported_version can be specified for
+      # an individual query. This overrides the version specified in the file, or test block
+      - supported_version: 4.0.561.0
       - maxRows: 1
       - result: [{10, 20}]
       - result: [{30, 40}]
@@ -148,6 +157,9 @@ test_block:
     # For `block` the connection is created just once and all the tests are executed in that connection.
     # optional. default: test
     connection_lifecycle: block
+    # Like the options at the top of the file, a supported_version can be specified for
+    # an individual test_block. This overrides the version specified in the file
+    supported_version: 4.0.560.0
   tests:
     -
       # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause

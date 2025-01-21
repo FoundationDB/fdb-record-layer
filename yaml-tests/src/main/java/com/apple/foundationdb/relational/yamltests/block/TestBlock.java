@@ -28,11 +28,14 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
-
+import com.apple.foundationdb.relational.yamltests.command.SkippedCommand;
+import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,9 +51,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Implementation of block that serves the purpose of running tests. The block consists of:
@@ -101,6 +101,7 @@ public final class TestBlock extends ConnectedBlock {
     static final String OPTION_STATEMENT_TYPE = "statement_type";
     static final String OPTION_STATEMENT_TYPE_SIMPLE = "simple";
     static final String OPTION_STATEMENT_TYPE_PREPARED = "prepared";
+    static final String OPTION_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
 
     /**
      * Defines the way in which the tests are run.
@@ -184,6 +185,7 @@ public final class TestBlock extends ConnectedBlock {
         private boolean checkCache = true;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         private StatementType statementType = StatementType.BOTH;
+        private Object rawSupportedVersion;
 
         private void verifyPreset(@Nonnull String preset) {
             switch (preset) {
@@ -238,7 +240,9 @@ public final class TestBlock extends ConnectedBlock {
                         Assert.failUnchecked("Illegal Format: Unknown value for option `statement_type`: " + value);
                         break;
                 }
-
+            }
+            if (optionsMap.containsKey(OPTION_SUPPORTED_VERSION)) {
+                this.rawSupportedVersion = optionsMap.get(OPTION_SUPPORTED_VERSION);
             }
             setOptionConnectionLifecycle(optionsMap);
         }
@@ -303,7 +307,7 @@ public final class TestBlock extends ConnectedBlock {
         }
     }
 
-    public static TestBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+    public static Block parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
         try {
             // Since `options` is also a top-level block, the `CustomYamlConstructor` will add the line numbers,
             // changing it from a `String` to a `LinedObject` so that we know the line numbers when logging an error,
@@ -320,11 +324,17 @@ public final class TestBlock extends ConnectedBlock {
             }
             // higher priority than the preset is that of options map, set the options according to that, if any is present.
             if (testsMap.get(TEST_BLOCK_OPTIONS) != null) {
-                options.setWithOptionsMap(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS)));
+                options.setWithOptionsMap(CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS))));
             }
             // execution context carries the highest priority, try setting options per that if it has some options to override.
             options.setWithExecutionContext(executionContext);
             final var testsObject = Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber);
+            if (options.rawSupportedVersion != null) {
+                final SupportedVersionCheck check = SupportedVersionCheck.parse(options.rawSupportedVersion, executionContext);
+                if (!check.isSupported()) {
+                    return new SkipBlock(lineNumber, check.getMessage());
+                }
+            }
             var randomGenerator = new Random(options.seed);
             final var executables = new ArrayList<Consumer<RelationalConnection>>();
             final var executableTestsWithCacheCheck = new ArrayList<Consumer<RelationalConnection>>();
@@ -333,14 +343,19 @@ public final class TestBlock extends ConnectedBlock {
             for (var testObject : tests) {
                 final var test = Matchers.arrayList(testObject, "test");
                 final var resolvedCommand = Objects.requireNonNull(Command.parse(test, executionContext));
+                if (resolvedCommand instanceof SkippedCommand) {
+                    ((SkippedCommand)resolvedCommand).log();
+                    continue;
+                }
                 Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
-                queryCommands.add((QueryCommand) resolvedCommand);
+                final QueryCommand queryCommand = (QueryCommand)resolvedCommand;
+                queryCommands.add(queryCommand);
                 var runAsPreparedMix = getRunAsPreparedMix(options.statementType, options.repetition, randomGenerator);
                 for (int i = 0; i < options.repetition; i++) {
-                    executables.add(createTestExecutable((QueryCommand) resolvedCommand, false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
+                    executables.add(createTestExecutable(queryCommand, false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
                 }
                 if (options.checkCache) {
-                    executableTestsWithCacheCheck.add(createTestExecutable((QueryCommand) resolvedCommand, true, randomGenerator, runAsPreparedMix.getRight()));
+                    executableTestsWithCacheCheck.add(createTestExecutable(queryCommand, true, randomGenerator, runAsPreparedMix.getRight()));
                 }
             }
             if (options.mode != ExecutionMode.ORDERED) {
@@ -449,7 +464,7 @@ public final class TestBlock extends ConnectedBlock {
 
     @Nonnull
     private static Consumer<RelationalConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                                     @Nonnull Random random, boolean runAsPreparedStatement) {
+                                                                       @Nonnull Random random, boolean runAsPreparedStatement) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> queryCommand.execute(connection, checkCache, executor);
     }

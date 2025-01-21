@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.yamltests.block.SetupBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
-
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -35,13 +34,12 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 
 public class CustomYamlConstructor extends SafeConstructor {
 
@@ -75,6 +73,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_COUNT);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_PLAN_HASH);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_MAX_ROWS);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION);
     }
 
     @Override
