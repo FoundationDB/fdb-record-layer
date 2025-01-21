@@ -65,7 +65,7 @@ import java.util.function.Supplier;
  * promotions according to the SQL standard.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PromoteValue extends AbstractValue implements ValueWithChild, Value.RangeMatchableValue {
+public class PromoteValue extends AbstractValue implements CreatesDynamicTypesValue, ValueWithChild, Value.RangeMatchableValue {
     /**
      * This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
      * applied to our data model.
