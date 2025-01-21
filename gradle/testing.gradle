@@ -222,7 +222,7 @@ tasks.withType(Test).configureEach { task ->
         }
         task.testFramework.options.excludeTags.add('Performance')
 
-        if (task.name == 'test') {
+        if (task.name == 'test' && project.name in ['fdb-extensions', 'fdb-record-layer-core', 'fdb-record-layer-lucene', 'fdb-record-layer-icu', 'fdb-record-layer-spatial']) {
             task.systemProperty('junit.jupiter.execution.parallel.enabled', 'true')
             task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'concurrent')
             task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'concurrent')

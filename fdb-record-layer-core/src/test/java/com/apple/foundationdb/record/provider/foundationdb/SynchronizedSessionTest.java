@@ -347,7 +347,7 @@ public abstract class SynchronizedSessionTest {
     private static Thread createThread(Collection<? super Throwable> uncaughtExceptions, Runnable task) {
         Thread t = new Thread(task);
         t.setName("synchronized-session-test-" + threadCounter.getAndIncrement());
-        t.setDaemon(true);
+        t.setDaemon(false);
         t.setUncaughtExceptionHandler((thread, exception) -> {
             LOGGER.error(KeyValueLogMessage.of("Uncaught exception in thread",
                     "thread", thread.getName()
