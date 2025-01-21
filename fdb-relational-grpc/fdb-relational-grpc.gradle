@@ -69,6 +69,7 @@ dependencies {
     runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}")
     implementation("com.google.protobuf:protobuf-java:${protobufVersion}")
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
 }
 
