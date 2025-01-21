@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
@@ -29,21 +30,27 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Random;
+import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Deque;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner}.
@@ -51,9 +58,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public abstract class SynchronizedSessionTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(SynchronizedSessionTest.class);
+    private static final AtomicInteger threadCounter = new AtomicInteger();
+
     @RegisterExtension
+    @Order(0)
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
+    @Order(1)
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private FDBDatabase database;
@@ -63,8 +74,6 @@ public abstract class SynchronizedSessionTest {
     private boolean runAsync;
 
     private static final long DEFAULT_LEASE_LENGTH_MILLIS = 250;
-
-    private Random random = new Random();
 
     private SynchronizedSessionTest(boolean runAsync) {
         this.runAsync = runAsync;
@@ -223,18 +232,16 @@ public abstract class SynchronizedSessionTest {
 
             UUID session1Id = session1Runner1.getSessionId();
             try (SynchronizedSessionRunner session1Runner2 = database.newRunner().joinSynchronizedSession(lockSubspace1, session1Id, DEFAULT_LEASE_LENGTH_MILLIS * 2)) {
-                Thread run1 = new Thread(() -> checkActive(session1Runner1));
-                Thread run2 = new Thread(() -> checkActive(session1Runner2));
-
-                AtomicBoolean threadsHaveExceptions = new AtomicBoolean(false);
-                logExceptionsInThreads(threadsHaveExceptions);
+                Deque<Throwable> uncaughtExceptions = new ConcurrentLinkedDeque<>();
+                Thread run1 = createThread(uncaughtExceptions, () -> checkActive(session1Runner1));
+                Thread run2 = createThread(uncaughtExceptions, () -> checkActive(session1Runner2));
 
                 run1.start();
                 run2.start();
                 run1.join();
                 run2.join();
 
-                assertTrue(!threadsHaveExceptions.get());
+                assertNoExceptions(uncaughtExceptions);
 
                 // Runner 1 set the lease end time to 2 seconds in the future, while Runner 2 set it to 3 seconds,
                 // the later one should be honoured. So a new session shouldn't take the lock until 3 seconds.
@@ -266,7 +273,8 @@ public abstract class SynchronizedSessionTest {
         try (SynchronizedSessionRunner session1Runner0 = database.newRunner().startSynchronizedSession(lockSubspace1, 1_000)) {
             UUID session1 = session1Runner0.getSessionId();
             AtomicBoolean session1Stopped = new AtomicBoolean(false);
-            Thread longSession = new Thread(() -> {
+            Deque<Throwable> uncaughtExceptions = new ConcurrentLinkedDeque<>();
+            Thread longSession = createThread(uncaughtExceptions, () -> {
                 for (int i = 0; i < 10; i++) {
                     try {
                         Thread.sleep(500);
@@ -279,35 +287,25 @@ public abstract class SynchronizedSessionTest {
                 }
                 session1Stopped.set(true);
             });
-            Thread tryStartSession = new Thread(() -> {
+            Thread tryStartSession = createThread(uncaughtExceptions, () -> {
                 while (!session1Stopped.get()) {
                     assertFailedStartSession(lockSubspace1);
                     try {
-                        Thread.sleep(random.nextInt(500));
+                        Thread.sleep(ThreadLocalRandom.current().nextInt(500));
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
             });
 
-            AtomicBoolean threadsHaveExceptions = new AtomicBoolean(false);
-            logExceptionsInThreads(threadsHaveExceptions);
-
             longSession.start();
             tryStartSession.start();
             tryStartSession.join();
 
-            assertTrue(!threadsHaveExceptions.get());
+            assertNoExceptions(uncaughtExceptions);
 
             session1Runner0.endSession();
         }
-    }
-
-    private void logExceptionsInThreads(AtomicBoolean threadsHaveExceptions) {
-        Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
-            threadsHaveExceptions.set(true);
-            LOGGER.error("Exception in a thread", thread.toString(), exception);
-        });
     }
 
     private SynchronizedSessionRunner newRunnerStartSession(Subspace lockSubspace) {
@@ -343,6 +341,27 @@ public abstract class SynchronizedSessionTest {
         SynchronizedSessionLockedException exception = assertThrows(SynchronizedSessionLockedException.class,
                 () -> synchronizedSessionRunner.run(c -> null));
         assertEquals("Failed to continue the session", exception.getMessage());
+    }
+
+    @Nonnull
+    private static Thread createThread(Collection<? super Throwable> uncaughtExceptions, Runnable task) {
+        Thread t = new Thread(task);
+        t.setName("synchronized-session-test-" + threadCounter.getAndIncrement());
+        t.setDaemon(true);
+        t.setUncaughtExceptionHandler((thread, exception) -> {
+            LOGGER.error(KeyValueLogMessage.of("Uncaught exception in thread",
+                    "thread", thread.getName()
+            ), exception);
+            uncaughtExceptions.add(exception);
+        });
+        return t;
+    }
+
+    private static void assertNoExceptions(Collection<? extends Throwable> uncaughtExceptions) {
+        if (!uncaughtExceptions.isEmpty()) {
+            Throwable t = uncaughtExceptions.iterator().next();
+            fail("Found " + uncaughtExceptions.size() + " unexpected exceptions", t);
+        }
     }
 
     private void waitLongEnough() throws InterruptedException {

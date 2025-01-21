@@ -41,6 +41,7 @@ import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -62,8 +63,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public abstract class OnlineIndexerTest {
     @RegisterExtension
+    @Order(0)
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
+    @Order(1)
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     FDBDatabase fdb;

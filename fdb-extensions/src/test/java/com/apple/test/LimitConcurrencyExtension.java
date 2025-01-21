@@ -21,16 +21,20 @@
 package com.apple.test;
 
 import com.google.auto.service.AutoService;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import javax.annotation.Nonnull;
 import java.util.concurrent.Semaphore;
 
 @AutoService(Extension.class)
+@Order(0)
 public class LimitConcurrencyExtension implements BeforeEachCallback, AfterEachCallback {
-    static Semaphore testConcurrency = new Semaphore(Integer.parseInt(System.getProperty("tests.concurrencyLimit", "10")));
+    @Nonnull
+    static Semaphore testConcurrency = new Semaphore(Integer.parseInt(System.getProperty("com.apple.foundationdb.test.concurrencyLimit", "50")));
 
     @Override
     public void beforeEach(final ExtensionContext context) throws InterruptedException {

@@ -35,6 +35,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -60,8 +61,10 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public abstract class ResolverMappingReplicatorTest {
     @RegisterExtension
+    @Order(0)
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
+    @Order(1)
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     protected LocatableResolver primary;

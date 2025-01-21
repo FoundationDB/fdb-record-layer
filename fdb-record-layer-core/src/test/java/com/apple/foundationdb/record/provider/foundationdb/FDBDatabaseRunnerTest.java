@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 import org.apache.logging.log4j.ThreadContext;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -70,8 +71,10 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class FDBDatabaseRunnerTest {
     @RegisterExtension
+    @Order(0)
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
+    @Order(1)
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     FDBDatabase database;

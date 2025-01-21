@@ -41,6 +41,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.Logger;
@@ -75,6 +76,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for mutually building indexes {@link OnlineIndexer}.
  */
 @Tag(Tags.Slow)
+@Isolated
 class OnlineIndexerMutualTest extends OnlineIndexerTest  {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerMutualTest.class);
 
