@@ -103,4 +103,11 @@ public abstract class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     public void prepared() throws Exception {
         super.prepared();
     }
+
+    @Override
+    @Test
+    @Disabled("TODO: sql.Type OTHER is not supported in the ResultSet")
+    public void enumTest() throws Exception {
+        super.enumTest();
+    }
 }

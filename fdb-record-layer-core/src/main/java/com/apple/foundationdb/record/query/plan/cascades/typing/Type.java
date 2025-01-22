@@ -493,13 +493,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return t1.withNullability(true);
         }
 
-        if (t1.isPrimitive() != t2.isPrimitive()) {
-            return null;
-        }
-
         boolean isResultNullable = t1.isNullable() || t2.isNullable();
 
-        if (t1.isPrimitive()) {
+        if (t1.isEnum() && t2.isEnum()) {
+            final var t1Enum = (Enum)t1;
+            final var t2Enum = (Enum)t2;
+            final var t1EnumValues = t1Enum.enumValues;
+            final var t2EnumValues = t2Enum.enumValues;
+            if (t1EnumValues == null) {
+                return t2EnumValues == null ? t1Enum.withNullability(isResultNullable) : null;
+            }
+            return t1EnumValues.equals(t2EnumValues) ? t1Enum.withNullability(isResultNullable) : null;
+        } else if ((t1.isPrimitive() || t1.isEnum()) && (t2.isPrimitive() || t2.isEnum())) {
             if (t1.getTypeCode() == t2.getTypeCode()) {
                 return t1.withNullability(isResultNullable);
             }
@@ -509,25 +514,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             if (PromoteValue.isPromotable(t2, t1)) {
                 return t1.withNullability(isResultNullable);
             }
-            // Type are primitive but not equal, no promotion possible.
+            // Type are primitive or enum but not compatible, no promotion possible.
             return null;
         }
 
-        if (t1.isEnum() != t2.isEnum()) {
-            return null;
-        }
-
-        if (t1.isEnum()) {
-            final var t1Enum = (Enum)t1;
-            final var t2Enum = (Enum)t2;
-            final var t1EnumValues = t1Enum.enumValues;
-            final var t2EnumValues = t2Enum.enumValues;
-            if (t1EnumValues == null) {
-                return t2EnumValues == null ? t1Enum.withNullability(isResultNullable) : null;
-            }
-            return t1EnumValues.equals(t2EnumValues) ? t1Enum.withNullability(isResultNullable) : null;
-        }
-
+        // neither of the types are null, primitives or enums
         if (t1.getTypeCode() != t2.getTypeCode()) {
             return null;
         }

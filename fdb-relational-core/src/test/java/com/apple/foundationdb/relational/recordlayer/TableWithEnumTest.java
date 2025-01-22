@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -142,14 +143,23 @@ public class TableWithEnumTest {
     void filterBySuit() throws Exception {
         insert52Cards();
 
-        // TODO: Enums need to be supported for comparison in the type repository for these queries to work
-        assertThatThrownBy(() -> statement.execute("SELECT * FROM card WHERE card.suit = 'CLUBS'"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("primitive type");
+        Assertions.assertTrue(statement.execute("SELECT * FROM card WHERE card.suit = 'CLUBS'"));
+        try (final var rs = statement.getResultSet()) {
+            final var resultSetAssert = ResultSetAssert.assertThat(rs);
+            for (int i = 1; i < 14; i++) {
+                resultSetAssert.hasNextRow().hasColumn("suit", "CLUBS");
+            }
+            resultSetAssert.hasNoNextRow();
+        }
 
-        assertThatThrownBy(() -> statement.execute("SELECT * FROM card WHERE card.suit > 'HEARTS'"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("primitive type");
+        Assertions.assertTrue(statement.execute("SELECT * FROM card WHERE card.suit < 'HEARTS'"));
+        try (final var rs = statement.getResultSet()) {
+            final var resultSetAssert = ResultSetAssert.assertThat(rs);
+            for (int i = 1; i < 14; i++) {
+                resultSetAssert.hasNextRow().hasColumn("suit", "SPADES");
+            }
+            resultSetAssert.hasNoNextRow();
+        }
     }
 
     @Test
