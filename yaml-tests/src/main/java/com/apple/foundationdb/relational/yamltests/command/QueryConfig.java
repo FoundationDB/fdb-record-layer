@@ -365,9 +365,9 @@ public abstract class QueryConfig {
      * Return a NoOp config - a config that does nothing.
      * This config can be executed but will perform no action. Use in cases where we need to continue running (e.g.
      * the command and config are legal and supprted) but some conditions make execution unneeded.
-     * @param lineNumber
-     * @param executionContext
-     * @return
+     * @param lineNumber the line number in the test file
+     * @param executionContext the execution context for the test
+     * @return an instance of a NoOp config
      */
     public static QueryConfig getNoOpConfig(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(QUERY_CONFIG_NO_OP, null, lineNumber, executionContext) {
