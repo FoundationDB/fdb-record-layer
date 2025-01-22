@@ -86,7 +86,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
                 : ImmutableSet.copyOf(
                         Values.simplify(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
                                 () -> currentGroupingValue),
-                                DefaultValueSimplificationRuleSet.ofSimplificationRules(),
+                                DefaultValueSimplificationRuleSet.instance(),
                                 AliasMap.emptyMap(), correlatedTo));
 
         final var innerReference = innerQuantifier.getRangesOver();

@@ -117,10 +117,13 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
 
     @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        final Value rebasedResultValues = onEmptyResultValue.translateCorrelations(translationMap);
-        return new RecordQueryDefaultOnEmptyPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
+        final Value rebasedResultValues = onEmptyResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        return new RecordQueryDefaultOnEmptyPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
     }
 
     @Override

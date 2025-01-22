@@ -245,7 +245,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
                                                                  boolean isReverse) {
-        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var parameterBindingMap =
+                matchInfo.getRegularMatchInfo().getParameterBindingMap();
 
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
@@ -389,7 +390,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                             @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
-        final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
+        final var baseRecordType =
+                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
         return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),

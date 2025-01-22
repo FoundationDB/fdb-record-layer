@@ -26,6 +26,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -102,7 +107,6 @@ class SemanticVersionTest {
                         () -> versionB.compareTo(versionA)));
     }
 
-
     @Test
     void compareToNull() throws Exception {
         final SemanticVersion versionA = SemanticVersion.parse("4.0.559.0");
@@ -133,5 +137,19 @@ class SemanticVersionTest {
     @Test
     void parseNull() throws Exception {
         assertThrows(NullPointerException.class, () -> SemanticVersion.parse(null));
+    }
+
+    @Test
+    void lesserVersions() {
+        final String versionString = "3.5.4.2";
+        final List<String> lesserVersions = List.of("2.6.5.3", "3.4.5.3", "3.5.3.3", "3.5.4.1", "3.5.4.2-SNAPSHOT");
+        final List<String> greaterVersions = List.of("4.4.3.1", "3.6.3.1", "3.5.5.1", "3.5.4.3", "3.5.4.3-SNAPSHOT");
+        final List<SemanticVersion> actualLesserVersions = SemanticVersion.parse(versionString).lesserVersions(
+                Stream.concat(lesserVersions.stream(), Stream.concat(Stream.of(versionString), greaterVersions.stream()))
+                        .collect(Collectors.toSet()));
+        actualLesserVersions.sort(Comparator.naturalOrder());
+        final List<SemanticVersion> expectedLesserVersions = lesserVersions.stream()
+                .map(SemanticVersion::parse).sorted().collect(Collectors.toList());
+        assertEquals(expectedLesserVersions, actualLesserVersions);
     }
 }

@@ -40,6 +40,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * <br>
  * {@code (_.a).b} or more precisely {@code FieldValue(FieldValue(_, "a"), "b")} is transformed to {@code _.a.b} or
  * {@code FieldValue(_, ["a", "b"])}.
+ * <br>
+ * Note that this rule is the conceptual opposite of {@link ExpandFusedFieldValueRule}. These rules should not be placed
+ * into the same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

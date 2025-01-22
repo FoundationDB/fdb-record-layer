@@ -102,12 +102,6 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
 
     @Override
     @Disabled("Test asserts about quantifiers")
-    public void aggregateIndexTests() throws Exception {
-        super.aggregateIndexTests();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
     public void indexedFunctions() throws Exception {
         super.indexedFunctions();
     }

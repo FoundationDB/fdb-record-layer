@@ -662,7 +662,9 @@ public class ExplainPlanVisitorTest {
 
         @Nonnull
         @Override
-        public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                          final boolean shouldSimplifyValues,
+                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
             return this;
         }
 

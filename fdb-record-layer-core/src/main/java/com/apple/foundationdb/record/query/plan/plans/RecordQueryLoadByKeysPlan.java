@@ -165,7 +165,9 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
     @Nonnull
     @Override
-    public RecordQueryLoadByKeysPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryLoadByKeysPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                           final boolean shouldSimplifyValues,
+                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 

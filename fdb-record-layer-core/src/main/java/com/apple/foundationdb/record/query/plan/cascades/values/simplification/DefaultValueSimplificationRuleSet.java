@@ -39,17 +39,23 @@ public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Valu
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverFieldValueRule = new ComposeFieldValueOverFieldValueRule();
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> collapseRecordConstructorOverFieldsToStarRule = new CollapseRecordConstructorOverFieldsToStarRule();
+    @Nonnull
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
-            ImmutableSet.of(composeFieldValueOverRecordConstructorRule, composeFieldValueOverFieldValueRule);
-
+            ImmutableSet.of(composeFieldValueOverRecordConstructorRule, composeFieldValueOverFieldValueRule, collapseRecordConstructorOverFieldsToStarRule);
+    @Nonnull
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
-    protected DefaultValueSimplificationRuleSet() {
+    @Nonnull
+    private static final DefaultValueSimplificationRuleSet INSTANCE = new DefaultValueSimplificationRuleSet();
+
+    private DefaultValueSimplificationRuleSet() {
         super(SIMPLIFICATION_RULES, SIMPLIFICATION_DEPENDS_ON);
     }
 
-    public static DefaultValueSimplificationRuleSet ofSimplificationRules() {
-        return new DefaultValueSimplificationRuleSet();
+    public static DefaultValueSimplificationRuleSet instance() {
+        return INSTANCE;
     }
 }
