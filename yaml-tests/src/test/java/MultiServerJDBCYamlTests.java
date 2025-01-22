@@ -28,7 +28,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 
 import java.io.File;
@@ -118,47 +117,5 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         if ((serverProcess != null) && serverProcess.isAlive()) {
             serverProcess.destroy();
         }
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void updateDeleteReturning() throws Exception {
-        super.updateDeleteReturning();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void aggregateIndexTests() throws Exception {
-        super.aggregateIndexTests();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void indexedFunctions() throws Exception {
-        super.indexedFunctions();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void bitmap() throws Exception {
-        super.bitmap();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void cte() throws Exception {
-        super.cte();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void unionEmptyTables() throws Exception {
-        super.unionEmptyTables();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void union() throws Exception {
-        super.union();
     }
 }
