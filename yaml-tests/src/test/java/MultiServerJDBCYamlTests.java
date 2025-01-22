@@ -27,7 +27,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 
 import java.io.File;
@@ -118,5 +117,4 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
             serverProcess.destroy();
         }
     }
-
 }
