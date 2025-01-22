@@ -21,7 +21,6 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
@@ -120,45 +119,4 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         }
     }
 
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void updateDeleteReturning() throws Exception {
-        super.updateDeleteReturning();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void aggregateIndexTests() throws Exception {
-        super.aggregateIndexTests();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void indexedFunctions() throws Exception {
-        super.indexedFunctions();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void bitmap() throws Exception {
-        super.bitmap();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void cte() throws Exception {
-        super.cte();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void unionEmptyTables() throws Exception {
-        super.unionEmptyTables();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void union() throws Exception {
-        super.union();
-    }
 }
