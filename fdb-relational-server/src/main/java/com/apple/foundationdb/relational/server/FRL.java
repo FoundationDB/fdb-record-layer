@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -230,10 +232,13 @@ public class FRL implements AutoCloseable {
                 relationalPreparedStatement.setString(index, parameter.getParameter().getString());
                 break;
             case Types.BIGINT:
-                relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
+                relationalPreparedStatement.setLong(index, parameter.getParameter().getLong());
                 break;
             case Types.INTEGER:
                 relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
+                break;
+            case Types.FLOAT:
+                relationalPreparedStatement.setFloat(index, parameter.getParameter().getFloat());
                 break;
             case Types.DOUBLE:
                 relationalPreparedStatement.setDouble(index, parameter.getParameter().getDouble());
@@ -243,6 +248,16 @@ public class FRL implements AutoCloseable {
                 break;
             case Types.BINARY:
                 relationalPreparedStatement.setBytes(index, parameter.getParameter().getBinary().toByteArray());
+                break;
+            case Types.NULL:
+                relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
+                break;
+            case Types.ARRAY:
+                final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
+                final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
+                        SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),
+                        TypeConversion.fromArray(arrayProto));
+                relationalPreparedStatement.setArray(index, relationalArray);
                 break;
             default:
                 throw new SQLException("Unsupported type " + type);

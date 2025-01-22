@@ -241,6 +241,64 @@ public class TypeConversion {
         return Struct.newBuilder().setColumns(listColumnBuilder.build()).build();
     }
 
+    /**
+     * Return the Java object stored within the proto.
+     * @param columnType the type of object in the column
+     * @param column the column to process
+     * @return the Java object from the Column representation
+     * @throws SQLException in case of an error
+     */
+    public static Object fromColumn(int columnType, Column column) throws SQLException {
+        switch (columnType) {
+            case Types.ARRAY:
+                checkColumnType(columnType, column.hasArray());
+                return fromArray(column.getArray());
+            case Types.BIGINT:
+                checkColumnType(columnType, column.hasLong());
+                return column.getLong();
+            case Types.INTEGER:
+                checkColumnType(columnType, column.hasInteger());
+                return column.getInteger();
+            case Types.BOOLEAN:
+                checkColumnType(columnType, column.hasBoolean());
+                return column.getBoolean();
+            case Types.VARCHAR:
+                checkColumnType(columnType, column.hasString());
+                return column.getString();
+            case Types.BINARY:
+                checkColumnType(columnType, column.hasBinary());
+                return column.getBinary().toByteArray();
+            case Types.DOUBLE:
+                checkColumnType(columnType, column.hasDouble());
+                return column.getDouble();
+            default:
+                // NULL (java.sql.Types value 0) is not a valid column type for an array and is likely the result of a default value for the
+                // (optional) array.getElementType() protobuf field.
+                throw new SQLException("java.sql.Type=" + columnType + " not supported", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+    }
+
+    private static void checkColumnType(final int expectedColumnType, final boolean columnHasType) throws SQLException {
+        if (!columnHasType) {
+            throw new SQLException("Column has wrong type (expected " + expectedColumnType + ")", ErrorCode.WRONG_OBJECT_TYPE.getErrorCode());
+        }
+    }
+
+    /**
+     * Return the Java array stored within the proto.
+     * @param array the array to process
+     * @return the Java array from the proto representation
+     * @throws SQLException in case of an error
+     */
+    public static Object[] fromArray(Array array) throws SQLException {
+        Object[] result = new Object[array.getElementCount()];
+        final List<Column> elements = array.getElementList();
+        for (int i = 0 ; i < elements.size() ; i++) {
+            result[i] = fromColumn(array.getElementType(), elements.get(i));
+        }
+        return result;
+    }
+
     private static Column toColumn(RelationalStruct relationalStruct, int oneBasedIndex) throws SQLException {
         int columnType = relationalStruct.getMetaData().getColumnType(oneBasedIndex);
         Column column;
