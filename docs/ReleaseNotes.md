@@ -43,6 +43,9 @@ Our API stability annotations have been updated to reflect greater API instabili
 // end next release
 -->
 
+### 4.0.559.1
+
+
 ### 4.0.4.0.559.1
 
 * **Bug fix** Merge META-INFO/services in relational-server-all.jar [(Issue #3052)](https://github.com/FoundationDB/fdb-record-layer/issues/3052)
