@@ -152,20 +152,20 @@ public interface ExpressionProperty<T> extends RelationalExpressionVisitor<T> {
     @Nonnull
     @SuppressWarnings("unused")
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    default T evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable T rangesOverResult) {
+    default T evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable final T rangesOverResult) {
         // since we visit the expression reference under the quantifier, we can insist that rangesOverResult is never null
         return Objects.requireNonNull(rangesOverResult);
     }
 
     @Nonnull
     @Override
-    default T visitDefault(@Nonnull RelationalExpression relationalExpression) {
+    default T visitDefault(@Nonnull final RelationalExpression relationalExpression) {
         final var quantifierResults = visitQuantifiers(relationalExpression);
         return evaluateAtExpression(relationalExpression, quantifierResults);
     }
 
     @Nonnull
-    default List<T> visitQuantifiers(@Nonnull RelationalExpression relationalExpression) {
+    default List<T> visitQuantifiers(@Nonnull final RelationalExpression relationalExpression) {
         final List<? extends Quantifier> quantifiers = relationalExpression.getQuantifiers();
         final var quantifierResults = Lists.<T>newArrayListWithCapacity(quantifiers.size());
         for (final Quantifier quantifier : quantifiers) {

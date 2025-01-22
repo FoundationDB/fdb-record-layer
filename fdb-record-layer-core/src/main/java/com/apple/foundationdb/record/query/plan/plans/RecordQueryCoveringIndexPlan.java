@@ -224,8 +224,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
+    public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                              final boolean shouldSimplifyValues,
+                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var translatedIndexPlan =
+                indexPlan.translateCorrelations(translationMap, shouldSimplifyValues, translatedQuantifiers);
         if (translatedIndexPlan != indexPlan) {
             return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, getAvailableFields(), toRecord);
         }

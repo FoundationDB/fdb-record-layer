@@ -28,21 +28,21 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value}.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PredicateWithValue extends LeafQueryPredicate, WithValue<PredicateWithValue> {
+
     /**
      * Replaces the predicate {@link Value} and {@code Value}(s) in the {@code Comparison}.
-     *
-     * @param valueTranslator The value translator.
+     * @param valueTranslator the value translator.
+     * @param comparisonTranslator the comparison translator
      *
      * @return potentially a new instance of {@code PredicateWithValue} with translated {@code Value}(s).
      */
     @Nonnull
-    Optional<? extends PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull UnaryOperator<Value> valueTranslator,
+    Optional<? extends PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull Function<Value, Optional<Value>> valueTranslator,
                                                                              @Nonnull Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator);
 }

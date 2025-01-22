@@ -139,6 +139,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     @Override
     public RecordQueryTypeFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                           final boolean shouldSimplifyValues,
                                                            @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryTypeFilterPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),

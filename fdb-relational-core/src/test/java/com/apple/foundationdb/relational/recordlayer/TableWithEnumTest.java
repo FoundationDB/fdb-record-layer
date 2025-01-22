@@ -25,13 +25,14 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -41,7 +42,6 @@ import java.sql.Types;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
 public class TableWithEnumTest {
@@ -171,14 +171,23 @@ public class TableWithEnumTest {
     void filterBySuit() throws Exception {
         insert52Cards();
 
-        // TODO: Enums need to be supported for comparison in the type repository for these queries to work
-        assertThatThrownBy(() -> statement.execute("SELECT * FROM card WHERE card.suit = 'CLUBS'"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("primitive type");
+        Assertions.assertTrue(statement.execute("SELECT * FROM card WHERE card.suit = 'CLUBS'"));
+        try (final var rs = statement.getResultSet()) {
+            final var resultSetAssert = ResultSetAssert.assertThat(rs);
+            for (int i = 1; i < 14; i++) {
+                resultSetAssert.hasNextRow().hasColumn("suit", "CLUBS");
+            }
+            resultSetAssert.hasNoNextRow();
+        }
 
-        assertThatThrownBy(() -> statement.execute("SELECT * FROM card WHERE card.suit > 'HEARTS'"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("primitive type");
+        Assertions.assertTrue(statement.execute("SELECT * FROM card WHERE card.suit < 'HEARTS'"));
+        try (final var rs = statement.getResultSet()) {
+            final var resultSetAssert = ResultSetAssert.assertThat(rs);
+            for (int i = 1; i < 14; i++) {
+                resultSetAssert.hasNextRow().hasColumn("suit", "SPADES");
+            }
+            resultSetAssert.hasNoNextRow();
+        }
     }
 
     @Test

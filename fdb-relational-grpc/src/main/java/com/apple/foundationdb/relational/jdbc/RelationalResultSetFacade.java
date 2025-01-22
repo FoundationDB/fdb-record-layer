@@ -73,6 +73,10 @@ class RelationalResultSetFacade implements RelationalResultSet {
         return ++rowIndex < rows;
     }
 
+    public boolean hasNext() {
+        return rowIndex < (rows - 1);
+    }
+
     @Override
     public boolean isClosed() throws SQLException {
         return this.closed;
@@ -265,9 +269,10 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Nonnull
     @SpotBugsSuppressWarnings("NP") // TODO: Will need to fix null handling
     public Continuation getContinuation() throws SQLException {
-        // Not implemented. We need to thread through the continuation from the query response, but for now,
-        // returning "null" is enough for the existing tests to pass.
-        return null;
+        if (hasNext()) {
+            throw new SQLException("Continuation can only be returned for the last row");
+        }
+        return new RelationalRpcContinuation(delegate.getContinuation());
     }
 
     @Override

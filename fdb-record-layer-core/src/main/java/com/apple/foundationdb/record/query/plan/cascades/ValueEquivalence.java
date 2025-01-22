@@ -103,14 +103,14 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        var constraint = alwaysTrue();
+        var booleanWithConstraint = alwaysTrue();
         for (final T l : left) {
             var found = false;
             for (final T r : right) {
                 final var semanticEquals = l.semanticEquals(r, this);
                 if (semanticEquals.isTrue()) {
                     found = true;
-                    constraint = constraint.composeWithOther(semanticEquals);
+                    booleanWithConstraint = booleanWithConstraint.composeWithOther(semanticEquals);
                     break;
                 }
             }
@@ -119,7 +119,7 @@ public abstract class ValueEquivalence {
             }
         }
 
-        return constraint;
+        return booleanWithConstraint;
     }
 
     @Nonnull

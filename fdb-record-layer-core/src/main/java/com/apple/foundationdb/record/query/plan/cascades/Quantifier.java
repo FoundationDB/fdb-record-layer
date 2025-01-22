@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap.TranslationFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -226,7 +227,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return translatedQueryValueOptional
                     .map(translatedQueryValue ->
                             TranslationMap.builder()
-                                    .when(getAlias()).then((src, quantifiedValue) -> translatedQueryValue)
+                                    .when(getAlias()).then(TranslationFunction.adjustValueType(translatedQueryValue))
                                     .build());
         }
 
@@ -774,15 +775,16 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Override
     @Nonnull
     public Quantifier rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Quantifier translateCorrelations(@Nonnull final TranslationMap translationMap) {
+    public Quantifier translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                            final boolean shouldSimplifyValues) {
         final Reference rangesOver = getRangesOver();
         final Reference translatedReference =
-                getRangesOver().translateCorrelations(translationMap);
+                getRangesOver().translateCorrelations(translationMap, shouldSimplifyValues);
         return rangesOver == translatedReference
                ? this
                : overNewReference(translatedReference);

@@ -29,11 +29,11 @@ Our API stability annotations have been updated to reflect greater API instabili
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Introduce SQL support to Recursive CTEs [(Issue #3034)](https://github.com/FoundationDB/fdb-record-layer/issues/3034)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Support enums in rel ops [(Issue #3011)](https://github.com/FoundationDB/fdb-record-layer/issues/3011)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -42,6 +42,17 @@ Our API stability annotations have been updated to reflect greater API instabili
 
 // end next release
 -->
+
+### 4.0.564.0
+
+
+### 4.0.562.0
+
+* **Bug fix** Merge META-INFO/services in relational-server-all.jar [(Issue #3052)](https://github.com/FoundationDB/fdb-record-layer/issues/3052)
+
+### 4.0.561.0
+
+* **Feature** Introduce SQL support to Recursive CTEs [(Issue #3034)](https://github.com/FoundationDB/fdb-record-layer/issues/3034)
 
 ### 4.0.559.0
 

@@ -1,9 +1,9 @@
 #
-# gradle.properties
+# current-version-at-file.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-luceneVersion=8.11.1
+# This test should be ignored
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, primary key(id))
+---
+test_block:
+  tests:
+    -
+      - query: SHOULD ERROR WHEN RUN;
+      - result: []

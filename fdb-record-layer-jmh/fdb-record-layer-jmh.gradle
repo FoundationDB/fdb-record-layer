@@ -19,7 +19,7 @@
  */
 
 plugins {
-    id 'me.champeau.jmh' version '0.6.7'
+    alias(libs.plugins.jmh)
 }
 
 apply from: rootProject.file('gradle/proto.gradle')
@@ -37,9 +37,11 @@ sourceSets {
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)
-    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    compileOnly(libs.jsr305)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
 }
 
 jmh {

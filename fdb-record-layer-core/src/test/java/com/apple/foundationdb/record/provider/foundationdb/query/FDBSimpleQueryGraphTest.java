@@ -272,15 +272,13 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     flatMapPlan(
                             typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
                                     .where(recordTypes(containsAll(ImmutableSet.of("RestaurantRecord")))),
-                            mapPlan(
-                                    predicatesFilterPlan(firstOrDefaultPlan(
-                                            flatMapPlan(explodePlan(), predicatesFilterPlan(explodePlan()))
-                                    )).where(predicates(valuePredicate(anyValue(), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))))
+                            predicatesFilterPlan(firstOrDefaultPlan(
+                                    flatMapPlan(explodePlan(), predicatesFilterPlan(explodePlan()))
+                            )).where(predicates(valuePredicate(anyValue(), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                             )
                     )
             );
-            assertEquals(-1234573276, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1638799997, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(791284686, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             // Simple existential query with equality predicate done via a simple index scan:
             //   map(Index(Restaurant$tag.value [EQUALS $t])[($q2.name as name)])
@@ -289,7 +287,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             .where(indexName(index.getName()))
                             .and(scanComparisons(range("[EQUALS $" + tagValueParam + "]")))
                     ));
-            assertEquals(-1069846275, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(2087732874, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
@@ -353,7 +350,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         )
                 )
         );
-        assertEquals(-547779922, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-2058055083, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
