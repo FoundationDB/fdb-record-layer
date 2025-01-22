@@ -97,6 +97,12 @@ test_block:
                           {11, 'plugh', 'CONFUSED'},
                           {13, 'thud', 'SAD'}]
     -
+      - query: SELECT * From TABLE_A where 'mood' < 'INDIFFERENT'
+      - unorderedResult: []
+    -
+      - query: SELECT * From TABLE_A where "mood" < "mood"
+      - unorderedResult: []
+    -
       - query: SELECT * From TABLE_A where "mood" IS NOT NULL AND "id" < 5
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {2, 'bar', 'CONFUSED'},
@@ -108,5 +114,8 @@ test_block:
                           {15, 'bob', !null }]
     -
       - query: SELECT * From TABLE_A where "mood" = 'NOT_A_VALID_MOOD'
+      - error: "XXXXX"
+    -
+      - query: SELECT * From TABLE_A where "mood" < 'NOT_A_VALID_MOOD'
       - error: "XXXXX"
 ...
