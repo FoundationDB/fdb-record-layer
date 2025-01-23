@@ -67,6 +67,7 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
     public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
     public static final String QUERY_CONFIG_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
+    public static final String QUERY_CONFIG_NO_OP = "noOp";
 
     @Nullable private final Object value;
     private final int lineNumber;
@@ -186,7 +187,6 @@ public abstract class QueryConfig {
     private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value,
                                                      int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
-
             @Override
             String decorateQuery(@Nonnull String query) {
                 return "EXPLAIN " + query;
@@ -361,6 +361,23 @@ public abstract class QueryConfig {
         };
     }
 
+    /**
+     * Return a NoOp config - a config that does nothing.
+     * This config can be executed but will perform no action. Use in cases where we need to continue running (e.g.
+     * the command and config are legal and supprted) but some conditions make execution unneeded.
+     * @param lineNumber the line number in the test file
+     * @param executionContext the execution context for the test
+     * @return an instance of a NoOp config
+     */
+    public static QueryConfig getNoOpConfig(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_NO_OP, null, lineNumber, executionContext) {
+            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
+            @Override
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
+            }
+        };
+    }
+
     public static QueryConfig parse(@Nonnull Object object, @Nonnull YamlExecutionContext executionContext) {
         final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
@@ -373,9 +390,17 @@ public abstract class QueryConfig {
             } else if (QUERY_CONFIG_ERROR.equals(key)) {
                 return getCheckErrorConfig(value, lineNumber, executionContext);
             } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
-                return getCheckExplainConfig(true, key, value, lineNumber, executionContext);
+                if (shouldExecuteExplain(executionContext)) {
+                    return getCheckExplainConfig(true, key, value, lineNumber, executionContext);
+                } else {
+                    return getNoOpConfig(lineNumber, executionContext);
+                }
             } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
-                return getCheckExplainConfig(false, key, value, lineNumber, executionContext);
+                if (shouldExecuteExplain(executionContext)) {
+                    return getCheckExplainConfig(false, key, value, lineNumber, executionContext);
+                } else {
+                    return getNoOpConfig(lineNumber, executionContext);
+                }
             } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
                 return getCheckPlanHashConfig(value, lineNumber, executionContext);
             } else if (key.contains(QUERY_CONFIG_RESULT)) {
@@ -412,5 +437,9 @@ public abstract class QueryConfig {
         public String getMessage() {
             return message;
         }
+    }
+
+    private static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
+        return (! executionContext.getConnectionFactory().isMultiServer());
     }
 }
