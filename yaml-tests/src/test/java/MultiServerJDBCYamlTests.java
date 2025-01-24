@@ -119,6 +119,7 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     }
 
     @Override
+    @Disabled("Test asserts about quantifiers")
     public void cte() throws Exception {
         super.cte();
     }

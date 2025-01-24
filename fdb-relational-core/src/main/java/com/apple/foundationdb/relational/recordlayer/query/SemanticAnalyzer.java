@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -740,7 +740,7 @@ public class SemanticAnalyzer {
                                       @Nonnull final Expression... arguments) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format("Unsupported operator %s", functionName));
-        final var builtInFunction = functionCatalog.lookUpFunction(functionName, Expressions.of(arguments));
+        final var builtInFunction = functionCatalog.lookUpFunction(functionName, arguments);
         List<Expression> argumentList = new ArrayList<>();
         argumentList.addAll(List.of(arguments));
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {

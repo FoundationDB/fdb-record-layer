@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,19 +23,16 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.util.Assert;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Function;
@@ -53,7 +50,7 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     private static final SqlFunctionCatalogImpl INSTANCE = new SqlFunctionCatalogImpl();
 
     @Nonnull
-    private final ImmutableMap<String, Function<List<Type>, BuiltInFunction<? extends Typed>>> synonyms;
+    private final ImmutableMap<String, Function<Integer, BuiltInFunction<? extends Typed>>> synonyms;
 
     private SqlFunctionCatalogImpl() {
         this.synonyms = createSynonyms();
@@ -61,8 +58,8 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     @Override
-    public BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull final String name, @Nonnull final Expressions expressions) {
-        return Assert.notNullUnchecked(Objects.requireNonNull(synonyms.get(name.toLowerCase(Locale.ROOT))).apply(expressions.underlyingTypes()));
+    public BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull final String name, @Nonnull final Expression... expressions) {
+        return Assert.notNullUnchecked(Objects.requireNonNull(synonyms.get(name.toLowerCase(Locale.ROOT))).apply(expressions.length));
     }
 
     @Override
@@ -72,50 +69,50 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Override
     public boolean isUdfFunction(@Nonnull final String name) {
-        return name.trim().toLowerCase(Locale.ROOT).equals("java_call");
+        return "java_call".equals(name.trim().toLowerCase(Locale.ROOT));
     }
 
     @Nonnull
-    private static ImmutableMap<String, Function<List<Type>, BuiltInFunction<? extends Typed>>> createSynonyms() {
-        return ImmutableMap.<String, Function<List<Type>, BuiltInFunction<? extends Typed>>>builder()
-                .put("+", types -> FunctionCatalog.resolve("add", types.size()).orElseThrow())
-                .put("-", types -> FunctionCatalog.resolve("sub", types.size()).orElseThrow())
-                .put("*", types -> FunctionCatalog.resolve("mul", types.size()).orElseThrow())
-                .put("/", types -> FunctionCatalog.resolve("div", types.size()).orElseThrow())
-                .put("%", types -> FunctionCatalog.resolve("mod", types.size()).orElseThrow())
-                .put(">", types -> FunctionCatalog.resolve("gt", types.size()).orElseThrow())
-                .put(">=", types -> FunctionCatalog.resolve("gte", types.size()).orElseThrow())
-                .put("<", types -> FunctionCatalog.resolve("lt", types.size()).orElseThrow())
-                .put("<=", types -> FunctionCatalog.resolve("lte", types.size()).orElseThrow())
-                .put("=", types -> FunctionCatalog.resolve("equals", types.size()).orElseThrow())
-                .put("<>", types -> FunctionCatalog.resolve("notEquals", types.size()).orElseThrow())
-                .put("!=", types -> FunctionCatalog.resolve("notEquals", types.size()).orElseThrow())
-                .put("&", types -> FunctionCatalog.resolve("bitand", types.size()).orElseThrow())
-                .put("|", types -> FunctionCatalog.resolve("bitor", types.size()).orElseThrow())
-                .put("^", types -> FunctionCatalog.resolve("bitxor", types.size()).orElseThrow())
-                .put("bitmap_bit_position", types -> FunctionCatalog.resolve("bitmap_bit_position", 1 + types.size()).orElseThrow())
-                .put("bitmap_bucket_offset", types -> FunctionCatalog.resolve("bitmap_bucket_offset", 1 + types.size()).orElseThrow())
-                .put("bitmap_construct_agg", types -> FunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", types.size()).orElseThrow())
-                .put("not", types -> FunctionCatalog.resolve("not", types.size()).orElseThrow())
-                .put("and", types -> FunctionCatalog.resolve("and", types.size()).orElseThrow())
-                .put("or", types -> FunctionCatalog.resolve("or", types.size()).orElseThrow())
-                .put("count", types -> FunctionCatalog.resolve("COUNT", types.size()).orElseThrow())
-                .put("max", types -> FunctionCatalog.resolve("MAX", types.size()).orElseThrow())
-                .put("min", types -> FunctionCatalog.resolve("MIN", types.size()).orElseThrow())
-                .put("avg", types -> FunctionCatalog.resolve("AVG", types.size()).orElseThrow())
-                .put("sum", types -> FunctionCatalog.resolve("SUM", types.size()).orElseThrow())
-                .put("max_ever", types -> FunctionCatalog.resolve("MAX_EVER", types.size()).orElseThrow())
-                .put("min_ever", types -> FunctionCatalog.resolve("MIN_EVER", types.size()).orElseThrow())
-                .put("java_call", types -> FunctionCatalog.resolve("java_call", types.size()).orElseThrow())
-                .put("greatest", types -> FunctionCatalog.resolve("greatest", types.size()).orElseThrow())
-                .put("least", types -> FunctionCatalog.resolve("least", types.size()).orElseThrow())
-                .put("like", types -> FunctionCatalog.resolve("like", types.size()).orElseThrow())
-                .put("in", types -> FunctionCatalog.resolve("in", types.size()).orElseThrow())
-                .put("coalesce", types -> FunctionCatalog.resolve("coalesce", types.size()).orElseThrow())
-                .put("is null", types -> FunctionCatalog.resolve("isNull", types.size()).orElseThrow())
-                .put("is not null", types -> FunctionCatalog.resolve("notNull", types.size()).orElseThrow())
-                .put("__pattern_for_like", types -> FunctionCatalog.resolve("patternForLike", types.size()).orElseThrow())
-                .put("__internal_array", types -> FunctionCatalog.resolve("array", types.size()).orElseThrow())
+    private static ImmutableMap<String, Function<Integer, BuiltInFunction<? extends Typed>>> createSynonyms() {
+        return ImmutableMap.<String, Function<Integer, BuiltInFunction<? extends Typed>>>builder()
+                .put("+", argumentsCount -> FunctionCatalog.resolve("add", argumentsCount).orElseThrow())
+                .put("-", argumentsCount -> FunctionCatalog.resolve("sub", argumentsCount).orElseThrow())
+                .put("*", argumentsCount -> FunctionCatalog.resolve("mul", argumentsCount).orElseThrow())
+                .put("/", argumentsCount -> FunctionCatalog.resolve("div", argumentsCount).orElseThrow())
+                .put("%", argumentsCount -> FunctionCatalog.resolve("mod", argumentsCount).orElseThrow())
+                .put(">", argumentsCount -> FunctionCatalog.resolve("gt", argumentsCount).orElseThrow())
+                .put(">=", argumentsCount -> FunctionCatalog.resolve("gte", argumentsCount).orElseThrow())
+                .put("<", argumentsCount -> FunctionCatalog.resolve("lt", argumentsCount).orElseThrow())
+                .put("<=", argumentsCount -> FunctionCatalog.resolve("lte", argumentsCount).orElseThrow())
+                .put("=", argumentsCount -> FunctionCatalog.resolve("equals", argumentsCount).orElseThrow())
+                .put("<>", argumentsCount -> FunctionCatalog.resolve("notEquals", argumentsCount).orElseThrow())
+                .put("!=", argumentsCount -> FunctionCatalog.resolve("notEquals", argumentsCount).orElseThrow())
+                .put("&", argumentsCount -> FunctionCatalog.resolve("bitand", argumentsCount).orElseThrow())
+                .put("|", argumentsCount -> FunctionCatalog.resolve("bitor", argumentsCount).orElseThrow())
+                .put("^", argumentsCount -> FunctionCatalog.resolve("bitxor", argumentsCount).orElseThrow())
+                .put("bitmap_bit_position", argumentsCount -> FunctionCatalog.resolve("bitmap_bit_position", 1 + argumentsCount).orElseThrow())
+                .put("bitmap_bucket_offset", argumentsCount -> FunctionCatalog.resolve("bitmap_bucket_offset", 1 + argumentsCount).orElseThrow())
+                .put("bitmap_construct_agg", argumentsCount -> FunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", argumentsCount).orElseThrow())
+                .put("not", argumentsCount -> FunctionCatalog.resolve("not", argumentsCount).orElseThrow())
+                .put("and", argumentsCount -> FunctionCatalog.resolve("and", argumentsCount).orElseThrow())
+                .put("or", argumentsCount -> FunctionCatalog.resolve("or", argumentsCount).orElseThrow())
+                .put("count", argumentsCount -> FunctionCatalog.resolve("COUNT", argumentsCount).orElseThrow())
+                .put("max", argumentsCount -> FunctionCatalog.resolve("MAX", argumentsCount).orElseThrow())
+                .put("min", argumentsCount -> FunctionCatalog.resolve("MIN", argumentsCount).orElseThrow())
+                .put("avg", argumentsCount -> FunctionCatalog.resolve("AVG", argumentsCount).orElseThrow())
+                .put("sum", argumentsCount -> FunctionCatalog.resolve("SUM", argumentsCount).orElseThrow())
+                .put("max_ever", argumentsCount -> FunctionCatalog.resolve("MAX_EVER", argumentsCount).orElseThrow())
+                .put("min_ever", argumentsCount -> FunctionCatalog.resolve("MIN_EVER", argumentsCount).orElseThrow())
+                .put("java_call", argumentsCount -> FunctionCatalog.resolve("java_call", argumentsCount).orElseThrow())
+                .put("greatest", argumentsCount -> FunctionCatalog.resolve("greatest", argumentsCount).orElseThrow())
+                .put("least", argumentsCount -> FunctionCatalog.resolve("least", argumentsCount).orElseThrow())
+                .put("like", argumentsCount -> FunctionCatalog.resolve("like", argumentsCount).orElseThrow())
+                .put("in", argumentsCount -> FunctionCatalog.resolve("in", argumentsCount).orElseThrow())
+                .put("coalesce", argumentsCount -> FunctionCatalog.resolve("coalesce", argumentsCount).orElseThrow())
+                .put("is null", argumentsCount -> FunctionCatalog.resolve("isNull", argumentsCount).orElseThrow())
+                .put("is not null", argumentsCount -> FunctionCatalog.resolve("notNull", argumentsCount).orElseThrow())
+                .put("__pattern_for_like", argumentsCount -> FunctionCatalog.resolve("patternForLike", argumentsCount).orElseThrow())
+                .put("__internal_array", argumentsCount -> FunctionCatalog.resolve("array", argumentsCount).orElseThrow())
                 .build();
     }
 

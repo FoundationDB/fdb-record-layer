@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,16 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+import com.apple.foundationdb.relational.recordlayer.query.Expression;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 public interface SqlFunctionCatalog {
     @Nonnull
-    BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull final String name, @Nonnull final Expressions expressions);
+    BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull String name, @Nonnull Expression... expressions);
 
-    boolean containsFunction(@Nonnull final String name);
+    boolean containsFunction(@Nonnull String name);
 
-    boolean isUdfFunction(@Nonnull final String name);
+    boolean isUdfFunction(@Nonnull String name);
 }
