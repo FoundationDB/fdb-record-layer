@@ -19,7 +19,7 @@ Our API stability annotations have been updated to reflect greater API instabili
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Break out a helper class from GenerateVisitor annotation processor [(Issue #3060)](https://github.com/FoundationDB/fdb-record-layer/issues/3060)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
