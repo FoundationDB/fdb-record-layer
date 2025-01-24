@@ -56,6 +56,10 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+/**
+ * A separate class to support (@link GenerateVisitorAnnotationProcessor) so that dependency on javapoet does not leak to anyone
+ * just service loading all annotation processors in the class path.
+ */
 @SuppressWarnings("PMD.GuardLogStatement") // confused by error invocation
 class GenerateVisitorAnnotationHelper {
     private static final String parameterName = "element";
