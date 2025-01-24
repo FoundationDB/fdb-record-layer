@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
@@ -37,6 +38,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -204,6 +206,11 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    public List<Type> underlyingTypes() {
+        return Streams.stream(underlying()).map(Value::getResultType).collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
     public Stream<Expression> stream() {
         return underlying.stream();
     }
@@ -234,6 +241,12 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public static Expressions of(@Nonnull Iterable<Expression> expressions) {
         return new Expressions(expressions);
+    }
+
+    @Nonnull
+    public static Expressions of(@Nonnull final Expression[] expressions) {
+        List<Expression> expressionsList = ImmutableList.copyOf(expressions);
+        return Expressions.of(expressionsList);
     }
 
     @Nonnull

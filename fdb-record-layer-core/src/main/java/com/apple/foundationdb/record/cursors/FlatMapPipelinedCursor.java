@@ -263,14 +263,14 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         return outerNextFuture;
     }
 
-    private synchronized void addEntryToPipeline(PipelineQueueEntry pipelineQueueEntry) {
+    protected synchronized void addEntryToPipeline(PipelineQueueEntry pipelineQueueEntry) {
         if (closed) {
             pipelineQueueEntry.close();
         }
         pipeline.add(pipelineQueueEntry);
     }
 
-    private synchronized boolean continueFillingPipeline() {
+    protected synchronized boolean continueFillingPipeline() {
         return !closed && !outerExhausted && pipeline.size() < pipelineSize;
     }
 
