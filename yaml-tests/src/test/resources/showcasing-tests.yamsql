@@ -39,7 +39,8 @@
 options:
     # supported_version specifies what versions this works with
     # Any version greater than the provided version is expected to work
-    # When developing a new feature use !current_version to specify that it only works with the current version
+    # When developing a new feature use "!current_version" (but without the quotes) to specify that it only works with
+    # the current version
     supported_version: 4.0.559.0
 ---
 schema_template:
