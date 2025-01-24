@@ -34,7 +34,9 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -43,6 +45,7 @@ import javax.annotation.Nullable;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
+    public static final String OPTION_FORCE_CONTINUATIONS = "optionForceContinuations";
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
@@ -56,6 +59,8 @@ public final class YamlExecutionContext {
     private final List<Block> finalizeBlocks = new ArrayList<>();
     @SuppressWarnings("AbbreviationAsWordInName")
     private final List<String> connectionURIs = new ArrayList<>();
+    // Additional options that can be set by the runners to impact test execution
+    private final Map<String, Object> additionalOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -66,10 +71,11 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
+    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
         this.editedFileStream = correctExplain ? loadFileToMemory(resourcePath) : null;
+        this.additionalOptions = Map.copyOf(additionalOptions);
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
@@ -218,6 +224,18 @@ public final class YamlExecutionContext {
             wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber)});
             return wrapper;
         }
+    }
+
+    /**
+     * Return the value of an additional option, or a default value.
+     * Additional options are options set by the test execution environment that can control the test execution, in additional
+     * to the "core" set of options defined in this class.
+     * @param name the name of the option
+     * @param defaultValue the default value (if option is undefined)
+     * @return the defined value of the option, or the default value, if undefined
+     */
+    public Object getOption(String name, Object defaultValue) {
+        return additionalOptions.getOrDefault(name, defaultValue);
     }
 
     @Nonnull

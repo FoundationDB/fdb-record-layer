@@ -53,6 +53,8 @@ public class QueryExecutor {
     @Nonnull
     private final String query;
     private final int lineNumber;
+    // Whether to force continuations if the query does not use continuations explicitly.
+    private final int forceContinuations;
     /**
      * List of bound parameters to be set using the {@link RelationalPreparedStatement}. The existence of this field
      * means that the query should be executed as a prepared statement.
@@ -65,9 +67,24 @@ public class QueryExecutor {
     }
 
     QueryExecutor(@Nonnull String query, int lineNumber, @Nullable List<Parameter> parameters) {
+        this(query, lineNumber, parameters, 0);
+    }
+
+    /**
+     * Constructor.
+     * @param query the query to execute
+     * @param lineNumber the line number from the test script
+     * @param parameters the parameters to bind
+     * @param forceContinuations Whether to force continuations in case the query does not explicitly specify a limit.
+     *        If set to 0, this parameter has no effect. If non-zero, it will override the maxRows limit of the query to this number
+     *        for queries which have 0 maxRows. The effect will be that these queries will run in a loop with the overridden
+     *        maxRows until the result is complete.
+     */
+    QueryExecutor(@Nonnull String query, int lineNumber, @Nullable List<Parameter> parameters, int forceContinuations) {
         this.lineNumber = lineNumber;
         this.query = query;
         this.parameters = parameters;
+        this.forceContinuations = forceContinuations;
     }
 
     @Nullable

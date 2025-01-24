@@ -20,6 +20,7 @@
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
 import org.junit.jupiter.api.Disabled;
@@ -31,6 +32,7 @@ import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -57,6 +59,11 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     public static class MultiServerInitialConnectionEmbeddedTests extends MultiServerJDBCYamlTests {
         public MultiServerInitialConnectionEmbeddedTests() {
             super(0);
+        }
+
+        @Override
+        public Map<String, Object> getAdditionalOptions() {
+            return Map.of(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, true);
         }
     }
 
