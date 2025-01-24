@@ -91,12 +91,15 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 .setPartitionHighWatermark(isPartitioned ? 10 : 0)
                 .build();
 
-        try (final FDBRecordContext context = openContext()) {
-            FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
-            dataModel.saveRecords(15, 1007, context, 1);
-            context.commit();
+        for (int i = 0; i < 14; i++) {
+            try (final FDBRecordContext context = openContext()) {
+                dataModel.saveRecords(3, i * 1007, context, i / 6);
+                context.commit();
+            }
+            try (final FDBRecordContext context = openContext()) {
+                dataModel.explicitMergeIndex(context, timer);
+            }
         }
-
         try (final FDBRecordContext context = openContext()) {
             FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
             boolean atLeastOnce = false;
@@ -170,15 +173,25 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         final InjectedFailureRepository injectedFailures = new InjectedFailureRepository();
         registry.overrideFactory(new MockedLuceneIndexMaintainerFactory(injectedFailures));
 
+        for (int i = 0; i < 14; i++) {
+            try (final FDBRecordContext context = openContext()) {
+                dataModel.saveRecords(3, i * 1007, context, i / 6);
+                context.commit();
+            }
+            try (final FDBRecordContext context = openContext()) {
+                dataModel.explicitMergeIndex(context, timer);
+            }
+        }
+
         try (final FDBRecordContext context = openContext()) {
             // Write some documents
-            dataModel.saveRecords(15, 1007, context, 1);
+            dataModel.saveRecords(15, 10, context, 1);
             // Trigger failures
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
             // Some overwrites (with index update failures)
-            dataModel.saveRecords(5, 1007, context, 1);
+            dataModel.saveRecords(5, 10, context, 1);
             // some new (with index update failures)
-            dataModel.saveRecords(5, 7007, context, 1);
+            dataModel.saveRecords(5, 50, context, 1);
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE, false);
             context.commit();
         }
