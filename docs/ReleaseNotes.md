@@ -19,7 +19,7 @@ Our API stability annotations have been updated to reflect greater API instabili
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Break out a helper class from GenerateVisitor annotation processor [(Issue #3060)](https://github.com/FoundationDB/fdb-record-layer/issues/3060)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -33,7 +33,7 @@ Our API stability annotations have been updated to reflect greater API instabili
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support enums in rel ops [(Issue #3011)](https://github.com/FoundationDB/fdb-record-layer/issues/3011)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -42,6 +42,11 @@ Our API stability annotations have been updated to reflect greater API instabili
 
 // end next release
 -->
+
+### 4.0.565.0
+
+* **Bug fix** Break out a helper class from GenerateVisitor annotation processor [(Issue #3060)](https://github.com/FoundationDB/fdb-record-layer/issues/3060)
+* **Feature** Support enums in rel ops [(Issue #3011)](https://github.com/FoundationDB/fdb-record-layer/issues/3011)
 
 ### 4.0.564.0
 
