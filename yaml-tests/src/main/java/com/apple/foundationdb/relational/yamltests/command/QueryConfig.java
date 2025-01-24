@@ -351,14 +351,8 @@ public abstract class QueryConfig {
         if (!check.isSupported()) {
             return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext, check.getMessage());
         }
-        return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext) {
-            @Override
-            void checkResultInternal(@Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
-                // Nothing to do, this query is supported
-                // SupportedVersion configs are not executed
-                Assertions.fail("Supported version configs are not meant to be executed.");
-            }
-        };
+        // In case of supported version, there is nothing to do
+        return getNoOpConfig(lineNumber, executionContext);
     }
 
     /**
@@ -374,6 +368,8 @@ public abstract class QueryConfig {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
+                // This should not be executed
+                Assertions.fail("NoOp Config should not be executed");
             }
         };
     }
