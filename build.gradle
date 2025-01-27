@@ -156,6 +156,10 @@ allprojects {
 
     build {
         dependsOn tasks.jar, tasks.package
+        exec {
+            commandLine '/usr/bin/env', 'python3', '-c', 'print("has python 3")'
+        }
+        throw new RuntimeException("FOO")
     }
 
     signing {
