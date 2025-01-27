@@ -543,17 +543,30 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
     }
 
+    /**
+     * Normalizes the SQL query using a given planning context.
+     * @param context The planning context, captures all the state required to plan and execution query such as prepared parameter values.
+     * @param query The query string.
+     * @param isCaseSensitive If {@code true}, the query is case-sensitive, otherwise {@code false}.
+     * @param currentPlanHashMode The mode used to calculate the hash of the query plan
+     * @return The query parse tree along with contextual information required for planning and executing it.
+     */
     @Nonnull
-    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull final String query, boolean caseSensitive,
-                                        @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
-        final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> QueryParser.parse(query).getRootContext());
-        return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
+    public static Result normalizeQuery(@Nonnull final PlanContext context,
+                                        @Nonnull final String query,
+                                        boolean isCaseSensitive,
+                                        @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
+        // lexing, parsing, and normalization are profiled through the metric collector.
+        final var metricCollector = context.getMetricsCollector();
+        final var rootContext = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
+                () -> QueryParser.parse(query).getRootContext());
+        return metricCollector.clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(
                         context.getSchemaTemplate(), rootContext,
                         PreparedParams.copyOf(context.getPreparedStatementParameters()),
                         context.getUserVersion(),
                         context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()),
-                        caseSensitive,
+                        isCaseSensitive,
                         currentPlanHashMode
                 ));
     }

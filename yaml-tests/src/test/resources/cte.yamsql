@@ -87,9 +87,6 @@ test_block:
       - query: with c1(w, z) as (select id, col1 from t1), c2(a, b) as (with c3(A, B) as (select id, col1 from c1 where id in (1, 2)) select * from c3) select * from c1,c2
       - error: "42F01"
     -
-      - query: with recursive c1(w, z) as (select id, col1 from t1) select * from c1
-      - error: "0AF00"
-    -
       - query: with c1(w, z, x1, x2, x3, x4) as (select id, col1 from t1) select * from c1
       - error: "42F10"
     -

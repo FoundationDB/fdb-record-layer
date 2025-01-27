@@ -20,25 +20,25 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
@@ -66,6 +66,8 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_PLAN_HASH = "planHash";
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
     public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
+    public static final String QUERY_CONFIG_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
+    public static final String QUERY_CONFIG_NO_OP = "noOp";
 
     @Nullable private final Object value;
     private final int lineNumber;
@@ -104,7 +106,7 @@ public abstract class QueryConfig {
         }
     }
 
-    String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+    String decorateQuery(@Nonnull String query) {
         return query;
     }
 
@@ -149,33 +151,9 @@ public abstract class QueryConfig {
 
     }
 
-    private static String appendWithContinuationIfPresent(@Nonnull String queryString, @Nullable Continuation continuation) {
-        String currentQuery = queryString;
-        if (!currentQuery.isEmpty() && currentQuery.charAt(currentQuery.length() - 1) == ';') {
-            currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
-        }
-        if (continuation instanceof ContinuationImpl) {
-            String result;
-            if (continuation.atBeginning()) {
-                result = "START";
-            } else if (continuation.atEnd()) {
-                result = "END";
-            } else {
-                result = Base64.getEncoder().encodeToString(continuation.serialize());
-            }
-            currentQuery += String.format(" with continuation b64'%s'", result);
-        }
-        return currentQuery;
-    }
-
     private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName,
                                                     @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
-
-            @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return appendWithContinuationIfPresent(query, continuation);
-            }
 
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
@@ -209,13 +187,12 @@ public abstract class QueryConfig {
     private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value,
                                                      int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
-
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return "explain " + query;
+            String decorateQuery(@Nonnull String query) {
+                return "EXPLAIN " + query;
             }
 
-            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable resource persists beyond method
+            @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"}) // lifetime of autocloseable resource persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
@@ -265,11 +242,6 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_ERROR, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return appendWithContinuationIfPresent(query, continuation);
-            }
-
-            @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
                 if (actual instanceof ErrorCapturingResultSet) {
@@ -312,11 +284,6 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_COUNT, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return appendWithContinuationIfPresent(query, continuation);
-            }
-
-            @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
@@ -333,8 +300,8 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
-                return "explain " + query;
+            String decorateQuery(@Nonnull String query) {
+                return "EXPLAIN " + query;
             }
 
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
@@ -379,6 +346,38 @@ public abstract class QueryConfig {
         };
     }
 
+    private static QueryConfig getSupportedVersionConfig(final Object value, final int lineNumber, final YamlExecutionContext executionContext) {
+        final SupportedVersionCheck check = SupportedVersionCheck.parse(value, executionContext);
+        if (!check.isSupported()) {
+            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext, check.getMessage());
+        }
+        return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext) {
+            @Override
+            void checkResultInternal(@Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
+                // Nothing to do, this query is supported
+                // SupportedVersion configs are not executed
+                Assertions.fail("Supported version configs are not meant to be executed.");
+            }
+        };
+    }
+
+    /**
+     * Return a NoOp config - a config that does nothing.
+     * This config can be executed but will perform no action. Use in cases where we need to continue running (e.g.
+     * the command and config are legal and supprted) but some conditions make execution unneeded.
+     * @param lineNumber the line number in the test file
+     * @param executionContext the execution context for the test
+     * @return an instance of a NoOp config
+     */
+    public static QueryConfig getNoOpConfig(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_NO_OP, null, lineNumber, executionContext) {
+            @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
+            @Override
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
+            }
+        };
+    }
+
     public static QueryConfig parse(@Nonnull Object object, @Nonnull YamlExecutionContext executionContext) {
         final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
@@ -391,9 +390,17 @@ public abstract class QueryConfig {
             } else if (QUERY_CONFIG_ERROR.equals(key)) {
                 return getCheckErrorConfig(value, lineNumber, executionContext);
             } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
-                return getCheckExplainConfig(true, key, value, lineNumber, executionContext);
+                if (shouldExecuteExplain(executionContext)) {
+                    return getCheckExplainConfig(true, key, value, lineNumber, executionContext);
+                } else {
+                    return getNoOpConfig(lineNumber, executionContext);
+                }
             } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
-                return getCheckExplainConfig(false, key, value, lineNumber, executionContext);
+                if (shouldExecuteExplain(executionContext)) {
+                    return getCheckExplainConfig(false, key, value, lineNumber, executionContext);
+                } else {
+                    return getNoOpConfig(lineNumber, executionContext);
+                }
             } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
                 return getCheckPlanHashConfig(value, lineNumber, executionContext);
             } else if (key.contains(QUERY_CONFIG_RESULT)) {
@@ -402,6 +409,8 @@ public abstract class QueryConfig {
                 return getCheckResultConfig(false, key, value, lineNumber, executionContext);
             } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
                 return getMaxRowConfig(value, lineNumber, executionContext);
+            } else if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
+                return getSupportedVersionConfig(value, lineNumber, executionContext);
             } else {
                 Assert.failUnchecked("‼️ '%s' is not a valid configuration");
             }
@@ -410,5 +419,27 @@ public abstract class QueryConfig {
         } catch (Exception e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
         }
+    }
+
+    public static class SkipConfig extends QueryConfig {
+        private final String message;
+
+        public SkipConfig(final String configMap, final Object value, final int lineNumber, final YamlExecutionContext executionContext, final String message) {
+            super(configMap, value, lineNumber, executionContext);
+            this.message = message;
+        }
+
+        @Override
+        void checkResultInternal(@Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
+            Assertions.fail("Skipped config should not be executed: Line: " + getLineNumber() + " " + message);
+        }
+
+        public String getMessage() {
+            return message;
+        }
+    }
+
+    private static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
+        return (! executionContext.getConnectionFactory().isMultiServer());
     }
 }

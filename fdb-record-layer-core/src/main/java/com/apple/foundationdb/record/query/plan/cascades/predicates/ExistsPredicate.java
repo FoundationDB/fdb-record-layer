@@ -39,12 +39,15 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -105,7 +108,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ExistsPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+    public ExistsPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         final var quantifiedObjectValue =
                 QuantifiedObjectValue.of(existentialAlias, Type.any());
 
@@ -177,64 +180,82 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
-                                                                @Nonnull final QueryPredicate candidatePredicate,
-                                                                @Nonnull final EvaluationContext evaluationContext) {
-        if (candidatePredicate instanceof Placeholder) {
-            return Optional.empty();
-        } else if (candidatePredicate instanceof ExistsPredicate) {
-            final ExistsPredicate candidateExistsPredicate = (ExistsPredicate)candidatePredicate;
-            final var aliasEquals =
-                    valueEquivalence.isDefinedEqual(existentialAlias, candidateExistsPredicate.getExistentialAlias());
-            if (aliasEquals.isFalse()) {
-                return Optional.empty();
-            }
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final QueryPredicate candidatePredicate,
+                                                                     @Nonnull final EvaluationContext evaluationContext) {
+        if (!(candidatePredicate instanceof Placeholder) && candidatePredicate.isTautology()) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
-                            .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
-                            .setConstraint(aliasEquals.getConstraint())
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
-                            .build());
-        } else if (candidatePredicate.isTautology()) {
-            return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
-                            .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
+                            .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                             .build());
         }
-        return Optional.empty();
+        return super.impliesCandidatePredicateMaybe(valueEquivalence, originalQueryPredicate, candidatePredicate, evaluationContext);
     }
 
+    /**
+     * Overloaded method to compute compensation for this existential predicate. Note that this class does not override
+     * {@link #computeCompensationFunctionForLeaf(PullUp)} as we need special info not provided in that method.
+     * @param partialMatch partial match to use
+     * @param originalQueryPredicate the original (untranslated predicate)
+     * @param boundParameterPrefixMap the bound parameter prefix map
+     * @param childrenResults this should be empty as this predicate does not have any children
+     * @param pullUp the pull-up
+     * @return a new {@link PredicateCompensationFunction}
+     */
     @Nonnull
     @Override
-    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
+    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
-        return injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
+        return computeCompensationFunction(partialMatch, (ExistsPredicate)originalQueryPredicate,
+                boundParameterPrefixMap);
     }
 
+    /**
+     * Compute compensation function. Note that this method needs to compute the original existential alias prior
+     * to translation to the index side which all predicates undergo during the matching process. For more details see
+     * {@link com.apple.foundationdb.record.query.plan.cascades.Compensation.ForMatch#apply(Memoizer, RelationalExpression)}.
+     * @param partialMatch partial match to compute the compensation for
+     * @param boundParameterPrefixMap the bound parameter prefix map
+     * @return a new {@link PredicateCompensationFunction}
+     */
     @Nonnull
-    public Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final var matchInfo = partialMatch.getMatchInfo();
-        final var childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
+    private PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                      @Nonnull final ExistsPredicate originalExistsPredicate,
+                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+        final var childPartialMatchOptional =
+                regularMatchInfo.getChildPartialMatchMaybe(originalExistsPredicate.getExistentialAlias());
         final var compensationOptional =
-                childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+                childPartialMatchOptional.map(childPartialMatch ->
+                        childPartialMatch.compensateExistential(boundParameterPrefixMap));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
-            return Optional.of(translationMap -> injectCompensation(partialMatch, translationMap));
+            //
+            // Note that this predicate does NOT need to be pulled up as the existential quantifier is separately
+            // added in.
+            //
+            return PredicateCompensationFunction.of(baseAlias -> LinkedIdentitySet.of(originalExistsPredicate));
         }
-        return Optional.empty();
+        return PredicateCompensationFunction.noCompensationNeeded();
     }
 
+    /**
+     * This method is overridden to always throw as
+     * {@link #computeCompensationFunction(PartialMatch, QueryPredicate, Map, List, PullUp)} does that work without
+     * delegating to this method (unlike its super which does exactly that). This method fails so that if/when refactors
+     * happen and that subtle detail of the contract is violated we immediately throw.
+     *
+     * @param pullUp the current pull up
+     * @return nothing -- this implementation always throws
+     */
     @Nonnull
-    private Set<QueryPredicate> injectCompensation(@Nonnull final PartialMatch partialMatch, @Nonnull final TranslationMap translationMap) {
-        Verify.verify(!translationMap.containsSourceAlias(existentialAlias));
-
-        final var containingExpression = partialMatch.getQueryExpression();
-        Verify.verify(containingExpression.canCorrelate());
-
-        return LinkedIdentitySet.of(this);
+    @Override
+    public PredicateCompensationFunction computeCompensationFunctionForLeaf(@Nonnull final PullUp pullUp) {
+        throw new RecordCoreException("this should not be called");
     }
 
     @Nonnull

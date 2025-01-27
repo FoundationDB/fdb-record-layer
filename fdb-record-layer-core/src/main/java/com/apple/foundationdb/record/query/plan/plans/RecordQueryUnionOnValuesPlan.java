@@ -89,7 +89,7 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
     @Nonnull
     @Override
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
-        final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
+        final var ruleSet = DefaultValueSimplificationRuleSet.instance();
         return getComparisonKeyValues().stream()
                 .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
                 .collect(ImmutableList.toImmutableList());
@@ -121,7 +121,9 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
 
     @Nonnull
     @Override
-    public RecordQueryUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQueryUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                              final boolean shouldSimplifyValues,
+                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 comparisonKeyOrderingParts,
                 getComparisonKeyValues(),

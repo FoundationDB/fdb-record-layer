@@ -22,11 +22,14 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -45,6 +48,7 @@ import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableList;
@@ -111,7 +115,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
-        Assert.isNullUnchecked(ctx.RECURSIVE(), ErrorCode.UNSUPPORTED_QUERY, "recursive cte is not supported");
+        if (ctx.RECURSIVE() != null) {
+            return LogicalOperators.of(ctx.namedQuery().stream().map(this::handleRecursiveNamedQuery).collect(ImmutableList.toImmutableList()));
+        }
         return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
     }
 
@@ -130,6 +136,59 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             logicalOperator = logicalOperator.withOutput(expressionsWithNewNames);
         }
         return logicalOperator.withName(queryName);
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
+    public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext) {
+        final var queryName = visitFullId(recursiveQueryContext.name);
+        final Optional<Type> recursiveQueryType;
+        final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
+                parserRuleContext -> {
+                    final var result = parserRuleContext.accept(this);
+                    if (result instanceof LogicalOperator) {
+                        return LogicalOperators.ofSingle((LogicalOperator) result);
+                    }
+                    return Assert.castUnchecked(result, LogicalOperators.class);
+                });
+        {
+            getDelegate().pushPlanFragment();
+            recursiveQueryType = getDelegate().getSemanticAnalyzer().getRecursiveCteType(recursiveQueryContext.query(),
+                    queryName, getDelegate()::visitFullId, memoized, this);
+            getDelegate().popPlanFragment();
+        }
+        Assert.thatUnchecked(recursiveQueryType.isPresent(), ErrorCode.INVALID_RECURSION, "recursive CTE does not contain non-recursive term");
+        final var type = recursiveQueryType.get();
+        final var currentPlanFragment = getDelegate().pushPlanFragment();
+        final var scanId = Identifier.of(queryName + "forScan");
+        currentPlanFragment.addOperator(LogicalOperator.newTemporaryTableScan(queryName, scanId, type));
+        final var partitions = getDelegate().getSemanticAnalyzer().partitionRecursiveQuery(recursiveQueryContext.query(),
+                queryName, getDelegate()::visitFullId, memoized, this);
+        final var nonRecursiveBranches = partitions.getLeft();
+        final var recursiveBranches = partitions.getRight();
+        getDelegate().popPlanFragment();
+        if (recursiveBranches.isEmpty()) {
+            return visitNamedQuery(recursiveQueryContext);
+        }
+        final var outerCorrelations = getDelegate().getCurrentPlanFragmentMaybe().map(LogicalPlanFragment::getOuterCorrelations).orElse(ImmutableSet.of());
+        final var initialLeg = LogicalOperator.generateUnionAll(LogicalOperators.of(nonRecursiveBranches), outerCorrelations);
+        final var recursiveLeg = LogicalOperator.generateUnionAll(LogicalOperators.of(recursiveBranches), outerCorrelations);
+        final Identifier insertTempTableId = Identifier.of(queryName.getName() + "forInsert");
+        final var initialLegInsert = LogicalOperator.newTemporaryTableInsert(initialLeg, insertTempTableId, type);
+        final var recursiveLegInsert = LogicalOperator.newTemporaryTableInsert(recursiveLeg, insertTempTableId, type);
+        final var recursiveUnion = new RecursiveUnionExpression(initialLegInsert.getQuantifier(), recursiveLegInsert.getQuantifier(),
+                CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()));
+        final var quantifier = Quantifier.forEach(Reference.of(recursiveUnion));
+        var logicalOperator = LogicalOperator.newNamedOperator(queryName, Expressions.fromQuantifier(quantifier), quantifier);
+        if (recursiveQueryContext.columnAliases != null) {
+            final var columnAliases = visitFullIdList(recursiveQueryContext.columnAliases);
+            SemanticAnalyzer.validateCteColumnAliases(logicalOperator, columnAliases);
+            final var expressions = logicalOperator.getOutput().expanded();
+            final var expressionsWithNewNames = Expressions.of(Streams.zip(expressions.stream(), columnAliases.stream(),
+                    Expression::withName).collect(ImmutableList.toImmutableList()));
+            logicalOperator = logicalOperator.withOutput(expressionsWithNewNames);
+        }
+        return logicalOperator;
     }
 
     @Nonnull

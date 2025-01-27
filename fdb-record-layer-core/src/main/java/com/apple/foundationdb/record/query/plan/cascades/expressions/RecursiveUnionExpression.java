@@ -134,16 +134,19 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         Verify.verify(!translationMap.containsSourceAlias(tempTableScanAlias)
                 && !translationMap.containsSourceAlias(tempTableInsertAlias));
         final var translatedInitialStateQun = translatedQuantifiers.get(0);
         final var translatedRecursiveStateQun = translatedQuantifiers.get(1);
-        if (translatedInitialStateQun == initialStateQuantifier && translatedRecursiveStateQun == recursiveStateQuantifier) {
+        if (translatedInitialStateQun == initialStateQuantifier &&
+                translatedRecursiveStateQun == recursiveStateQuantifier) {
             return this;
         }
-        return new RecursiveUnionExpression(translatedInitialStateQun, translatedRecursiveStateQun, tempTableScanAlias, tempTableInsertAlias);
+        return new RecursiveUnionExpression(translatedInitialStateQun, translatedRecursiveStateQun,
+                tempTableScanAlias, tempTableInsertAlias);
     }
 
     @Nonnull

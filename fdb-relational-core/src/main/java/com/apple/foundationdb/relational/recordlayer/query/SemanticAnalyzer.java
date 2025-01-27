@@ -50,9 +50,11 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.functions.FunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
@@ -62,6 +64,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -73,6 +77,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -128,6 +134,7 @@ public class SemanticAnalyzer {
         return str.startsWith(quotationMark) && str.endsWith(quotationMark);
     }
 
+    @Nonnull
     public Optional<LogicalOperator> findCteMaybe(@Nonnull Identifier identifier, @Nonnull LogicalPlanFragment logicalPlanFragment) {
         var currentFragment = Optional.of(logicalPlanFragment);
         while (currentFragment.isPresent()) {
@@ -749,5 +756,174 @@ public class SemanticAnalyzer {
 
     public boolean isUdfFunction(@Nonnull String functionName) {
         return functionCatalog.lookUpFunction(functionName).getClass().equals(JavaCallFunction.class);
+    }
+
+    public boolean containsReferencesTo(@Nonnull final ParseTree parseTree,
+                                        @Nonnull final Identifier identifier,
+                                        @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser) {
+        return ParseHelpers.ParseTreeLikeAdapter.from(parseTree).preOrderStream()
+                .map(ParseHelpers.ParseTreeLikeAdapter::getParseTree)
+                .anyMatch(child -> (child instanceof RelationalParser.TableNameContext)
+                        && idParser.apply(((RelationalParser.TableNameContext) child).fullId()).equals(identifier));
+    }
+
+    /**
+     * Infers the type of recursive query.
+     *
+     * @param namedQueryBody the recursive query.
+     * @param queryName the query name.
+     * @param idParser A parser of IDs.
+     * @param memoizer A logical operator parsing memoizer.
+     * @param queryVisitor A query visitor instance.
+     * @return the type of recursive query, as identified by the type of the first non-recursive branch.
+     */
+    @Nonnull
+    public Optional<Type> getRecursiveCteType(@Nonnull final RelationalParser.QueryContext namedQueryBody,
+                                              @Nonnull final Identifier queryName,
+                                              @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
+                                              @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                              @Nonnull final QueryVisitor queryVisitor) {
+        final AtomicReference<Optional<Type>> result = new AtomicReference<>(Optional.empty());
+        recursiveQueryTraversal(namedQueryBody, queryName, idParser,
+                nonRecursiveBranch -> {
+                    if (result.get().isEmpty()) {
+                        final var logicalOperator = handleQueryFragment(nonRecursiveBranch, namedQueryBody, memoizer, queryVisitor);
+                        result.set(Optional.of(logicalOperator.getQuantifier().getFlowedObjectType()));
+                    }
+                },
+                ignored -> {
+                });
+        return result.get();
+    }
+
+    /**
+     * Parses and partitions recursive query branches into two groups: non-recursive and recursive branches.
+     * Note that this will be rewritten once Relational has a semantic analysis phase that is able to deduce
+     *
+     * @param namedQueryBody The recursive query.
+     * @param queryName The recursive query name.
+     * @param idParser A parser of IDs.
+     * @param memoizer A logical operator parsing memoizer.
+     * @param queryVisitor A query visitor instance.
+     * @return A partitioning of recursive query into a list of non-recursive logical operators and list of recursive logical operators.
+     */
+    @Nonnull
+    public NonnullPair<List<LogicalOperator>, List<LogicalOperator>> partitionRecursiveQuery(@Nonnull final RelationalParser.QueryContext namedQueryBody,
+                                                                                             @Nonnull final Identifier queryName,
+                                                                                             @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
+                                                                                             @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                                                             @Nonnull final QueryVisitor queryVisitor) {
+        final var nonRecursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
+        final var recursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
+
+        recursiveQueryTraversal(namedQueryBody, queryName, idParser,
+                nonRecursiveBranch -> {
+                    final var logicalOperator = handleQueryFragment(nonRecursiveBranch, namedQueryBody, memoizer, queryVisitor);
+                    nonRecursiveBranchesBuilder.add(logicalOperator);
+                },
+                recursiveBranch -> {
+                    final var logicalOperator = handleQueryFragment(recursiveBranch, namedQueryBody, memoizer, queryVisitor);
+                    recursiveBranchesBuilder.add(logicalOperator);
+                });
+        return NonnullPair.of(nonRecursiveBranchesBuilder.build(), recursiveBranchesBuilder.build());
+    }
+
+    private void recursiveQueryTraversal(@Nonnull final RelationalParser.QueryContext namedQueryBody,
+                                         @Nonnull final Identifier queryName,
+                                         @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
+                                         @Nonnull final Consumer<ParserRuleContext> nonRecursiveBranchConsumer,
+                                         @Nonnull final Consumer<ParserRuleContext> recursiveBranchConsumer) {
+        final var hasNestedCtes = namedQueryBody.ctes() != null;
+        if (hasNestedCtes) {
+            for (final var nestedNamedQuery : namedQueryBody.ctes().namedQuery()) {
+                final var nestedQueryName = idParser.apply(nestedNamedQuery.name);
+                Assert.thatUnchecked(!queryName.equals(nestedQueryName), ErrorCode.UNSUPPORTED_QUERY,
+                        "ambiguous nested recursive CTE name");
+            }
+        }
+        // look for the first non-recursive branch, parse it, and return its type.
+        final var queryExpressionBody = namedQueryBody.queryExpressionBody();
+        if (queryExpressionBody instanceof RelationalParser.QueryTermDefaultContext) {
+            final var queryTerm = ((RelationalParser.QueryTermDefaultContext) queryExpressionBody).queryTerm();
+            if (queryTerm instanceof RelationalParser.ParenthesisQueryContext) {
+                // un-nest
+                recursiveQueryTraversal(((RelationalParser.ParenthesisQueryContext) queryTerm).query(), queryName, idParser,
+                        nonRecursiveBranchConsumer, recursiveBranchConsumer);
+                return;
+            }
+            final var isRecursive = containsReferencesTo(queryTerm, queryName, idParser);
+            if (isRecursive) {
+                recursiveBranchConsumer.accept(queryTerm);
+            } else {
+                nonRecursiveBranchConsumer.accept(queryTerm);
+            }
+        } else {
+            Assert.thatUnchecked(queryExpressionBody instanceof RelationalParser.SetQueryContext);
+            final var setQueryContext = (RelationalParser.SetQueryContext) queryExpressionBody;
+            // visit union's left branch
+            recursiveQueryTraversal(
+                    new RelationalParser.QueryContext((ParserRuleContext) namedQueryBody.parent, namedQueryBody.invokingState) {
+                        @Override
+                        public RelationalParser.QueryExpressionBodyContext queryExpressionBody() {
+                            return setQueryContext.left;
+                        }
+
+                        @Override
+                        public int getChildCount() {
+                            return 1;
+                        }
+
+                        @Override
+                        public ParseTree getChild(int i) {
+                            Assert.thatUnchecked(i == 0);
+                            return setQueryContext.left;
+                        }
+                    },
+                    queryName,
+                    idParser,
+                    nonRecursiveBranchConsumer,
+                    recursiveBranchConsumer);
+            // visit union's right branch
+            recursiveQueryTraversal(
+                    new RelationalParser.QueryContext((ParserRuleContext) namedQueryBody.parent, namedQueryBody.invokingState) {
+                        @Override
+                        public RelationalParser.QueryExpressionBodyContext queryExpressionBody() {
+                            return setQueryContext.right;
+                        }
+
+                        @Override
+                        public int getChildCount() {
+                            return 1;
+                        }
+
+                        @Override
+                        public ParseTree getChild(int i) {
+                            Assert.thatUnchecked(i == 0);
+                            return setQueryContext.right;
+                        }
+                    },
+                    queryName,
+                    idParser,
+                    nonRecursiveBranchConsumer,
+                    recursiveBranchConsumer);
+        }
+    }
+
+    @Nonnull
+    private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
+                                                       @Nonnull final RelationalParser.QueryContext namedQueryBody,
+                                                       @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                       @Nonnull final QueryVisitor queryVisitor) {
+        LogicalOperator logicalOperator;
+        if (namedQueryBody.ctes() != null) {
+            final var ctes = namedQueryBody.ctes();
+            final var currentPlanFragment = queryVisitor.getDelegate().pushPlanFragment();
+            memoizer.apply(ctes).forEach(currentPlanFragment::addOperator);
+            logicalOperator = memoizer.apply(queryFragment).first();
+            queryVisitor.getDelegate().popPlanFragment();
+        } else {
+            logicalOperator = memoizer.apply(queryFragment).first();
+        }
+        return logicalOperator;
     }
 }

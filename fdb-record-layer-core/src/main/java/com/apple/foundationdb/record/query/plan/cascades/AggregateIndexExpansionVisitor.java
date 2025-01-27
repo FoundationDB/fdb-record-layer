@@ -154,7 +154,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
                 groupByQun.getRangesOver().get().getResultValue(),
-                selectHaving.getResultValue());
+                selectHaving);
     }
 
     @Nonnull

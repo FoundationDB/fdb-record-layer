@@ -91,7 +91,9 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     @Override
-    public InsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public InsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                  final boolean shouldSimplifyValues,
+                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new InsertExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class), targetRecordType, targetType);
     }
 

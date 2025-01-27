@@ -24,10 +24,10 @@ apply plugin: 'application'
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     implementation project(coreProject)
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
-    runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
-    runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
+    implementation(libs.protobuf)
+    implementation(libs.slf4j.api)
+    runtimeOnly(libs.log4j.slf4jBinding) // binding
+    runtimeOnly(libs.log4j.core) // library
 }
 
 mainClassName = 'com.apple.foundationdb.record.sample.Main'

@@ -82,7 +82,9 @@ public class DeleteExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     @Override
-    public DeleteExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public DeleteExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                  final boolean shouldSimplifyValues,
+                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new DeleteExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class), targetRecordType);
     }
 

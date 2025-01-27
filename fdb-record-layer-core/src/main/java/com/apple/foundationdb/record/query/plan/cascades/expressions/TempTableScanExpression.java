@@ -23,10 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
-import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -45,7 +42,6 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -94,8 +90,10 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
     @Nonnull
     @Override
     public TempTableScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                         final boolean shouldSimplifyValues,
                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new TempTableScanExpression(tempTableReferenceValue.translateCorrelations(translationMap));
+        return new TempTableScanExpression(
+                tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues));
     }
 
     @Override
@@ -130,11 +128,6 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
     @Override
     public String toString() {
         return "TempTableScan";
-    }
-
-    @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        return Compensation.noCompensation();
     }
 
     @Nonnull

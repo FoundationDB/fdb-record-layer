@@ -201,7 +201,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
     @Nonnull
     @Override
-    public RecordQuerySelectorPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQuerySelectorPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                         final boolean shouldSimplifyValues,
+                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQuerySelectorPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), planSelector);
     }

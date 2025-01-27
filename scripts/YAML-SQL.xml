@@ -47,12 +47,12 @@
     timezone_;timezone_minute;to;trailing;transaction;translate;translation;trim;type;union;unique;unknown;update;
     upper;usage;user;using;value;values;varying;view;when;whenever;where;with;work;write;year;zone" ignore_case="true" />
     <keywords2 keywords="bigint;bit;boolean;bytes;char;char_;character;date;dec;decimal;double;float;int;integer;nchar;
-    numeric;real;smallint;string;time;timestamp;varchar;!!;!r;!in;!a;" />
+    numeric;real;smallint;string;time;timestamp;varchar;!!;!r;!in;!a;!current_version" />
     <keywords3 keywords="false;null;true;ordered;randomized;parallelized;test;block;single_repetition_ordered;
     single_repetition_randomized;single_repetition_parallelized;multi_repetition_ordered;multi_repetition_randomized;
     multi_repetition_parallelized" />
     <keywords4 keywords="connect:;query:;load schema template:;set schema state:;result:;unorderedresult:;explain:;
-    explaincontains:;count:;error:;planhash:;setup:;schema_template:;test_block:;options:;tests:;mode:;repetition:;seed:;
+    explaincontains:;count:;error:;planhash:;setup:;schema_template:;supported_version:;test_block:;options:;tests:;mode:;repetition:;seed:;
     check_cache:;connection_lifecycle:;steps:;preset:;statement_type:;!r;!in;!a;" />
   </highlighting>
   <extensionMap>

@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -496,7 +497,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 graphExpansionBuilder.addQuantifier(qun);
 
                 var recNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
-                var versionValue = new VersionValue(qun.getFlowedObjectValue().getAlias());
+                var versionValue = new VersionValue(QuantifiedRecordValue.of(qun));
 
                 graphExpansionBuilder.addResultColumn(resultColumn(versionValue, "version"));
                 graphExpansionBuilder.addResultColumn(resultColumn(recNoValue, "number"));
@@ -560,7 +561,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 innerGraphBuilder.addQuantifier(qun);
 
                 var recNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
-                var versionValue = new VersionValue(qun.getFlowedObjectValue().getAlias());
+                var versionValue = new VersionValue(QuantifiedRecordValue.of(qun));
 
                 innerGraphBuilder.addResultColumn(resultColumn(versionValue, "version"));
                 innerGraphBuilder.addResultColumn(resultColumn(recNoValue, "number"));

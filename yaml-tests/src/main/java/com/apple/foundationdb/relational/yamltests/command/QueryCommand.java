@@ -33,19 +33,17 @@ import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A {@link QueryCommand} is one of the possible {@link Command} supported in the YAML testing framework that is used
@@ -79,7 +77,7 @@ public final class QueryCommand extends Command {
     }
 
     @Nonnull
-    public static QueryCommand parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
         final var lineNumber = Matchers.notNull(linedObject, "query").getLineNumber();
@@ -93,6 +91,19 @@ public final class QueryCommand extends Command {
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
                     queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, executionContext)).collect(Collectors.toList());
+
+            Assert.thatUnchecked(configs.stream().skip(1)
+                    .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
+                    "supported_version must be the first config in a query (after the query itself)");
+
+            final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
+                    .collect(Collectors.toList());
+            Assert.thatUnchecked(skipConfigs.size() < 2, "Query should not have more than one skip");
+            if (!skipConfigs.isEmpty()) {
+                return new SkippedCommand(lineNumber, executionContext,
+                        ((QueryConfig.SkipConfig)skipConfigs.get(0)).getMessage(),
+                        queryInterpreter.getQuery());
+            }
             return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext);
         } catch (Exception e) {
             throw executionContext.wrapContext(e,
@@ -114,6 +125,8 @@ public final class QueryCommand extends Command {
         }
         this.queryInterpreter = interpreter;
         this.queryConfigs = configs;
+        Assert.thatUnchecked(queryConfigs.stream().noneMatch(config -> config instanceof QueryConfig.SkipConfig),
+                "SkipConfig should not have gotten into QueryCommand " + lineNumber);
     }
 
     public void execute(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
@@ -162,12 +175,15 @@ public final class QueryCommand extends Command {
                 // results
                 int finalMaxRows1 = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
-            } else {
+            } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
+                // Do nothing for noop execution.
+                continue;
+            } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
                 }
 
-                if (exhausted && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName())) {
+                if (exhausted && (QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(queryConfig.getConfigName()))) {
                     Assert.fail(String.format("‼️ Expecting more results, however no more rows are available to fetch at line %d%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                             "%s%n" +

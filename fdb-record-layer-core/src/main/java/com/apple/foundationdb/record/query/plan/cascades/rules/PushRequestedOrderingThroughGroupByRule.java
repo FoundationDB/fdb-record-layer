@@ -136,7 +136,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     final var primitivesValues = Values.primitiveAccessorsForType(
                             currentGroupingValue.getResultType(), () -> currentGroupingValue);
                     final var primitivesSimplifiedValues = Values.simplify(primitivesValues,
-                            DefaultValueSimplificationRuleSet.ofSimplificationRules(),
+                            DefaultValueSimplificationRuleSet.instance(),
                             AliasMap.emptyMap(), correlatedTo);
                     final var requiredOrderingValues =
                             new LinkedHashSet<>(primitivesSimplifiedValues);

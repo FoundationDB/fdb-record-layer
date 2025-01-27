@@ -174,17 +174,17 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return currentPlanFragment.orElseThrow().getLogicalOperatorsIncludingOuter();
     }
 
-    boolean isTopLevel() {
+    public boolean isTopLevel() {
         return !(currentPlanFragment.isPresent() && currentPlanFragment.get().hasParent());
     }
 
     @Nonnull
-    LogicalPlanFragment pushPlanFragment() {
+    public LogicalPlanFragment pushPlanFragment() {
         currentPlanFragment = Optional.of(currentPlanFragment.map(LogicalPlanFragment::addChild).orElse(LogicalPlanFragment.ofRoot()));
         return currentPlanFragment.get();
     }
 
-    void popPlanFragment() {
+    public void popPlanFragment() {
         this.currentPlanFragment = currentPlanFragment.flatMap(LogicalPlanFragment::getParentMaybe);
     }
 
