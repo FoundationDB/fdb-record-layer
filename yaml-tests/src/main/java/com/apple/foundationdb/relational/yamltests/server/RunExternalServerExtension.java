@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests.server;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -87,7 +86,6 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
-        Assumptions.abort(); // Will be able to re-enable when we have a published external server to use here
         File jar;
         if (jarName == null) {
             final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
@@ -103,11 +101,7 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
 
-        this.serverProcess = processBuilder.start();
-
-        // TODO: There should be a better way to figure out that the server is fully up and  running
-        Thread.sleep(3000);
-        if (!serverProcess.isAlive()) {
+        if (!startServer(processBuilder)) {
             Assertions.fail("Failed to start the external server");
         }
 
@@ -135,4 +129,22 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         }
     }
 
+    private boolean startServer(ProcessBuilder processBuilder) throws IOException, InterruptedException {
+        try {
+            serverProcess = processBuilder.start();
+            // TODO: There should be a better way to figure out that the server is fully up and  running
+            Thread.sleep(3000);
+            if (!serverProcess.isAlive()) {
+                throw new Exception("Failed to start server once - retrying");
+            }
+            return true;
+        } catch (Exception ex) {
+            // Try once more
+            serverProcess = processBuilder.start();
+            // TODO: There should be a better way to figure out that the server is fully up and  running
+            Thread.sleep(3000);
+        }
+
+        return serverProcess.isAlive();
+    }
 }
