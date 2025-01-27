@@ -123,6 +123,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
     @Test
     void luceneIndexScrubMissingSimpleNoIssues() {
+        // Scrub a valid index, expect zero issues
         Index index = SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
         try (final FDBRecordContext context = openContext()) {
             // Write some records
@@ -157,7 +158,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
     @ParameterizedTest
     @MethodSource("threeBooleanArgs")
     void luceneIndexScrubMissingDataModel(boolean isSynthetic, boolean isGrouped, boolean isPartitioned) {
-        // Scrub a valid index, expect zero issues
+        // Scrub an index with missing entries
         final long seed = 207L;
 
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderWithRegistry, pathManager)
@@ -192,8 +193,19 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
             dataModel.saveRecords(3, 10, context, 1);
             dataModel.saveRecords(2, 20, context, 3);
+            injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE, false);
+
+            dataModel.saveRecords(7, 40, context, 1);
+            dataModel.saveRecords(7, 50, context, 2);
+            dataModel.explicitMergeIndex(context, timer);
+
+            injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
             dataModel.saveRecords(5, 20, context, 4);
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE, false);
+
+            dataModel.saveRecords(7, 60, context, 3);
+
+
             context.commit();
         }
 
@@ -239,7 +251,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         registry.overrideFactory(new MockedLuceneIndexMaintainerFactory(injectedFailures));
 
         try (final FDBRecordContext context = openContext()) {
-            // Overwrite + add records with an injected key segment index failure
+            // Overwrite + add records without updating the index
             Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, SIMPLE_DOC, index, isUseCascadesPlanner(), registry);
             this.recordStore = pair.getLeft();
             this.planner = pair.getRight();
