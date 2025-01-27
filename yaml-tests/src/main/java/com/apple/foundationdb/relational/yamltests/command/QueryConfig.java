@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
+import com.google.common.base.Verify;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -233,6 +234,14 @@ public abstract class QueryConfig {
                                 getLineNumber(), planDiffs, (!isExact ? "fragment" : ""), getValueString(), actualPlan);
                         reportTestFailure(diffMessage);
                     }
+                }
+
+                final var plannerMetrics = resultSet.getStruct(6);
+                if (plannerMetrics != null) {
+                    final var taskCount = plannerMetrics.getLong(1);
+                    Verify.verify(taskCount > 0);
+                    final var taskTotalTimeInNs = plannerMetrics.getLong(2);
+                    Verify.verify(taskTotalTimeInNs > 0);
                 }
             }
         };
