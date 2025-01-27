@@ -159,7 +159,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
         }
         if (recordFields.size() == 1) {
             // A single grouping key, simple check.
-            return checkMissingIndexKey(rec, recordFields.keySet().stream().iterator().next(), issue);
+            return checkMissingIndexKey(rec, recordFields.keySet().iterator().next(), issue);
         }
 
         // Here: more than one grouping key, declare an issue if at least one of them is missing

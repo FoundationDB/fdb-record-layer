@@ -185,13 +185,14 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             // Write some documents
-            dataModel.saveRecords(15, 10, context, 1);
-            // Trigger failures
+            dataModel.saveRecords(7, 10, context, 1);
+            dataModel.saveRecords(7, 20, context, 2);
+            dataModel.saveRecords(7, 30, context, 3);
+            // Write few more records without updating
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
-            // Some overwrites (with index update failures)
-            dataModel.saveRecords(5, 10, context, 1);
-            // some new (with index update failures)
-            dataModel.saveRecords(5, 50, context, 1);
+            dataModel.saveRecords(3, 10, context, 1);
+            dataModel.saveRecords(2, 20, context, 3);
+            dataModel.saveRecords(5, 20, context, 4);
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE, false);
             context.commit();
         }
