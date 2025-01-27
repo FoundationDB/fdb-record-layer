@@ -60,11 +60,6 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         public MultiServerInitialConnectionEmbeddedTests() {
             super(0);
         }
-
-        @Override
-        public Map<String, Object> getAdditionalOptions() {
-            return Map.of(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, true);
-        }
     }
 
     /**

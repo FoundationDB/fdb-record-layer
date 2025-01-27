@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.yamltests.AggregateResultSet;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -49,6 +50,7 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
 @SuppressWarnings({"PMD.GuardLogStatement"})
 public class QueryExecutor {
     private static final Logger logger = LogManager.getLogger(QueryExecutor.class);
+    private static final int NO_MAX_ROWS = 0;
 
     @Nonnull
     private final String query;
@@ -103,9 +105,9 @@ public class QueryExecutor {
             "PMD.CompareObjectsWithEquals" // pointer equality used on purpose
     })
     private Object executeStatementAndCheckCacheIfNeeded(@Nonnull Statement s, @Nonnull RelationalConnection connection,
-                                                     @Nullable String queryString, boolean checkCache) throws SQLException, RelationalException {
+                                                         @Nullable String queryString, boolean checkCache, final QueryConfig config) throws SQLException, RelationalException {
         if (!checkCache) {
-            return executeStatement(s, queryString);
+            return executeStatementAndForceContinuations(s, queryString, connection);
         }
         final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
         final var preMetricCollector = embeddedRelationalConnection.getMetricCollector();
@@ -134,7 +136,7 @@ public class QueryExecutor {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.createStatement()) {
                     s.setMaxRows(maxRows);
-                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache);
+                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache, config);
                     config.checkResult(queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -145,7 +147,7 @@ public class QueryExecutor {
                 try (var s = connection.prepareStatement(currentQuery)) {
                     s.setMaxRows(maxRows);
                     setParametersInPreparedStatement(s, connection);
-                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, null, checkCache);
+                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, null, checkCache, config);
                     config.checkResult(queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -165,26 +167,65 @@ public class QueryExecutor {
         Continuation continuationAfter = null;
         try {
             logger.debug("⏳ Executing continuation for query '{}'", this.toString());
-            try (var s = connection.prepareStatement("EXECUTE CONTINUATION ?;")) {
-                s.setMaxRows(maxRows);
-                if (parameters != null) {
-                    setParametersInPreparedStatement(s, connection);
-                }
-                // set continuation
-                s.setBytes(1, continuation.serialize());
-                // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
-                // for caching.
-                final var queryResult = executeStatement(s, null);
-                config.checkResult(queryResult, this.toString());
-                if (queryResult instanceof RelationalResultSet) {
-                    continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
-                }
+            Object queryResult = executeContinuationStatement(connection, continuation, maxRows);
+            config.checkResult(queryResult, this.toString());
+            if (queryResult instanceof RelationalResultSet) {
+                continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
             }
             logger.debug("👍 Finished Executing continuation for query '{}'", this.toString());
         } catch (SQLException sqle) {
             config.checkError(sqle, query);
         }
         return continuationAfter;
+    }
+
+    private Object executeContinuationStatement(final @Nonnull RelationalConnection connection, final @Nonnull Continuation continuation, final int maxRows) throws SQLException {
+        Object queryResult;
+        try (var s = connection.prepareStatement("EXECUTE CONTINUATION ?;")) {
+            s.setMaxRows(maxRows);
+            if (parameters != null) {
+                setParametersInPreparedStatement(s, connection);
+            }
+            // set continuation
+            s.setBytes(1, continuation.serialize());
+            // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
+            // for caching.
+            queryResult = executeStatement(s, null);
+        }
+        return queryResult;
+    }
+
+    private Object executeStatementAndForceContinuations(@Nonnull Statement s, @Nullable String queryString, final RelationalConnection connection) throws SQLException {
+        // Check if we need to force continuations
+        if ((s.getMaxRows() == NO_MAX_ROWS) && (forceContinuations != 0)) {
+            s.setMaxRows(forceContinuations);
+            Object result = executeStatement(s, queryString);
+            if (result instanceof RelationalResultSet) {
+                List<RelationalResultSet> results = new ArrayList<>();
+                RelationalResultSet resultSet = (RelationalResultSet)result;
+                results.add(resultSet);
+                // Have continuations - keep running the query
+                resultSet.next(); // Initialize result set value retrieval. Has only one row.
+                Continuation continuation = resultSet.getContinuation();
+                while (!continuation.atEnd()) {
+                    resultSet = (RelationalResultSet)executeContinuationStatement(connection, continuation, forceContinuations);
+                    resultSet.next(); // Initialize result set value retrieval. Has only one row.
+                    continuation = resultSet.getContinuation();
+                    if (!continuation.atEnd()) {
+                        results.add(resultSet);
+                    }
+                }
+                // Use first metadata for the aggregated result set as they are all the same
+                // Use last continuation
+                return new AggregateResultSet(results.get(0).getMetaData(), continuation, results.iterator());
+            } else {
+                // non-result set - just return
+                return result;
+            }
+        } else {
+            // No change to behavior
+            return executeStatement(s, queryString);
+        }
     }
 
     private static Object executeStatement(@Nonnull Statement s, @Nullable String q) throws SQLException {
