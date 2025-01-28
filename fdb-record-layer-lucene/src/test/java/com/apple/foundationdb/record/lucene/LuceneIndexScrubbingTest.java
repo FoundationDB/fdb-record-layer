@@ -96,9 +96,9 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 dataModel.saveRecords(3, i * 1007, context, i / 6);
                 context.commit();
             }
-            try (final FDBRecordContext context = openContext()) {
-                dataModel.explicitMergeIndex(context, timer);
-            }
+        }
+        try (final FDBRecordContext context = openContext()) {
+            dataModel.explicitMergeIndex(context, timer);
         }
         try (final FDBRecordContext context = openContext()) {
             FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
@@ -179,9 +179,9 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 dataModel.saveRecords(3, i * 1007, context, i / 6);
                 context.commit();
             }
-            try (final FDBRecordContext context = openContext()) {
-                dataModel.explicitMergeIndex(context, timer);
-            }
+        }
+        try (final FDBRecordContext context = openContext()) {
+            dataModel.explicitMergeIndex(context, timer);
         }
 
         try (final FDBRecordContext context = openContext()) {
@@ -189,24 +189,26 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
             dataModel.saveRecords(7, 10, context, 1);
             dataModel.saveRecords(7, 20, context, 2);
             dataModel.saveRecords(7, 30, context, 3);
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            dataModel.explicitMergeIndex(context, timer);
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            dataModel.saveRecords(7, 40, context, 1);
+            dataModel.saveRecords(7, 50, context, 2);
             // Write few more records without updating
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
+            dataModel.saveRecords(5, 90, context, 4);
             dataModel.saveRecords(3, 10, context, 1);
             dataModel.saveRecords(2, 20, context, 3);
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE, false);
-
-            dataModel.saveRecords(7, 40, context, 1);
-            dataModel.saveRecords(7, 50, context, 2);
-            dataModel.explicitMergeIndex(context, timer);
-
-            injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
-            dataModel.saveRecords(5, 20, context, 4);
-            injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE, false);
-
-            dataModel.saveRecords(7, 60, context, 3);
-
-
             context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            dataModel.explicitMergeIndex(context, timer);
         }
 
         try (final FDBRecordContext context = openContext()) {
