@@ -23,7 +23,7 @@ Our API stability annotations have been updated to reflect greater API instabili
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Relational insert statement in does not work with an array value [(Issue #3041)](https://github.com/FoundationDB/fdb-record-layer/issues/3041)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -32,7 +32,7 @@ Our API stability annotations have been updated to reflect greater API instabili
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** make EXPLAIN return a column for planner metrics [(Issue #3063)](https://github.com/FoundationDB/fdb-record-layer/issues/3063)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -42,6 +42,11 @@ Our API stability annotations have been updated to reflect greater API instabili
 
 // end next release
 -->
+
+### 4.0.567.0
+
+* **Bug fix** Relational insert statement in does not work with an array value [(Issue #3041)](https://github.com/FoundationDB/fdb-record-layer/issues/3041)
+* **Feature** make EXPLAIN return a column for planner metrics [(Issue #3063)](https://github.com/FoundationDB/fdb-record-layer/issues/3063)
 
 ### 4.0.565.0
 
