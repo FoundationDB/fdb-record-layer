@@ -105,4 +105,14 @@ test_block:
       - result: [{ B1: 10, B2: 22, B3: { 5, 41 } },
                  { B1: 20, B2: 22, B3: { 6, 51 } },
                  { B1: 30, B2: 22, B3: { 7, 61 } } ]
+    -
+      # Case where not all values are provided of A. Still works, since the columns for which no values are provided can be nullable.
+      - query: insert into A(A1, A2, A3) values (4);
+      - supported_version: !current_version
+      - count: 1
+    -
+      # Case when the number of values is more than the number of columns specified.
+      - query: insert into A(A1, A2, A3) values (5, 6, 7, 8, 9);
+      - supported_version: !current_version
+      - error: "42601"
 ...

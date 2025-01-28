@@ -263,4 +263,14 @@ public class DdlRecordLayerSchemaTemplateTest {
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
                 .hasMessageContaining("type with name 'FOO' already exists"));
     }
+
+    @Test
+    void notNullTypeNotAllowedTest() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE not_null_column_type " +
+                "CREATE TABLE foo (id bigint, foo string not null, PRIMARY KEY(id))";
+
+        run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
+                .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION)
+                .hasMessageContaining("NOT NULL is only allowed for ARRAY column type"));
+    }
 }

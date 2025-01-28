@@ -59,7 +59,7 @@ public class InsertTest {
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, InsertTest.class, TestSchemas.restaurant());
 
     @Test
-    void canInsertWithMultipleRecordTypes() throws RelationalException, SQLException {
+    void canInsertWithMultipleRecordTypes() throws SQLException {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
@@ -284,7 +284,7 @@ public class InsertTest {
     }
 
     @Test
-    void replaceOnInsert() throws SQLException, RelationalException {
+    void replaceOnInsert() throws SQLException {
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
