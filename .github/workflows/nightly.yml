@@ -1,0 +1,57 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 23 * * 0-4"
+
+jobs:
+  gradle:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+    - name: Run Gradle Test
+      uses: ./actions/gradle-test
+      with:
+        gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
+    - name: Publish Test Reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: |
+          test-reports/fdb-java-annotations/
+          test-reports/fdb-extensions/
+          test-reports/fdb-record-layer-core/
+          test-reports/fdb-record-layer-icu/
+          test-reports/fdb-record-layer-spatial/
+          test-reports/fdb-record-layer-lucene/
+          test-reports/fdb-record-layer-jmh/
+          test-reports/examples/
+          test-reports/fdb-relational-api/
+          test-reports/fdb-relational-core/
+          test-reports/fdb-relational-cli/
+          test-reports/fdb-relational-grpc/
+          test-reports/fdb-relational-jdbc/
+          test-reports/fdb-relational-server/
+          test-reports/yaml-tests/
+    - name: Test Summary
+      if: always()
+      uses: test-summary/action@v2
+      with:
+        paths: |
+          fdb-java-annotations/.out/test-results/**/TEST-*.xml
+          fdb-extensions/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-core/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-icu/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-spatial/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-lucene/.out/test-results/**/TEST-*.xml
+          fdb-record-layer-jmh/.out/test-results/**/TEST-*.xml
+          examples/.out/test-results/**/TEST-*.xml
+          fdb-relational-api/.out/test-results/**/TEST-*.xml
+          fdb-relational-core/.out/test-results/**/TEST-*.xml
+          fdb-relational-cli/.out/test-results/**/TEST-*.xml
+          fdb-relational-grpc/.out/test-results/**/TEST-*.xml
+          fdb-relational-jdbc/.out/test-results/**/TEST-*.xml
+          fdb-relational-server/.out/test-results/**/TEST-*.xml
+          yaml-tests/.out/test-results/**/TEST-*.xml
