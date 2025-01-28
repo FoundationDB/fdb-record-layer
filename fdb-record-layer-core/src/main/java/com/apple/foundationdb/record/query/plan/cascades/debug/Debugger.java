@@ -97,6 +97,12 @@ public interface Debugger {
         return THREAD_LOCAL.get();
     }
 
+    @Nonnull
+    static Optional<Debugger> getDebuggerMaybe() {
+        final var debugger = getDebugger();
+        return Optional.ofNullable(debugger);
+    }
+
     /**
      * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
      * @param action consumer to invoke
@@ -206,6 +212,9 @@ public interface Debugger {
 
     @SuppressWarnings("unused") // only used by debugger
     String showStats();
+
+    @Nonnull
+    Optional<StatsMaps> getStatsMaps();
 
     /**
      * Shorthands to identify a kind of event.
@@ -435,8 +444,9 @@ public interface Debugger {
 
         public ExecutingTaskEvent(@Nonnull final Reference rootReference,
                                   @Nonnull final Deque<Task> taskStack,
+                                  @Nonnull final Location location,
                                   @Nonnull final Task task) {
-            super(rootReference, taskStack, Location.COUNT);
+            super(rootReference, taskStack, location);
             this.task = task;
         }
 

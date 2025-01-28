@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Stats;
+import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -72,9 +74,9 @@ class State {
     @Nullable private final Iterable<PEvent> prerecordedEventProtoIterable;
     @Nullable private Iterator<PEvent> prerecordedEventProtoIterator;
 
-    @Nonnull private final Map<Class<? extends Debugger.Event>, Stats> eventClassStatsMap;
+    @Nonnull private final Map<Class<? extends Debugger.Event>, MutableStats> eventClassStatsMap;
 
-    @Nonnull private final Map<Class<? extends CascadesRule<?>>, Stats> plannerRuleClassStatsMap;
+    @Nonnull private final Map<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap;
 
     @Nonnull private final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack;
 
@@ -144,8 +146,8 @@ class State {
                   @Nonnull final List<Debugger.Event> events,
                   @Nullable final List<PEvent> eventProtos,
                   @Nullable final Iterable<PEvent> prerecordedEventProtoIterable,
-                  @Nonnull final LinkedHashMap<Class<? extends Debugger.Event>, Stats> eventClassStatsMap,
-                  @Nonnull final LinkedHashMap<Class<? extends CascadesRule<?>>, Stats> plannerRuleClassStatsMap,
+                  @Nonnull final LinkedHashMap<Class<? extends Debugger.Event>, MutableStats> eventClassStatsMap,
+                  @Nonnull final LinkedHashMap<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap,
                   @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
                   final int currentTick,
                   final long startTs) {
@@ -301,13 +303,13 @@ class State {
                 final long totalTime = currentTsInNs - eventDurations.getStartTsInNs();
                 final long ownTime = totalTime - eventDurations.getAdjustmentForOwnTimeInNs();
 
-                final Stats forEventClass = getEventStatsForEventClass(currentEventClass);
+                final MutableStats forEventClass = getEventStatsForEventClass(currentEventClass);
                 forEventClass.increaseTotalTimeInNs(totalTime);
                 forEventClass.increaseOwnTimeInNs(ownTime);
                 if (event instanceof Debugger.TransformRuleCallEvent) {
                     final CascadesRule<?> rule = ((Debugger.TransformRuleCallEvent)event).getRule();
                     final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
-                    final Stats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
+                    final MutableStats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
                     forPlannerRuleClass.increaseTotalTimeInNs(totalTime);
                     forPlannerRuleClass.increaseOwnTimeInNs(ownTime);
                 }
@@ -350,29 +352,34 @@ class State {
 
     @SuppressWarnings("unchecked")
     private void updateCounts(@Nonnull final Debugger.Event event) {
-        final Stats forEventClass = getEventStatsForEventClass(event.getClass());
+        final MutableStats forEventClass = getEventStatsForEventClass(event.getClass());
         forEventClass.increaseCount(event.getLocation(), 1L);
         if (event instanceof Debugger.EventWithRule) {
             final CascadesRule<?> rule = ((Debugger.EventWithRule)event).getRule();
             final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
-            final Stats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
+            final MutableStats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
             forPlannerRuleClass.increaseCount(event.getLocation(), 1L);
         }
     }
 
-    private Stats getEventStatsForEventClass(@Nonnull Class<? extends Debugger.Event> eventClass) {
-        return eventClassStatsMap.compute(eventClass, (eC, stats) -> stats != null ? stats : new Stats());
+    private MutableStats getEventStatsForEventClass(@Nonnull Class<? extends Debugger.Event> eventClass) {
+        return eventClassStatsMap.compute(eventClass, (eC, mutableStats) -> mutableStats != null ? mutableStats : new MutableStats());
     }
 
-    private Stats getEventStatsForPlannerRuleClass(@Nonnull Class<? extends CascadesRule<?>> plannerRuleClass) {
-        return plannerRuleClassStatsMap.compute(plannerRuleClass, (eC, stats) -> stats != null ? stats : new Stats());
+    private MutableStats getEventStatsForPlannerRuleClass(@Nonnull Class<? extends CascadesRule<?>> plannerRuleClass) {
+        return plannerRuleClassStatsMap.compute(plannerRuleClass, (eC, mutableStats) -> mutableStats != null ? mutableStats : new MutableStats());
+    }
+
+    @Nonnull
+    StatsMaps getStatsMaps() {
+        return new StatsMaps(eventClassStatsMap, plannerRuleClassStatsMap);
     }
 
     public String showStats() {
         StringBuilder tableBuilder = new StringBuilder();
         tableBuilder.append("<table class=\"table\">");
         tableHeader(tableBuilder, "Event");
-        final ImmutableMap<String, Stats> eventStatsMap =
+        final ImmutableMap<String, MutableStats> eventStatsMap =
                 eventClassStatsMap.entrySet()
                         .stream()
                         .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
@@ -386,7 +393,7 @@ class State {
         tableBuilder = new StringBuilder();
         tableBuilder.append("<table class=\"table\">");
         tableHeader(tableBuilder, "Planner Rule");
-        final ImmutableMap<String, Stats> plannerRuleStatsMap =
+        final ImmutableMap<String, MutableStats> plannerRuleStatsMap =
                 plannerRuleClassStatsMap.entrySet()
                         .stream()
                         .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
@@ -416,11 +423,11 @@ class State {
         stringBuilder.append("</thead>");
     }
 
-    private void tableBody(@Nonnull final StringBuilder stringBuilder, @Nonnull final Map<String, Stats> statsMap) {
+    private void tableBody(@Nonnull final StringBuilder stringBuilder, @Nonnull final Map<String, MutableStats> statsMap) {
         stringBuilder.append("<tbody class=\"table-group-divider\">");
-        for (final Map.Entry<String, Stats> entry : statsMap.entrySet()) {
-            final Stats stats = entry.getValue();
-            for (final Map.Entry<Debugger.Location, Long> locationEntry : stats.locationCountMap.entrySet()) {
+        for (final Map.Entry<String, MutableStats> entry : statsMap.entrySet()) {
+            final MutableStats mutableStats = entry.getValue();
+            for (final var locationEntry : mutableStats.getLocationCountMap().entrySet()) {
                 stringBuilder.append("<tr>");
                 stringBuilder.append("<td>").append(entry.getKey()).append("</td>");
                 if (locationEntry.getKey() == Debugger.Location.BEGIN) {
@@ -430,10 +437,10 @@ class State {
                 }
                 stringBuilder.append("<td class=\"text-end\">").append(locationEntry.getValue()).append("</td>");
                 if (locationEntry.getKey() == Debugger.Location.BEGIN) {
-                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs())).append("</td>");
-                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getTotalTimeInNs() / stats.getCount(Debugger.Location.BEGIN))).append("</td>");
-                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs())).append("</td>");
-                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(stats.getOwnTimeInNs() / stats.getCount(Debugger.Location.BEGIN))).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(mutableStats.getTotalTimeInNs())).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(mutableStats.getTotalTimeInNs() / mutableStats.getCount(Debugger.Location.BEGIN))).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(mutableStats.getOwnTimeInNs())).append("</td>");
+                    stringBuilder.append("<td class=\"text-end\">").append(formatNsInMicros(mutableStats.getOwnTimeInNs() / mutableStats.getCount(Debugger.Location.BEGIN))).append("</td>");
                 } else {
                     stringBuilder.append("<td></td>");
                     stringBuilder.append("<td></td>");
@@ -450,17 +457,9 @@ class State {
         return String.format(Locale.ROOT, "%,d", micros);
     }
 
-    private static class Stats {
-        @Nonnull private final Map<Debugger.Location, Long> locationCountMap;
-        private long totalTimeInNs;
-        private long ownTimeInNs;
-
-        public Stats() {
-            this.locationCountMap = Maps.newLinkedHashMap();
-        }
-
-        public long getCount(@Nonnull Debugger.Location location) {
-            return locationCountMap.getOrDefault(location, 0L);
+    private static class MutableStats extends Stats {
+        public MutableStats() {
+            super(Maps.newLinkedHashMap(), 0L, 0L);
         }
 
         public void setCount(@Nonnull Debugger.Location location, final long count) {
@@ -471,20 +470,12 @@ class State {
             setCount(location, getCount(location) + increase);
         }
 
-        public long getTotalTimeInNs() {
-            return totalTimeInNs;
-        }
-
         public void setTotalTimeInNs(final long totalTimeInNs) {
             this.totalTimeInNs = totalTimeInNs;
         }
 
         public void increaseTotalTimeInNs(final long increaseInNs) {
             setTotalTimeInNs(getTotalTimeInNs() + increaseInNs);
-        }
-
-        public long getOwnTimeInNs() {
-            return ownTimeInNs;
         }
 
         public void setOwnTimeInNs(final long ownTimeInNs) {
