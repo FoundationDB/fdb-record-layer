@@ -20,9 +20,9 @@
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
-import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -33,6 +33,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.apple.foundationdb.relational.yamltests.YamlExecutionContext.OPTION_FORCE_CONTINUATIONS;
 
 /**
  * A test runner to launch the YAML tests with multiple servers.
@@ -68,6 +70,165 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     public static class MultiServerInitialConnectionExternalTests extends MultiServerJDBCYamlTests {
         public MultiServerInitialConnectionExternalTests() {
             super(1);
+        }
+    }
+
+    /**
+     * Concrete implementation of the test class that forces continuationa on every query.
+     */
+    @Nested
+    public static class MultiServerForceContinuationsTests extends MultiServerJDBCYamlTests {
+        public MultiServerForceContinuationsTests() {
+            super(1);
+        }
+
+        @Override
+        public Map<String, Object> getAdditionalOptions() {
+            return Map.of(OPTION_FORCE_CONTINUATIONS, 1);
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void aggregateEmptyTable() throws Exception {
+            super.aggregateEmptyTable();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void aggregateIndexTests() throws Exception {
+            super.aggregateIndexTests();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void aggregateIndexTestsCount() throws Exception {
+            super.aggregateIndexTestsCount();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void aggregateIndexTestsCountEmpty() throws Exception {
+            super.aggregateIndexTestsCountEmpty();
+        }
+
+        @Override
+        @Disabled("TBD")
+        public void bitmap() throws Exception {
+            super.bitmap();
+        }
+
+        @Override
+        @Disabled("TBD")
+        void booleanTypes() throws Exception {
+            super.booleanTypes();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        void catalog() throws Exception {
+            super.catalog();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        void createDrop() throws Exception {
+            super.createDrop();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void fieldIndexTestsProto() throws Exception {
+            super.fieldIndexTestsProto();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        void functions() throws Exception {
+            super.functions();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void groupByTests() throws Exception {
+            super.groupByTests();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void joinTests() throws Exception {
+            super.joinTests();
+        }
+
+        @Override
+        @Disabled("Unordered results")
+        void like() throws Exception {
+            super.like();
+        }
+
+        @Override
+        @Disabled("TBD")
+        public void nullOperator() throws Exception {
+            super.nullOperator();
+        }
+
+        @Override
+        @Disabled("TBD")
+        public void primaryKey() throws Exception {
+            super.primaryKey();
+        }
+
+        @Override
+        @Disabled("Unordered results")
+        public void recursiveCte() throws Exception {
+            super.recursiveCte();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void selectAStar() throws Exception {
+            super.selectAStar();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void standardTests() throws Exception {
+            super.standardTests();
+        }
+
+        @Override
+        @Disabled("TBD")
+        public void standardTestsWithProto() throws Exception {
+            super.standardTestsWithProto();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void standardTestsWithMetaData() throws Exception {
+            super.standardTestsWithMetaData();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void subqueryTests() throws Exception {
+            super.subqueryTests();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void unionEmptyTables() throws Exception {
+            super.unionEmptyTables();
+        }
+
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void union() throws Exception {
+            super.union();
+        }
+
+        @Override
+        @Disabled("Continuation on last row")
+        public void updateDeleteReturning() throws Exception {
+            super.updateDeleteReturning();
         }
     }
 
