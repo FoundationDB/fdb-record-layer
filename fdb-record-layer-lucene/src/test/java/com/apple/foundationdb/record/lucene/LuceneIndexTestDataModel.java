@@ -85,6 +85,8 @@ public class LuceneIndexTestDataModel {
     private final ConcurrentMap<Tuple, RecordUnderTest> recordsUnderTest;
     final ConcurrentMap<Tuple, AtomicInteger> nextRecNoInGroup;
     private LuceneIndexTestValidator validator;
+    // A "start" timestamp to make the partitioning field look more like a timestamp
+    private long start;
 
     private LuceneIndexTestDataModel(@Nonnull final Builder builder,
                                      @Nonnull final Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
@@ -99,6 +101,7 @@ public class LuceneIndexTestDataModel {
         groupingKeyToPrimaryKeyToPartitionKey = new ConcurrentHashMap<>();
         recordsUnderTest = new ConcurrentHashMap<>();
         nextRecNoInGroup = new ConcurrentHashMap<>();
+        start = Instant.now().toEpochMilli();
     }
 
     @Override
@@ -148,47 +151,47 @@ public class LuceneIndexTestDataModel {
                         .orElse(0) < minDocumentCount) {
             final int docCount = random.nextInt(10) + 1;
             try (FDBRecordContext context = openContext.get()) {
-                saveRecords(docCount, start, context);
+                saveRecords(docCount, context);
                 context.commit();
             }
             i++;
         }
     }
 
-    void saveRecords(int count, long start, FDBRecordContext context) {
+    void saveRecords(int count, FDBRecordContext context) {
         FDBRecordStore recordStore = createOrOpenRecordStore(context);
         for (int j = 0; j < count; j++) {
             final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0;
-            saveRecord(start, recordStore, group);
+            saveRecord(recordStore, group);
         }
     }
 
-    void saveRecords(int count, long start, FDBRecordContext context, final int group) {
+    void saveRecords(int count, FDBRecordContext context, final int group) {
         FDBRecordStore recordStore = createOrOpenRecordStore(context);
         for (int j = 0; j < count; j++) {
-            saveRecordToSync(true, start, recordStore, group);
+            saveRecordToSync(true, recordStore, group);
         }
     }
 
-    public Tuple saveEmptyRecord(final long start, final FDBRecordStore recordStore, final int group) {
-        return saveRecordToSync(false, start, recordStore, group);
+    public Tuple saveEmptyRecord(final FDBRecordStore recordStore, final int group) {
+        return saveRecordToSync(false, recordStore, group);
     }
 
-    public Tuple saveRecord(final long start, final FDBRecordStore recordStore, final int group) {
-        return saveRecordToSync(true, start, recordStore, group);
+    public Tuple saveRecord(final FDBRecordStore recordStore, final int group) {
+        return saveRecordToSync(true, recordStore, group);
     }
 
-    private Tuple saveRecordToSync(final boolean withContent, final long start, final FDBRecordStore recordStore,
+    private Tuple saveRecordToSync(final boolean withContent, final FDBRecordStore recordStore,
                                    final int group) {
         return recordStore.getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD,
-                saveRecordAsync(withContent, start, recordStore, group));
+                saveRecordAsync(withContent, recordStore, group));
     }
 
-    public CompletableFuture<Tuple> saveRecordAsync(final boolean withContent, final long start, final FDBRecordStore recordStore, final int group) {
+    public CompletableFuture<Tuple> saveRecordAsync(final boolean withContent, final FDBRecordStore recordStore, final int group) {
         final Tuple groupTuple = calculateGroupTuple(isGrouped, group);
         final int uniqueCounter = nextRecNoInGroup.computeIfAbsent(groupTuple, key -> new AtomicInteger(0))
                 .incrementAndGet();
-        long timestamp = start + uniqueCounter + random.nextInt(20) - 5;
+        long timestamp = this.start + uniqueCounter + random.nextInt(20) - 5;
         return saveParentRecord(withContent, recordStore, group, uniqueCounter, timestamp)
                 .thenCompose(parentPrimaryKey -> {
                     recordsUnderTest.put(parentPrimaryKey, new ParentRecord(groupTuple, parentPrimaryKey));

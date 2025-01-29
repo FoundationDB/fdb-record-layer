@@ -816,11 +816,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @Test
     void concurrentInsert() throws IOException {
-        long start = Instant.now().toEpochMilli();
         concurrentTestWithinTransaction((dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
                                 .mapPipelined(record -> { // ignore the record, we're just using that as a count
-                                    return dataModel.saveRecordAsync(true, start, recordStore, 1);
+                                    return dataModel.saveRecordAsync(true, recordStore, 1);
                                 }, 10)
                                 .asList().join(),
                 (inserted, actual) -> assertEquals(inserted * 2, actual));
@@ -838,7 +837,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     @Test
     void concurrentMix() throws IOException {
         // We never touch the same record twice.
-        long start = Instant.now().toEpochMilli();
         AtomicInteger step = new AtomicInteger(0);
         concurrentTestWithinTransaction((dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
@@ -849,7 +847,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                         case 1:
                                             return record.deleteRecord(recordStore);
                                         default:
-                                            return dataModel.saveRecordAsync(true, start, recordStore, 1)
+                                            return dataModel.saveRecordAsync(true, recordStore, 1)
                                                     .thenAccept(vignore -> { });
                                     }
                                 }, 10)
@@ -905,9 +903,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     "docMinPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).min(),
                     "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
 
-            long start = 234098;
             try (FDBRecordContext context = openContext(contextProps)) {
-                dataModel.saveRecords(10, start, context, 1);
+                dataModel.saveRecords(10, context, 1);
                 commit(context);
             }
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
