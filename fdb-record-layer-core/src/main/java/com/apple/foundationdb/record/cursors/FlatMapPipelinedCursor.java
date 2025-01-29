@@ -267,6 +267,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         if (closed) {
             pipelineQueueEntry.close();
         }
+        pipelineQueueEntry.getNextInnerPipelineFuture();
         pipeline.add(pipelineQueueEntry);
     }
 
@@ -295,18 +296,24 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             this.priorOuterContinuation = priorOuterContinuation;
             this.outerResult = outerResult;
             this.outerCheckValue = outerCheckValue;
+            // start calculating the next result in the background.
+            setInnerFuture();
         }
 
         @Nonnull
         public CompletableFuture<PipelineQueueEntry> getNextInnerPipelineFuture() {
             if (innerFuture == null) {
-                if (innerCursor == null) {
-                    innerFuture = CompletableFuture.completedFuture(RecordCursorResult.exhausted());
-                } else {
-                    innerFuture = innerCursor.onNext();
-                }
+                setInnerFuture();
             }
             return innerFuture.thenApply(vignore -> this);
+        }
+
+        private void setInnerFuture() {
+            if (innerCursor == null) {
+                innerFuture = CompletableFuture.completedFuture(RecordCursorResult.exhausted());
+            } else {
+                innerFuture = innerCursor.onNext();
+            }
         }
 
         public boolean doesNotHaveReturnableResult() {
