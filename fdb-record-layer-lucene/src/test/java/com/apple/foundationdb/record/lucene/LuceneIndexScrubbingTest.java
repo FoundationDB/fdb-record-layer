@@ -88,12 +88,12 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderWithRegistry, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
-                .setPartitionHighWatermark(isPartitioned ? 10 : 0)
+                .setPartitionHighWatermark(isPartitioned ? 5 : 0)
                 .build();
 
         for (int i = 0; i < 14; i++) {
             try (final FDBRecordContext context = openContext()) {
-                dataModel.saveRecords(3, i * 1007, context, i / 6);
+                dataModel.saveRecords(7, i * 1007, context, i / 6);
                 context.commit();
             }
         }
@@ -164,7 +164,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilderWithRegistry, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
-                .setPartitionHighWatermark(isPartitioned ? 10 : 0)
+                .setPartitionHighWatermark(isPartitioned ? 5 : 0)
                 .build();
 
         try (final FDBRecordContext context = openContext()) {
@@ -176,7 +176,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
         for (int i = 0; i < 14; i++) {
             try (final FDBRecordContext context = openContext()) {
-                dataModel.saveRecords(3, i * 1007, context, i / 6);
+                dataModel.saveRecords(7, i * 1007, context, i / 6);
                 context.commit();
             }
         }
@@ -231,7 +231,6 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
             assertTrue(atLeastOnce);
         }
     }
-
 
     @Test
     void luceneIndexScrubMissingSimple() {
