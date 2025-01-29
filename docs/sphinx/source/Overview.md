@@ -406,6 +406,7 @@ One can combine these queries in the usual ways with other predicates if one wan
 
 Keep in mind that deletes will not show up in the index, so if one needs to know if a record has been removed from the record store since the last time one has polled (if one were using this feature to keep two record stores in sync, for example), one needs to insert some kind of tombstone record upon deletion. It is up to client code to come up with what tombstones might look like for their use cases.
 
+(optional_fields)=
 ## Indexing and Querying of missing / null values
 
 By default, a field that is not present in a record is treated as a special `null` value, like in SQL.
