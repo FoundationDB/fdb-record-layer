@@ -15,7 +15,7 @@ jobs:
       pages: write
     steps:
     - name: Checkout sources
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
     - name: Run Gradle Test
       uses: ./actions/gradle-test
       with:

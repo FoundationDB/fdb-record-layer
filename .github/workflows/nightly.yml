@@ -9,14 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
     - name: Run Gradle Test
       uses: ./actions/gradle-test
       with:
         gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
     - name: Publish Test Reports
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.6.0
       with:
         name: test-reports
         path: |
@@ -37,7 +37,7 @@ jobs:
           test-reports/yaml-tests/
     - name: Test Summary
       if: always()
-      uses: test-summary/action@v2
+      uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86
       with:
         paths: |
           fdb-java-annotations/.out/test-results/**/TEST-*.xml
