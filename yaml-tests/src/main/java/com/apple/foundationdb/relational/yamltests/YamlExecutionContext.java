@@ -24,10 +24,11 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.Block;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -37,9 +38,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
@@ -205,17 +203,24 @@ public final class YamlExecutionContext {
      */
     @Nonnull
     public YamlExecutionError wrapContext(@Nullable Throwable e, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+        String fileName;
+        if (resourcePath.contains("/")) {
+            final String[] split = resourcePath.split("/");
+            fileName = split[split.length - 1];
+        } else {
+            fileName = resourcePath;
+        }
         if (e instanceof YamlExecutionError) {
             final var oldStackTrace = e.getStackTrace();
             final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
             System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
-            newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber);
+            newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber);
             e.setStackTrace(newStackTrace);
             return (YamlExecutionError) e;
         } else {
             // wrap
             final var wrapper = new YamlExecutionError(msg.get(), e);
-            wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber)});
+            wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber)});
             return wrapper;
         }
     }
