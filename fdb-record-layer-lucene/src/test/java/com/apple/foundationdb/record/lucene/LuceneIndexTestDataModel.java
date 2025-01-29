@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
@@ -57,7 +58,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -126,7 +126,6 @@ public class LuceneIndexTestDataModel {
     }
 
     public List<RecordUnderTest> recordsUnderTest() {
-        assertFalse(isSynthetic, "RecordsUnderTest is not implemented yet for synthetic records");
         return List.copyOf(recordsUnderTest.values());
     }
 
@@ -215,11 +214,15 @@ public class LuceneIndexTestDataModel {
         }
         return saveParentRecord(withContent, recordStore, group, uniqueCounter, timestamp)
                 .thenCompose(parentPrimaryKey -> {
-                    recordsUnderTest.put(parentPrimaryKey, new ParentRecord(groupTuple, parentPrimaryKey));
                     if (isSynthetic) {
                         return saveChildRecord(withContent, recordStore, group, uniqueCounter)
-                                .thenApply(childPrimaryKey -> createSyntheticPrimaryKey(recordStore, parentPrimaryKey, childPrimaryKey));
+                                .thenApply(childPrimaryKey -> {
+                                    final Tuple syntheticPrimaryKey = createSyntheticPrimaryKey(recordStore, parentPrimaryKey, childPrimaryKey);
+                                    recordsUnderTest.put(parentPrimaryKey, new ParentRecord(groupTuple, parentPrimaryKey, childPrimaryKey, syntheticPrimaryKey));
+                                    return syntheticPrimaryKey;
+                                });
                     } else {
+                        recordsUnderTest.put(parentPrimaryKey, new ParentRecord(groupTuple, parentPrimaryKey, null, null));
                         return CompletableFuture.completedFuture(parentPrimaryKey);
                     }
                 })
@@ -505,10 +508,17 @@ public class LuceneIndexTestDataModel {
         final Tuple groupingKey;
         @Nonnull
         final Tuple primaryKey;
+        @Nullable
+        private final Tuple childPrimaryKey;
+        @Nullable
+        private final Tuple syntheticPrimaryKey;
 
-        private ParentRecord(@Nonnull final Tuple groupingKey, @Nonnull final Tuple primaryKey) {
+        private ParentRecord(@Nonnull final Tuple groupingKey, @Nonnull final Tuple primaryKey,
+                             @Nullable final Tuple childPrimaryKey, @Nullable final Tuple syntheticPrimaryKey) {
             this.groupingKey = groupingKey;
             this.primaryKey = primaryKey;
+            this.childPrimaryKey = childPrimaryKey;
+            this.syntheticPrimaryKey = syntheticPrimaryKey;
         }
 
         @Override
@@ -523,10 +533,18 @@ public class LuceneIndexTestDataModel {
 
         @Override
         public CompletableFuture<Void> deleteRecord(FDBRecordStore recordStore) {
-            groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey).remove(primaryKey);
+            groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey).remove(syntheticPrimaryKey == null ? primaryKey : syntheticPrimaryKey);
             recordsUnderTest.remove(primaryKey);
             return recordStore.deleteRecordAsync(primaryKey)
-                    .thenAccept(wasDeleted -> assertTrue(wasDeleted, () -> primaryKey + " should have been deletable"));
+                    .thenAccept(wasDeleted -> assertTrue(wasDeleted, () -> primaryKey + " should have been deletable"))
+                    .thenCompose(vignore -> {
+                        if (childPrimaryKey != null) {
+                            return recordStore.deleteRecordAsync(childPrimaryKey);
+                        } else {
+                            return AsyncUtil.READY_TRUE;
+                        }
+                    })
+                    .thenAccept(wasDeleted -> assertTrue(wasDeleted, () -> childPrimaryKey + " should have been deletable"));
         }
     }
 }

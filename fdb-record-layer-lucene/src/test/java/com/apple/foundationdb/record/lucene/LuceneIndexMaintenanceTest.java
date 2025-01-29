@@ -826,6 +826,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
+    private static Stream<Arguments> concurrentParameters() {
+        // only run the individual tests with synthetic during nightly, the mix runs both
+        return Stream.concat(Stream.of(false),
+                TestConfigurationUtils.onlyNightly(Stream.of(true)))
+                .map(isSynthetic -> Arguments.of(isSynthetic));
+    }
+
     /**
      * Test that updating records in the same transaction does not cause issues with the executor, and doesn't result in
      * a corrupted index.
@@ -835,9 +842,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      * </p>
      * @throws IOException if there's an issue with Lucene
      */
-    @Test
-    void concurrentUpdate() throws IOException {
-        concurrentTestWithinTransaction((dataModel, recordStore) ->
+    @ParameterizedTest
+    @MethodSource("concurrentParameters")
+    void concurrentUpdate(final boolean isSynthetic) throws IOException {
+        concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
                         .asList().join(),
@@ -853,9 +861,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      * </p>
      * @throws IOException if there's an issue with Lucene
      */
-    @Test
-    void concurrentDelete() throws IOException {
-        concurrentTestWithinTransaction((dataModel, recordStore) ->
+    @ParameterizedTest
+    @MethodSource("concurrentParameters")
+    void concurrentDelete(final boolean isSynthetic) throws IOException {
+        concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.deleteRecord(recordStore), 10)
                         .asList().join(),
@@ -871,15 +880,20 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      * </p>
      * @throws IOException if there's an issue with Lucene
      */
-    @Test
-    void concurrentInsert() throws IOException {
-        concurrentTestWithinTransaction((dataModel, recordStore) ->
+    @ParameterizedTest
+    @MethodSource("concurrentParameters")
+    void concurrentInsert(final boolean isSynthetic) throws IOException {
+        concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
                                 .mapPipelined(record -> { // ignore the record, we're just using that as a count
                                     return dataModel.saveRecordAsync(true, recordStore, 1);
                                 }, 10)
                                 .asList().join(),
                 (inserted, actual) -> assertEquals(inserted * 2, actual));
+    }
+
+    private static Stream<Arguments> concurrentMixParameters() {
+        return Stream.of(true, false).map(isSynthetic -> Arguments.of(isSynthetic));
     }
 
     /**
@@ -891,11 +905,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      * </p>
      * @throws IOException if there's an issue with Lucene
      */
-    @Test
-    void concurrentMix() throws IOException {
+    @ParameterizedTest
+    @MethodSource("concurrentMixParameters")
+    void concurrentMix(final boolean isSynthetic) throws IOException {
         // We never touch the same record twice.
         AtomicInteger step = new AtomicInteger(0);
-        concurrentTestWithinTransaction((dataModel, recordStore) ->
+        concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
                                 .mapPipelined(record -> {
                                     switch (step.incrementAndGet() % 3) {
@@ -913,7 +928,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 (inserted, actual) -> assertEquals(inserted, actual));
     }
 
-    private void concurrentTestWithinTransaction(final BiConsumer<LuceneIndexTestDataModel, FDBRecordStore> applyChangeConcurrently, final BiConsumer<Integer, Integer> assertDataModelCount) throws IOException {
+    private void concurrentTestWithinTransaction(boolean isSynthetic,
+                                                 final BiConsumer<LuceneIndexTestDataModel, FDBRecordStore> applyChangeConcurrently,
+                                                 final BiConsumer<Integer, Integer> assertDataModelCount) throws IOException {
         // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
         // configurations.
         AtomicInteger threadCounter = new AtomicInteger();
@@ -929,10 +946,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 null, false));
         final long seed = 320947L;
         final boolean isGrouped = true;
-        // updating the parent & child concurrently is not thread safe, we may want to fix the behavior, or say that is
-        // not supported, as it is the same as updating the same record concurrently, which I don't think is generally
-        // supported.
-        final boolean isSynthetic = false;
         final boolean primaryKeySegmentIndexEnabled = true;
         // LucenePartitioner is not thread safe, and the counts get broken
         // See: https://github.com/FoundationDB/fdb-record-layer/issues/2990
@@ -967,6 +980,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
 
+        final Map<Tuple, Map<Tuple, Tuple>> initial = dataModel.groupingKeyToPrimaryKeyToPartitionKey.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> Map.copyOf(entry.getValue())
+        ));
+
         dataModel.validate(() -> openContext(contextProps));
 
         try (FDBRecordContext context = openContext(contextProps)) {
@@ -978,6 +996,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             commit(context);
         }
 
+        System.out.println("=== initial ===");
+        System.out.println(initial);
+        System.out.println("=== updated ===");
+        System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);
         assertDataModelCount.accept(300,
                 dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
 
