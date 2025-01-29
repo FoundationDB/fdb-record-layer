@@ -110,7 +110,7 @@ public class JoinWithLimitTest {
     @Test
     void innerCorrelatedJoinWithContinuationAndLimit() throws Exception {
         Continuation continuation;
-        statement.setMaxRows(3);
+        statement.setMaxRows(1);
         try (var resultSet = statement.executeQuery("SELECT M.e FROM (SELECT * FROM Q, Q.d) as M")) {
             Assertions.assertThat(resultSet.next()).isTrue();
             Assertions.assertThat(resultSet.getLong("e")).isEqualTo(100L);
@@ -235,7 +235,7 @@ public class JoinWithLimitTest {
     @Test
     void joinWithContinuationAndLimit() throws Exception {
         Continuation continuation;
-        statement.setMaxRows(2);
+        statement.setMaxRows(1);
         try (var resultSet = statement.executeQuery("SELECT rpk, sa FROM R, S")) {
             Assertions.assertThat(resultSet.next()).isTrue();
             Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(1L);

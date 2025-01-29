@@ -192,6 +192,17 @@ public class Expression {
         return this.withUnderlying(pulledUpUnderlying);
     }
 
+    public boolean canBeDerivedFrom(@Nonnull final Expression expression,
+                                    @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        final var value = expression.getUnderlying();
+        final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
+        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var thisValue = getUnderlying();
+        final var quantifier = CorrelationIdentifier.uniqueID();
+        final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue), aliasMap, constantAliases, quantifier);
+        return result.containsKey(thisValue);
+    }
+
     /**
      * Replaces all the {@link ConstantObjectValue} objects with corresponding {@link LiteralValue}s.
      *
@@ -269,7 +280,7 @@ public class Expression {
 
         @Nonnull
         private static Iterable<Value> filterUnderlying(@Nonnull Expression expression, boolean onlyAggregates) {
-            return Streams.stream(expression.getUnderlying().preOrderPruningIterator(value ->
+            return Streams.stream(expression.getUnderlying().preOrderIterator(value ->
                     value instanceof ArithmeticValue ||
                             value instanceof AndOrValue ||
                             value instanceof NotValue ||

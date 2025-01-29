@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -92,47 +91,5 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
                 return Set.of(externalServer.getVersion());
             }
         };
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void updateDeleteReturning() throws Exception {
-        super.updateDeleteReturning();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void aggregateIndexTests() throws Exception {
-        super.aggregateIndexTests();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void indexedFunctions() throws Exception {
-        super.indexedFunctions();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void bitmap() throws Exception {
-        super.bitmap();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void cte() throws Exception {
-        super.cte();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void unionEmptyTables() throws Exception {
-        super.unionEmptyTables();
-    }
-
-    @Override
-    @Disabled("Test asserts about quantifiers")
-    public void union() throws Exception {
-        super.union();
     }
 }

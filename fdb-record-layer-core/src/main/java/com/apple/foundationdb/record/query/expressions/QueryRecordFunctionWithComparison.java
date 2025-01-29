@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -186,7 +187,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
             return GraphExpansion.ofExists(rankComparisonQuantifier);
         } else if (function instanceof StoreRecordFunction<?> && FunctionNames.VERSION.equals(function.getName())) {
-            final VersionValue versionValue = new VersionValue(baseQuantifier.getAlias());
+            final VersionValue versionValue = new VersionValue(QuantifiedRecordValue.of(baseQuantifier));
             return GraphExpansion.builder()
                     .addPredicate(new ValuePredicate(versionValue, comparison))
                     .build();

@@ -63,7 +63,6 @@ class ArithmeticValueTest {
     private static final LiteralValue<Long> LONG_minus_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), -1L);
     private static final LiteralValue<Long> LONG_10000 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 10000L);
 
-
     private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
     private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 2.0F);
     private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);

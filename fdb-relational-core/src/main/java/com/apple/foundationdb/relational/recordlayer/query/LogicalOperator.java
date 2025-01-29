@@ -297,7 +297,7 @@ public class LogicalOperator {
             return generateSimpleSelect(output, logicalOperators, predicate, alias, outerCorrelations, isForDdl);
         }
         final var orderByExpressions = Expressions.of(orderBys.stream().map(OrderByExpression::getExpression).collect(ImmutableList.toImmutableList()));
-        final var remainingOrderByExpressions = orderByExpressions.difference(output);
+        final var remainingOrderByExpressions = orderByExpressions.difference(output, outerCorrelations);
         if (remainingOrderByExpressions.isEmpty()) {
             return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), orderBys, outerCorrelations, alias);
         } else {

@@ -155,7 +155,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 class RankIndexTest extends FDBRecordStoreQueryTestBase {
-
     protected void openRecordStore(FDBRecordContext context) throws Exception {
         openRecordStore(context, NO_HOOK);
     }

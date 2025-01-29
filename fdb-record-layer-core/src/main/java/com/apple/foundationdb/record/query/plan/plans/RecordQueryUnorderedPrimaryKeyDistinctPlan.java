@@ -136,6 +136,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     @Nonnull
     @Override
     public RecordQueryUnorderedPrimaryKeyDistinctPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                            final boolean shouldSimplifyValues,
                                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));
     }

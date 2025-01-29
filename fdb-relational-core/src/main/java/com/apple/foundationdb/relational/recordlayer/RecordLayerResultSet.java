@@ -33,6 +33,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.UNSUPPORTED_OPERATION;
+
 @API(API.Status.EXPERIMENTAL)
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
@@ -106,6 +108,9 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nonnull
     @Override
     public Continuation getContinuation() throws SQLException {
+        if (hasNext()) {
+            throw new SQLException("Continuation can only be returned once the result set has been exhausted", UNSUPPORTED_OPERATION.getErrorCode());
+        }
         try {
             return enrichContinuationFunction.apply(currentCursor.getContinuation(), continuationReason());
         } catch (RelationalException e) {

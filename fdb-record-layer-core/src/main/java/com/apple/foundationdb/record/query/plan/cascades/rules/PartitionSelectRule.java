@@ -288,7 +288,8 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
 
             final var newUpperPredicates =
                     upperPredicates.stream()
-                            .map(upperPredicate -> upperPredicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap))
+                            .map(upperPredicate ->
+                                    upperPredicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, false))
                                     .orElseThrow(() -> new RecordCoreException("unable to map leaf predicate")))
                             .collect(ImmutableList.toImmutableList());
 

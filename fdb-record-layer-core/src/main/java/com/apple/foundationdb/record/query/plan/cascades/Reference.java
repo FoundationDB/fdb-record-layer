@@ -223,6 +223,10 @@ public class Reference implements Correlated<Reference>, Typed {
     public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
+
+        Debugger.sanityCheck(() -> Verify.verify(members.isEmpty() ||
+                getResultType().equals(newValue.getResultType())));
+
         members.add(newValue);
         if (newValue instanceof RecordQueryPlan) {
             final var newRecordQueryPlan = (RecordQueryPlan)newValue;
@@ -290,12 +294,14 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
     @Override
     public Reference rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Nonnull
-    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        final var translatedRefs = References.translateCorrelations(ImmutableList.of(this), translationMap);
+    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                           final boolean shouldSimplifyValues) {
+        final var translatedRefs =
+                References.translateCorrelations(ImmutableList.of(this), translationMap, shouldSimplifyValues);
         return Iterables.getOnlyElement(translatedRefs);
     }
 

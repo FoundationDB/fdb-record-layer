@@ -35,6 +35,9 @@ import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Stats;
+import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -54,12 +57,12 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -77,7 +80,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -86,6 +88,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Struct;
@@ -111,6 +114,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final RecordQueryPlan recordQueryPlan;
 
+        @Nullable
+        private final StatsMaps plannerStatsMaps;
+
         @Nonnull
         private final PlanHashMode currentPlanHashMode;
 
@@ -126,6 +132,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final QueryExecutionContext queryExecutionParameters;
 
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                 @Nullable final StatsMaps plannerStatsMaps,
                                  @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final QueryExecutionContext queryExecutionParameters,
@@ -133,6 +140,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                  @Nonnull final PlanHashMode currentPlanHashMode) {
             super(query);
             this.recordQueryPlan = recordQueryPlan;
+            this.plannerStatsMaps = plannerStatsMaps;
             this.typeRepository = typeRepository;
             this.constraint = constraint;
             this.queryExecutionParameters = queryExecutionParameters;
@@ -179,7 +187,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             if (parameters == this.queryExecutionParameters) {
                 return this;
             }
-            return new PhysicalQueryPlan(recordQueryPlan, typeRepository, constraint, parameters, query, parameters.getPlanHashMode());
+            return new PhysicalQueryPlan(recordQueryPlan, plannerStatsMaps, typeRepository, constraint, parameters,
+                    query, parameters.getPlanHashMode());
         }
 
         @Nonnull
@@ -273,12 +282,23 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     FieldDescription.primitive("VERSION", Types.INTEGER, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_HASH_MODE", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
             );
+            StructMetaData plannerMetricsMetadata = new RelationalStructMetaData(
+                    FieldDescription.primitive("TASK_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("TASK_TOTAL_TIME_NS", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("TRANSFORM_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("TRANSFORM_TIME_NS", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("TRANSFORM_YIELD_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("INSERT_TIME_NS", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("INSERT_NEW_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("INSERT_REUSED_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls)
+                    );
             StructMetaData metaData = new RelationalStructMetaData(
                     FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_HASH", Types.INTEGER, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_DOT", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_GML", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNullable, continuationMetadata)
+                    FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNullable, continuationMetadata),
+                    FieldDescription.struct("PLANNER_METRICS", DatabaseMetaData.columnNullable, plannerMetricsMetadata)
             );
             final Struct continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
                                             new ImmutableRowStruct(new ArrayRow(
@@ -287,13 +307,41 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
                     ), continuationMetadata);
 
+            final Struct plannerMetrics;
+            if (plannerStatsMaps == null) {
+                plannerMetrics = null;
+            } else {
+                final var plannerEventClassStatsMap = plannerStatsMaps.getEventClassStatsMap();
+                final var executingTasksStats =
+                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.ExecutingTaskEvent.class));
+                final var transformRuleCallStats =
+                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.TransformRuleCallEvent.class));
+                final var insertIntoMemoStats =
+                        Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.InsertIntoMemoEvent.class));
+
+                plannerMetrics =
+                        new ImmutableRowStruct(new ArrayRow(
+                                executingTasksStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
+                                executingTasksStats.map(Stats::getTotalTimeInNs).orElse(0L),
+                                transformRuleCallStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
+                                transformRuleCallStats.map(Stats::getOwnTimeInNs).orElse(0L),
+                                transformRuleCallStats.map(s -> s.getCount(Debugger.Location.YIELD)).orElse(0L),
+                                insertIntoMemoStats.map(Stats::getOwnTimeInNs).orElse(0L),
+                                insertIntoMemoStats.map(s -> s.getCount(Debugger.Location.NEW)).orElse(0L),
+                                insertIntoMemoStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
+                                parsedContinuation.getVersion(),
+                                parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
+                        ), plannerMetricsMetadata);
+            }
+
             final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphProperty.forExplain()));
             return new IteratorResultSet(metaData, Collections.singleton(new ArrayRow(
                     explain(),
                     planHashSupplier.get(),
                     PlannerGraphProperty.exportToDot(plannerGraph),
                     PlannerGraphProperty.exportToGml(plannerGraph, Map.of()),
-                    continuationInfo)).iterator(), 0);
+                    continuationInfo,
+                    plannerMetrics)).iterator(), 0);
         }
 
         @Nonnull
@@ -442,7 +490,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                           @Nonnull final String query,
                                           @Nonnull final PlanHashMode currentPlanHashMode,
                                           @Nonnull final PlanHashMode serializedPlanHashMode) {
-            super(recordQueryPlan, typeRepository, constraint, queryExecutionParameters, query, currentPlanHashMode);
+            super(recordQueryPlan, null, typeRepository, constraint, queryExecutionParameters, query,
+                    currentPlanHashMode);
             this.serializedPlanHashMode = serializedPlanHashMode;
         }
 
@@ -550,13 +599,15 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     throw ExceptionUtil.toRelationalException(ex);
                 }
 
+                final var statsMaps = planResult.getPlanInfo().get(QueryPlanInfoKeys.STATS_MAPS);
+
                 // The plan itself can introduce new types. Collect those and include them in the type repository stored with the PhysicalQueryPlan
                 final RecordQueryPlan recordQueryPlan = planResult.getPlan();
 
                 Set<Type> planTypes = UsedTypesProperty.evaluate(recordQueryPlan);
                 planTypes.forEach(builder::addTypeIfNeeded);
                 optimizedPlan = Optional.of(
-                        new PhysicalQueryPlan(planResult.getPlan(), builder.build(),
+                        new PhysicalQueryPlan(recordQueryPlan, statsMaps, builder.build(),
                                 QueryPlanConstraint.composeConstraints(
                                         List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)),
                                                 getConstraint())),

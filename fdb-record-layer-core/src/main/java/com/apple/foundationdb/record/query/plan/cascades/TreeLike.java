@@ -77,12 +77,12 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return an iterator that traverse the nodes in pre-order.
      */
     @Nonnull
-    default Iterator<T> preOrderIterator() {
-        return PreOrderPruningIterator.over(getThis());
+    default PreOrderIterator<T> preOrderIterator() {
+        return PreOrderIterator.over(getThis());
     }
 
-    default Iterator<T> preOrderPruningIterator(@Nonnull final Predicate<T> descendInChildren) {
-        return PreOrderPruningIterator.overWithPruningPredicate(getThis(), descendInChildren);
+    default Iterator<T> preOrderIterator(@Nonnull final Predicate<T> descendInChildren) {
+        return PreOrderIterator.over(getThis()).descendOnlyIf(descendInChildren);
     }
 
     /**
@@ -100,7 +100,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      */
     @Nonnull
     default Iterable<? extends T> preOrderIterable() {
-        return preOrderIterable(self -> true);
+        return preOrderIterable(treeLike -> true);
     }
 
     /**
@@ -111,15 +111,16 @@ public interface TreeLike<T extends TreeLike<T>> {
      */
     @Nonnull
     default Iterable<? extends T> preOrderIterable(@Nonnull final Predicate<T> descentIntoPredicate) {
-        final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
-        final var self = getThis();
-        iterablesBuilder.add(ImmutableList.of(self));
-        if (descentIntoPredicate.test(self)) {
-            for (final T child : getChildren()) {
-                iterablesBuilder.add(child.preOrderIterable());
-            }
-        }
-        return Iterables.concat(iterablesBuilder.build());
+        return () -> preOrderIterator(descentIntoPredicate);
+    }
+
+    /**
+     * Returns a {@link Stream} that traverses the nodes in post-order.
+     * @return a {@link Stream} that traverses the nodes in post-order.
+     */
+    @Nonnull
+    default Stream<T> postOrderStream() {
+        return Streams.stream(postOrderIterable());
     }
 
     /**
@@ -127,7 +128,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
-    default Iterable<? extends T> postOrderIterable() {
+    default Iterable<T> postOrderIterable() {
         final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
         for (final T child : getChildren()) {
             iterablesBuilder.add(child.postOrderIterable());

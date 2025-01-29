@@ -127,8 +127,9 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
 
     @Nonnull
     @Override
-    public PrimaryScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        // TODO this may or may not need to be translated depending on the correlations this expression is correlated
+    public PrimaryScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                       final boolean shouldSimplifyValues,
+                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 

@@ -62,6 +62,8 @@ public final class SqlTypeNamesSupport {
                 return "NULL";
             case Types.OTHER:
                 return "OTHER";
+            case Types.BOOLEAN:
+                return "BOOLEAN";
             default:
                 throw new IllegalStateException("Unexpected sql type code :" + sqlTypeCode);
         }
@@ -87,6 +89,8 @@ public final class SqlTypeNamesSupport {
                 return Types.ARRAY;
             case "NULL":
                 return Types.NULL;
+            case "BOOLEAN":
+                return Types.BOOLEAN;
             default:
                 throw new IllegalStateException("Unexpected sql type name:" + sqlTypeName);
         }

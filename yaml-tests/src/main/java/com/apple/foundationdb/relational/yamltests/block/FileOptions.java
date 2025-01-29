@@ -20,15 +20,15 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-
+import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assumptions;
 
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Block that configures aspects of the test that do not require a connection yet.
@@ -50,23 +50,19 @@ import java.util.Set;
  */
 public class FileOptions {
     public static final String OPTIONS = "options";
-    private static final String SUPPORTED_VERSION = "supported_version";
+    public static final String SUPPORTED_VERSION_OPTION = "supported_version";
     private static final Logger logger = LogManager.getLogger(FileOptions.class);
 
     public static Block parse(int lineNumber, Object document, YamlExecutionContext executionContext) {
-        final Map<?, ?> options = Matchers.map(document, OPTIONS);
-        Object supportedVersion = options.get(SUPPORTED_VERSION);
-        if (supportedVersion instanceof CurrentVersion) {
-            final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
+        final Map<?, ?> options = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
+        Object rawVersion = options.get(SUPPORTED_VERSION_OPTION);
+        final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
+        if (!check.isSupported()) {
             // IntelliJ, at least, doesn't display the reason, so log it
-            logger.info(
-                    "Skipping test that only works against the current version, when we're running with these versions: {}",
-                    versionsUnderTest);
-            Assumptions.assumeTrue(versionsUnderTest.isEmpty(),
-                    () -> "Test only works against the current version, but we are running with these versions: " +
-                    versionsUnderTest);
-        } else {
-            throw new RuntimeException("Unsupported supported_version: " + supportedVersion);
+            if (logger.isInfoEnabled()) {
+                logger.info(check.getMessage());
+            }
+            Assumptions.assumeTrue(check.isSupported(), check.getMessage());
         }
         return new NoOpBlock(lineNumber);
     }
@@ -80,24 +76,6 @@ public class FileOptions {
         @Override
         public String toString() {
             return "!current_version";
-        }
-    }
-
-    private static class NoOpBlock implements Block {
-        private final int lineNumber;
-
-        NoOpBlock(int lineNumber) {
-            this.lineNumber = lineNumber;
-        }
-
-        @Override
-        public int getLineNumber() {
-            return this.lineNumber;
-        }
-
-        @Override
-        public void execute() {
-
         }
     }
 }

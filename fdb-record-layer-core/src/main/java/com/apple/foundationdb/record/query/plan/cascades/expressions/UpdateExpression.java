@@ -127,10 +127,13 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     @Override
-    public UpdateExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public UpdateExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                  final boolean shouldSimplifyValues,
+                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedTransformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
         for (final var entry : transformMap.entrySet()) {
-            translatedTransformMapBuilder.put(entry.getKey(), entry.getValue().translateCorrelations(translationMap));
+            translatedTransformMapBuilder.put(entry.getKey(),
+                    entry.getValue().translateCorrelations(translationMap, shouldSimplifyValues));
         }
         return new UpdateExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class),
                 targetRecordType, targetType, translatedTransformMapBuilder.build());
