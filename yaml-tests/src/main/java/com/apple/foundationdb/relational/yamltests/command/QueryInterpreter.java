@@ -243,7 +243,7 @@ public final class QueryInterpreter {
     @Nonnull
     public QueryExecutor getExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         try {
-            final int forceContinuations = (int)executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, 0);
+            final boolean forceContinuations = (boolean)executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
             if (random == null) {
                 // we do not allow prepared statements if the Random generator is not there
                 Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");

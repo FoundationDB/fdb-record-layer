@@ -84,7 +84,7 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
 
         @Override
         public Map<String, Object> getAdditionalOptions() {
-            return Map.of(OPTION_FORCE_CONTINUATIONS, 1);
+            return Map.of(OPTION_FORCE_CONTINUATIONS, true);
         }
 
         @Override
@@ -105,11 +105,11 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
             super.aggregateIndexTestsCount();
         }
 
-        @Override
-        @Disabled("Infinite continuation loop")
-        public void aggregateIndexTestsCountEmpty() throws Exception {
-            super.aggregateIndexTestsCountEmpty();
-        }
+//        @Override
+//        @Disabled("Infinite continuation loop")
+//        public void aggregateIndexTestsCountEmpty() throws Exception {
+//            super.aggregateIndexTestsCountEmpty();
+//        }
 
         @Override
         @Disabled("TBD")
