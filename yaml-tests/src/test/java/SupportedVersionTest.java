@@ -61,7 +61,8 @@ public class SupportedVersionTest extends YamlTestBase {
                 "unspecified",
                 "lower-at-block",
                 "lower-at-query",
-                "late-query-supported-version"
+                "late-query-supported-version",
+                "late-file-options"
         );
     }
 
