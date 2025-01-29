@@ -55,6 +55,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -87,6 +88,7 @@ public class LuceneIndexTestDataModel {
     private LuceneIndexTestValidator validator;
     // A "start" timestamp to make the partitioning field look more like a timestamp
     private long start;
+    private boolean reverseSaveOrder = false;
 
     private LuceneIndexTestDataModel(@Nonnull final Builder builder,
                                      @Nonnull final Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
@@ -102,6 +104,7 @@ public class LuceneIndexTestDataModel {
         recordsUnderTest = new ConcurrentHashMap<>();
         nextRecNoInGroup = new ConcurrentHashMap<>();
         start = Instant.now().toEpochMilli();
+
     }
 
     @Override
@@ -166,6 +169,19 @@ public class LuceneIndexTestDataModel {
         }
     }
 
+    void saveRecordsToAllGroups(int count, FDBRecordContext context) {
+        FDBRecordStore recordStore = createOrOpenRecordStore(context);
+        for (int i = 0; i < count; i++) {
+            if (isGrouped) {
+                for (int j = 0; j < 10; j++) {
+                    saveRecord(recordStore, j);
+                }
+            } else {
+                saveRecord(recordStore, 0);
+            }
+        }
+    }
+
     void saveRecords(int count, FDBRecordContext context, final int group) {
         FDBRecordStore recordStore = createOrOpenRecordStore(context);
         for (int j = 0; j < count; j++) {
@@ -191,7 +207,12 @@ public class LuceneIndexTestDataModel {
         final Tuple groupTuple = calculateGroupTuple(isGrouped, group);
         final int uniqueCounter = nextRecNoInGroup.computeIfAbsent(groupTuple, key -> new AtomicInteger(0))
                 .incrementAndGet();
-        long timestamp = this.start + uniqueCounter + random.nextInt(20) - 5;
+        long timestamp;
+        if (reverseSaveOrder) {
+            timestamp = this.start - uniqueCounter - random.nextInt(20) - 5 - 20;
+        } else {
+            timestamp = this.start + uniqueCounter + random.nextInt(20) - 5;
+        }
         return saveParentRecord(withContent, recordStore, group, uniqueCounter, timestamp)
                 .thenCompose(parentPrimaryKey -> {
                     recordsUnderTest.put(parentPrimaryKey, new ParentRecord(groupTuple, parentPrimaryKey));
@@ -253,11 +274,25 @@ public class LuceneIndexTestDataModel {
     }
 
     public void validate(final Supplier<FDBRecordContext> openContext) throws IOException {
+        getValidator(openContext);
+        validator.validate(index, groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? CHILD_SEARCH_TERM : PARENT_SEARCH_TERM);
+    }
+
+    public Map<Tuple, List<Integer>> getPartitionCounts(final Supplier<FDBRecordContext> openContext) {
+        return groupingKeys().stream().collect(Collectors.toMap(Function.identity(),
+                        groupingKey ->
+                                getValidator(openContext).getPartitionMeta(index, groupingKey).stream()
+                                        .sorted(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())))
+                                        .map(LucenePartitionInfoProto.LucenePartitionInfo::getCount)
+                                        .collect(Collectors.toList())));
+    }
+
+    private LuceneIndexTestValidator getValidator(final Supplier<FDBRecordContext> openContext) {
         if (validator == null) {
             validator = new LuceneIndexTestValidator(openContext,
                     this::createOrOpenRecordStore);
         }
-        validator.validate(index, groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? CHILD_SEARCH_TERM : PARENT_SEARCH_TERM);
+        return validator;
     }
 
     @Nonnull
@@ -336,6 +371,15 @@ public class LuceneIndexTestDataModel {
 
     public Integer nextInt(final int bound) {
         return random.nextInt(bound);
+    }
+
+    /**
+     * Reverse the save order, going back from the start time.
+     * @param reverseSaveOrder If set to {@code true}, the next saved record will be the oldest record. If set to
+     * {@code false}, the next saved record will be the newest. The default is {@code false}.
+     */
+    public void setReverseSaveOrder(final boolean reverseSaveOrder) {
+        this.reverseSaveOrder = reverseSaveOrder;
     }
 
     static class Builder {

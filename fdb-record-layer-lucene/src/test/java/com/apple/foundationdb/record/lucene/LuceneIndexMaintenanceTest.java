@@ -70,7 +70,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -184,6 +183,64 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
 
         dataModel.validate(() -> openContext(contextProps));
+
+        if (isGrouped) {
+            validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
+        }
+    }
+
+    public static Stream<Arguments> savingInReverseDoesNotRequireRepartitioning() {
+        return Stream.concat(Stream.of(true, false).flatMap(isGrouped ->
+                        Stream.of(true, false).map(isSynthetic ->
+                                Arguments.of(isGrouped, isSynthetic, 8, 1234098))),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(
+                                random.nextBoolean(),
+                                random.nextBoolean(),
+                                random.nextInt(30) + 2,
+                                random.nextLong()
+                        )));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void savingInReverseDoesNotRequireRepartitioning(boolean isGrouped,
+                                                     boolean isSynthetic,
+                                                     int partitionHighWatermark,
+                                                     long seed) throws IOException {
+        // We should create older partitions when the newer one is full, if adding a record that is older
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(partitionHighWatermark)
+                .build();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            dataModel.saveRecordsToAllGroups(partitionHighWatermark, context);
+            context.commit();
+        }
+        dataModel.validate(() -> openContext(contextProps));
+
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) -> {
+            assertThat(partitionCounts, Matchers.contains(partitionHighWatermark));
+        });
+
+        dataModel.setReverseSaveOrder(true);
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            dataModel.saveRecordsToAllGroups(partitionHighWatermark - 1, context);
+            context.commit();
+        }
+        dataModel.validate(() -> openContext(contextProps));
+
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) -> {
+            assertThat(partitionCounts, Matchers.contains(partitionHighWatermark - 1, partitionHighWatermark));
+        });
 
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
