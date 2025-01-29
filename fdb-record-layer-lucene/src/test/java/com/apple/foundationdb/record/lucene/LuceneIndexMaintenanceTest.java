@@ -826,6 +826,54 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
+    static Stream<Arguments> sampledDelete() {
+        return Stream.concat(Stream.of(Arguments.of(true, true, 230498),
+                Arguments.of(false, false, 43790)),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextBoolean(), random.nextBoolean(), random.nextLong())));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void sampledDelete(boolean isSynthetic, boolean isGrouped, long seed) throws IOException {
+        // Test to make sure that if we delete half the records from every partition, their counts go down appropriately.
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+                .setIsGrouped(isGrouped)
+                .setIsSynthetic(isSynthetic)
+                .setPrimaryKeySegmentIndexEnabled(true)
+                .setPartitionHighWatermark(10)
+                .build();
+
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            dataModel.saveRecordsToAllGroups(25, context);
+            commit(context);
+        }
+
+        explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
+
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, Matchers.contains(10, 6, 9)));
+
+        dataModel.validate(() -> openContext(contextProps));
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+            dataModel.sampleRecordsUnderTest().forEach(record -> record.deleteRecord(recordStore).join());
+            context.commit();
+        }
+
+        // We won't re-partition here
+        dataModel.validate(() -> openContext(contextProps));
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
+                assertThat(partitionCounts, Matchers.contains(5, 3, 4)));
+    }
+
     private static Stream<Arguments> concurrentParameters() {
         // only run the individual tests with synthetic during nightly, the mix runs both
         return Stream.concat(Stream.of(false),
