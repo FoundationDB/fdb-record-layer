@@ -283,6 +283,21 @@ public class TypeConversion {
                 column = toColumn(relationalStruct.wasNull() ? null : d,
                         (a, b) -> a == null ? b.clearDouble() : b.setDouble(a));
                 break;
+            case Types.OTHER:
+                final Object object = relationalStruct.getObject(oneBasedIndex);
+                if (object instanceof String) {
+                    // an enum. Enums are effectively just strings with a constraint, but this is how some other
+                    // databases support them.
+                    column = toColumn(relationalStruct.wasNull() ? null : (String) object,
+                            (value, protobuf) -> value == null ? protobuf.clearString() : protobuf.setString(value));
+                    break;
+                }
+                if (object == null) {
+                    column = toColumn(null, (value, protobuf) -> protobuf.clearString());
+                    break;
+                }
+                throw new SQLException("java.sql.Type=" + columnType + " not supported with " + object.getClass(),
+                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
             default:
                 throw new SQLException("java.sql.Type=" + columnType + " not supported",
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
