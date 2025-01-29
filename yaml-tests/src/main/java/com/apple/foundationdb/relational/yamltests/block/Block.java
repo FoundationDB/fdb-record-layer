@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
 
@@ -48,24 +49,34 @@ public interface Block {
      *
      * @param document a region in the file
      * @param executionContext information needed to carry out the execution
+     * @param blockCount the number of previous blocks in the file
      */
-    static Block parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+    static Block parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext, final int blockCount) {
         final var blockObject = Matchers.map(document, "block");
         Assert.thatUnchecked(blockObject.size() == 1, "Illegal Format: A block is expected to be a map of size 1");
         final var entry = Matchers.firstEntry(blockObject, "block key-value");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(entry.getKey(), () -> "Invalid block key-value pair: " + entry);
         final var lineNumber = linedObject.getLineNumber();
-        switch (Matchers.notNull(Matchers.string(linedObject.getObject(), "block key"), "block key")) {
-            case SetupBlock.SETUP_BLOCK:
-                return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
-            case TestBlock.TEST_BLOCK:
-                return TestBlock.parse(lineNumber, entry.getValue(), executionContext);
-            case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
-                return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
-            case FileOptions.OPTIONS:
-                return FileOptions.parse(lineNumber, entry.getValue(), executionContext);
-            default:
-                throw new RuntimeException("Cannot recognize the type of block");
+        final String blockKey = Matchers.notNull(Matchers.string(linedObject.getObject(), "block key"), "block key");
+        try {
+            switch (blockKey) {
+                case SetupBlock.SETUP_BLOCK:
+                    return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
+                case TestBlock.TEST_BLOCK:
+                    return TestBlock.parse(lineNumber, entry.getValue(), executionContext);
+                case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
+                    return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
+                case FileOptions.OPTIONS:
+                    Assert.thatUnchecked(blockCount == 0,
+                            "File level options must be the first block, but found one at line " + lineNumber);
+                    return FileOptions.parse(lineNumber, entry.getValue(), executionContext);
+                default:
+                    throw new RuntimeException("Cannot recognize the type of block");
+            }
+        } catch (TestAbortedException e) {
+            throw e;
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e, () -> "Error parsing block at line " + lineNumber, blockKey, lineNumber);
         }
     }
 
