@@ -46,6 +46,7 @@ atlassian-ide-plugin.xml
 
 # Built during documentation
 /docs/sphinx/.venv
+/docs/sphinx/source/api/**/index.md
 *.diagram.svg
 
 # VSCode specific files/directories
