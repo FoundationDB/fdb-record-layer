@@ -32,11 +32,11 @@ public class QueryPlanInfoTest {
     private static final QueryPlanInfo.QueryPlanInfoKey<Integer> KEY_INT = new QueryPlanInfo.QueryPlanInfoKey<>("I");
 
     @BeforeEach
-    void setup() throws Exception {
+    void setup() {
     }
 
     @Test
-    void testAddKey() throws Exception {
+    void testAddKey() {
         QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
                 .put(KEY_STR, "Value")
                 .build();
@@ -45,7 +45,7 @@ public class QueryPlanInfoTest {
     }
 
     @Test
-    void testAddTwoKeys() throws Exception {
+    void testAddTwoKeys() {
         QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
                 .put(KEY_STR, "Value")
                 .put(KEY_INT, 2)
@@ -57,19 +57,19 @@ public class QueryPlanInfoTest {
     }
 
     @Test
-    void testNullValue() throws Exception {
-        QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
+    void testNullValue() {
+        QueryPlanInfo queryPlanInfo = QueryPlanInfo.newBuilder()
                 .put(KEY_STR, null)
                 .put(KEY_INT, null)
                 .build();
-        Assertions.assertTrue(classUnderTest.containsKey(KEY_STR));
-        Assertions.assertTrue(classUnderTest.containsKey(KEY_INT));
-        Assertions.assertNull(classUnderTest.get(KEY_STR));
-        Assertions.assertNull(classUnderTest.get(KEY_INT));
+        Assertions.assertTrue(queryPlanInfo.containsKey(KEY_STR));
+        Assertions.assertTrue(queryPlanInfo.containsKey(KEY_INT));
+        Assertions.assertNull(queryPlanInfo.get(KEY_STR));
+        Assertions.assertNull(queryPlanInfo.get(KEY_INT));
     }
 
     @Test
-    void testBuildFrom() throws Exception {
+    void testBuildFrom() {
         QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
                 .put(KEY_STR, "Value")
                 .build();

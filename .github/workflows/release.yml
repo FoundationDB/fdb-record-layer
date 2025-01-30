@@ -1,0 +1,22 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  gradle:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+      packages: write
+      pages: write
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4.2.2
+    - name: Run Gradle Test
+      uses: ./actions/gradle-test
+      with:
+        gradle_args: "-PreleaseBuild=true"

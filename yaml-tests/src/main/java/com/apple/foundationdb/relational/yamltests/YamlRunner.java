@@ -110,14 +110,16 @@ public final class YamlRunner {
         final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
 
         final var testBlocks = new ArrayList<TestBlock>();
+        int blockCount = 0;
         try (var inputStream = getInputStream(resourcePath)) {
             for (var doc : yaml.loadAll(inputStream)) {
-                final var block = Block.parse(doc, executionContext);
+                final var block = Block.parse(doc, executionContext, blockCount);
                 logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
                 block.execute();
                 if (block instanceof TestBlock) {
                     testBlocks.add((TestBlock) block);
                 }
+                blockCount++;
             }
         }
         for (var block : executionContext.getFinalizeBlocks()) {

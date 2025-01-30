@@ -51,6 +51,8 @@ defaultTasks 'build'
 apply from: 'gradle/root.gradle'
 apply from: 'gradle/sonar.gradle'
 
+def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
+
 allprojects {
     apply plugin: 'base'
     apply plugin: 'java-library'
@@ -91,7 +93,6 @@ allprojects {
     }
 
     // Add -SNAPSHOT to version of non-release builds
-    def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
     if (!isReleaseBuild) {
         def versionString = project.version.toString()
         if (!versionString.endsWith("-SNAPSHOT")) {
@@ -266,6 +267,39 @@ subprojects {
     }
 
     check.dependsOn quickCheck
+
+    // At the end of a release build, we want to update all the yamsql files to replace !current_version with the
+    // version being built
+    task updateYamsql(type: Task) {
+        mustRunAfter 'test'
+        mustRunAfter 'build'
+        doLast {
+            if (isReleaseBuild) {
+                // don't replace !current_version in the supported-version resources, as those are there to test
+                // supported_version, we want the !current_version to stick around
+                println("Replacing !current_version...")
+                sourceSets["test"].resources.srcDirs.stream().flatMap( resourceDir ->
+                    fileTree(dir: resourceDir).matching {
+                        include '**/*.yamsql'
+                        exclude '/supported-version/*'
+                    }.stream()
+                ).forEach { yamsql ->
+                    def original = yamsql.text
+                    def updated = original.replaceAll("(?<!\")!current_version(?!\")", project.version)
+                    if (!original.equals(updated)) {
+                        println("Replacing !current_version in " + yamsql)
+                        // Replace !current_version in all yamsql, unless it is surrounded by ", allowing it to be used in
+                        // comments, without issue, e.g. in showcasing-tests
+                        yamsql.write(updated)
+                        exec {
+                            workingDir '.'
+                            commandLine 'git', 'add', yamsql
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
