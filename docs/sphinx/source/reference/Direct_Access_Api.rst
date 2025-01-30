@@ -31,7 +31,7 @@ Scans can access all records which fit within a specified primary key or index k
             .build();
         Continuation continuation = Continuation.BEGIN;
         int continuationBatchSize = 10;
-        while (continuation!=Continuation.END) {
+        while (!continuation.isEnd()) {
             int rowCount = 0;
             try (RelationalResultSet scanResultSet = statement.executeScan(<tableName>, scan, <options>) {
                 while(scanResultSet.next()) {
