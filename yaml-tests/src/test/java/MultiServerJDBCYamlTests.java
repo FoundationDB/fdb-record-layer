@@ -94,7 +94,7 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         }
 
         @Override
-        @Disabled("Infinite continuation loop")
+        @Disabled("Continuation verification")
         public void aggregateIndexTests() throws Exception {
             super.aggregateIndexTests();
         }
@@ -105,44 +105,44 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
             super.aggregateIndexTestsCount();
         }
 
-//        @Override
-//        @Disabled("Infinite continuation loop")
-//        public void aggregateIndexTestsCountEmpty() throws Exception {
-//            super.aggregateIndexTestsCountEmpty();
-//        }
+        @Override
+        @Disabled("Infinite continuation loop")
+        public void aggregateIndexTestsCountEmpty() throws Exception {
+            super.aggregateIndexTestsCountEmpty();
+        }
 
         @Override
-        @Disabled("TBD")
+        @Disabled("Continuation error")
         public void bitmap() throws Exception {
             super.bitmap();
         }
 
         @Override
-        @Disabled("TBD")
+        @Disabled("Infinite continuation")
         void booleanTypes() throws Exception {
             super.booleanTypes();
         }
 
         @Override
-        @Disabled("Infinite continuation loop")
+        @Disabled("Continuation verification")
         void catalog() throws Exception {
             super.catalog();
         }
 
         @Override
-        @Disabled("Infinite continuation loop")
+        @Disabled("Continuation verification")
         void createDrop() throws Exception {
             super.createDrop();
         }
 
         @Override
-        @Disabled("Infinite continuation loop")
+        @Disabled("Continuation verification")
         public void fieldIndexTestsProto() throws Exception {
             super.fieldIndexTestsProto();
         }
 
         @Override
-        @Disabled("Infinite continuation loop")
+        @Disabled("Continuation mismatch")
         void functions() throws Exception {
             super.functions();
         }
@@ -160,25 +160,25 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         }
 
         @Override
-        @Disabled("Unordered results")
+        @Disabled("Like continuation failure")
         void like() throws Exception {
             super.like();
         }
 
         @Override
-        @Disabled("TBD")
+        @Disabled("continuation verification")
         public void nullOperator() throws Exception {
             super.nullOperator();
         }
 
         @Override
-        @Disabled("TBD")
+        @Disabled("Infinite loop")
         public void primaryKey() throws Exception {
             super.primaryKey();
         }
 
         @Override
-        @Disabled("Unordered results")
+        @Disabled("maxRows ignored")
         public void recursiveCte() throws Exception {
             super.recursiveCte();
         }
@@ -190,19 +190,19 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         }
 
         @Override
-        @Disabled("Infinite continuation loop")
+        @Disabled("continuation verification")
         public void standardTests() throws Exception {
             super.standardTests();
         }
 
         @Override
-        @Disabled("TBD")
+        @Disabled("continuation verification")
         public void standardTestsWithProto() throws Exception {
             super.standardTestsWithProto();
         }
 
         @Override
-        @Disabled("Infinite continuation loop")
+        @Disabled("Continuation verification")
         public void standardTestsWithMetaData() throws Exception {
             super.standardTestsWithMetaData();
         }
@@ -226,7 +226,7 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
         }
 
         @Override
-        @Disabled("Continuation on last row")
+        @Disabled("maxRows ignored on update")
         public void updateDeleteReturning() throws Exception {
             super.updateDeleteReturning();
         }

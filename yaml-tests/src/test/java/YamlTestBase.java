@@ -59,7 +59,7 @@ public abstract class YamlTestBase {
 
     abstract YamlRunner.YamlConnectionFactory createConnectionFactory();
 
-    public Map<String, Object> getAdditionalOptions() {
+    protected Map<String, Object> getAdditionalOptions() {
         return Collections.emptyMap();
     }
 
