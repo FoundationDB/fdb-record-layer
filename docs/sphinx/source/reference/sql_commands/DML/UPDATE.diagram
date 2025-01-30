@@ -1,0 +1,28 @@
+Diagram(
+    Stack(
+        Sequence(
+            Terminal('UPDATE'),
+            NonTerminal('tableName'),
+            Terminal('SET'),
+            OneOrMore(
+                Sequence(
+                    NonTerminal('columnName'),
+                    Terminal('='),
+                    Choice(0,
+                        NonTerminal('literal'),
+                        NonTerminal('identifier')
+                    )
+                ),
+                Terminal(',')
+            ),
+        ),
+        Sequence(
+            Optional(
+                Sequence(
+                    Terminal('WHERE'),
+                    NonTerminal('predicate')
+                )
+            )
+        )
+    )
+)
