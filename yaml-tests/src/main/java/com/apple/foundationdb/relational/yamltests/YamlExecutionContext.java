@@ -24,17 +24,22 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
+import com.google.common.base.Verify;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +55,9 @@ public final class YamlExecutionContext {
     @Nullable
     private final List<String> editedFileStream;
     private boolean isDirty;
+    @Nullable
+    private final Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> metricsMap;
+    private boolean isDirtyMetrics;
     @Nonnull
     private final YamlRunner.YamlConnectionFactory connectionFactory;
     @Nonnull
@@ -71,8 +79,9 @@ public final class YamlExecutionContext {
     YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
-        this.editedFileStream = correctExplain ? loadFileToMemory(resourcePath) : null;
+        this.editedFileStream = correctExplain ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = Map.copyOf(additionalOptions);
+        this.metricsMap = loadMetricsResource(resourcePath);
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
@@ -243,7 +252,7 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    private static List<String> loadFileToMemory(@Nonnull final String resourcePath) throws RelationalException {
+    private static List<String> loadYamlResource(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final List<String> inMemoryFile = new ArrayList<>();
         try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(classLoader.getResourceAsStream(resourcePath), StandardCharsets.UTF_8))) {
@@ -254,5 +263,59 @@ public final class YamlExecutionContext {
             throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
         }
         return inMemoryFile;
+    }
+
+    @Nonnull
+    private static Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final String resourcePath) throws RelationalException {
+        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        final var fis = classLoader.getResourceAsStream(metricsFileName(resourcePath));
+        final var resultMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
+        if (fis == null) {
+            return resultMap;
+        }
+        try {
+            while (true) {
+                final var entry = PlannerMetricsProto.Entry.parseDelimitedFrom(fis);
+                if (entry == null) {
+                    return resultMap;
+                }
+                resultMap.put(entry.getIdentifier(), entry.getInfo());
+            }
+        } catch (final IOException e) {
+            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
+        }
+    }
+
+    @Nonnull
+    private static String metricsFileName(@Nonnull final String resourcePath) {
+        return baseName(resourcePath) + ".metrics.binpb";
+    }
+
+    @Nonnull
+    private static String baseName(@Nonnull final String resourcePath) {
+        final var tokens = resourcePath.split("\\.(?=[^\\.]+$)");
+        Verify.verify(tokens.length == 2);
+        Verify.verify(tokens[1].equals("yamsql"));
+        return tokens[0];
+    }
+
+    private static void saveMetricsResource(@Nonnull final String resourcePath,
+                                            @Nonnull final Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> metricsMap) throws RelationalException {
+        try {
+            final var fileName = Path.of(System.getProperty("user.dir"))
+                    .resolve(Path.of("src", "test", "resources", metricsFileName(resourcePath)))
+                    .toAbsolutePath().toString();
+            try (final var fos = new FileOutputStream(fileName)) {
+                for (final var entry : metricsMap.entrySet()) {
+                    PlannerMetricsProto.Entry.newBuilder()
+                            .setIdentifier(entry.getKey())
+                            .setInfo(entry.getValue())
+                            .build()
+                            .writeDelimitedTo(fos);
+                }
+            }
+        } catch (final IOException e) {
+            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
+        }
     }
 }

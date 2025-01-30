@@ -185,7 +185,8 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value,
+    private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String blockName,
+                                                     @Nonnull String configName, @Nullable Object value,
                                                      int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
             @Override
@@ -243,6 +244,7 @@ public abstract class QueryConfig {
                     final var taskTotalTimeInNs = plannerMetrics.getLong(2);
                     Verify.verify(taskTotalTimeInNs > 0);
                 }
+                System.out.println(blockName);
             }
         };
     }
@@ -389,7 +391,7 @@ public abstract class QueryConfig {
         };
     }
 
-    public static QueryConfig parse(@Nonnull Object object, @Nonnull YamlExecutionContext executionContext) {
+    public static QueryConfig parse(@Nonnull Object object, @Nonnull String blockName, @Nonnull YamlExecutionContext executionContext) {
         final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
         final var lineNumber = linedObject.getLineNumber();
@@ -402,13 +404,13 @@ public abstract class QueryConfig {
                 return getCheckErrorConfig(value, lineNumber, executionContext);
             } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
                 if (shouldExecuteExplain(executionContext)) {
-                    return getCheckExplainConfig(true, key, value, lineNumber, executionContext);
+                    return getCheckExplainConfig(true, blockName, key, value, lineNumber, executionContext);
                 } else {
                     return getNoOpConfig(lineNumber, executionContext);
                 }
             } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
                 if (shouldExecuteExplain(executionContext)) {
-                    return getCheckExplainConfig(false, key, value, lineNumber, executionContext);
+                    return getCheckExplainConfig(false, blockName, key, value, lineNumber, executionContext);
                 } else {
                     return getNoOpConfig(lineNumber, executionContext);
                 }

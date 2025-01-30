@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +35,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
-
-import javax.annotation.Nonnull;
 
 /**
  * Implementation of block that serves the purpose of creating the 'environment' needed to run the {@link TestBlock}
@@ -82,7 +81,7 @@ public class SetupBlock extends ConnectedBlock {
                 final var executables = new ArrayList<Consumer<RelationalConnection>>();
                 for (final var step : Matchers.arrayList(stepsObject, "setup steps")) {
                     Assert.thatUnchecked(Matchers.map(step, "setup step").size() == 1, "Illegal Format: A setup step should be a single command");
-                    final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step), executionContext));
+                    final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step), "unnamed-setup-block", executionContext));
                     executables.add(resolvedCommand::execute);
                 }
                 return new ManualSetupBlock(lineNumber, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
