@@ -29,4 +29,6 @@ public interface YamlTestConfig {
     void beforeAll() throws Exception;
 
     void afterAll() throws Exception;
+
+    void assumeSupport(final String fileName);
 }

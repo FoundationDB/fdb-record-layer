@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -74,6 +75,11 @@ public class JDBCInProcessConfig implements YamlTestConfig {
                 return Set.of();
             }
         };
+    }
+
+    @Override
+    public void assumeSupport(final String fileName) {
+        Assumptions.assumeFalse(fileName.equals("enum.yamsql"), "Enums are not supported in JDBC");
     }
 
     @Override

@@ -84,6 +84,11 @@ public class MultiServerConfig implements YamlTestConfig {
     }
 
     @Override
+    public void assumeSupport(final String fileName) {
+        embeddedConfig.assumeSupport(fileName);
+    }
+
+    @Override
     public String toString() {
         if (initialConnection == 0) {
             return "MultiServer (Embedded then External)";

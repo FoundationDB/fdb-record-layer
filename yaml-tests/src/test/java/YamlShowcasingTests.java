@@ -30,4 +30,9 @@ public class YamlShowcasingTests {
     public void showcasingTests(YamlTest.Runner runner) throws Exception {
         runner.run("showcasing-tests.yamsql");
     }
+
+    @TestTemplate
+    public void enumTest(YamlTest.Runner runner) throws Exception {
+        runner.run("enum.yamsql");
+    }
 }

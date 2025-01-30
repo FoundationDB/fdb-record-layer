@@ -110,6 +110,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         @Override
         public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
             return (YamlTest.Runner) fileName -> {
+                config.assumeSupport(fileName);
                 var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), false);
                 try {
                     yamlRunner.run();

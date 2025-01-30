@@ -68,6 +68,11 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
+    public void assumeSupport(final String fileName) {
+        // all files are supported with the embedded config
+    }
+
+    @Override
     public String toString() {
         return "Embedded";
     }
