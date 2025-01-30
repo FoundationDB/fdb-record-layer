@@ -41,26 +41,32 @@ public class ExternalServer {
 
     private static final int SERVER_PORT = 1111;
     private final String jarName;
+    private final int grpcPort;
+    private final int httpPort;
     private String version;
     private Process serverProcess;
 
     /**
      * Create a new extension that will run latest released version of the server, as downloaded by gradle.
      */
-    public ExternalServer() {
-        this(null);
+    public ExternalServer(final int grpcPort, final int httpPort) {
+        this(null, grpcPort, httpPort);
     }
 
     /**
      * Create a new extension that will run a specific jar.
+     *
      * @param jarName the path to the jar to run
      */
-    public ExternalServer(String jarName) {
+    public ExternalServer(String jarName, final int grpcPort, final int httpPort) {
         this.jarName = jarName;
+        this.grpcPort = grpcPort;
+        this.httpPort = httpPort;
     }
 
     /**
      * Get the port to use when connecting.
+     *
      * @return the grpc port that the server is listening to
      */
     public int getPort() {
@@ -69,6 +75,7 @@ public class ExternalServer {
 
     /**
      * Get the version of the server.
+     *
      * @return the version of the server being run.
      */
     public String getVersion() {
@@ -87,7 +94,10 @@ public class ExternalServer {
         }
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
         ProcessBuilder processBuilder = new ProcessBuilder("java",
-                "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n", jar.getAbsolutePath());
+                // TODO add support for debugging by adding, but need to take care with ports
+                // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
+                "-jar", jar.getAbsolutePath(),
+                "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
 

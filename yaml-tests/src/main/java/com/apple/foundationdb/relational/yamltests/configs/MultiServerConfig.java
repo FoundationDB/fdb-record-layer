@@ -38,10 +38,10 @@ public class MultiServerConfig implements YamlTestConfig {
     private final ExternalServer externalServer;
     private int initialConnection;
 
-    public MultiServerConfig(final int initialConnection) {
+    public MultiServerConfig(final int initialConnection, final int grpcPort, final int httpPort) {
         this.initialConnection = initialConnection;
         embeddedConfig = new JDBCInProcessConfig();
-        externalServer = new ExternalServer();
+        externalServer = new ExternalServer(grpcPort, httpPort);
     }
 
     @Override

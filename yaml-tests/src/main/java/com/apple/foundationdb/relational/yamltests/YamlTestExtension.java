@@ -45,7 +45,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private final List<YamlTestConfig> testConfigs = List.of(
             new EmbeddedConfig(),
             new JDBCInProcessConfig(),
-            new MultiServerConfig(0)
+            new MultiServerConfig(0, 1111, 1112),
+            new MultiServerConfig(1, 1113, 1114)
     );
 
     @Override

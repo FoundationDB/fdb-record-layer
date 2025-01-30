@@ -40,7 +40,7 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
      * Create a new extension that will run latest released version of the server, as downloaded by gradle.
      */
     public RunExternalServerExtension() {
-        this.externalServer = new ExternalServer();
+        this.externalServer = new ExternalServer(SERVER_PORT, SERVER_PORT + 1);
     }
 
     /**
@@ -48,7 +48,7 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
      * @return the grpc port that the server is listening to
      */
     public int getPort() {
-        return SERVER_PORT;
+        return externalServer.getPort();
     }
 
     /**
