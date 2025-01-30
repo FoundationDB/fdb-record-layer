@@ -18,232 +18,234 @@
  * limitations under the License.
  */
 
+import com.apple.foundationdb.relational.yamltests.YamlTest;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 
 /**
- * Base class covering all the integration tests specified by yamsql files.
+ * Class covering the standard integration tests specified by yamsql files.
  */
-public abstract class YamlIntegrationTests extends YamlTestBase {
-    @Test
-    public void showcasingTests() throws Exception {
-        doRun("showcasing-tests.yamsql");
+@YamlTest
+public class YamlIntegrationTests {
+    @TestTemplate
+    public void showcasingTests(YamlTest.Runner runner) throws Exception {
+        runner.run("showcasing-tests.yamsql");
     }
 
-    @Test
-    public void groupByTests() throws Exception {
-        doRun("groupby-tests.yamsql");
+    @TestTemplate
+    public void groupByTests(YamlTest.Runner runner) throws Exception {
+        runner.run("groupby-tests.yamsql");
     }
 
-    @Test
-    public void standardTests() throws Exception {
-        doRun("standard-tests.yamsql");
+    @TestTemplate
+    public void standardTests(YamlTest.Runner runner) throws Exception {
+        runner.run("standard-tests.yamsql");
     }
 
-    @Test
-    public void standardTestsWithProto() throws Exception {
-        doRun("standard-tests-proto.yamsql");
+    @TestTemplate
+    public void standardTestsWithProto(YamlTest.Runner runner) throws Exception {
+        runner.run("standard-tests-proto.yamsql");
     }
 
-    @Test
-    public void fieldIndexTestsProto() throws Exception {
-        doRun("field-index-tests-proto.yamsql");
+    @TestTemplate
+    public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
+        runner.run("field-index-tests-proto.yamsql");
     }
 
-    @Test
-    public void standardTestsWithMetaData() throws Exception {
-        doRun("standard-tests-metadata.yamsql");
+    @TestTemplate
+    public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
+        runner.run("standard-tests-metadata.yamsql");
     }
 
-    @Test
-    public void nullOperator() throws Exception {
-        doRun("null-operator-tests.yamsql");
+    @TestTemplate
+    public void nullOperator(YamlTest.Runner runner) throws Exception {
+        runner.run("null-operator-tests.yamsql");
     }
 
-    @Test
+    @TestTemplate
     @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
-    public void deprecatedFieldsTestsWithProto() throws Exception {
-        doRun("deprecated-fields-tests-proto.yamsql");
+    public void deprecatedFieldsTestsWithProto(YamlTest.Runner runner) throws Exception {
+        runner.run("deprecated-fields-tests-proto.yamsql");
     }
 
-    @Test
-    public void versionsTests() throws Exception {
-        doRun("versions-tests.yamsql");
+    @TestTemplate
+    public void versionsTests(YamlTest.Runner runner) throws Exception {
+        runner.run("versions-tests.yamsql");
     }
 
-    @Test
-    public void scenarioTests() throws Exception {
-        doRun("scenario-tests.yamsql");
+    @TestTemplate
+    public void scenarioTests(YamlTest.Runner runner) throws Exception {
+        runner.run("scenario-tests.yamsql");
     }
 
-    @Test
-    public void joinTests() throws Exception {
-        doRun("join-tests.yamsql");
+    @TestTemplate
+    public void joinTests(YamlTest.Runner runner) throws Exception {
+        runner.run("join-tests.yamsql");
     }
 
-    @Test
-    public void subqueryTests() throws Exception {
-        doRun("subquery-tests.yamsql");
+    @TestTemplate
+    public void subqueryTests(YamlTest.Runner runner) throws Exception {
+        runner.run("subquery-tests.yamsql");
     }
 
-    @Test
-    public void selectAStar() throws Exception {
-        doRun("select-a-star.yamsql");
+    @TestTemplate
+    public void selectAStar(YamlTest.Runner runner) throws Exception {
+        runner.run("select-a-star.yamsql");
     }
 
-    @Test
-    public void insertsUpdatesDeletes() throws Exception {
-        doRun("inserts-updates-deletes.yamsql");
+    @TestTemplate
+    public void insertsUpdatesDeletes(YamlTest.Runner runner) throws Exception {
+        runner.run("inserts-updates-deletes.yamsql");
     }
 
-    @Test
+    @TestTemplate
     @Disabled("TODO (Cannot insert into table after dropping and recreating schema template when using EmbeddedJDBCDriver)")
-    public void createDropCreateTemplate() throws Exception {
-        doRun("create-drop-create-template.yamsql");
+    public void createDropCreateTemplate(YamlTest.Runner runner) throws Exception {
+        runner.run("create-drop-create-template.yamsql");
     }
 
-    @Test
-    public void aggregateIndexTests() throws Exception {
-        doRun("aggregate-index-tests.yamsql");
+    @TestTemplate
+    public void aggregateIndexTests(YamlTest.Runner runner) throws Exception {
+        runner.run("aggregate-index-tests.yamsql");
     }
 
-    @Test
-    public void aggregateEmptyTable() throws Exception {
-        doRun("aggregate-empty-table.yamsql");
+    @TestTemplate
+    public void aggregateEmptyTable(YamlTest.Runner runner) throws Exception {
+        runner.run("aggregate-empty-table.yamsql");
     }
 
-    @Test
-    public void aggregateIndexTestsCount() throws Exception {
-        doRun("aggregate-index-tests-count.yamsql");
+    @TestTemplate
+    public void aggregateIndexTestsCount(YamlTest.Runner runner) throws Exception {
+        runner.run("aggregate-index-tests-count.yamsql");
     }
 
-    @Test
-    public void aggregateIndexTestsCountEmpty() throws Exception {
-        doRun("aggregate-index-tests-count-empty.yamsql");
+    @TestTemplate
+    public void aggregateIndexTestsCountEmpty(YamlTest.Runner runner) throws Exception {
+        runner.run("aggregate-index-tests-count-empty.yamsql");
     }
 
-    @Test
-    public void maxRows() throws Exception {
-        doRun("maxRows.yamsql");
+    @TestTemplate
+    public void maxRows(YamlTest.Runner runner) throws Exception {
+        runner.run("maxRows.yamsql");
     }
 
-    @Test
-    public void nested() throws Exception {
-        doRun("nested-tests.yamsql");
+    @TestTemplate
+    public void nested(YamlTest.Runner runner) throws Exception {
+        runner.run("nested-tests.yamsql");
     }
 
-    @Test
-    public void orderBy() throws Exception {
-        doRun("orderby.yamsql");
+    @TestTemplate
+    public void orderBy(YamlTest.Runner runner) throws Exception {
+        runner.run("orderby.yamsql");
     }
 
-    @Test
-    public void primaryKey() throws Exception {
-        doRun("primary-key-tests.yamsql");
+    @TestTemplate
+    public void primaryKey(YamlTest.Runner runner) throws Exception {
+        runner.run("primary-key-tests.yamsql");
     }
 
-    @Test
-    public void sparseIndex() throws Exception {
-        doRun("sparse-index-tests.yamsql");
+    @TestTemplate
+    public void sparseIndex(YamlTest.Runner runner) throws Exception {
+        runner.run("sparse-index-tests.yamsql");
     }
 
-    @Test
-    public void disabledIndexWithProto() throws Exception {
-        doRun("disabled-index-tests-proto.yamsql");
+    @TestTemplate
+    public void disabledIndexWithProto(YamlTest.Runner runner) throws Exception {
+        runner.run("disabled-index-tests-proto.yamsql");
     }
 
-    @Test
-    public void inPredicate() throws Exception {
-        doRun("in-predicate.yamsql");
+    @TestTemplate
+    public void inPredicate(YamlTest.Runner runner) throws Exception {
+        runner.run("in-predicate.yamsql");
     }
 
-    @Test
-    void booleanTypes() throws Exception {
-        doRun("boolean.yamsql");
+    @TestTemplate
+    void booleanTypes(YamlTest.Runner runner) throws Exception {
+        runner.run("boolean.yamsql");
     }
 
-    @Test
-    void bytes() throws Exception {
-        doRun("bytes.yamsql");
+    @TestTemplate
+    void bytes(YamlTest.Runner runner) throws Exception {
+        runner.run("bytes.yamsql");
     }
 
-    @Test
-    void catalog() throws Exception {
-        doRun("catalog.yamsql");
+    @TestTemplate
+    void catalog(YamlTest.Runner runner) throws Exception {
+        runner.run("catalog.yamsql");
     }
 
-    @Test
-    public void caseWhen() throws Exception {
-        doRun("case-when.yamsql");
+    @TestTemplate
+    public void caseWhen(YamlTest.Runner runner) throws Exception {
+        runner.run("case-when.yamsql");
     }
 
-    @Test
-    public void updateDeleteReturning() throws Exception {
-        doRun("update-delete-returning.yamsql");
+    @TestTemplate
+    public void updateDeleteReturning(YamlTest.Runner runner) throws Exception {
+        runner.run("update-delete-returning.yamsql");
     }
 
-    @Test
-    void like() throws Exception {
-        doRun("like.yamsql");
+    @TestTemplate
+    void like(YamlTest.Runner runner) throws Exception {
+        runner.run("like.yamsql");
     }
 
-    @Test
-    void functions() throws Exception {
-        doRun("functions.yamsql");
+    @TestTemplate
+    void functions(YamlTest.Runner runner) throws Exception {
+        runner.run("functions.yamsql");
     }
 
-    @Test
-    void createDrop() throws Exception {
-        doRun("create-drop.yamsql");
+    @TestTemplate
+    void createDrop(YamlTest.Runner runner) throws Exception {
+        runner.run("create-drop.yamsql");
     }
 
-    @Test
-    void arrays() throws Exception {
-        doRun("arrays.yamsql");
+    @TestTemplate
+    void arrays(YamlTest.Runner runner) throws Exception {
+        runner.run("arrays.yamsql");
     }
 
-    @Test
-    public void insertEnum() throws Exception {
-        doRun("insert-enum.yamsql");
+    @TestTemplate
+    public void insertEnum(YamlTest.Runner runner) throws Exception {
+        runner.run("insert-enum.yamsql");
     }
 
-    @Test
-    public void prepared() throws Exception {
-        doRun("prepared.yamsql");
+    @TestTemplate
+    public void prepared(YamlTest.Runner runner) throws Exception {
+        runner.run("prepared.yamsql");
     }
 
-    @Test
-    public void indexedFunctions() throws Exception {
-        doRun("indexed-functions.yamsql");
+    @TestTemplate
+    public void indexedFunctions(YamlTest.Runner runner) throws Exception {
+        runner.run("indexed-functions.yamsql");
     }
 
-    @Test
-    public void union() throws Exception {
-        doRun("union.yamsql");
+    @TestTemplate
+    public void union(YamlTest.Runner runner) throws Exception {
+        runner.run("union.yamsql");
     }
 
-    @Test
-    public void unionEmptyTables() throws Exception {
-        doRun("union-empty-tables.yamsql");
+    @TestTemplate
+    public void unionEmptyTables(YamlTest.Runner runner) throws Exception {
+        runner.run("union-empty-tables.yamsql");
     }
 
-    @Test
-    public void cte() throws Exception {
-        doRun("cte.yamsql");
+    @TestTemplate
+    public void cte(YamlTest.Runner runner) throws Exception {
+        runner.run("cte.yamsql");
     }
 
-    @Test
-    public void bitmap() throws Exception {
-        doRun("bitmap-aggregate-index.yamsql");
+    @TestTemplate
+    public void bitmap(YamlTest.Runner runner) throws Exception {
+        runner.run("bitmap-aggregate-index.yamsql");
     }
 
-    @Test
-    public void recursiveCte() throws Exception {
-        doRun("recursive-cte.yamsql");
+    @TestTemplate
+    public void recursiveCte(YamlTest.Runner runner) throws Exception {
+        runner.run("recursive-cte.yamsql");
     }
 
-    @Test
-    public void enumTest() throws Exception {
-        doRun("enum.yamsql");
+    @TestTemplate
+    public void enumTest(YamlTest.Runner runner) throws Exception {
+        runner.run("enum.yamsql");
     }
 }
