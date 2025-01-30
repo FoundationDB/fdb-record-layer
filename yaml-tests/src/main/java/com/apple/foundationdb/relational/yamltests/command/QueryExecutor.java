@@ -211,6 +211,7 @@ public class QueryExecutor {
             Object result = executeStatement(s, queryString);
             if (result instanceof RelationalResultSet) {
                 List<RelationalResultSet> results = new ArrayList<>();
+                @SuppressWarnings("PMD.CloseResource")
                 RelationalResultSet resultSet = (RelationalResultSet)result;
                 RelationalResultSetMetaData metadata = resultSet.getMetaData(); // The first metadata will be used for all
                 boolean hasResult = resultSet.next(); // Initialize result set value retrieval. Has only one row.
