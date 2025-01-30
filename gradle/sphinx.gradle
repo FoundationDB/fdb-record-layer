@@ -22,6 +22,20 @@ var sphinxRoot = "${rootDir}/docs/sphinx"
 var venvDir = "${sphinxRoot}/.venv"
 var sphinxBuildDir = "${sphinxRoot}/.out"
 
+var documented_subprojects = [
+        "fdb-java-annotations",
+        "fdb-extensions",
+        "fdb-record-layer-core",
+        "fdb-record-layer-icu",
+        "fdb-record-layer-lucene",
+        "fdb-record-layer-spatial",
+        "fdb-relational-api",
+        "fdb-relational-core",
+        "fdb-relational-cli",
+        "fdb-relational-grpc",
+        "fdb-relational-jdbc",
+]
+
 task sphinxEnv {
     inputs.file("${sphinxRoot}/requirements.txt")
     outputs.dir(venvDir)
@@ -36,13 +50,57 @@ task sphinxEnv {
     }
 }
 
+// Create svg files for railroad diagrams from specification files. These images are included
+// in the docs
 task generateRailroadDiagrams(type: Exec) {
     inputs.file("${sphinxRoot}/generate_railroad_svg.py")
-    inputs.dir("${sphinxRoot}/source")
-    outputs.dir("${sphinxRoot}/source")
+    fileTree("${sphinxRoot}/source") {
+        include("**/*.diagram")
+    }.forEach {
+        inputs.file(it)
+        outputs.file(it.getPath() + ".svg")
+    }
 
     dependsOn sphinxEnv
-    commandLine "${venvDir}/bin/python", "${sphinxRoot}/generate_railroad_svg.py"
+    // commandLine "${venvDir}/bin/python", "${sphinxRoot}/generate_railroad_svg.py"
+    commandLine "echo", "foo"
+}
+
+// To include the API Javadocs in the final build, we need to have a place for the sphinx build
+// to link to. Create temporary placeholders for each one. Later, we will override the location
+// with the generated javadoc. Also, generates a table of contents so that we have all of the
+// subprojects listed
+task createSphinxApiPlaceholders {
+    var apiTemplatePath = "${sphinxRoot}/source/api/api.md.template"
+    inputs.file(apiTemplatePath)
+    var inputPath = "${sphinxRoot}/source/api/index.md.template"
+    inputs.file(inputPath)
+    var outputPath = "${sphinxRoot}/source/api/index.md"
+    outputs.file(outputPath)
+
+    String baseInput = new File(inputPath).getText('UTF-8')
+    String outputText = baseInput + "\n```{toctree}\n\n"
+
+    documented_subprojects.forEach {
+        outputText += "${it} <${it}/index>\n"
+        File placeholderDir = new File("${sphinxRoot}/source/api/${it}")
+        if (!placeholderDir.exists()) {
+            placeholderDir.mkdirs()
+        }
+        outputs.dir(placeholderDir)
+    }
+    outputText += "```\n"
+
+    doLast {
+        new File(outputPath).text = outputText
+        documented_subprojects.forEach {
+            File placeholderDir = new File("${sphinxRoot}/source/api/${it}")
+            File placeholderIndex = new File(placeholderDir.getPath() + "/index.md")
+
+            String placeholderText = "# ${it}\n\n" + new File(apiTemplatePath).text
+            placeholderIndex.text = placeholderText
+        }
+    }
 }
 
 // Build the sphinx documentation
@@ -53,7 +111,22 @@ task sphinxDocs(type: Exec) {
 
     dependsOn sphinxEnv
     dependsOn generateRailroadDiagrams
+    dependsOn createSphinxApiPlaceholders
     commandLine "${venvDir}/bin/sphinx-build", '-M', 'html', "${sphinxRoot}/source", sphinxBuildDir
+}
+
+// Compile the final documentation site by copying the generated javadoc into the appropriate
+// location in the build
+task documentationSite(type: Copy) {
+    dependsOn(javadoc)
+    dependsOn(sphinxDocs)
+
+    into("${sphinxBuildDir}/html/api")
+    documented_subprojects.forEach { proj ->
+        from(project(":${proj}").javadoc) {
+            into("${proj}")
+        }
+    }
 }
 
 // Clean the sphinx build
@@ -62,5 +135,10 @@ task sphinxClean(type: Delete) {
     delete fileTree("${sphinxRoot}/source") {
         include "**/*.diagram.svg"
     }
-    delete(venvDir)
+    file("${sphinxRoot}/source/api").listFiles().each {
+        if (!it.getPath().endsWith(".md.template")) {
+            delete(it)
+        }
+    }
 }
+clean.dependsOn(sphinxClean)

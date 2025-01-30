@@ -30,9 +30,10 @@ railroad.VS = 15
 railroad.AR = 12
 
 # Find all diagram files and generate svgs
+base_dir = path.dirname(path.abspath(__file__))
 for root, dirs, files in walk('.'):
     for file in files:
-        if (file.endswith('.diagram')):
+        if file.endswith('.diagram'):
             with open(path.join(root, file), 'r') as diagram_file:
                 diagram = eval(diagram_file.read())
                 with open(path.join(root, file + ".svg"), 'w') as svg_file:
