@@ -1,0 +1,118 @@
+/*
+ * YamlTestExtension.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.yamltests;
+
+import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
+import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.Extension;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.ParameterContext;
+import org.junit.jupiter.api.extension.ParameterResolutionException;
+import org.junit.jupiter.api.extension.ParameterResolver;
+import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
+import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
+
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.stream.Stream;
+
+public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
+    private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
+    private List<YamlTestConfig> testConfigs = List.of(
+            new EmbeddedConfig()
+    );
+
+    @Override
+    public void beforeAll(final ExtensionContext context) throws Exception {
+        for (final YamlTestConfig testConfig : testConfigs) {
+            testConfig.beforeAll(); // TODO handle exceptions
+        }
+    }
+
+    @Override
+    public void afterAll(final ExtensionContext context) throws Exception {
+        for (final YamlTestConfig testConfig : testConfigs) {
+            testConfig.afterAll();
+        }
+    }
+
+    @Override
+    public boolean supportsTestTemplate(final ExtensionContext context) {
+        return true; // TODO check type
+    }
+
+    @Override
+    public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(final ExtensionContext context) {
+        return testConfigs.stream().map(config -> new Context(context.getRequiredTestMethod(), config));
+    }
+
+    private static class Context implements TestTemplateInvocationContext {
+        private final Method requiredTestMethod;
+        private final YamlTestConfig config;
+
+        public Context(final Method requiredTestMethod, final YamlTestConfig config) {
+            this.requiredTestMethod = requiredTestMethod;
+            this.config = config;
+        }
+
+
+        @Override
+        public String getDisplayName(int invocationIndex) {
+            return config.toString();
+        }
+
+        @Override
+        public List<Extension> getAdditionalExtensions() {
+            return List.of(new ClassParameterResolver(config));
+        }
+    }
+
+    private static final class ClassParameterResolver implements ParameterResolver {
+
+        private final YamlTestConfig config;
+
+        public ClassParameterResolver(YamlTestConfig config) {
+            this.config = config;
+        }
+
+        @Override
+        public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
+            return parameterContext.getParameter().getType().equals(YamlTest.Runner.class);
+        }
+
+        @Override
+        public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
+            return (YamlTest.Runner) fileName -> {
+                var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), false);
+                try {
+                    yamlRunner.run();
+                } catch (Exception e) {
+                    logger.error("‼️ running test file '{}' was not successful", fileName, e);
+                    throw e;
+                }
+            };
+        }
+    }
+}
