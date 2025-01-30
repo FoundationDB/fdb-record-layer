@@ -36,8 +36,9 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
-import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
@@ -52,14 +53,22 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         for (final YamlTestConfig testConfig : testConfigs) {
-            testConfig.beforeAll(); // TODO handle exceptions
+            testConfig.beforeAll();
         }
     }
 
     @Override
     public void afterAll(final ExtensionContext context) throws Exception {
-        for (final YamlTestConfig testConfig : testConfigs) {
-            testConfig.afterAll();
+        final Optional<Exception> exception = testConfigs.stream().map(config -> {
+            try {
+                config.afterAll();
+                return null;
+            } catch (Exception e) {
+                return e;
+            }
+        }).filter(Objects::nonNull).findFirst();
+        if (exception.isPresent()) {
+            throw exception.get();
         }
     }
 
@@ -70,15 +79,13 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(final ExtensionContext context) {
-        return testConfigs.stream().map(config -> new Context(context.getRequiredTestMethod(), config));
+        return testConfigs.stream().map(Context::new);
     }
 
     private static class Context implements TestTemplateInvocationContext {
-        private final Method requiredTestMethod;
         private final YamlTestConfig config;
 
-        public Context(final Method requiredTestMethod, final YamlTestConfig config) {
-            this.requiredTestMethod = requiredTestMethod;
+        public Context(final YamlTestConfig config) {
             this.config = config;
         }
 
