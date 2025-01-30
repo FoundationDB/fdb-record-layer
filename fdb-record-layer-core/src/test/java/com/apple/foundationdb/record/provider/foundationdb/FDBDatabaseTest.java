@@ -40,12 +40,15 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
@@ -83,8 +86,10 @@ class FDBDatabaseTest {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseTest.class);
     @RegisterExtension
+    @Order(0)
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
+    @Order(1)
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     @Test
@@ -216,6 +221,7 @@ class FDBDatabaseTest {
 
     @ParameterizedTest(name = "testJoinNowOnCompletedFuture (behavior = {0})")
     @EnumSource(BlockingInAsyncDetection.class)
+    @ResourceLock(Resources.GLOBAL)
     void testJoinNowOnCompletedFuture(BlockingInAsyncDetection behavior) {
         FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(behavior);
@@ -231,6 +237,7 @@ class FDBDatabaseTest {
 
     @ParameterizedTest(name = "testJoinNowOnNonCompletedFuture (behavior = {0})")
     @EnumSource(BlockingInAsyncDetection.class)
+    @ResourceLock(Resources.GLOBAL)
     void testJoinNowOnNonCompletedFuture(BlockingInAsyncDetection behavior) {
         FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(behavior);

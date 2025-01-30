@@ -39,6 +39,7 @@ import com.apple.foundationdb.test.TestMdcExtension;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
@@ -57,8 +58,10 @@ import java.util.UUID;
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreConcurrentTestBase {
     @RegisterExtension
+    @Order(0)
     protected final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
+    @Order(1)
     protected final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStoreConcurrentTestBase.class);

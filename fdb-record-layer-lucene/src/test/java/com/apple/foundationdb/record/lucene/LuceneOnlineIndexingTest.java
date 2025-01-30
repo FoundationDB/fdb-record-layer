@@ -66,6 +66,8 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -112,6 +114,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Execution(ExecutionMode.CONCURRENT)
 class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneOnlineIndexingTest.class);
@@ -151,10 +154,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
-                    .setIndex(index)
-                    .build()) {
+            try (OnlineIndexer indexBuilder = newIndexer(index.getName())) {
                 assertTrue(recordStore.isIndexDisabled(index));
                 indexBuilder.buildIndex(true);
             }
@@ -205,8 +205,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
             final RuntimeException stopBuildException = new RuntimeException("stop build");
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setInitialLimit(1)
                     .setConfigLoader(config -> {
@@ -264,10 +263,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // finish the indexing process
         try (final FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
-                    .setIndex(index)
-                    .build()) {
+            try (OnlineIndexer indexBuilder = newIndexer(index.getName())) {
                 assertTrue(recordStore.isIndexWriteOnly(index));
                 indexBuilder.buildIndex(true);
             }
@@ -361,8 +357,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         AtomicInteger counter = new AtomicInteger(0);
         try (final FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setInitialLimit(1)
                     .setLimit(1)
@@ -518,8 +513,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // build the index ..
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, document, index);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setLimit(transactionLimit)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -608,8 +602,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // build the index ..
         try (final FDBRecordContext context = openContext()) {
             recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTargetIndexes(indexes)
                     .setLimit(transactionLimit)
                     .build()) {
@@ -689,8 +682,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // build the index ..
         try (final FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .build()) {
                 assertTrue(recordStore.isIndexDisabled(index));
@@ -746,10 +738,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         String[] allFiles = listFiles(index, tuple, groupingCount);
         int oldLength = allFiles.length;
 
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexer(index.getName())) {
             indexBuilder.mergeIndex();
         }
 
@@ -831,10 +820,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         String[] allFiles = listFiles(index);
         int oldLength = allFiles.length;
 
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexer(index.getName())) {
             indexBuilder.mergeIndex();
         }
 
@@ -878,10 +864,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         String[] allFiles = listFiles(index);
         int oldLength = allFiles.length;
 
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
-                .setIndex(index)
-                .build()) {
+        try (OnlineIndexer indexBuilder = newIndexer(index.getName())) {
             indexBuilder.mergeIndex();
         }
 
@@ -928,10 +911,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         int loopCounter = 0;
         for (boolean allDone = false; !allDone; loopCounter++) {
             int oldLength = listFiles(index).length;
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
-                    .setIndex(index)
-                    .build()) {
+            try (OnlineIndexer indexBuilder = newIndexer(index.getName())) {
                 indexBuilder.mergeIndex();
             }
             int newLength = listFiles(index).length;
@@ -955,8 +935,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         int loopCounter = 0;
         for (boolean allDone = false; !allDone; loopCounter++) {
             int oldLength = listFiles(index).length;
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setInitialMergesCountLimit(mergesLimit)
@@ -1044,8 +1023,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
         boolean needMerge = populateDataSplitSegments(index, 4, 1);
         assertTrue(needMerge);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
                 .setMaxAttempts(1)
                 .build()) {
@@ -1110,8 +1088,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
         boolean needMerge = populateDataSplitSegments(index, 4, 1);
         assertTrue(needMerge);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
                 .setMaxAttempts(1)
                 .build()) {
@@ -1143,8 +1120,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = openContext(insertProps)) {
             openRecordStore(context, hook);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
                     .build()) {
@@ -1191,8 +1167,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = openContext(insertProps)) {
             openRecordStore(context, hook);
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
                     .build()) {
@@ -1266,8 +1241,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
         boolean needMerge = populateDataSplitSegments(index, 4, 1);
         assertTrue(needMerge);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
                 .setMaxAttempts(1)
                 .build()) {
@@ -1342,8 +1316,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
         boolean needMerge = populateDataSplitSegments(index, 4, 1);
         assertTrue(needMerge);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
                 .setMaxAttempts(1)
                 .build()) {

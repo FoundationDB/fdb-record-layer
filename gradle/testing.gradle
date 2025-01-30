@@ -222,10 +222,13 @@ tasks.withType(Test).configureEach { task ->
         }
         task.testFramework.options.excludeTags.add('Performance')
 
-        if (task.name == 'test') {
-            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'false')
-            task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'same_thread')
+        if (task.name == 'test' && project.name in ['fdb-extensions', 'fdb-record-layer-core', 'fdb-record-layer-lucene', 'fdb-record-layer-icu', 'fdb-record-layer-spatial']) {
+            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'true')
+            task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'concurrent')
             task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'concurrent')
+            task.systemProperty('junit.jupiter.execution.parallel.config.strategy', 'fixed')
+            task.systemProperty('junit.jupiter.execution.parallel.config.fixed.parallelism', "${testConcurrency}")
+            task.systemProperty('com.apple.foundationdb.test.concurrencyLimit', "${testConcurrency}")
         }
     }
 

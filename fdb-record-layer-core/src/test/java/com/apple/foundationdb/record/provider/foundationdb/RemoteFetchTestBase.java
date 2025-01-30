@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.provider.Arguments;
 
 import javax.annotation.Nonnull;
@@ -59,6 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Base class for RemoteFetch tests.
  */
 @Tag(Tags.RequiresFDB)
+@Isolated
 public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
 
     protected static final RecordQuery NUM_VALUES_LARGER_THAN_990 = RecordQuery.newBuilder()

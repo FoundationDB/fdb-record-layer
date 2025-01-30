@@ -40,6 +40,7 @@ import com.apple.test.Tags;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -56,8 +57,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractSyntheticRecordPlannerTest {
     @RegisterExtension
+    @Order(0)
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
+    @Order(1)
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     protected FDBDatabase fdb;

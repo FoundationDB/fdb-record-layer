@@ -578,8 +578,7 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
                 injectedFailures.removeFailure(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC);
             }
 
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
                     .build()) {

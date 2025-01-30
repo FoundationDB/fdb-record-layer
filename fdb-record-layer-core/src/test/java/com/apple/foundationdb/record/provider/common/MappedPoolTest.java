@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.common;
 
 import org.junit.jupiter.api.Test;
+
+import javax.annotation.Nonnull;
 import javax.crypto.Cipher;
 import java.security.GeneralSecurityException;
 
@@ -40,37 +42,43 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class MappedPoolTest {
 
     public static String CIPHER = "DES/ECB/PKCS5Padding";
-    public static MappedPool<String, Cipher, GeneralSecurityException> MAPPED_POOL = new MappedPool<>(Cipher::getInstance);
+
+    @Nonnull
+    private MappedPool<String, Cipher, GeneralSecurityException> getPool() {
+        return new MappedPool<>(Cipher::getInstance);
+    }
 
     @Test
     public void testCipherPool() throws Exception {
+        final var mappedPool = getPool();
         Cipher lastCipher = null;
         for (int i = 0; i < 100; i++) {
-            Cipher cipher = MAPPED_POOL.poll(CIPHER);
+            Cipher cipher = mappedPool.poll(CIPHER);
             if (lastCipher != null) {
                 assertSame(cipher, lastCipher);
                 lastCipher = cipher;
             }
             assertNotNull(cipher);
-            assertTrue(MAPPED_POOL.offer(CIPHER, cipher));
+            assertTrue(mappedPool.offer(CIPHER, cipher));
         }
-        assertEquals(1, MAPPED_POOL.getPoolSize(CIPHER));
-        assertThat(MAPPED_POOL.getKeys(), hasItem(CIPHER));
+        assertEquals(1, mappedPool.getPoolSize(CIPHER));
+        assertThat(mappedPool.getKeys(), hasItem(CIPHER));
     }
 
     @Test
     public void testMaxPoolSize() throws Exception {
+        final var mappedPool = getPool();
         Cipher[] ciphers = new Cipher[1000];
         for (int i = 0; i < 1000; i++) {
-            ciphers[i] = MAPPED_POOL.poll(CIPHER);
+            ciphers[i] = mappedPool.poll(CIPHER);
         }
         for (int i = 0; i < MappedPool.DEFAULT_POOL_SIZE; i++) {
-            assertTrue(MAPPED_POOL.offer(CIPHER, ciphers[i]));
+            assertTrue(mappedPool.offer(CIPHER, ciphers[i]));
         }
         for (int i = MappedPool.DEFAULT_POOL_SIZE; i < 1000; i++) {
-            assertFalse(MAPPED_POOL.offer(CIPHER, ciphers[i]));
+            assertFalse(mappedPool.offer(CIPHER, ciphers[i]));
         }
-        assertEquals(64, MAPPED_POOL.getPoolSize(CIPHER));
+        assertEquals(64, mappedPool.getPoolSize(CIPHER));
     }
 
 }

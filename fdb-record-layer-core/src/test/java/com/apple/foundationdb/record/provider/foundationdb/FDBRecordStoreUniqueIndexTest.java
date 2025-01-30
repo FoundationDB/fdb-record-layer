@@ -45,8 +45,8 @@ import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainer;
-import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -59,6 +59,8 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -98,6 +100,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests of uniqueness checks.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
     private static final String NO_UNIQUE_CLEAR_INDEX_TYPE = "no_unique_clear";
@@ -310,8 +313,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             recordStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), path).getLeft();
             commit(context);
 
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setTargetIndexes(List.of(uniqueIndex))
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .allowUniquePendingState(true))
@@ -630,8 +632,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                 if (allowReadableUniquePending) {
                     indexingPolicy.allowUniquePendingState();
                 }
-                try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                        .setRecordStore(recordStore)
+                try (OnlineIndexer indexer = newIndexerBuilder()
                         .setTargetIndexesByName(List.of(uniqueIndex.getName()))
                         .setIndexingPolicy(indexingPolicy
                                 .build()).build()) {

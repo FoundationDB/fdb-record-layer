@@ -65,7 +65,7 @@ public class RangeSetTest {
     @RegisterExtension
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
     @RegisterExtension
-    TestSubspaceExtension rsSubspaceExtension = new TestSubspaceExtension(dbExtension);
+    final TestSubspaceExtension rsSubspaceExtension = new TestSubspaceExtension(dbExtension);
     private Database db;
     private Subspace rsSubspace;
     private RangeSet rs;

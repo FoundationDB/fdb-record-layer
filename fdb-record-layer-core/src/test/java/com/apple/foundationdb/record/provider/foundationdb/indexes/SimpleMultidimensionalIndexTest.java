@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -35,18 +37,22 @@ import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
 /**
  * Simple tests for Multidimensional Index.
  */
+@Execution(ExecutionMode.CONCURRENT)
 class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
+    static Stream<String> storageAdapterArgs() {
+        return Stream.of(BY_NODE.toString(), BY_SLOT.toString());
+    }
+
+    static Stream<Boolean> booleanArgs() {
+        return Stream.of(false, true);
+    }
+
     static Stream<Arguments> argumentsForBasicReads() {
-        return Stream.of(
-                Arguments.of(BY_NODE.toString(), false, false),
-                Arguments.of(BY_NODE.toString(), false, true),
-                Arguments.of(BY_NODE.toString(), true, false),
-                Arguments.of(BY_NODE.toString(), true, true),
-                Arguments.of(BY_SLOT.toString(), false, false),
-                Arguments.of(BY_SLOT.toString(), false, true),
-                Arguments.of(BY_SLOT.toString(), true, false),
-                Arguments.of(BY_SLOT.toString(), true, true));
+        return storageAdapterArgs().flatMap(storageAdapter ->
+                booleanArgs().flatMap(storeHilbertValues ->
+                        booleanArgs().map(useNodeSlotIndex ->
+                                Arguments.of(storageAdapter, storeHilbertValues, useNodeSlotIndex))));
     }
 
     /**
@@ -57,62 +63,51 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
      *
      * @return a stream of arguments
      */
+    @Nonnull
     static Stream<Arguments> argumentsForIndexReads() {
         final Random random = new Random(System.currentTimeMillis());
-        return Stream.of(
-                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), false, false),
-                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), false, true),
-                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), true, false),
-                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), true, true),
-                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), false, false),
-                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), false, true),
-                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), true, false),
-                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), true, true),
-                Arguments.of(random.nextLong(), 500, BY_SLOT.toString(), false, false),
-                Arguments.of(random.nextLong(), 500, BY_SLOT.toString(), false, true),
-                Arguments.of(random.nextLong(), 500, BY_SLOT.toString(), true, false),
-                Arguments.of(random.nextLong(), 500, BY_SLOT.toString(), true, true),
-                Arguments.of(random.nextLong(), 500, BY_NODE.toString(), false, false),
-                Arguments.of(random.nextLong(), 500, BY_NODE.toString(), false, true),
-                Arguments.of(random.nextLong(), 500, BY_NODE.toString(), true, false),
-                Arguments.of(random.nextLong(), 500, BY_NODE.toString(), true, true),
-                // large values only for default config
-                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), true, false),
-                Arguments.of(random.nextLong(), 5000, BY_NODE.toString(), true, false)
-        );
+        return storageAdapterArgs().flatMap(storageAdapter ->
+                booleanArgs().flatMap(storeHilbertValue ->
+                        booleanArgs().flatMap(useNodeSlotIndex ->
+                                argumentsForIndexReads(random, storageAdapter, storeHilbertValue, useNodeSlotIndex))));
     }
 
+    @Nonnull
+    static Stream<Arguments> argumentsForIndexReads(@Nonnull Random random, @Nonnull String storageAdapter, boolean storeHilbertValue, boolean useNodeSlotIndex) {
+        Arguments small = Arguments.of(random.nextLong(), 100, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+        Arguments medium = Arguments.of(random.nextLong(), 500, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+        // large values only for default config
+        if (storeHilbertValue && !useNodeSlotIndex && storageAdapter.equals(BY_NODE.toString())) {
+            Arguments large = Arguments.of(random.nextLong(), 1000, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+            Arguments extraLarge = Arguments.of(random.nextLong(), 5000, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+            return Stream.of(small, medium, large, extraLarge);
+        } else {
+            return Stream.of(small, medium);
+        }
+    }
+
+    @Nonnull
     static Stream<Arguments> argumentsForIndexReadsAfterDeletes() {
         final Random random = new Random(System.currentTimeMillis());
-        return Stream.of(
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_SLOT.toString(), false, false),
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_SLOT.toString(), false, true),
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_SLOT.toString(), true, false),
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_SLOT.toString(), true, true),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_SLOT.toString(), false, false),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_SLOT.toString(), false, true),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_SLOT.toString(), true, false),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_SLOT.toString(), true, true),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_SLOT.toString(), false, false),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_SLOT.toString(), false, true),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_SLOT.toString(), true, false),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_SLOT.toString(), true, true),
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_NODE.toString(), false, false),
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_NODE.toString(), false, true),
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_NODE.toString(), true, false),
-                Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, BY_NODE.toString(), true, true),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_NODE.toString(), false, false),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_NODE.toString(), false, true),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_NODE.toString(), true, false),
-                Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, BY_NODE.toString(), true, true),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_NODE.toString(), false, false),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_NODE.toString(), false, true),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_NODE.toString(), true, false),
-                Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, BY_NODE.toString(), true, true),
-                // large values only for default config
-                Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_NODE.toString(), true, false),
-                Arguments.of(random.nextLong(), 5000, random.nextInt(1000) + 1, BY_NODE.toString(), true, false)
-        );
+        return storageAdapterArgs().flatMap(storageAdapter ->
+                booleanArgs().flatMap(storeHilbertValue ->
+                        booleanArgs().flatMap(useNodeSlotIndex ->
+                                argumentsForIndexReadsAfterDeletes(random, storageAdapter, storeHilbertValue, useNodeSlotIndex))));
+    }
+
+    @Nonnull
+    static Stream<Arguments> argumentsForIndexReadsAfterDeletes(@Nonnull Random random, @Nonnull String storageAdapter, boolean storeHilbertValue, boolean useNodeSlotIndex) {
+        Arguments extraSmall = Arguments.of(random.nextLong(), 10, random.nextInt(10) + 1, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+        Arguments small = Arguments.of(random.nextLong(), 100, random.nextInt(100) + 1, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+        Arguments medium = Arguments.of(random.nextLong(), 300, random.nextInt(300) + 1, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+        // large values only for default config
+        if (storeHilbertValue && !useNodeSlotIndex && storageAdapter.equals(BY_NODE.toString())) {
+            Arguments large = Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+            Arguments extraLarge = Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, storageAdapter, storeHilbertValue, useNodeSlotIndex);
+            return Stream.of(extraSmall, small, medium, large, extraLarge);
+        } else {
+            return Stream.of(extraSmall, small, medium);
+        }
     }
 
     /**

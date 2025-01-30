@@ -45,6 +45,8 @@ import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -69,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests related to built in functionality for getting the count of records in a store.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @Test
@@ -380,7 +383,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         }
 
         // Build the index
-        try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "record_count")) {
+        try (OnlineIndexer onlineIndexBuilder = newIndexer("record_count")) {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {

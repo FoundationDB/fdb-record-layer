@@ -679,6 +679,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
                 .setIndex(targetIndex)
+                .setPriority(FDBTransactionPriority.DEFAULT)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex(sourceIndex.getName())
                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)

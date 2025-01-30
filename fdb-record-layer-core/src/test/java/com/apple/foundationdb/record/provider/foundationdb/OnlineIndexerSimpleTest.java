@@ -45,6 +45,8 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -382,6 +384,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
+    @ResourceLock(Resources.GLOBAL)
     @Test
     public void logsEnd() {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 50).mapToObj(val ->
@@ -846,6 +849,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
+    @ResourceLock(Resources.GLOBAL)
     @Test
     public void testLogInterval() {
         final int limit = 20;
@@ -901,6 +905,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .setProgressLogIntervalMillis(0)
                 .setLimit(limit)
+                .setPriority(FDBTransactionPriority.BATCH)
                 .setConfigLoader(old -> {
                     // Ensure that time limit is exceeded
                     try {
