@@ -20,19 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Objects;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
 
 /**
  * Extension to run an external server, add as a field, annotated with {@link org.junit.jupiter.api.extension.RegisterExtension}.
@@ -43,28 +33,14 @@ import java.util.jar.Manifest;
  *     }</pre>
  */
 public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCallback {
-
-    private static final Logger logger = LogManager.getLogger(RunExternalServerExtension.class);
-    public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
-
     private static final int SERVER_PORT = 1111;
-    private final String jarName;
-    private String version;
-    private Process serverProcess;
+    private final ExternalServer externalServer;
 
     /**
      * Create a new extension that will run latest released version of the server, as downloaded by gradle.
      */
     public RunExternalServerExtension() {
-        this(null);
-    }
-
-    /**
-     * Create a new extension that will run a specific jar.
-     * @param jarName the path to the jar to run
-     */
-    public RunExternalServerExtension(String jarName) {
-        this.jarName = jarName;
+        this.externalServer = new ExternalServer();
     }
 
     /**
@@ -80,71 +56,18 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
      * @return the version of the server being run.
      */
     public String getVersion() {
-        return version;
+        return externalServer.getVersion();
     }
 
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
-        File jar;
-        if (jarName == null) {
-            final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-            final File[] externalServers = Objects.requireNonNull(externalDirectory.listFiles(file -> file.getName().endsWith(".jar")));
-            Assertions.assertEquals(1, externalServers.length);
-            jar = externalServers[0];
-        } else {
-            jar = new File(jarName);
-        }
-        Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
-        ProcessBuilder processBuilder = new ProcessBuilder("java",
-                "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n", jar.getAbsolutePath());
-        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
-
-        if (!startServer(processBuilder)) {
-            Assertions.fail("Failed to start the external server");
-        }
-
-        this.version = getVersion(jar);
-        logger.info("Started {} Version: {}", jar, version);
-    }
-
-    private static String getVersion(File jar) throws IOException {
-        try (JarFile jarFile = new JarFile(jar)) {
-            final Manifest manifest = jarFile.getManifest();
-            final Attributes mainAttributes = manifest.getMainAttributes();
-            String version = mainAttributes.getValue("Specification-Version");
-            if (version != null) {
-                return version;
-            } else {
-                return Assertions.fail("Server does not specify a version in the manifest: " + jar.getAbsolutePath());
-            }
-        }
+        externalServer.start();
     }
 
     @Override
     public void afterAll(ExtensionContext context) throws Exception {
-        if ((serverProcess != null) && serverProcess.isAlive()) {
-            serverProcess.destroy();
-        }
+        externalServer.stop();
     }
 
-    private boolean startServer(ProcessBuilder processBuilder) throws IOException, InterruptedException {
-        try {
-            serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and  running
-            Thread.sleep(3000);
-            if (!serverProcess.isAlive()) {
-                throw new Exception("Failed to start server once - retrying");
-            }
-            return true;
-        } catch (Exception ex) {
-            // Try once more
-            serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and  running
-            Thread.sleep(3000);
-        }
-
-        return serverProcess.isAlive();
-    }
 }
