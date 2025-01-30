@@ -43,6 +43,7 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,7 +73,7 @@ public final class YamlRunner {
          * @return A new {@link RelationalConnection} for the given path appropriate for this test class
          * @throws SQLException if we cannot connect
          */
-        RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+        Connection getNewConnection(@Nonnull URI connectPath) throws SQLException;
 
         /**
          * The versions that the connection has, other than the current code.

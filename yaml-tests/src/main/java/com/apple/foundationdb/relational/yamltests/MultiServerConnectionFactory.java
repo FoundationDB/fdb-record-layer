@@ -30,6 +30,7 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Struct;
@@ -85,7 +86,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     }
 
     @Override
-    public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+    public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
         return new MultiServerRelationalConnection(connectionSelectionPolicy, initialConnection, defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
     }
 
@@ -100,7 +101,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     }
 
     @Nonnull
-    private List<RelationalConnection> alternateConnections(URI connectPath) {
+    private List<Connection> alternateConnections(URI connectPath) {
         return alternateFactories.stream().map(factory -> {
             try {
                 return factory.getNewConnection(connectPath);
@@ -122,18 +123,20 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         @Nonnull
         private final ConnectionSelectionPolicy connectionSelectionPolicy;
         @Nonnull
-        private final List<RelationalConnection> allConnections;
+        private final List<RelationalConnection> relationalConnections;
 
         public MultiServerRelationalConnection(@Nonnull ConnectionSelectionPolicy connectionSelectionPolicy,
                                              final int initialConnecion,
-                                             @Nonnull final RelationalConnection defaultConnection,
-                                             @Nonnull List<RelationalConnection> alternateConnections) {
+                                             @Nonnull final Connection defaultConnection,
+                                             @Nonnull List<Connection> alternateConnections) throws SQLException {
             this.connectionSelectionPolicy = connectionSelectionPolicy;
             this.currentConnectionSelector = initialConnecion;
-            allConnections = new ArrayList<>();
+            relationalConnections = new ArrayList<>();
             // The default connection is always the one at location 0
-            allConnections.add(defaultConnection);
-            allConnections.addAll(alternateConnections);
+            relationalConnections.add(defaultConnection.unwrap(RelationalConnection.class));
+            for (final Connection alternateConnection : alternateConnections) {
+                relationalConnections.add(alternateConnection.unwrap(RelationalConnection.class));
+            }
         }
 
         @Override
@@ -152,7 +155,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
                 throw new UnsupportedOperationException("setAutoCommit(false) is not supported in YAML tests");
             }
             logger.info("Sending operation {} to all connections", "setAutoCommit");
-            for (RelationalConnection connection: allConnections) {
+            for (RelationalConnection connection: relationalConnections) {
                 connection.setAutoCommit(autoCommit);
             }
         }
@@ -175,7 +178,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         @Override
         public void close() throws SQLException {
             logger.info("Sending operation {} to all connections", "close");
-            for (RelationalConnection connection : allConnections) {
+            for (RelationalConnection connection : relationalConnections) {
                 connection.close();
             }
         }
@@ -213,7 +216,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         @Override
         public void setSchema(String schema) throws SQLException {
             logger.info("Sending operation {} to all connections", "setSchema");
-            for (RelationalConnection connection: allConnections) {
+            for (RelationalConnection connection: relationalConnections) {
                 connection.setSchema(schema);
             }
         }
@@ -232,7 +235,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         @Override
         public void setOption(Options.Name name, Object value) throws SQLException {
             logger.info("Sending operation {} to all connections", "setOption");
-            for (RelationalConnection connection: allConnections) {
+            for (RelationalConnection connection: relationalConnections) {
                 connection.setOption(name, value);
             }
         }
@@ -248,16 +251,25 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
                     if (logger.isInfoEnabled()) {
                         logger.info("Sending operation {} to connection {}", op, "DEFAULT");
                     }
-                    return allConnections.get(DEFAULT_CONNECTION);
+                    return relationalConnections.get(DEFAULT_CONNECTION);
                 case ALTERNATE:
-                    RelationalConnection result = allConnections.get(currentConnectionSelector);
+                    RelationalConnection result = relationalConnections.get(currentConnectionSelector);
                     if (logger.isInfoEnabled()) {
                         logger.info("Sending operation {} to connection {}", op, currentConnectionSelector);
                     }
-                    currentConnectionSelector = (currentConnectionSelector + 1) % allConnections.size();
+                    currentConnectionSelector = (currentConnectionSelector + 1) % relationalConnections.size();
                     return result;
                 default:
                     throw new IllegalStateException("Unsupported selection policy " + connectionSelectionPolicy);
+            }
+        }
+
+        @Override
+        public <T> T unwrap(final Class<T> iface) throws SQLException {
+            if (iface.equals(RelationalConnection.class)) {
+                return iface.cast(this);
+            } else {
+                return RelationalConnection.super.unwrap(iface);
             }
         }
     }

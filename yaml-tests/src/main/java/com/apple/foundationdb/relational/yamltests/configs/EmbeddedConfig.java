@@ -21,12 +21,12 @@
 package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
@@ -56,10 +56,8 @@ public class EmbeddedConfig implements YamlTestConfig {
     public YamlRunner.YamlConnectionFactory createConnectionFactory() {
         return new YamlRunner.YamlConnectionFactory() {
             @Override
-            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                // TODO this hits spotbugs warnings, and PMD because we're not closing it. I think the right answer is
-                //      that this should not unwrap, and the caller should make sure to close
-                return DriverManager.getConnection(connectPath.toString()).unwrap(RelationalConnection.class);
+            public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+                return DriverManager.getConnection(connectPath.toString());
             }
 
             @Override
