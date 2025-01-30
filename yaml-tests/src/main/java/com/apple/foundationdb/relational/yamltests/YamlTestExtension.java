@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
+import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -43,7 +44,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
     private final List<YamlTestConfig> testConfigs = List.of(
             new EmbeddedConfig(),
-            new JDBCInProcessConfig()
+            new JDBCInProcessConfig(),
+            new MultiServerConfig(0)
     );
 
     @Override
