@@ -44,6 +44,10 @@ atlassian-ide-plugin.xml
 .idea/scala_settings.xml
 .idea/shelf
 
+# Built during documentation
+
+*.diagram.svg
+
 # VSCode specific files/directories
 .vscode
 **/bin

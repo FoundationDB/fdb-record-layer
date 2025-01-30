@@ -33,6 +33,7 @@ Versioning Guide <Versioning>
 Coding Best Practices <Coding_Best_Practices>
 ReleaseNotes
 Frequently Asked Questions <FAQ>
+SQL Reference <SQL_Reference>
 Contributing <https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md>
 Code of Conduct <https://github.com/FoundationDB/fdb-record-layer/blob/main/CODE_OF_CONDUCT.md>
 License <https://github.com/FoundationDB/fdb-record-layer/blob/main/LICENSE>

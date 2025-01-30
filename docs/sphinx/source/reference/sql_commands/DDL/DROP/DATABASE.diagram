@@ -1,0 +1,5 @@
+    Diagram(
+        Terminal('DROP'),
+        Terminal('DATABASE'),
+        NonTerminal('pathToDatabase')
+    )
