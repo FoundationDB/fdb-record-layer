@@ -45,7 +45,7 @@ atlassian-ide-plugin.xml
 .idea/shelf
 
 # Built during documentation
-
+/docs/sphinx/.venv
 *.diagram.svg
 
 # VSCode specific files/directories

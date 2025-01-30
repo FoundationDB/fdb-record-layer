@@ -49,6 +49,7 @@ ext {
 defaultTasks 'build'
 
 apply from: 'gradle/root.gradle'
+apply from: 'gradle/sphinx.gradle'
 
 def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
 
@@ -332,6 +333,7 @@ clean.doLast {
         delete p.tasks.createDistribution.destinationDir
     }
 }
+clean.dependsOn(sphinxClean)
 
 if (!JavaVersion.current().isJava8Compatible()) {
     throw new Exception("Java 8 is required to build fdb-record-layer")
