@@ -1,0 +1,13 @@
+Diagram(
+    Terminal('CREATE'),
+    Terminal('TYPE'),
+    Terminal('AS'),
+    Terminal('ENUM'),
+    NonTerminal('enumName'),
+    Terminal('('),
+    OneOrMore(
+        NonTerminal('stringLiteral'),
+        Terminal(',')
+    ),
+    Terminal(')')
+)
