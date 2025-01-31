@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
-import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import org.hamcrest.Matchers;
@@ -37,7 +36,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -102,7 +100,9 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 dataModel.saveRecords(10, context, i / 3);
                 commit(context);
             }
-            explicitMergeIndex(dataModel);
+            try (final FDBRecordContext context = openContext()) {
+                dataModel.explicitMergeIndex(context, timer);
+            }
         }
 
         final Set<Tuple> groupingKeys = isGrouped ? dataModel.groupingKeys() : Set.of(Tuple.from());
@@ -146,7 +146,9 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 dataModel.saveRecords(10, context, i / 3);
                 commit(context);
             }
-            explicitMergeIndex(dataModel);
+            try (final FDBRecordContext context = openContext()) {
+                dataModel.explicitMergeIndex(context, timer);
+            }
         }
 
         final Tuple groupingKey = Tuple.from();
@@ -224,18 +226,5 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
 
     private static int segmentCountToFileCount(final int segmentCount) {
         return segmentCount * 4 + 1;
-    }
-
-    private void explicitMergeIndex(LuceneIndexTestDataModel dataModel) {
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
-                    .setIndex(dataModel.index)
-                    .setTimer(timer)
-                    .build()) {
-                indexBuilder.mergeIndex();
-            }
-        }
     }
 }

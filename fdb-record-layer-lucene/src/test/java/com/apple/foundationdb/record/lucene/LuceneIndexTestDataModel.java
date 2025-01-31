@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
@@ -386,6 +387,18 @@ public class LuceneIndexTestDataModel {
                 .setPrimaryKey(Key.Expressions.concatenateFields("group", "rec_no"));
         return metaDataBuilder;
     }
+
+    public void explicitMergeIndex(final FDBRecordContext context, @Nullable FDBStoreTimer timer) {
+        FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .setTimer(timer)
+                .build()) {
+            indexBuilder.mergeIndex();
+        }
+    }
+
 
     public Integer nextInt(final int bound) {
         return random.nextInt(bound);

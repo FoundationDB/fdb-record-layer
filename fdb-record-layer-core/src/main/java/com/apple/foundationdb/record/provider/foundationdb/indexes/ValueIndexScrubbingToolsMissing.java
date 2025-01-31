@@ -130,7 +130,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Nonnull
-    private RecordCursor<IndexEntry> indexEntriesForRecord(@Nonnull FDBRecordStore store, @Nonnull FDBStoredRecord<Message> rec) {
+    protected RecordCursor<IndexEntry> indexEntriesForRecord(@Nonnull FDBRecordStore store, @Nonnull FDBStoredRecord<Message> rec) {
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         if (isSynthetic) {
             final RecordQueryPlanner queryPlanner =
