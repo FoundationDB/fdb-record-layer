@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -86,6 +87,10 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        if (collectionValue instanceof StreamingValue) {
+            final var streamingValue = (StreamingValue)collectionValue;
+            return streamingValue.evalAsStream(store, context, continuation, executeProperties);
+        }
         final var result = collectionValue.eval(store, context);
         return RecordCursor.fromList(result == null ? ImmutableList.of() : (List<?>)result, continuation)
                 .map(QueryResult::ofComputed);

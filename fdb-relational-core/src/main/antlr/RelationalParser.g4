@@ -284,6 +284,7 @@ tableSource // done
 tableSourceItem // done
     : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?    #atomTableItem // done
     | query AS? alias=uid                                          #subqueryTableItem // done
+    | VALUES recordConstructorForInlineTable tableAlias?           #inlineTableItem
     ;
 
 indexHint
@@ -294,6 +295,10 @@ indexHint
 
 indexHintType
     : JOIN | ORDER BY | GROUP BY
+    ;
+
+tableAlias
+    : AS? tableName '(' uidList ')'
     ;
 
 joinPart
@@ -730,11 +735,15 @@ expressionsWithDefaults
     ;
 
 recordConstructorForInsert
-    : LEFT_ROUND_BRACKET expressionWithOptionalName (',' expressionWithOptionalName)* RIGHT_ROUND_BRACKET
+    : '(' expressionWithOptionalName (',' expressionWithOptionalName)* ')'
+    ;
+
+recordConstructorForInlineTable
+    : '(' expressionWithOptionalName (',' expressionWithOptionalName)* ')'
     ;
 
 recordConstructor
-    : ofTypeClause? LEFT_ROUND_BRACKET (uid DOT STAR | STAR | expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RIGHT_ROUND_BRACKET
+    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
     ;
 
 ofTypeClause
