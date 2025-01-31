@@ -36,6 +36,7 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -59,11 +60,12 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
     @Nonnull
     private final ConnectionSelectionPolicy connectionSelectionPolicy;
-    private final int initialConnection;
     @Nonnull
     private final YamlRunner.YamlConnectionFactory defaultFactory;
     @Nonnull
     private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
+    @Nonnull
+    private final AtomicInteger currentConnection;
 
     public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
                                         @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
@@ -75,18 +77,18 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
                                         @Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
                                         @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
         this.connectionSelectionPolicy = connectionSelectionPolicy;
-        this.initialConnection = initialConnection;
         this.defaultFactory = defaultFactory;
         this.alternateFactories = alternateFactories;
         this.versionsUnderTest =
                 Stream.concat(Stream.of(defaultFactory), alternateFactories.stream())
                         .flatMap(yamlConnectionFactory -> yamlConnectionFactory.getVersionsUnderTest().stream())
                         .collect(Collectors.toSet());
+        this.currentConnection = new AtomicInteger(initialConnection);
     }
 
     @Override
     public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return new MultiServerRelationalConnection(connectionSelectionPolicy, initialConnection, defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
+        return new MultiServerRelationalConnection(connectionSelectionPolicy, getNextConnectionNumber(), defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
     }
 
     @Override
@@ -99,6 +101,10 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         return true;
     }
 
+    public int getCurrentConnection() {
+        return currentConnection.get();
+    }
+
     @Nonnull
     private List<RelationalConnection> alternateConnections(URI connectPath) {
         return alternateFactories.stream().map(factory -> {
@@ -108,6 +114,24 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
                 throw new IllegalStateException("Failed to create a connection", e);
             }
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Increment and return the next connection's initialConnection number.
+     * This allows us to better distribute the connections positions as connections are created per query in the tests
+     * and thus connections with a single query should increment their position between connection creation or else they
+     * will always execute with the same initial connection.
+     * @return the next initial connection number to use
+     */
+    private int getNextConnectionNumber() {
+        switch (connectionSelectionPolicy) {
+            case DEFAULT:
+                return DEFAULT_CONNECTION;
+            case ALTERNATE:
+                return currentConnection.addAndGet(1) % (1 + alternateFactories.size());
+            default:
+                throw new IllegalArgumentException("Unknown policy");
+        }
     }
 
     /**
