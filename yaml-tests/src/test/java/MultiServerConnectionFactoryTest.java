@@ -21,6 +21,7 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -31,38 +32,61 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MultiServerConnectionFactoryTest {
     @ParameterizedTest
-    @CsvSource({"0", "1", "2", "3", "4"})
-    void testDefaultPolicy(String initialConnection) throws SQLException {
-        int ic = Integer.parseInt(initialConnection);
+    @CsvSource({"0", "1"})
+    void testDefaultPolicy(int initialConnection) throws SQLException {
         MultiServerConnectionFactory classUnderTest = new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.DEFAULT,
-                ic,
+                initialConnection,
                 dummyConnectionFactory(),
                 List.of(dummyConnectionFactory()));
-        assertEquals(ic, classUnderTest.getCurrentConnection());
-        classUnderTest.getNewConnection(URI.create("Blah"));
-        assertEquals(ic, classUnderTest.getCurrentConnection());
-        classUnderTest.getNewConnection(URI.create("Blah"));
-        assertEquals(ic, classUnderTest.getCurrentConnection());
+        assertEquals(initialConnection, classUnderTest.getCurrentConnectionSelector());
+        MultiServerConnectionFactory.MultiServerRelationalConnection connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        assertEquals(0, connection.getCurrentConnectionSelector());
+        assertEquals(initialConnection, classUnderTest.getCurrentConnectionSelector());
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        assertEquals(0, connection.getCurrentConnectionSelector());
+        assertEquals(initialConnection, classUnderTest.getCurrentConnectionSelector());
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        assertEquals(0, connection.getCurrentConnectionSelector());
+        assertEquals(initialConnection, classUnderTest.getCurrentConnectionSelector());
     }
 
     @ParameterizedTest
-    @CsvSource({"0", "1", "2", "3", "4"})
-    void testAlternatePolicy(String initialConnection) throws SQLException {
-        int ic = Integer.parseInt(initialConnection);
+    @CsvSource({"0", "1"})
+    void testAlternatePolicy(int initialConnection) throws SQLException {
         MultiServerConnectionFactory classUnderTest = new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
-                ic,
+                initialConnection,
                 dummyConnectionFactory(),
                 List.of(dummyConnectionFactory()));
-        assertEquals(ic, classUnderTest.getCurrentConnection());
-        classUnderTest.getNewConnection(URI.create("Blah"));
-        assertEquals(ic + 1, classUnderTest.getCurrentConnection());
-        classUnderTest.getNewConnection(URI.create("Blah"));
-        assertEquals(ic + 2, classUnderTest.getCurrentConnection());
+        assertEquals(initialConnection, classUnderTest.getCurrentConnectionSelector());
+        MultiServerConnectionFactory.MultiServerRelationalConnection connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        assertEquals(initialConnection % 2, connection.getCurrentConnectionSelector());
+        assertEquals((initialConnection + 1) % 2, classUnderTest.getCurrentConnectionSelector());
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        assertEquals((initialConnection + 1) % 2, connection.getCurrentConnectionSelector());
+        assertEquals(initialConnection % 2, classUnderTest.getCurrentConnectionSelector());
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        assertEquals(initialConnection % 2, connection.getCurrentConnectionSelector());
+        assertEquals((initialConnection + 1) % 2, classUnderTest.getCurrentConnectionSelector());
+    }
+
+    @Test
+    void testIllegalInitialConnection() {
+        assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
+                MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
+                -1,
+                dummyConnectionFactory(),
+                List.of(dummyConnectionFactory())));
+        assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
+                MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
+                7,
+                dummyConnectionFactory(),
+                List.of(dummyConnectionFactory())));
     }
 
     YamlRunner.YamlConnectionFactory dummyConnectionFactory() {

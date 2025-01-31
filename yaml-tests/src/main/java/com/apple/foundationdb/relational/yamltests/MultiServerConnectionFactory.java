@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -64,8 +65,9 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     private final YamlRunner.YamlConnectionFactory defaultFactory;
     @Nonnull
     private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
+    private final int totalFactories;
     @Nonnull
-    private final AtomicInteger currentConnection;
+    private final AtomicInteger currentConnectionSelector;
 
     public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
                                         @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
@@ -83,7 +85,10 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
                 Stream.concat(Stream.of(defaultFactory), alternateFactories.stream())
                         .flatMap(yamlConnectionFactory -> yamlConnectionFactory.getVersionsUnderTest().stream())
                         .collect(Collectors.toSet());
-        this.currentConnection = new AtomicInteger(initialConnection);
+        this.totalFactories = 1 + alternateFactories.size(); // one default and N alternates
+        Assertions.assertTrue(initialConnection >= 0);
+        Assertions.assertTrue(initialConnection < totalFactories, "Initial connections should be <= number of factories");
+        this.currentConnectionSelector = new AtomicInteger(initialConnection);
     }
 
     @Override
@@ -101,8 +106,8 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         return true;
     }
 
-    public int getCurrentConnection() {
-        return currentConnection.get();
+    public int getCurrentConnectionSelector() {
+        return currentConnectionSelector.get();
     }
 
     @Nonnull
@@ -128,7 +133,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
             case DEFAULT:
                 return DEFAULT_CONNECTION;
             case ALTERNATE:
-                return currentConnection.addAndGet(1) % (1 + alternateFactories.size());
+                return currentConnectionSelector.getAndUpdate(i -> (i + 1) % totalFactories);
             default:
                 throw new IllegalArgumentException("Unknown policy");
         }
@@ -158,6 +163,10 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
             // The default connection is always the one at location 0
             allConnections.add(defaultConnection);
             allConnections.addAll(alternateConnections);
+        }
+
+        public int getCurrentConnectionSelector() {
+            return currentConnectionSelector;
         }
 
         @Override
