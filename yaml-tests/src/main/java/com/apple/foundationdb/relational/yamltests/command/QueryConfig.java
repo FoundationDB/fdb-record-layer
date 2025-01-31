@@ -383,6 +383,8 @@ public abstract class QueryConfig {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
+                // This should not be executed
+                Assertions.fail("NoOp Config should not be executed");
             }
         };
     }

@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -97,9 +98,9 @@ public final class YamlRunner {
         }
     }
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
         this.resourcePath = resourcePath;
-        this.executionContext = new YamlExecutionContext(resourcePath, factory, correctExplain);
+        this.executionContext = new YamlExecutionContext(resourcePath, factory, correctExplain, additionalOptions);
     }
 
     public void run() throws Exception {

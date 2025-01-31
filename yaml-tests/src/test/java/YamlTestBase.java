@@ -30,6 +30,8 @@ import org.junit.jupiter.api.BeforeAll;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.Map;
 
 public abstract class YamlTestBase {
 
@@ -57,12 +59,16 @@ public abstract class YamlTestBase {
 
     abstract YamlRunner.YamlConnectionFactory createConnectionFactory();
 
+    protected Map<String, Object> getAdditionalOptions() {
+        return Collections.emptyMap();
+    }
+
     protected final void doRun(@Nonnull final String fileName) throws Exception {
         doRun(fileName, false);
     }
 
     protected void doRun(String fileName, boolean correctExplain) throws Exception {
-        var yamlRunner = new YamlRunner(fileName, createConnectionFactory(), correctExplain);
+        var yamlRunner = new YamlRunner(fileName, createConnectionFactory(), correctExplain, getAdditionalOptions());
         try {
             yamlRunner.run();
         } catch (Exception e) {
