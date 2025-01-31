@@ -35,7 +35,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -65,10 +64,9 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 .setPartitionHighWatermark(-1) // disable partitioning
                 .setIsGrouped(isGrouped)
                 .build();
-        final long start = Instant.now().toEpochMilli();
         for (int i = 0; i < 5; i++) {
             try (FDBRecordContext context = openContext()) {
-                dataModel.saveRecords(10, start, context, i);
+                dataModel.saveRecords(10, context, i);
                 commit(context);
             }
         }
@@ -99,10 +97,9 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 .setPartitionHighWatermark(10)
                 .setIsGrouped(isGrouped)
                 .build();
-        final long start = Instant.now().toEpochMilli();
         for (int i = 0; i < 6; i++) {
             try (FDBRecordContext context = openContext()) {
-                dataModel.saveRecords(10, start, context, i / 3);
+                dataModel.saveRecords(10, context, i / 3);
                 commit(context);
             }
             explicitMergeIndex(dataModel);
@@ -144,10 +141,9 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 .setPartitionHighWatermark(10)
                 .setIsGrouped(false)
                 .build();
-        final long start = Instant.now().toEpochMilli();
         for (int i = 0; i < 6; i++) {
             try (FDBRecordContext context = openContext()) {
-                dataModel.saveRecords(10, start, context, i / 3);
+                dataModel.saveRecords(10, context, i / 3);
                 commit(context);
             }
             explicitMergeIndex(dataModel);
