@@ -1,9 +1,11 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - 'main'
+  workflow_dispatch:
+    inputs:
+      artifact_version:
+        description: 'Target version for artifacts to build and publish'
+        required: true
 
 jobs:
   gradle:
@@ -19,4 +21,5 @@ jobs:
     - name: Run Gradle Test
       uses: ./actions/gradle-test
       with:
+        artifacts_version: "${{ inputs.artifact_version }}"
         gradle_args: "-PreleaseBuild=true"
