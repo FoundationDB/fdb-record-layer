@@ -121,14 +121,22 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
         @Override
         public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
-            return (YamlTest.Runner) fileName -> {
-                config.assumeSupport(fileName);
-                var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), false);
-                try {
-                    yamlRunner.run();
-                } catch (Exception e) {
-                    logger.error("‼️ running test file '{}' was not successful", fileName, e);
-                    throw e;
+            return new YamlTest.Runner() {
+                @Override
+                public void run(final String fileName) throws Exception {
+                    run(fileName, false);
+                }
+
+                @Override
+                public void run(final String fileName, final boolean correctExplain) throws Exception {
+                    config.assumeSupport(fileName);
+                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain);
+                    try {
+                        yamlRunner.run();
+                    } catch (Exception e) {
+                        logger.error("‼️ running test file '{}' was not successful", fileName, e);
+                        throw e;
+                    }
                 }
             };
         }
