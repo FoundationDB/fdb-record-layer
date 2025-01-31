@@ -320,6 +320,11 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
                 Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
                 return column == null || !column.hasBinary() ? null : column.getBinary().toByteArray();
+            case Types.OTHER:
+                // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
+                // thing which appears as OTHER
+                o = getString(oneBasedColumn);
+                break;
             default:
                 throw new SQLException("Unsupported type " + type);
         }
