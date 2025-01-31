@@ -54,7 +54,6 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
     @Nonnull
     protected abstract UdfValue newCallsite(@Nonnull List<Value> arguments);
 
-    @SuppressWarnings("unchecked")
     @Nonnull
     @Override
     public final Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
@@ -62,7 +61,7 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
         final List<Type> parameterTypes = getParameterTypes();
         if (arguments.size() != parameterTypes.size()) {
             final String udfName = getFunctionName();
-            throw new RecordCoreException("attempt to call '%s' with incorrect number of parameters", udfName);
+            throw new RecordCoreException("attempt to call " + udfName + " with incorrect number of parameters");
         }
 
         final ImmutableList.Builder<Value> promotedArgumentsList = ImmutableList.builder();

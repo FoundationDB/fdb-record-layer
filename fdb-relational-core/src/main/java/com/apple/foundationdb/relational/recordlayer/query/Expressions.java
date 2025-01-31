@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
@@ -197,6 +198,11 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    public List<Type> underlyingTypes() {
+        return Streams.stream(underlying()).map(Value::getResultType).collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
     public Stream<Expression> stream() {
         return underlying.stream();
     }
@@ -227,6 +233,12 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public static Expressions of(@Nonnull Iterable<Expression> expressions) {
         return new Expressions(expressions);
+    }
+
+    @Nonnull
+    public static Expressions of(@Nonnull final Expression[] expressions) {
+        List<Expression> expressionsList = ImmutableList.copyOf(expressions);
+        return Expressions.of(expressionsList);
     }
 
     @Nonnull

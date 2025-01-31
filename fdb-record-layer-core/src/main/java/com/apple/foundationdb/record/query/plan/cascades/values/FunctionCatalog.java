@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.base.Suppliers;
@@ -30,7 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -72,11 +70,7 @@ public class FunctionCatalog {
         return catalogBuilder.build();
     }
 
-    public static Optional<BuiltInFunction<? extends Typed>> resolveAndValidate(@Nonnull final String functionName, List<Type> argumentTypes) {
-        return resolve(functionName, argumentTypes.size())
-                .flatMap(builtInFunction -> builtInFunction.validateCall(argumentTypes));
-    }
-
+    @Nonnull
     @SuppressWarnings("java:S1066")
     public static Optional<BuiltInFunction<? extends Typed>> resolve(@Nonnull final String functionName, int numberOfArguments) {
         BuiltInFunction<? extends Typed> builtInFunction = getFunctionCatalog().get(new FunctionKey(functionName, numberOfArguments, false));
