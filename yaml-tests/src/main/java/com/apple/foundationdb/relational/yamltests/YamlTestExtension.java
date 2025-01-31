@@ -43,6 +43,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+/**
+ * Extension that backs {@link YamlTest}.
+ */
 public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
     private List<YamlTestConfig> testConfigs;
@@ -90,6 +93,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         return testConfigs.stream().map(config -> new Context(config, context.getRequiredTestMethod().getAnnotation(ExcludeYamlTestConfig.class)));
     }
 
+    /**
+     * Context for an individual test run (method + config).
+     */
     private static class Context implements TestTemplateInvocationContext {
         private final YamlTestConfig config;
         private final Set<Class<? extends YamlTestConfig>> excludedConfigs;
@@ -111,6 +117,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         }
     }
 
+    /**
+     * Parameter resolver for the class when injecting the {@link YamlTest.Runner}.
+     */
     private static final class ClassParameterResolver implements ParameterResolver {
 
         private final YamlTestConfig config;

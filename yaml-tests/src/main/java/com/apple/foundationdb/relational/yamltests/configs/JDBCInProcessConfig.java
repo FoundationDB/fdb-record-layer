@@ -35,6 +35,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
 
+/**
+ * Run against an embedded JDBC server.
+ */
 public class JDBCInProcessConfig implements YamlTestConfig {
     private static final Logger LOG = LogManager.getLogger(JDBCInProcessConfig.class);
 

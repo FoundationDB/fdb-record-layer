@@ -33,6 +33,9 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
+ */
 public class MultiServerConfig implements YamlTestConfig {
 
     private final JDBCInProcessConfig embeddedConfig;

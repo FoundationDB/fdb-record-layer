@@ -31,6 +31,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
 
+/**
+ * Run directly against an instance of {@link FRL}.
+ */
 public class EmbeddedConfig implements YamlTestConfig {
     private FRL frl;
 

@@ -25,13 +25,32 @@ import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import javax.annotation.Nonnull;
 import java.util.Set;
 
+/**
+ * Interface for configuring how to run a {@code .yamsql} file.
+ * <p>
+ *     Primarily this is concerned with global configuration that allows us to run <em>all</em> tests with a different
+ *     configuration, such as a different server, or mixed-mode.
+ * </p>
+ */
 public interface YamlTestConfig {
 
+    /**
+     * Creates the connection to the database.
+     * @return a new connection factory
+     */
     YamlRunner.YamlConnectionFactory createConnectionFactory();
 
     void beforeAll() throws Exception;
 
     void afterAll() throws Exception;
 
+    /**
+     * Use {@link org.junit.jupiter.api.Assumptions} to skip tests if they are not working.
+     * @param fileName the name of the {@code .yamsql} file
+     * @param excludedConfigs a list of configs that are excluded via
+     * {@link com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig}. If {@code this} is in
+     * {@code excludedConfigs} it will be automatically excluded, checking this is only necessary if this config
+     * references another config.
+     */
     void assumeSupport(@Nonnull String fileName, @Nonnull Set<Class<? extends YamlTestConfig>> excludedConfigs);
 }
