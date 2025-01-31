@@ -43,15 +43,20 @@ import java.util.stream.Stream;
 
 public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
-    private final List<YamlTestConfig> testConfigs = List.of(
-            new EmbeddedConfig(),
-            new JDBCInProcessConfig(),
-            new MultiServerConfig(0, 1111, 1112),
-            new MultiServerConfig(1, 1113, 1114)
-    );
+    private List<YamlTestConfig> testConfigs;
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
+        if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
+            testConfigs = List.of(new EmbeddedConfig());
+        } else {
+            testConfigs = List.of(
+                    new EmbeddedConfig(),
+                    new JDBCInProcessConfig(),
+                    new MultiServerConfig(0, 1111, 1112),
+                    new MultiServerConfig(1, 1113, 1114)
+            );
+        }
         for (final YamlTestConfig testConfig : testConfigs) {
             testConfig.beforeAll();
         }
