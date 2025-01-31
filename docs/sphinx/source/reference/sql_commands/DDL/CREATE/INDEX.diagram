@@ -1,0 +1,8 @@
+    Diagram(
+        Terminal('CREATE'),
+        Optional('UNIQUE', 'skip'),
+        Terminal('INDEX'),
+        NonTerminal('indexName'),
+        Terminal('AS'),
+        NonTerminal('query')
+    )

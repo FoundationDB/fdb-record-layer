@@ -22,23 +22,20 @@ reliability, and performance in a distributed setting.
 
 ## Documentation
 
-* [Overview and Examples](Overview.md)
-* [Getting Started](GettingStarted.md)
-* [Building](Building.md)
-* [Schema Evolution and Meta-data Maintenance](SchemaEvolution.md)
-* [Extending the Record Layer](Extending.md)
-* [Versioning Guide](Versioning.md)
-* [Coding Best Practices](Coding_Best_Practices.md)
-* [Release Notes](ReleaseNotes.md)
-* [Frequently Asked Questions](FAQ.md)
-* [Contributing](https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md)
-* [Code of Conduct](https://github.com/FoundationDB/fdb-record-layer/blob/main/CODE_OF_CONDUCT.md)
-* [License](https://github.com/FoundationDB/fdb-record-layer/blob/main/LICENSE)
-
-The API documentation can be found here for the most recent releases of each of this
-project's published libraries:
-
-* [FDB extensions utility library](https://javadoc.io/doc/org.foundationdb/fdb-extensions/)
-* [FDB Record Layer core library (proto2)](https://javadoc.io/doc/org.foundationdb/fdb-record-layer-core/)
-* [FDB Record Layer core library (proto3)](https://javadoc.io/doc/org.foundationdb/fdb-record-layer-core-pb3/)
-
+```{toctree}
+:maxdepth: 1
+Overview and Examples <Overview>
+GettingStarted
+Building <Building>
+SchemaEvolution
+Extending
+Versioning Guide <Versioning>
+Coding Best Practices <Coding_Best_Practices>
+ReleaseNotes
+Frequently Asked Questions <FAQ>
+SQL Reference <SQL_Reference>
+API <api/index>
+Contributing <https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md>
+Code of Conduct <https://github.com/FoundationDB/fdb-record-layer/blob/main/CODE_OF_CONDUCT.md>
+License <https://github.com/FoundationDB/fdb-record-layer/blob/main/LICENSE>
+```
