@@ -215,7 +215,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
             if (createDatabaseIfNecessary) {
                 createDatabase(recordStore, URI.create(schema.getDatabaseName()));
             } else {
-                throw new RelationalException(String.format("Cannot create schema %s because database %s does not exist.", schema.getName(), schema.getDatabaseName()),
+                throw new RelationalException("Cannot create schema " + schema.getName() + " because database " + schema.getDatabaseName() + " does not exist.",
                         ErrorCode.UNDEFINED_DATABASE);
             }
         }
@@ -223,9 +223,9 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         Assert.that(schemaTemplateCatalog.doesSchemaTemplateExist(txn, schema.getSchemaTemplate().getName(),
                         schema.getSchemaTemplate().getVersion()),
                 ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
-                () -> String.format("Cannot create schema %s because schema template %s version %d does not exist.",
-                        schema.getName(), schema.getSchemaTemplate().getName(),
-                        schema.getSchemaTemplate().getVersion()));
+                () -> "Cannot create schema " + schema.getName() + " because schema template " +
+                        schema.getSchemaTemplate().getName() + " version " +
+                        schema.getSchemaTemplate().getVersion() + " does not exist.");
         try {
             putSchema((RecordLayerSchema) schema, recordStore);
         } catch (RecordCoreException ex) {
