@@ -1,5 +1,5 @@
 /*
- * RunExternalServerExtension.java
+ * ExternalServer.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,9 +23,6 @@ package com.apple.foundationdb.relational.yamltests.server;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.extension.AfterAllCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,40 +32,41 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 /**
- * Extension to run an external server, add as a field, annotated with {@link org.junit.jupiter.api.extension.RegisterExtension}.
- * <p>
- *     For example:
- *     <pre>{@code @RegisterExtension
- * static final RunExternalServerExtension = new RunExternalServerExtension();
- *     }</pre>
+ * Class to manage running an external server.
  */
-public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCallback {
+public class ExternalServer {
 
-    private static final Logger logger = LogManager.getLogger(RunExternalServerExtension.class);
+    private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
 
     private static final int SERVER_PORT = 1111;
     private final String jarName;
+    private final int grpcPort;
+    private final int httpPort;
     private String version;
     private Process serverProcess;
 
     /**
      * Create a new extension that will run latest released version of the server, as downloaded by gradle.
      */
-    public RunExternalServerExtension() {
-        this(null);
+    public ExternalServer(final int grpcPort, final int httpPort) {
+        this(null, grpcPort, httpPort);
     }
 
     /**
      * Create a new extension that will run a specific jar.
+     *
      * @param jarName the path to the jar to run
      */
-    public RunExternalServerExtension(String jarName) {
+    public ExternalServer(String jarName, final int grpcPort, final int httpPort) {
         this.jarName = jarName;
+        this.grpcPort = grpcPort;
+        this.httpPort = httpPort;
     }
 
     /**
      * Get the port to use when connecting.
+     *
      * @return the grpc port that the server is listening to
      */
     public int getPort() {
@@ -77,15 +75,14 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
 
     /**
      * Get the version of the server.
+     *
      * @return the version of the server being run.
      */
     public String getVersion() {
         return version;
     }
 
-
-    @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
+    public void start() throws Exception {
         File jar;
         if (jarName == null) {
             final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
@@ -97,7 +94,10 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         }
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
         ProcessBuilder processBuilder = new ProcessBuilder("java",
-                "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n", jar.getAbsolutePath());
+                // TODO add support for debugging by adding, but need to take care with ports
+                // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
+                "-jar", jar.getAbsolutePath(),
+                "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
 
@@ -122,13 +122,6 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         }
     }
 
-    @Override
-    public void afterAll(ExtensionContext context) throws Exception {
-        if ((serverProcess != null) && serverProcess.isAlive()) {
-            serverProcess.destroy();
-        }
-    }
-
     private boolean startServer(ProcessBuilder processBuilder) throws IOException, InterruptedException {
         try {
             serverProcess = processBuilder.start();
@@ -147,4 +140,11 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
 
         return serverProcess.isAlive();
     }
+
+    public void stop() {
+        if ((serverProcess != null) && serverProcess.isAlive()) {
+            serverProcess.destroy();
+        }
+    }
+
 }

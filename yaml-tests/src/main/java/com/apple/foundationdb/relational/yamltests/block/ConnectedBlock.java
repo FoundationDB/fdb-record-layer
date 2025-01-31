@@ -22,17 +22,15 @@ package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
-
-import javax.annotation.Nonnull;
 
 /**
  * A {@link Block} that requires an active connection for execution.
@@ -83,7 +81,7 @@ public abstract class ConnectedBlock implements Block {
         logger.debug("🚠 Connecting to database: `{}`", connectionURI);
         try (var connection = executionContext.getConnectionFactory().getNewConnection(connectionURI)) {
             logger.debug("✅ Connected to database: `{}`", connectionURI);
-            consumer.accept(connection);
+            consumer.accept(connection.unwrap(RelationalConnection.class));
         } catch (SQLException sqle) {
             throw executionContext.wrapContext(sqle,
                     () -> String.format("‼️ Error connecting to the database `%s` in block at line %d", connectionURI, lineNumber),

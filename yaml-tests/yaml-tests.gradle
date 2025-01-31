@@ -52,6 +52,8 @@ dependencies {
     implementation project(path: coreProject, configuration: 'tests')
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-core")
+    implementation project(":fdb-relational-jdbc")
+    implementation project(":fdb-relational-server")
     implementation(libs.asciitable)
     implementation(libs.jsr305)
     implementation(libs.junit.api)
