@@ -104,31 +104,36 @@ public final class YamlRunner {
     }
 
     public void run() throws Exception {
-        LoaderOptions loaderOptions = new LoaderOptions();
-        loaderOptions.setAllowDuplicateKeys(true);
-        DumperOptions dumperOptions = new DumperOptions();
-        final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
+        try {
+            LoaderOptions loaderOptions = new LoaderOptions();
+            loaderOptions.setAllowDuplicateKeys(true);
+            DumperOptions dumperOptions = new DumperOptions();
+            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
 
-        final var testBlocks = new ArrayList<TestBlock>();
-        int blockCount = 0;
-        try (var inputStream = getInputStream(resourcePath)) {
-            for (var doc : yaml.loadAll(inputStream)) {
-                final var block = Block.parse(doc, executionContext, blockCount);
-                logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
-                block.execute();
-                if (block instanceof TestBlock) {
-                    testBlocks.add((TestBlock) block);
+            final var testBlocks = new ArrayList<TestBlock>();
+            int blockCount = 0;
+            try (var inputStream = getInputStream(resourcePath)) {
+                for (var doc : yaml.loadAll(inputStream)) {
+                    final var block = Block.parse(doc, executionContext, blockCount);
+                    logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
+                    block.execute();
+                    if (block instanceof TestBlock) {
+                        testBlocks.add((TestBlock)block);
+                    }
+                    blockCount++;
                 }
-                blockCount++;
             }
-        }
-        for (var block : executionContext.getFinalizeBlocks()) {
-            logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
-            block.execute();
-        }
+            for (var block : executionContext.getFinalizeBlocks()) {
+                logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
+                block.execute();
+            }
 
-        evaluateTestBlockResults(testBlocks);
-        replaceTestFileIfRequired();
+            evaluateTestBlockResults(testBlocks);
+            replaceTestFileIfRequired();
+        } catch (RelationalException | IOException e) {
+            logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
+            throw e;
+        }
     }
 
     private void evaluateTestBlockResults(List<TestBlock> testBlocks) {

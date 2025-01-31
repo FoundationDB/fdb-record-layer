@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeAll;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
+@Deprecated
 public abstract class YamlTestBase {
 
     private static final Logger logger = LogManager.getLogger(YamlTestBase.class);
@@ -62,12 +63,6 @@ public abstract class YamlTestBase {
     }
 
     protected void doRun(String fileName, boolean correctExplain) throws Exception {
-        var yamlRunner = new YamlRunner(fileName, createConnectionFactory(), correctExplain);
-        try {
-            yamlRunner.run();
-        } catch (Exception e) {
-            logger.error("‼️ running test file '{}' was not successful", fileName, e);
-            throw e;
-        }
+        new YamlRunner(fileName, createConnectionFactory(), correctExplain).run();
     }
 }
