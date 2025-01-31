@@ -2,24 +2,37 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      artifact_version:
-        description: 'Target version for artifacts to build and publish'
-        required: true
 
 jobs:
   gradle:
     runs-on: ubuntu-latest
     permissions:
       checks: write
-      contents: read
+      contents: write
       packages: write
       pages: write
     steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
     - name: Checkout sources
       uses: actions/checkout@v4.2.2
     - name: Run Gradle Test
       uses: ./actions/gradle-test
       with:
-        artifacts_version: "${{ inputs.artifact_version }}"
         gradle_args: "-PreleaseBuild=true"
+
+    # Always push a version bump back to main. There are failure scenarios that can result
+    # in published artifacts but an erroneous build, and it's safer to have version gaps
+    - name: Configure Git
+      if: always()
+      run: |
+        git config --global user.name 'FoundationDB CI'
+        git config --global user.email 'foundationdb_ci@apple.com'
+    - name: Increment Version
+      if: always()
+      run: python build/increment_version.py gradle.properties --commit
+    - name: Push Changes
+      if: always()
+      run: git push
