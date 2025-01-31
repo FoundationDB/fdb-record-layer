@@ -8,6 +8,9 @@ inputs:
   gradle_args:
     description: 'Gradle arguments for running'
     required: true
+  artifact_version:
+    description: 'Target version of final artifacts'
+    default: ''
 
 runs:
   using: "composite"
@@ -30,19 +33,11 @@ runs:
   - name: Switch FDB to SSD
     shell: bash
     run: fdbcli --exec "configure single ssd storage_migration_type=aggressive; status"
-  - name: Set up JDK 17
-    uses: actions/setup-java@v4.7.0
-    with:
-      java-version: '17'
-      distribution: 'temurin'
-  - name: Setup Gradle
-    uses: gradle/actions/setup-gradle@0bdd871935719febd78681f197cd39af5b6e16a6
-  - name: Remove JVM args
-    shell: bash
-    run: sed -i -e "s/^org\.gradle\..*/#&/g" gradle.properties
   - name: Run build and test
-    shell: bash
-    run: GRADLE_OPTS="-XX:+HeapDumpOnOutOfMemoryError -Xverify:none -XX:+TieredCompilation -Xmx4096m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" ./gradlew --no-daemon --console=plain -b ./build.gradle build destructiveTest -PcoreNotStrict ${{ inputs.gradle_args }}
+    uses: ./actions/gradle-build
+    with:
+      artifact_version: ${{ inputs.artifact_version }}
+      gradle_command: "build destructiveTest -PcoreNotStrict ${{ inputs.gradle_args }}"
   - name: Copy Test Reports
     shell: bash
     if: always()
