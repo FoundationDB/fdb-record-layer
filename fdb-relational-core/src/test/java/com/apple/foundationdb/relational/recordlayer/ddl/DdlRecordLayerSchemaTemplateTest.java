@@ -265,8 +265,8 @@ public class DdlRecordLayerSchemaTemplateTest {
     }
 
     @Test
-    void notNullTypeNotAllowedTest() throws RelationalException, SQLException {
-        String template = "CREATE SCHEMA TEMPLATE not_null_column_type " +
+    void notNullNonArrayTypeNotAllowedTest() throws RelationalException, SQLException {
+        String template = "CREATE SCHEMA TEMPLATE not_null_non_array_column_type " +
                 "CREATE TABLE foo (id bigint, foo string not null, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))

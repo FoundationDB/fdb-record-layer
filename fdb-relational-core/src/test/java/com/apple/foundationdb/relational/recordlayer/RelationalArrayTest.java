@@ -24,10 +24,10 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -71,7 +71,7 @@ public class RelationalArrayTest {
             "double_null double array, double_not_null double array not null, " +
             "string_null string array, string_not_null string array not null, " +
             "bytes_null bytes array, bytes_not_null bytes array not null, " +
-            "structure_null structure array, structure_not_null structure array not null, " +
+            "struct_null structure array, struct_not_null structure array not null, " +
             // "enumeration_null enumeration array, enumeration_not_null enumeration array not null, " +
             "primary key(pk))";
 
@@ -113,8 +113,7 @@ public class RelationalArrayTest {
                 "null, [x'31', x'32'], " +
                 "null, [(11, '11'), (22, '22')] " +
                 ")");
-        Assert.assertThrows(SQLException.class,
-                () -> insertQuery("INSERT INTO T VALUES (" +
+        RelationalAssertions.assertThrowsSqlException(() -> insertQuery("INSERT INTO T VALUES (" +
                         "3," +
                         "[true, false], null, " +
                         "[11, 22], null, " +
@@ -125,14 +124,14 @@ public class RelationalArrayTest {
                         "[x'31', x'32'], null, " +
                         "[(11, '11'), (22, '22')], null " +
                         ")"));
-        Assert.assertThrows(SQLException.class, () -> insertQuery("INSERT INTO T (pk) VALUES (4)"));
+        RelationalAssertions.assertThrowsSqlException(() -> insertQuery("INSERT INTO T (pk) VALUES (4)"));
     }
 
     @Test
     void testInsertArraysViaQueryPreparedStatement() throws SQLException {
         final var statement = "INSERT INTO T (pk, boolean_null, boolean_not_null, integer_null, integer_not_null, " +
                 "bigint_null, bigint_not_null, float_null, float_not_null, double_null, double_not_null, string_null, " +
-                "string_not_null, bytes_null, bytes_not_null, structure_null, structure_not_null) VALUES (?pk, ?boolean_null, " +
+                "string_not_null, bytes_null, bytes_not_null, struct_null, struct_not_null) VALUES (?pk, ?boolean_null, " +
                 "?boolean_not_null, ?integer_null, ?integer_not_null, ?bigint_null, ?bigint_not_null, ?float_null, " +
                 "?float_not_null, ?double_null, ?double_not_null, ?string_null, ?string_not_null, ?bytes_null, " +
                 "?bytes_not_null, ?struct_null, ?struct_not_null)";
@@ -208,7 +207,7 @@ public class RelationalArrayTest {
                 ps.setNull("bytes_not_null", Types.ARRAY);
                 ps.setArray("struct_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
                 ps.setNull("struct_not_null", Types.ARRAY);
-                Assert.assertThrows(SQLException.class, ps::executeUpdate);
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate);
             }
         }
     }
@@ -222,8 +221,7 @@ public class RelationalArrayTest {
                 ps.setInt("pk", 1);
                 ps.setArray("boolean_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
-                final var actualMessage = Assertions.assertThrows(SQLException.class, ps::executeUpdate).getMessage();
-                assertTrue(actualMessage.contains("Too many parameters"));
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("Too many parameters");
             }
         }
     }
@@ -235,9 +233,7 @@ public class RelationalArrayTest {
             conn.setAutoCommit(true);
             try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk) VALUES (?pk)"))) {
                 ps.setInt("pk", 1);
-                final var actualMessage = Assertions.assertThrows(SQLException.class, ps::executeUpdate).getMessage();
-                System.out.println(actualMessage);
-                assertTrue(actualMessage.contains("violates not-null constraint"));
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("violates not-null constraint");
             }
         }
     }
@@ -249,7 +245,7 @@ public class RelationalArrayTest {
             conn.setAutoCommit(true);
             try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
                     "integer_not_null, bigint_not_null, float_not_null, double_not_null, string_not_null, bytes_not_null, " +
-                    "structure_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, " +
+                    "struct_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, " +
                     "?double_not_null, ?string_not_null, ?bytes_not_null, ?struct_not_null)"))) {
                 ps.setInt("pk", 2);
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
@@ -273,42 +269,19 @@ public class RelationalArrayTest {
                         .hasColumn("double_null", null)
                         .hasColumn("string_null", null)
                         .hasColumn("bytes_null", null)
-                        .hasColumn("structure_null", null);
+                        .hasColumn("struct_null", null);
             }
         }
     }
 
     @Test
-    void testNullColumnDoesNotRequireAValueIfNotGiven() throws SQLException {
+    void testColumnRequiresValue() throws SQLException {
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
             try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
                     "integer_not_null, bigint_not_null, float_not_null, double_not_null, string_not_null, bytes_not_null, " +
-                    "structure_not_null, boolean_null, integer_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, " +
-                    "?bigint_not_null, ?float_not_null, ?double_not_null, ?string_not_null, ?bytes_not_null, ?struct_not_null)"))) {
-                ps.setInt("pk", 2);
-                ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
-                ps.setArray("integer_not_null", EmbeddedRelationalArray.newBuilder().addAll(11, 22).build());
-                ps.setArray("bigint_not_null", EmbeddedRelationalArray.newBuilder().addAll(11L, 22L).build());
-                ps.setArray("float_not_null", EmbeddedRelationalArray.newBuilder().addAll(11.0f, 22.0f).build());
-                ps.setArray("double_not_null", EmbeddedRelationalArray.newBuilder().addAll(11.0, 22.0).build());
-                ps.setArray("string_not_null", EmbeddedRelationalArray.newBuilder().addAll("11", "22").build());
-                ps.setArray("bytes_not_null", EmbeddedRelationalArray.newBuilder().addAll(new byte[]{49}, new byte[]{50}).build());
-                ps.setArray("struct_not_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
-                assertEquals(1, ps.executeUpdate());
-            }
-        }
-    }
-
-    @Test
-    void testNonNullColumnRequiresValue() throws SQLException {
-        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
-            conn.setSchema(database.getSchemaName());
-            conn.setAutoCommit(true);
-            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk, boolean_not_null, " +
-                    "integer_not_null, bigint_not_null, float_not_null, double_not_null, string_not_null, bytes_not_null, " +
-                    "structure_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, " +
+                    "struct_not_null) VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, " +
                     "?double_not_null, ?string_not_null)"))) {
                 ps.setInt("pk", 2);
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
@@ -317,8 +290,7 @@ public class RelationalArrayTest {
                 ps.setArray("float_not_null", EmbeddedRelationalArray.newBuilder().addAll(11.0f, 22.0f).build());
                 ps.setArray("double_not_null", EmbeddedRelationalArray.newBuilder().addAll(11.0, 22.0).build());
                 ps.setArray("string_not_null", EmbeddedRelationalArray.newBuilder().addAll("11", "22").build());
-                final var actualMessage = Assert.assertThrows(SQLException.class, ps::executeUpdate).getMessage();
-                assertTrue(actualMessage.contains("violates not-null constraint"));
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("not provided");
             }
         }
     }

@@ -768,9 +768,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
-                final Expression currentFieldColumns;
+                Expression currentFieldColumns = null;
                 if (index >= 0 && index < providedColumnContexts.size()) {
                     currentFieldColumns = parseRecordField(providedColumnContexts.get(index), elementField);
+                } else if (index >= providedColumnContexts.size()) {
+                    // column is declared but the value is not provided
+                    Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
                 } else {
                     // We do not yet support default values for any types, hence it makes to simply fail if the field type
                     // expects non-null but no value is provided.
