@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.Extension;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
@@ -85,14 +87,16 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(final ExtensionContext context) {
-        return testConfigs.stream().map(Context::new);
+        return testConfigs.stream().map(config -> new Context(config, context.getRequiredTestMethod().getAnnotation(ExcludeYamlTestConfig.class)));
     }
 
     private static class Context implements TestTemplateInvocationContext {
         private final YamlTestConfig config;
+        private final Set<Class<? extends YamlTestConfig>> excludedConfigs;
 
-        public Context(final YamlTestConfig config) {
+        public Context(final YamlTestConfig config, final ExcludeYamlTestConfig excludedConfigs) {
             this.config = config;
+            this.excludedConfigs = excludedConfigs == null ? Set.of() : Set.of(excludedConfigs.value());
         }
 
 
@@ -103,16 +107,18 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
         @Override
         public List<Extension> getAdditionalExtensions() {
-            return List.of(new ClassParameterResolver(config));
+            return List.of(new ClassParameterResolver(config, excludedConfigs));
         }
     }
 
     private static final class ClassParameterResolver implements ParameterResolver {
 
         private final YamlTestConfig config;
+        private final Set<Class<? extends YamlTestConfig>> excludedConfigs;
 
-        public ClassParameterResolver(YamlTestConfig config) {
+        public ClassParameterResolver(YamlTestConfig config, final Set<Class<? extends YamlTestConfig>> excludedConfigs) {
             this.config = config;
+            this.excludedConfigs = excludedConfigs;
         }
 
         @Override
@@ -130,7 +136,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
                 @Override
                 public void run(final String fileName, final boolean correctExplain) throws Exception {
-                    config.assumeSupport(fileName);
+                    config.assumeSupport(fileName, excludedConfigs);
+                    Assumptions.assumeFalse(excludedConfigs.contains(config.getClass()));
                     var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain);
                     try {
                         yamlRunner.run();

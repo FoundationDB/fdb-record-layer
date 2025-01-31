@@ -78,7 +78,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     }
 
     @Override
-    public void assumeSupport(final @Nonnull String fileName) {
+    public void assumeSupport(final @Nonnull String fileName, final @Nonnull Set<Class<? extends YamlTestConfig>> excludedConfigs) {
         Assumptions.assumeFalse("enum.yamsql".equals(fileName) || "insert-enum.yamsql".equals(fileName),
                 "Enums are not supported in JDBC");
         Assumptions.assumeFalse("prepared.yamsql".equals(fileName),

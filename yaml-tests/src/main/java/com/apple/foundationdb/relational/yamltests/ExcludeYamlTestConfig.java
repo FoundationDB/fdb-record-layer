@@ -1,5 +1,5 @@
 /*
- * YamlTestConfig.java
+ * ExcludeYamlTestConfig.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,20 +18,17 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.yamltests.configs;
+package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 
-import javax.annotation.Nonnull;
-import java.util.Set;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
-public interface YamlTestConfig {
-
-    YamlRunner.YamlConnectionFactory createConnectionFactory();
-
-    void beforeAll() throws Exception;
-
-    void afterAll() throws Exception;
-
-    void assumeSupport(@Nonnull String fileName, @Nonnull Set<Class<? extends YamlTestConfig>> excludedConfigs);
+/**
+ * Mark specific configs as disabled for the current test.
+ */
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ExcludeYamlTestConfig {
+    Class<? extends YamlTestConfig>[] value();
 }

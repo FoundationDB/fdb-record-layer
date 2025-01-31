@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -84,8 +85,9 @@ public class MultiServerConfig implements YamlTestConfig {
     }
 
     @Override
-    public void assumeSupport(final @Nonnull String fileName) {
-        embeddedConfig.assumeSupport(fileName);
+    public void assumeSupport(final @Nonnull String fileName, final @Nonnull Set<Class<? extends YamlTestConfig>> excludedConfigs) {
+        embeddedConfig.assumeSupport(fileName, excludedConfigs);
+        Assumptions.assumeFalse(excludedConfigs.contains(embeddedConfig.getClass()));
     }
 
     @Override

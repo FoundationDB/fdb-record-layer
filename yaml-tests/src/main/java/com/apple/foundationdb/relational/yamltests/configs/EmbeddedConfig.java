@@ -68,7 +68,7 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
-    public void assumeSupport(final @Nonnull String fileName) {
+    public void assumeSupport(final @Nonnull String fileName, final @Nonnull Set<Class<? extends YamlTestConfig>> excludedConfigs) {
         // all files are supported with the embedded config
     }
 
