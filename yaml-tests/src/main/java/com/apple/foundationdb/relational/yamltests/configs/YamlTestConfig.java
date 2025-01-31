@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
+import javax.annotation.Nonnull;
+
 public interface YamlTestConfig {
 
     YamlRunner.YamlConnectionFactory createConnectionFactory();
@@ -30,5 +32,5 @@ public interface YamlTestConfig {
 
     void afterAll() throws Exception;
 
-    void assumeSupport(final String fileName);
+    void assumeSupport(@Nonnull String fileName);
 }

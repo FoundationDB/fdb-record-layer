@@ -63,6 +63,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     }
 
     @Override
+    @SuppressWarnings("PMD.UnnecessaryLocalBeforeReturn") // It complains about the local variable `e` being returned
     public void afterAll(final ExtensionContext context) throws Exception {
         final Optional<Exception> exception = testConfigs.stream().map(config -> {
             try {

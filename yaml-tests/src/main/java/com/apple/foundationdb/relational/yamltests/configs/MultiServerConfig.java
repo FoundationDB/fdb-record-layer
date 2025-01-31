@@ -84,7 +84,7 @@ public class MultiServerConfig implements YamlTestConfig {
     }
 
     @Override
-    public void assumeSupport(final String fileName) {
+    public void assumeSupport(final @Nonnull String fileName) {
         embeddedConfig.assumeSupport(fileName);
     }
 
