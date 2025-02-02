@@ -32,6 +32,7 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Map;
+import java.util.EnumSet;
 
 @Deprecated
 public abstract class YamlTestBase {
@@ -65,10 +66,10 @@ public abstract class YamlTestBase {
     }
 
     protected final void doRun(@Nonnull final String fileName) throws Exception {
-        doRun(fileName, false);
+        doRun(fileName, EnumSet.noneOf(YamlRunner.YamlRunnerOptions.class));
     }
 
-    protected void doRun(String fileName, boolean correctExplain) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), correctExplain, getAdditionalOptions()).run();
+    protected void doRun(String fileName, EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions) throws Exception {
+        new YamlRunner(fileName, createConnectionFactory(), yamlRunnerOptions, getAdditionalOptions()).run();
     }
 }

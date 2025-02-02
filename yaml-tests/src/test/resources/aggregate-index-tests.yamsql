@@ -114,7 +114,7 @@ test_block:
       - result: [{!l 10, !l 16}, {!l 20, !l 77}]
     -
        - query: select col1, max(col2) from T1 group by col1;
-       - explain: "AISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)"
+       - explain: "AIASCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)"
        - result: [{!l 10, !l 5}, {!l 20, !l 13}]
     -
        - query: select col1, max(col2) from T1 group by col1 order by col1;

@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetric
 import com.google.common.base.Verify;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,6 +40,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,10 +54,12 @@ public final class YamlExecutionContext {
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
     @Nonnull final String resourcePath;
+    @Nonnull
+    private final EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions;
     @Nullable
     private final List<String> editedFileStream;
     private boolean isDirty;
-    @Nullable
+    @Nonnull
     private final Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> metricsMap;
     private boolean isDirtyMetrics;
     @Nonnull
@@ -76,10 +80,14 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
+    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory,
+                         @Nonnull EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions,
+                         @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
-        this.editedFileStream = correctExplain ? loadYamlResource(resourcePath) : null;
+        this.yamlRunnerOptions = yamlRunnerOptions;
+        this.editedFileStream = yamlRunnerOptions.contains(YamlRunner.YamlRunnerOptions.CORRECT_EXPLAIN)
+                                ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = Map.copyOf(additionalOptions);
         this.metricsMap = loadMetricsResource(resourcePath);
         if (isNightly()) {
@@ -94,8 +102,14 @@ public final class YamlExecutionContext {
         return connectionFactory;
     }
 
+    public boolean testYamlRunnerOptions(@Nonnull final YamlRunner.YamlRunnerOptions yamlRunnerOption) {
+        return yamlRunnerOptions.contains(yamlRunnerOption);
+    }
+
     public boolean shouldCorrectExplains() {
-        return editedFileStream != null;
+        Verify.verify(!yamlRunnerOptions.contains(YamlRunner.YamlRunnerOptions.CORRECT_EXPLAIN) ||
+                editedFileStream != null);
+        return testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.CORRECT_EXPLAIN);
     }
 
     public boolean correctExplain(int lineNumber, @Nonnull String actual) {
@@ -109,6 +123,19 @@ public final class YamlExecutionContext {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    @Nonnull
+    public Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap() {
+        return metricsMap;
+    }
+
+    @Nullable
+    @SuppressWarnings("UnusedReturnValue")
+    public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
+                                                            @Nonnull final PlannerMetricsProto.Info info) {
+        this.isDirtyMetrics = true;
+        return metricsMap.put(identifier, info);
     }
 
     public boolean isNightly() {
@@ -142,6 +169,10 @@ public final class YamlExecutionContext {
 
     boolean isDirty() {
         return isDirty;
+    }
+
+    boolean isDirtyMetrics() {
+        return isDirtyMetrics;
     }
 
     @Nullable
@@ -251,6 +282,25 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(name, defaultValue);
     }
 
+    public void saveMetricsResource() {
+        final var fileName = Path.of(System.getProperty("user.dir"))
+                .resolve(Path.of("src", "test", "resources", metricsFileName(resourcePath)))
+                .toAbsolutePath().toString();
+        try (final var fos = new FileOutputStream(fileName)) {
+            for (final var entry : metricsMap.entrySet()) {
+                PlannerMetricsProto.Entry.newBuilder()
+                        .setIdentifier(entry.getKey())
+                        .setInfo(entry.getValue())
+                        .build()
+                        .writeDelimitedTo(fos);
+            }
+            logger.info("🟢 Planner metrics file {} replaced.", fileName);
+        } catch (final IOException iOE) {
+            logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
+            Assertions.fail(iOE);
+        }
+    }
+
     @Nonnull
     private static List<String> loadYamlResource(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -297,25 +347,5 @@ public final class YamlExecutionContext {
         Verify.verify(tokens.length == 2);
         Verify.verify(tokens[1].equals("yamsql"));
         return tokens[0];
-    }
-
-    private static void saveMetricsResource(@Nonnull final String resourcePath,
-                                            @Nonnull final Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> metricsMap) throws RelationalException {
-        try {
-            final var fileName = Path.of(System.getProperty("user.dir"))
-                    .resolve(Path.of("src", "test", "resources", metricsFileName(resourcePath)))
-                    .toAbsolutePath().toString();
-            try (final var fos = new FileOutputStream(fileName)) {
-                for (final var entry : metricsMap.entrySet()) {
-                    PlannerMetricsProto.Entry.newBuilder()
-                            .setIdentifier(entry.getKey())
-                            .setInfo(entry.getValue())
-                            .build()
-                            .writeDelimitedTo(fos);
-                }
-            }
-        } catch (final IOException e) {
-            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
-        }
     }
 }

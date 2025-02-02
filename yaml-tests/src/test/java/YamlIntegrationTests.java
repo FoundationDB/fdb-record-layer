@@ -21,8 +21,11 @@
 import com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigExclusions;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
+
+import java.util.EnumSet;
 
 /**
  * Class covering the standard integration tests specified by yamsql files.
@@ -128,7 +131,7 @@ public class YamlIntegrationTests {
     @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
             reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void aggregateIndexTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("aggregate-index-tests.yamsql");
+        runner.runYamsql("aggregate-index-tests.yamsql", EnumSet.of(YamlRunner.YamlRunnerOptions.SHOW_PLAN_ON_DIFF));
     }
 
     @TestTemplate

@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -99,9 +100,11 @@ public final class YamlRunner {
         }
     }
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
+                      @Nonnull EnumSet<YamlRunnerOptions> yamlRunnerOptions,
+                      @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
         this.resourcePath = resourcePath;
-        this.executionContext = new YamlExecutionContext(resourcePath, factory, correctExplain, additionalOptions);
+        this.executionContext = new YamlExecutionContext(resourcePath, factory, yamlRunnerOptions, additionalOptions);
     }
 
     public void run() throws Exception {
@@ -131,6 +134,7 @@ public final class YamlRunner {
 
             evaluateTestBlockResults(testBlocks);
             replaceTestFileIfRequired();
+            replaceMetricsFileIfRequired();
         } catch (RelationalException | IOException e) {
             logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
             throw e;
@@ -191,5 +195,18 @@ public final class YamlRunner {
             logger.error("⚠️ Source file {} could not be replaced with corrected file.", resourcePath);
             Assertions.fail(e);
         }
+    }
+
+    private void replaceMetricsFileIfRequired() throws RelationalException {
+        if (!executionContext.isDirtyMetrics()) {
+            return;
+        }
+        executionContext.saveMetricsResource();
+    }
+
+    public enum YamlRunnerOptions {
+        CORRECT_EXPLAIN,
+        CORRECT_STATS,
+        SHOW_PLAN_ON_DIFF
     }
 }

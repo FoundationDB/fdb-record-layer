@@ -145,7 +145,7 @@ public class QueryExecutor {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.createStatement()) {
                     final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache, maxRows);
-                    config.checkResult(queryResult, this.toString());
+                    config.checkResult(currentQuery, queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
                     }
@@ -155,7 +155,7 @@ public class QueryExecutor {
                 try (var s = connection.prepareStatement(currentQuery)) {
                     setParametersInPreparedStatement(s, connection);
                     final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, null, checkCache, maxRows);
-                    config.checkResult(queryResult, this.toString());
+                    config.checkResult(currentQuery, queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
                     }
@@ -174,11 +174,12 @@ public class QueryExecutor {
         Continuation continuationAfter = null;
         try {
             logger.debug("⏳ Executing continuation for query '{}'", this.toString());
+            final var executeContinuationQuery = "EXECUTE CONTINUATION ?;";
             try (var s = prepareContinuationStatement(connection, continuation, maxRows)) {
                 // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
                 // for caching.
                 final var queryResult = executeStatement(s, null);
-                config.checkResult(queryResult, this.toString());
+                config.checkResult(executeContinuationQuery, queryResult, this.toString());
                 if (queryResult instanceof RelationalResultSet) {
                     continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
                 }

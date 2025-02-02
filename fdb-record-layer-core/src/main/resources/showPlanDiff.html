@@ -28,17 +28,17 @@
     <style>
     #output1 svg {
       position: absolute;
-      top: 0;
+      top: 20%;
       left: 0;
       width: 50%;
-      height: 100%;
+      height: 80%;
     }
     #output2 svg {
       position: absolute;
-      top: 0;
+      top: 20%;
       left: 50%;
       width: 50%;
-      height: 100%;
+      height: 80%;
     }
   </style>
 </head>
@@ -52,17 +52,16 @@
     <hr>
     <pre>
         <code>
-SELECT * FROM T
-WHERE x > 10
+$SQL
         </code>
     </pre>
     <div id="c1" class="row">
         <div class="col">
-            before:
+            expected:
             <div id="output1" style="width: 50%; height: 100%;">
                 <script>
                     const dot1 = `
-            $DOT
+            $DOT_EXPECTED
             `;
                 var viz = new Viz();
 
@@ -96,11 +95,11 @@ WHERE x > 10
             </div>
         </div>
         <div class="col">
-            current:
+            actual:
             <div id="output2" style="width: 50%; height: 100%;">
                 <script>
                     const dot2 = `
-        $DOT
+        $DOT_ACTUAL
         `;
             var viz = new Viz();
 
