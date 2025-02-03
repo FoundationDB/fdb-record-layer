@@ -41,7 +41,7 @@ def main(argv):
     args = parser.parse_args(argv)
 
     process = subprocess.run(['git', 'status', '--porcelain=v1', '--untracked=no', '--no-renames'],
-                             check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                             check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     should_commit = False
     for line in process.stdout.splitlines():
         indexState = line[0]
