@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Function;

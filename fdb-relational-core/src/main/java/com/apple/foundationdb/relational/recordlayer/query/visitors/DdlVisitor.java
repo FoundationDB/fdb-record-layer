@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+
 import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
@@ -198,7 +199,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var functionBody = visitFullId(ctx.fullId());
         final var paramNameId = Identifier.of(ctx.paramName.getText().toUpperCase(Locale.ROOT));
 
-        Optional<Value> fieldValue = semanticAnalyzer.lookUpNestedField(functionBody, paramNameId, argumentValue, returnType);
+        Optional<Value> fieldValue = semanticAnalyzer.lookupNestedField(functionBody, paramNameId, argumentValue, returnType);
         Assert.thatUnchecked(fieldValue.isPresent(), "couldn't resolve function definition");
 
         return new ScalarValuedFunction(new MacroFunction(ctx.functionName.getText(), List.of(argumentValue), fieldValue.get()));

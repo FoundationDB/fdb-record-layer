@@ -366,7 +366,7 @@ public class SemanticAnalyzer {
                         continue;
                     }
                 }
-                final var nestedFieldMaybe = lookUpNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
+                final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
                     checkForPseudoColumns = false;
@@ -406,7 +406,7 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Optional<Expression> lookUpNestedField(@Nonnull Identifier requestedIdentifier,
+    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
                                                   @Nonnull Expression existingExpression,
                                                   @Nonnull LogicalOperator logicalOperator,
                                                   boolean matchQualifiedOnly) {
@@ -461,7 +461,7 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Optional<Value> lookUpNestedField(@Nonnull Identifier requestedIdentifier,
+    public Optional<Value> lookupNestedField(@Nonnull Identifier requestedIdentifier,
                                              @Nonnull Identifier paramId,
                                              @Nonnull QuantifiedObjectValue existingValue,
                                              @Nonnull DataType targetDataType) {
@@ -494,7 +494,6 @@ public class SemanticAnalyzer {
                 return Optional.empty();
             }
         }
-        // probably need to check if currentDataType = targetDataType
         final var fieldPath = FieldValue.resolveFieldPath(existingValue.getResultType(), accessors.build());
         final var fieldValue = FieldValue.ofFieldsAndFuseIfPossible(existingValue, fieldPath);
         Assert.thatUnchecked(fieldValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
@@ -766,7 +765,6 @@ public class SemanticAnalyzer {
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords,
                                       @Nonnull Expression... arguments) {
-        System.out.println("functionName:" + functionName);
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format("Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookUpFunction(functionName);
