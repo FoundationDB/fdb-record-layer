@@ -102,6 +102,7 @@ setup:
                (10, 1, 0)
 ---
 test_block:
+  name: orderby-tests
   tests:
     -
       - query: select b, c from t1 order by b, b

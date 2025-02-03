@@ -44,6 +44,7 @@ setup:
                  (15, 'bob')
 ---
 test_block:
+  name: enum-tests
   tests:
     -
       - query: SELECT * From TABLE_A where "mood" = 'CONFUSED'

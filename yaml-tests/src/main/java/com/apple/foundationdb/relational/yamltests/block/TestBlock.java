@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 import com.apple.foundationdb.relational.yamltests.command.SkippedCommand;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
+import com.google.common.base.Verify;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -445,6 +446,7 @@ public final class TestBlock extends ConnectedBlock {
         }
         // Iterate through the futures to catch any uncaught errors/exceptions from the submitted tasks.
         for (var future : futures) {
+            Verify.verify(!future.isCancelled());
             future.get();
         }
     }

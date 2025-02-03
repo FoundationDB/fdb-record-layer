@@ -28,6 +28,7 @@ schema_template:
     create index mv5 as select col2 from t2
 ---
 test_block:
+  name: agg-index-tests-count-empty
   tests:
     -
       - query: select count(*) from t1

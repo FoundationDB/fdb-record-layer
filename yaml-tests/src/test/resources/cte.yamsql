@@ -31,6 +31,7 @@ setup:
                (7, 20, 7)
 ---
 test_block:
+  name: cte-tests
   preset: single_repetition_ordered
   tests:
     -

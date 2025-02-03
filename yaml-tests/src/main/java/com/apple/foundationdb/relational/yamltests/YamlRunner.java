@@ -201,7 +201,8 @@ public final class YamlRunner {
         if (!executionContext.isDirtyMetrics()) {
             return;
         }
-        executionContext.saveMetricsResource();
+        executionContext.saveMetricsAsBinaryProto();
+        executionContext.saveMetricsAsYaml();
     }
 
     public enum YamlRunnerOptions {

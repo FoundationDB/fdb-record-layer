@@ -26,9 +26,13 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.Block;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.LinkedListMultimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,6 +40,7 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -45,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
@@ -282,9 +288,9 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(name, defaultValue);
     }
 
-    public void saveMetricsResource() {
+    public void saveMetricsAsBinaryProto() {
         final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsFileName(resourcePath)))
+                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(resourcePath)))
                 .toAbsolutePath().toString();
         try (final var fos = new FileOutputStream(fileName)) {
             for (final var entry : metricsMap.entrySet()) {
@@ -294,6 +300,44 @@ public final class YamlExecutionContext {
                         .build()
                         .writeDelimitedTo(fos);
             }
+            logger.info("🟢 Planner metrics file {} replaced.", fileName);
+        } catch (final IOException iOE) {
+            logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
+            Assertions.fail(iOE);
+        }
+    }
+
+    public void saveMetricsAsYaml() {
+        final var fileName = Path.of(System.getProperty("user.dir"))
+                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(resourcePath)))
+                .toAbsolutePath().toString();
+
+        final var mmap = LinkedListMultimap.<String, Map<String, Object>>create();
+        for (final var entry : metricsMap.entrySet()) {
+            final var identifier = entry.getKey();
+            final var info = entry.getValue();
+            final var countersAndTimers = info.getCountersAndTimers();
+            final var infoMap =
+                    ImmutableMap.<String, Object>of("query", identifier.getQuery(),
+                            "explain", info.getExplain(),
+                            "task_count", countersAndTimers.getTaskCount(),
+                            "task_total_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTaskTotalTimeNs()),
+                            "transform_count", countersAndTimers.getTransformCount(),
+                            "transform_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTransformTimeNs()),
+                            "transform_yield_count", countersAndTimers.getTransformYieldCount(),
+                            "insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()),
+                            "insert_new_count", countersAndTimers.getInsertNewCount(),
+                            "insert_reused_count", countersAndTimers.getInsertReusedCount());
+            mmap.put(identifier.getBlockName(), infoMap);
+        }
+
+        try (final var fos = new FileOutputStream(fileName)) {
+            DumperOptions options = new DumperOptions();
+            options.setIndent(4);
+            options.setPrettyFlow(true);
+            options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+            Yaml yaml = new Yaml(options);
+            yaml.dump(mmap.asMap(), new PrintWriter(fos));
             logger.info("🟢 Planner metrics file {} replaced.", fileName);
         } catch (final IOException iOE) {
             logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
@@ -318,7 +362,7 @@ public final class YamlExecutionContext {
     @Nonnull
     private static Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        final var fis = classLoader.getResourceAsStream(metricsFileName(resourcePath));
+        final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resourcePath));
         final var resultMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
         if (fis == null) {
             return resultMap;
@@ -337,8 +381,13 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    private static String metricsFileName(@Nonnull final String resourcePath) {
+    private static String metricsBinaryProtoFileName(@Nonnull final String resourcePath) {
         return baseName(resourcePath) + ".metrics.binpb";
+    }
+
+    @Nonnull
+    private static String metricsYamlFileName(@Nonnull final String resourcePath) {
+        return baseName(resourcePath) + ".metrics.yaml";
     }
 
     @Nonnull

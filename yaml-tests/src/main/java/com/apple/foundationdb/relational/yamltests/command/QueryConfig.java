@@ -267,7 +267,7 @@ public abstract class QueryConfig {
                     final var taskTotalTimeInNs = actualPlannerMetrics.getLong(2);
                     Verify.verify(taskTotalTimeInNs > 0);
 
-                    if (expectedPlannerMetricsInfo == null && !executionContext.shouldCorrectExplains()) {
+                    if (expectedPlannerMetricsInfo == null && !executionContext.testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.CORRECT_STATS)) {
                         reportTestFailure("‼️ No planner metrics for line " + getLineNumber());
                     }
                     final var actualInfo = PlannerMetricsProto.Info.newBuilder()
@@ -310,7 +310,7 @@ public abstract class QueryConfig {
                                          && log("‼️ insertReusedCount differs; expected = " + expectedCountersAndTimers.getInsertReusedCount() +
                                         "; actual = " + actualCountersAndTimers.getInsertReusedCount(), getLineNumber())) || isDifferent;
                         if (isDifferent) {
-                            if (executionContext.shouldCorrectExplains()) {
+                            if (executionContext.testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.CORRECT_STATS)) {
                                 executionContext.putMetrics(identifier, actualInfo);
                                 logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
                             } else {
