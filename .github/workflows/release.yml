@@ -13,41 +13,26 @@ jobs:
       pages: write
       pull-requests: write
     steps:
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.13'
-    - name: Checkout sources
-      uses: actions/checkout@v4.2.2
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
 
-    # Push a version bump back to main. There are failure scenarios that can result
-    # in published artifacts but an erroneous build, so it's safer to bump the version
-    # at the beginning
-    - name: Configure git
-      run: |
-        git config --global user.name 'FoundationDB CI'
-        git config --global user.email 'foundationdb_ci@apple.com'
-    - name: Increment version
-      run: python build/versionutils.py gradle.properties --increment --commit
-    - name: Push version increment
-      run: git push
+      # Push a version bump back to main. There are failure scenarios that can result
+      # in published artifacts but an erroneous build, so it's safer to bump the version
+      # at the beginning
+      - name: Configure git
+        run: |
+          git config --global user.name 'FoundationDB CI'
+          git config --global user.email 'foundationdb_ci@apple.com'
+      - name: Increment version
+        run: python build/versionutils.py gradle.properties --increment --commit
+      - name: Push version increment
+        run: git push
 
-    - name: Build and publish
-      uses: ./actions/release-build-publish
+      - name: Build and publish
+        uses: ./actions/release-build-publish
 
     # TODO: Publish documentation updates
-
-    - name: Push Release Updates
-      id: push_updates
-      run: git push origin
-    - name: Create Merge PR if conflict
-      if: steps.push_updates.conclusion == 'failure'
-      uses: peter-evans/create-pull-request@v7
-      with:
-        branch: release-build
-        branch-suffix: timestamp
-        title: "Updates for ${{ steps.get_version.outputs.version }} release"
-        body: |
-          Updates from release for version ${{ steps.get_version.outputs.version }}. Conflicts during the build
-          prevented automatic updating. Please resolve conflicts by checking out the current branch, merging,
-          and then deleting this branch.

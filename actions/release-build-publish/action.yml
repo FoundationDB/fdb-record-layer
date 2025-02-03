@@ -25,3 +25,18 @@ runs:
       run: git tag -m "Release ${{ steps.get_version_outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
     - name: Push tag
       run: git push origin "${{ steps.get_version.outputs.version }}"
+    - name: Push Updates
+      id: push_updates
+      shell: bash
+      run: git push origin
+    - name: Create Merge PR if conflict
+      if: failure() && steps.push_updates.conclusion == 'failure'
+      uses: peter-evans/create-pull-request@v7
+      id: pr_on_conflict
+      with:
+        branch: release-build
+        branch-suffix: timestamp
+        title: "Updates for ${{ steps.get_version.outputs.version }} release"
+        sign-commits: true
+        body: |
+          Updates from release for version ${{ steps.get_version.outputs.version }}. Conflicts during the build prevented automatic updating. Please resolve conflicts by checking out the current branch, merging, and then deleting this branch.

@@ -15,7 +15,8 @@ jobs:
       checks: write
       contents: write
       packages: write
-      pages: write
+      pages: read
+      pull-requests: write
     steps:
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -34,48 +35,9 @@ jobs:
           git config --global user.name 'FoundationDB CI'
           git config --global user.email 'foundationdb_ci@apple.com'
       - name: Increment Version
-        run: python build/versionutils.py gradle.properties -u PATCH --commit
+        run: python build/versionutils.py gradle.properties -u PATCH --increment --commit
       - name: Push Version Update
         run: git push
 
       - name: Build and publish release
         uses: ./actions/release-build-publish
-      - name: Push To Branch
-        run: git push origin
-
-  merge_to_main:
-    runs-on: ubuntu-latest
-    needs: gradle
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v4.2.2
-        with:
-          ref: main
-      - name: Configure Git
-        run: |
-          git config --global user.name 'FoundationDB CI'
-          git config --global user.email 'foundationdb_ci@apple.com'
-      - name: Merge
-        id: merge
-        run: git merge "${{ inputs.branch }}"
-      - name: Commit conflicts
-        id: commit_conflicts
-        if: steps.merge.conclusion == 'failure'
-        run: |
-          # Always favor the main branch's gradle.properties
-          git checkout main -- gradle.properties
-          git add -u
-          git commit -m "Merge conflicts from merging branch ${{ inputs.branch }} into main"
-      - name: Create merge PR
-        if: steps.merge.conclusion == 'success' || steps.commit_conflicts.conclusion == 'success'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          branch: merge-branch-$${ inputs.branch }}
-          branch-suffix: timestamp
-          title: "Merge ${{ inputs.branch }} into main"
-          body: |
-            Merge branch ${{ inputs.branch }} into main. To keep the main branch up to date,
-            please resolve any conflicts, merge this PR, and then delete this branch.
