@@ -46,6 +46,7 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
 
     private static final Logger logger = LogManager.getLogger(RunExternalServerExtension.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
+    private static final boolean SAVE_SERVER_OUTPUT = false;
 
     private static final int SERVER_PORT = 1111;
     private final String jarName;
@@ -98,8 +99,14 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
         ProcessBuilder processBuilder = new ProcessBuilder("java",
                 "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n", jar.getAbsolutePath());
-        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+        ProcessBuilder.Redirect out = SAVE_SERVER_OUTPUT ?
+                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerOut", ".log")) :
+                                      ProcessBuilder.Redirect.DISCARD;
+        ProcessBuilder.Redirect err = SAVE_SERVER_OUTPUT ?
+                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerErr", ".log")) :
+                                      ProcessBuilder.Redirect.DISCARD;
+        processBuilder.redirectOutput(out);
+        processBuilder.redirectError(err);
 
         if (!startServer(processBuilder)) {
             Assertions.fail("Failed to start the external server");
