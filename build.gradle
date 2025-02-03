@@ -302,6 +302,12 @@ subprojects {
     }
 }
 
+task artifactVersion() {
+    doLast {
+        println(version)
+    }
+}
+
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
 // you want and run the command _twice_.
 wrapper {

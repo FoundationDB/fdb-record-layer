@@ -1,0 +1,45 @@
+name: Patch Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build off of'
+        required: true
+
+
+jobs:
+  gradle:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: write
+      packages: write
+      pages: write
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ inputs.branch }}
+
+      # Push a version bump back to main. There are failure scenarios that can result
+      # in published artifacts but an erroneous build, so it's safer to bump the version
+      # at the beginning, and then there
+      - name: Configure Git
+        run: |
+          git config --global user.name 'FoundationDB CI'
+          git config --global user.email 'foundationdb_ci@apple.com'
+      - name: Increment Version
+        run: python build/versionutils.py gradle.properties -u PATCH --commit
+      - name: Push Version Update
+        run: git push
+
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_args: "-PreleaseBuild=true"
+

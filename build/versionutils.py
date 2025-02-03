@@ -74,21 +74,35 @@ def update_version(filename: str, update_type: str) -> tuple[int, int, int, int]
     return new_version
 
 
+def get_version(filename: str) -> tuple[int, int, int, int]:
+    with open(filename, 'r') as fin:
+        for l in fin:
+            m = VERSION_LINE.match(l)
+            if m:
+               return int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+    raise ValueError(f'Unable to find version in {filename}')
+
+
 def main(argv: list[str]):
-    parser = argparse.ArgumentParser(prog='increment_version',
+    parser = argparse.ArgumentParser(prog='versionutils',
                                      description='Utility to increment the project version stored in a version file')
     parser.add_argument('filename', type=str, help='File containing version to increment')
+    parser.add_argument('--increment', action='store_true', default=False, help='Whether to increment the current version')
     parser.add_argument('-u', '--update-type', type=str, default='BUILD', choices=VERSION_POSITIONS,
                         help='Type of update. Determines which position within the build number is updated')
     parser.add_argument('-c', '--commit', action='store_true', default=False, help='Whether to commit the update or not')
 
     args = parser.parse_args(argv)
-    new_version = update_version(args.filename, args.update_type)
+    if args.increment:
+        new_version = update_version(args.filename, args.update_type)
 
-    if args.commit:
-        subprocess.check_output(['git', 'add', args.filename])
-        subprocess.check_output(['git', 'commit', '-m', f'Updating version to {version_string(new_version)}'])
-        print('Version update committed')
+        if args.commit:
+            subprocess.check_output(['git', 'add', args.filename])
+            subprocess.check_output(['git', 'commit', '-m', f'Updating version to {version_string(new_version)}'])
+            print('Version update committed')
+
+    else:
+       print(version_string(get_version(args.filename)))
 
 
 if __name__ == '__main__':

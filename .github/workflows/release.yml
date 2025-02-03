@@ -18,21 +18,53 @@ jobs:
         python-version: '3.13'
     - name: Checkout sources
       uses: actions/checkout@v4.2.2
+
+    # Push a version bump back to main. There are failure scenarios that can result
+    # in published artifacts but an erroneous build, so it's safer to bump the version
+    # at the beginning
+    - name: Configure git
+      run: |
+        git config --global user.name 'FoundationDB CI'
+        git config --global user.email 'foundationdb_ci@apple.com'
+    - name: Increment version
+      run: python build/versionutils.py gradle.properties --increment --commit
+    - name: Push version increment
+      run: git push
+
+    - name: Get version
+      id: get_version
+      run: |
+        echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
     - name: Run Gradle Test
       uses: ./actions/gradle-test
       with:
         gradle_args: "-PreleaseBuild=true"
 
-    # Always push a version bump back to main. There are failure scenarios that can result
-    # in published artifacts but an erroneous build, and it's safer to have version gaps
-    - name: Configure Git
-      if: always()
+    # Post release clean up
+    - name: Update release notes
+      run: ARTIFACT_VERSION="${{ steps.get_version.outputs.version }}" ./build/update_release_notes.bash
+    - name: Update YAML test file versions
       run: |
-        git config --global user.name 'FoundationDB CI'
-        git config --global user.email 'foundationdb_ci@apple.com'
-    - name: Increment Version
-      if: always()
-      run: python build/increment_version.py gradle.properties --commit
-    - name: Push Changes
-      if: always()
-      run: git push
+        ./gradlew updateYamsql -PreleaseBuild=true
+        python ./build/commit_yamsql_updates.py "${{ steps.get_version.outputs.version }}"
+    - name: Create tag
+      run: git tag -m "Release ${{ steps.get_version_outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
+    - name: Push tag
+      run: git push origin "${{ steps.get_version.outputs.version }}"
+
+    # TODO: push documentation updates
+
+    - name: Push Release Updates
+      id: push_updates
+      run: git push origin
+    - name: Create Merge PR if conflict
+      if: steps.push_updates.conclusion == 'failure'
+      uses: peter-evans/create-pull-request@v7
+      with:
+        branch: release-build
+        branch-suffix: timestamp
+        title: "Updates for ${{ steps.get_version.outputs.version }} release"
+        body: |
+          Updates from release for version ${{ steps.get_version.outputs.version }}. Conflicts during the build
+          prevented automatic updating. Please resolve conflicts by checking out the current branch, merging,
+          and then deleting this branch.
