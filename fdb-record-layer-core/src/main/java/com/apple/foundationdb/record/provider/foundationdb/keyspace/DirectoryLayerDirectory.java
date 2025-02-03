@@ -60,7 +60,7 @@ import java.util.function.Function;
  * Retrieving by directory layer value will result in an exception if the value provided is either not a valid
  * directory layer value, or it is not the value that corresponds to the constant name for this directory.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class DirectoryLayerDirectory extends KeySpaceDirectory {
     @Nonnull
     private final Function<FDBRecordContext, CompletableFuture<LocatableResolver>> scopeGenerator;

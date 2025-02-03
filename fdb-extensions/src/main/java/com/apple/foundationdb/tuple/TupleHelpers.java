@@ -61,7 +61,7 @@ public class TupleHelpers {
      *         a value less than {@code 0} if {@code t1} would sort before {@code t2}
      *         a value greater than {@code 0} if {@code t1} would sort after {@code t2}
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public static int compare(@Nonnull Tuple t1, @Nonnull Tuple t2) {
         final int t1Len = t1.size();
         final int t2Len = t2.size();

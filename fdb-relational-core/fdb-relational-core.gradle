@@ -1,0 +1,92 @@
+/*
+ * fdb-record-layer-core.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java-test-fixtures'
+}
+
+apply from: rootProject.file('gradle/antlr.gradle')
+apply from: rootProject.file('gradle/proto.gradle')
+apply from: rootProject.file('gradle/publishing.gradle')
+
+def coreProject = ":${ext.coreProjectName}"
+dependencies {
+    implementation(project(coreProject))
+    implementation project(":fdb-relational-api")
+
+    implementation(libs.dropwizard)
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
+    implementation(libs.jsr305)
+    implementation(libs.guava)
+    implementation(libs.antlr)
+    implementation(libs.log4j.core)
+    implementation(libs.caffeine)
+    implementation(libs.caffeine.guava)
+
+    antlr(libs.antlr)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    testImplementation project(path: coreProject, configuration: 'tests')
+    testImplementation(testFixtures(project(":fdb-relational-api")))
+    testImplementation(libs.guava.testlib)
+    testImplementation(libs.h2)
+    testImplementation(libs.opencsv)
+    testImplementation(libs.bndtools) // for one annotation used by log4j
+
+    // Support for the fdb-relational-core test fixture.
+    testFixturesImplementation(project(":fdb-relational-api"))
+    testFixturesImplementation(libs.protobuf)
+    testFixturesImplementation(libs.assertj)
+    testFixturesImplementation(libs.jsr305)
+    // This is included just for ResultSetAssert. It does a bunch of this
+    // Type.Record record = ProtobufDdlUtil.recordFromDescriptor(((Message) colValue).getDescriptorForType());
+    testFixturesImplementation(project(coreProject))
+}
+
+/*
+task autoTest(type: Test){
+    description = 'Runs the Automated end-to-end tests.'
+    group = 'verification'
+//    testClassesDir = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    useJUnitPlatform {
+        includeEngines 'auto-test'
+        excludeEngines 'junit-jupiter'
+    }
+
+    reports {
+        junitXml.outputLocation = layout.buildDirectory.dir("autotest-test-results")
+    }
+}
+ */
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Relational core library containing main API implementation classes.'
+            }
+        }
+    }
+}

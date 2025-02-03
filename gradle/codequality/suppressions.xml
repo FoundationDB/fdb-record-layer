@@ -6,6 +6,8 @@
 <suppressions>
     <suppress checks=".*"
         files=".*[\\/]protogen[\\/].*"/>
+    <suppress checks=".*"
+              files=".*[\\/]generated-src[\\/].*"/>
     <suppress checks="JavadocPackage"
         files=".*[\\/]test[\\/].*|.*[\\/]java-proto[23][\\/].*[\\/]metadata[\\/].*"/>
     <suppress checks="Header"

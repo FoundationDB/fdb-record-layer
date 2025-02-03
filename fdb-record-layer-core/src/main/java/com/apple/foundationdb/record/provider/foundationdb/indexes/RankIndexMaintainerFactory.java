@@ -42,7 +42,7 @@ import java.util.Set;
  * A factory for {@link RankIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.RANK };
 

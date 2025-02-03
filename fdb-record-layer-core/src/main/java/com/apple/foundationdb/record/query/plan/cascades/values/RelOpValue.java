@@ -39,9 +39,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -49,6 +46,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
@@ -58,6 +58,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -275,7 +276,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         Verify.verify(arguments.size() == 1 || arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
-        SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
+        SemanticException.check(res0.isPrimitive() || res0.isEnum(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
         if (arguments.size() == 1) {
             final UnaryPhysicalOperator physicalOperator =
                     getUnaryOperatorMap().get(new UnaryComparisonSignature(comparisonType, res0.getTypeCode()));
@@ -289,7 +290,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         } else {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
-            SemanticException.check(res1.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
+            SemanticException.check(res1.isPrimitive() || res1.isEnum(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final BinaryPhysicalOperator physicalOperator =
                     getBinaryOperatorMap().get(new BinaryComparisonSignature(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
@@ -664,6 +665,73 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         GT_BYBY(Comparisons.Type.GREATER_THAN, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, l, r)),
         GTE_BYU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_BYBY(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, l, r)),
+
+        EQ_EE(Comparisons.Type.EQUALS, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.EQUALS, l, r)),
+        EQ_ES(Comparisons.Type.EQUALS, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.EQUALS, l, otherValue);
+        }),
+        EQ_SE(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.EQUALS, otherValue, r);
+        }),
+        EQ_EU(Comparisons.Type.EQUALS, Type.TypeCode.ENUM, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        EQ_UE(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.ENUM, (l, r) -> null),
+        NEQ_EE(Comparisons.Type.NOT_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, r)),
+        NEQ_ES(Comparisons.Type.NOT_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, otherValue);
+        }),
+        NEQ_SE(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.EQUALS, otherValue, r);
+        }),
+        NEQ_EU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        NEQ_UE(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.ENUM, (l, r) -> null),
+        LT_EE(Comparisons.Type.LESS_THAN, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN, l, r)),
+        LT_ES(Comparisons.Type.LESS_THAN, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.LESS_THAN, l, otherValue);
+        }),
+        LT_SE(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.LESS_THAN, otherValue, r);
+        }),
+        LT_EU(Comparisons.Type.LESS_THAN, Type.TypeCode.ENUM, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LT_UE(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.ENUM, (l, r) -> null),
+        LTE_EE(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, l, r)),
+        LTE_ES(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.LESS_THAN, l, otherValue);
+        }),
+        LTE_SE(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.LESS_THAN, otherValue, r);
+        }),
+        LTE_EU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LTE_UE(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.ENUM, (l, r) -> null),
+        GT_EE(Comparisons.Type.GREATER_THAN, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, l, r)),
+        GT_ES(Comparisons.Type.GREATER_THAN, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, l, otherValue);
+        }),
+        GT_SE(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, otherValue, r);
+        }),
+        GT_EU(Comparisons.Type.GREATER_THAN, Type.TypeCode.ENUM, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GT_UE(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.ENUM, (l, r) -> null),
+        GTE_EE(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, l, r)),
+        GTE_ES(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, l, otherValue);
+        }),
+        GTE_SE(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, otherValue, r);
+        }),
+        GTE_EU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GTE_UE(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.ENUM, (l, r) -> null),
         ;
 
         @Nonnull
@@ -753,7 +821,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NOT_NULL_BI(Comparisons.Type.NOT_NULL, Type.TypeCode.BOOLEAN, Objects::nonNull),
 
         IS_NULL_BY(Comparisons.Type.IS_NULL, Type.TypeCode.BYTES, Objects::isNull),
-        IS_NOT_NULL_BY(Comparisons.Type.NOT_NULL, Type.TypeCode.BYTES, Objects::nonNull);
+        IS_NOT_NULL_BY(Comparisons.Type.NOT_NULL, Type.TypeCode.BYTES, Objects::nonNull),
+
+        IS_NULL_EI(Comparisons.Type.IS_NULL, Type.TypeCode.ENUM, Objects::isNull),
+        IS_NOT_NULL_EI(Comparisons.Type.NOT_NULL, Type.TypeCode.ENUM, Objects::nonNull);
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =

@@ -39,7 +39,7 @@ import java.util.List;
 /**
  * A single empty key.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("PMD.MissingSerialVersionUID") // this appears to be a false positive
 public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpression, KeyExpressionWithoutChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Key-Expression");

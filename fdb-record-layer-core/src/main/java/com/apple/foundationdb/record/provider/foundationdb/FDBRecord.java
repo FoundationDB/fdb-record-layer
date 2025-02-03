@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * Adds information about the primary key and record type.
  * @param <M> type used to represent stored records
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface FDBRecord<M extends Message> {
     /**
      * Get the primary key for this record.

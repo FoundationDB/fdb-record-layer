@@ -594,6 +594,11 @@ message PQuantifiedObjectValue {
   optional PType result_type = 2;
 }
 
+message PQuantifiedRecordValue {
+  optional string alias = 1;
+  optional PType result_type = 2;
+}
+
 message PQueriedValue {
   optional PType result_type = 1;
   optional bool has_record_type_names = 3;
@@ -838,6 +843,37 @@ message PBinaryRelOpValue {
       GTE_BYU = 209;
       GTE_BYBY = 210;
 
+      EQ_EE = 211;
+      EQ_ES = 212;
+      EQ_SE = 213;
+      EQ_EU = 214;
+      EQ_UE = 215;
+      NEQ_EE = 216;
+      NEQ_ES = 217;
+      NEQ_SE = 218;
+      NEQ_EU = 219;
+      NEQ_UE = 220;
+      LT_EE = 221;
+      LT_ES = 222;
+      LT_SE = 223;
+      LT_EU = 224;
+      LT_UE = 225;
+      LTE_EE = 226;
+      LTE_ES = 227;
+      LTE_SE = 228;
+      LTE_EU = 229;
+      LTE_UE = 230;
+      GT_EE = 231;
+      GT_ES = 232;
+      GT_SE = 233;
+      GT_EU = 234;
+      GT_UE = 235;
+      GTE_EE = 236;
+      GTE_ES = 237;
+      GTE_SE = 238;
+      GTE_EU = 239;
+      GTE_UE = 240;
+
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -872,6 +908,9 @@ message PUnaryRelOpValue {
 
       IS_NULL_BY = 15;
       IS_NOT_NULL_BY = 16;
+
+      IS_NULL_EI = 17;
+      IS_NOT_NULL_EI = 18;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
@@ -910,7 +949,8 @@ message PVariadicFunctionValue {
 }
 
 message PVersionValue {
-  optional string base_alias = 1;
+  optional string base_alias = 1;  // to-be-deprecated
+  optional PValue child = 2;
 }
 
 message PWindowedValue {
@@ -1209,6 +1249,7 @@ message PRecordQueryAggregateIndexPlan {
   optional PIndexKeyValueToPartialRecord to_record = 3;
   optional PValue result_value = 4;
   optional PQueryPlanConstraint constraint = 5;
+  optional PValue group_by_result_value = 6;
 }
 
 //

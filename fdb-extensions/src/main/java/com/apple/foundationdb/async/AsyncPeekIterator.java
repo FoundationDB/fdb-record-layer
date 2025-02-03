@@ -41,7 +41,7 @@ import java.util.NoSuchElementException;
  *
  * @param <T> type of elements returned by the scan
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface AsyncPeekIterator<T> extends AsyncIterator<T> {
     /**
      * Get the next item of the scan without advancing it.

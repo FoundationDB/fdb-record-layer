@@ -512,13 +512,15 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Override
     public ExplainTokens visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
         visit(streamingAggregationPlan.getChild());
-        pipe().addKeyword("AGG").addWhitespace().addAliasDefinition(streamingAggregationPlan.getInner().getAlias())
+        pipe().addKeyword("AGG").addWhitespace().addPush()
+                .addCurrentAliasDefinition(streamingAggregationPlan.getInner().getAlias())
                 .addNested(streamingAggregationPlan.getAggregateValue().explain().getExplainTokens());
         final var groupingValue = streamingAggregationPlan.getGroupingValue();
         if (groupingValue != null) {
             return addWhitespace().addKeyword("GROUP").addWhitespace().addKeyword("BY").addWhitespace()
                     .addNested(groupingValue.explain().getExplainTokens());
         }
+        addPop();
         return this;
     }
 

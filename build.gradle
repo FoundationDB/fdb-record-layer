@@ -29,17 +29,16 @@ buildscript {
 
     dependencies {
         classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
     }
 }
 
 plugins {
-    id 'com.google.protobuf' version '0.8.19'
-    id 'com.github.ben-manes.versions' version '0.38.0'
-    id 'com.github.spotbugs' version '4.6.1'
-    id 'com.jfrog.artifactory' version '4.29.2'
-    id 'de.undercouch.download' version '4.1.1'
-    id 'org.sonarqube' version '3.3'
+    alias(libs.plugins.protobuf)
+    alias(libs.plugins.versions)
+    alias(libs.plugins.spotbugs)
+    alias(libs.plugins.artifactory)
+    alias(libs.plugins.download)
+    alias(libs.plugins.sonarqube)
 }
 
 ext {
@@ -51,6 +50,8 @@ defaultTasks 'build'
 
 apply from: 'gradle/root.gradle'
 apply from: 'gradle/sonar.gradle'
+
+def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
 
 allprojects {
     apply plugin: 'base'
@@ -75,13 +76,23 @@ allprojects {
         }
     }
 
+    // Propagate debugging option to tests
+    // This makes sure that all tests are running in debug mode by default which is convenient, when e.g. working
+    // with IntelliJ because we do not have to set the 'debugBuild' configuration for each test individually,
+    // though this requires making sure that we set 'debugBuild' to false explicitly when producing a release
+    // or snapshot build to make sure that the tests are _not_ running in that mode and rather running in prod-like
+    // environment.
+    project.tasks.withType(Test) {
+        systemProperty "debugBuild", System.getProperty("debugBuild", "true")
+        dependsOn("sourcesJar")
+    }
+
     buildDir = ".out"
     ext {
         distDir = ".dist"
     }
 
     // Add -SNAPSHOT to version of non-release builds
-    def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
     if (!isReleaseBuild) {
         def versionString = project.version.toString()
         if (!versionString.endsWith("-SNAPSHOT")) {
@@ -118,8 +129,8 @@ allprojects {
     task sourcesJar(type: Jar, dependsOn: 'compileJava') {
         description = "Assembles a Jar archive containing the main sources."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
-        appendix = null
-        classifier = "sources"
+        archiveAppendix = null
+        archiveClassifier = "sources"
         from sourceSets.main.allSource
     }
 
@@ -127,8 +138,8 @@ allprojects {
     task javadocJar(type: Jar) {
         description = "Assembles a Jar archive containing the main Javadoc."
         group = JavaBasePlugin.DOCUMENTATION_GROUP
-        appendix = null
-        classifier = "javadoc"
+        archiveAppendix = null
+        archiveClassifier = "javadoc"
         from tasks.javadoc
     }
 
@@ -169,6 +180,9 @@ allprojects {
             logger.warn 'Warning: you have enabled maven local repository. This should only be used on local workstations to test undeployed library dependencies.'
         }
         mavenCentral()
+        maven {
+            url "https://ossartifacts.jfrog.io/artifactory/fdb-record-layer/"
+        }
     }
 }
 
@@ -179,11 +193,7 @@ subprojects {
     targetCompatibility = JavaVersion.VERSION_11
 
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-    if (publishBuild) {
-        autoServiceVersion = autoServiceVersion
-    } else {
-        autoServiceVersion = autoServiceVersionForDevelopment
-    }
+    def autoServiceVersion = publishBuild ? libs.versions.autoService.asProvider().get() : libs.versions.autoService.development.get()
 
     project.configurations.all {
         resolutionStrategy.eachDependency {details ->
@@ -257,6 +267,39 @@ subprojects {
     }
 
     check.dependsOn quickCheck
+
+    // At the end of a release build, we want to update all the yamsql files to replace !current_version with the
+    // version being built
+    task updateYamsql(type: Task) {
+        mustRunAfter 'test'
+        mustRunAfter 'build'
+        doLast {
+            if (isReleaseBuild) {
+                // don't replace !current_version in the supported-version resources, as those are there to test
+                // supported_version, we want the !current_version to stick around
+                println("Replacing !current_version...")
+                sourceSets["test"].resources.srcDirs.stream().flatMap( resourceDir ->
+                    fileTree(dir: resourceDir).matching {
+                        include '**/*.yamsql'
+                        exclude '/supported-version/*'
+                    }.stream()
+                ).forEach { yamsql ->
+                    def original = yamsql.text
+                    def updated = original.replaceAll("(?<!\")!current_version(?!\")", project.version)
+                    if (!original.equals(updated)) {
+                        println("Replacing !current_version in " + yamsql)
+                        // Replace !current_version in all yamsql, unless it is surrounded by ", allowing it to be used in
+                        // comments, without issue, e.g. in showcasing-tests
+                        yamsql.write(updated)
+                        exec {
+                            workingDir '.'
+                            commandLine 'git', 'add', yamsql
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version

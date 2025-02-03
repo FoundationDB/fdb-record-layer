@@ -42,7 +42,7 @@ import java.util.function.Function;
  * @param <T> the type of elements returned by the cursor
  * @see IntersectionMultiCursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
 
     private IntersectionCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,

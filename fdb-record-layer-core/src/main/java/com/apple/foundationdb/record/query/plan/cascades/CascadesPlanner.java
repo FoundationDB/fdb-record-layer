@@ -318,6 +318,9 @@ public class CascadesPlanner implements QueryPlanner {
                 .put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount)
                 .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
                 .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
+                .put(QueryPlanInfoKeys.STATS_MAPS,
+                        Debugger.getDebuggerMaybe().flatMap(Debugger::getStatsMaps)
+                                .orElse(null))
                 .build();
         return new QueryPlanResult(plan, info);
     }
@@ -354,7 +357,13 @@ public class CascadesPlanner implements QueryPlanner {
                     evaluationContext);
             final var plan = resultOrFail();
             final var constraints = QueryPlanConstraint.collectConstraints(plan);
-            return new QueryPlanResult(plan, QueryPlanInfo.newBuilder().put(QueryPlanInfoKeys.CONSTRAINTS, constraints).build());
+            return new QueryPlanResult(plan,
+                    QueryPlanInfo.newBuilder()
+                            .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
+                            .put(QueryPlanInfoKeys.STATS_MAPS,
+                                    Debugger.getDebuggerMaybe()
+                                            .flatMap(Debugger::getStatsMaps).orElse(null))
+                            .build());
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
@@ -391,33 +400,40 @@ public class CascadesPlanner implements QueryPlanner {
         maxQueueSize = 0;
         while (!taskStack.isEmpty()) {
             try {
-                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
                 if (isTaskTotalCountExceeded(configuration, taskCount)) {
                     throw new RecordQueryPlanComplexityException("Maximum number of tasks (" + configuration.getMaxTotalTaskCount() + ") was exceeded");
                 }
                 taskCount++;
 
+                Debugger.withDebugger(debugger -> debugger.onEvent(
+                        new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Location.BEGIN,
+                                Objects.requireNonNull(taskStack.peek()))));
                 Task nextTask = taskStack.pop();
-                if (logger.isTraceEnabled()) {
-                    logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
-                }
-
-                Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                 try {
-                    nextTask.execute();
+                    if (logger.isTraceEnabled()) {
+                        logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
+                    }
+
+                    Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
+                    try {
+                        nextTask.execute();
+                    } finally {
+                        Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
+                    }
+
+                    if (logger.isTraceEnabled()) {
+                        logger.trace(KeyValueLogMessage.of("planner state",
+                                "taskStackSize", taskStack.size(),
+                                "memo", new ReferencePrinter(currentRoot)));
+                    }
+
+                    maxQueueSize = Math.max(maxQueueSize, taskStack.size());
+                    if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
+                        throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
+                    }
                 } finally {
-                    Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
-                }
-
-                if (logger.isTraceEnabled()) {
-                    logger.trace(KeyValueLogMessage.of("planner state",
-                            "taskStackSize", taskStack.size(),
-                            "memo", new ReferencePrinter(currentRoot)));
-                }
-
-                maxQueueSize = Math.max(maxQueueSize, taskStack.size());
-                if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
-                    throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
+                    Debugger.withDebugger(debugger -> debugger.onEvent(
+                            new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Location.END, nextTask)));
                 }
             } catch (final RestartException restartException) {
                 if (logger.isTraceEnabled()) {

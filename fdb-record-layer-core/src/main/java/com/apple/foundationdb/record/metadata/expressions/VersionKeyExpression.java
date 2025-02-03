@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -46,7 +47,7 @@ import java.util.List;
  * be contained within the key. This should then be used within version indexes to include data
  * sorted by version.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
     public static final VersionKeyExpression VERSION = new VersionKeyExpression();
     public static final RecordKeyExpressionProto.KeyExpression VERSION_PROTO =
@@ -116,7 +117,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     @Nonnull
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType) {
-        return new VersionValue(baseAlias);
+        return new VersionValue(QuantifiedRecordValue.of(baseAlias, baseType));
     }
 
     @Override

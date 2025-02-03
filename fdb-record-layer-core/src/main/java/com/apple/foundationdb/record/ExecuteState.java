@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * In general, the state object should be constructed by as part of a "root" <code>ExecuteProperties</code> rather than
  * directly by the client.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ExecuteState {
 
     /**

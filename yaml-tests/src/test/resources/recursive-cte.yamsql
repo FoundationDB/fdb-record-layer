@@ -1,0 +1,79 @@
+---
+schema_template:
+    create table t1(id bigint, parent bigint, primary key(id))
+    create index parentIdx as select parent, id from t1 order by parent, id
+    create index childIdx as select id, parent from t1 order by id, parent
+---
+setup:
+  steps:
+    - query: insert into t1
+            values (1, -1),
+                   (10, 1),
+                   (20, 1),
+                   (40, 10),
+                   (50, 10),
+                   (70, 10),
+                   (100, 20),
+                   (210, 20),
+                   (250, 50)
+---
+test_block:
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: with recursive c1 as (
+            select id, parent from t1 where parent = -1
+            union all
+            select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
+      - unorderedResult: [{ID: 1},
+                          {ID: 10},
+                          {ID: 20},
+                          {ID: 40},
+                          {ID: 50},
+                          {ID: 70},
+                          {ID: 100},
+                          {ID: 210},
+                          {ID: 250}]
+    -
+      - query: with recursive c1 as (
+            select id, parent from t1 where id = 250
+            union all
+            select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id) select id from c1
+      - result: [{ID: 250},
+                 {ID: 50},
+                 {ID: 10},
+                 {ID: 1}]
+    -
+      - query: with recursive allDescendants as (
+            with recursive ancestorsOf250 as (
+            select id, parent from t1 where id = 250
+            union all
+            select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent from ancestorsOf250
+            union all
+            select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
+      - result: [{250, 50},
+                 {50, 10},
+                 {10, 1},
+                 {1, -1},
+                 {10, 1},
+                 {20, 1},
+                 {40, 10},
+                 {50, 10},
+                 {70, 10},
+                 {250, 50},
+                 {40, 10},
+                 {50, 10},
+                 {70, 10},
+                 {100, 20},
+                 {210, 20},
+                 {250, 50},
+                 {250, 50}]
+#    -
+# does not currently work due to bug in NLJ planning, see https://github.com/FoundationDB/fdb-record-layer/issues/2997
+#      - query: with recursive c1 as (
+#            select id, parent from t1 where id = 250
+#            union all
+#            select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id and b.id > 40) select id from c1
+#      - result: [{ID: 250},
+#                 {ID: 50}]
+...

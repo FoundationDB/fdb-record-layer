@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStoreBase.RecordExistenceCheck#ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED
  */
 @SuppressWarnings("serial")
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordTypeChangedException extends RecordCoreException {
     public RecordTypeChangedException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

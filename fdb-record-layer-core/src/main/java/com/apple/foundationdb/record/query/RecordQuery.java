@@ -52,7 +52,7 @@ import java.util.Objects;
  *
  * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(RecordQuery)
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordQuery implements QueryHashable {
     public static final Collection<String> ALL_TYPES = Collections.emptyList();
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query");

@@ -34,7 +34,7 @@ import java.util.Objects;
  *
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer#scan
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexScanType implements PlanHashable, PlanSerializable {
     @Nonnull
     public static final IndexScanType BY_VALUE = new IndexScanType("BY_VALUE");

@@ -36,7 +36,7 @@ import java.util.concurrent.Executor;
  * Base class for record stores and meta-data stores, which have in common that they are opened by an {@link FDBRecordContext} and occupy
  * some {@link Subspace} in the database.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class FDBStoreBase {
     @Nonnull

@@ -3206,16 +3206,16 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         try (FDBRecordContext context = openContext()) {
             if (indexedType.isSynthetic()) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
-                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "john_leach@apple.com", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "john_doe@example.com", true, System.currentTimeMillis(), 0);
                 createComplexRecordJoinedToSimple(3, 1547L, 1547L, WAYLON, "hering@gmail.com", true, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
-                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"Vision\" AND complex_text2:\"john_leach@apple.com\""), null, ScanProperties.FORWARD_SCAN));
+                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"Vision\" AND complex_text2:\"john_doe@example.com\""), null, ScanProperties.FORWARD_SCAN));
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
-                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "john_doe@example.com", 2));
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, WAYLON, "hering@gmail.com", 3));
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2L, 1623L)),
-                        recordStore.scanIndex(index, fullTextSearch(index, "text:\"Vision\" AND text2:\"john_leach@apple.com\""), null, ScanProperties.FORWARD_SCAN));
+                        recordStore.scanIndex(index, fullTextSearch(index, "text:\"Vision\" AND text2:\"john_doe@example.com\""), null, ScanProperties.FORWARD_SCAN));
             }
 
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
@@ -3229,17 +3229,17 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         try (FDBRecordContext context = openContext()) {
             if (indexedType.isSynthetic()) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
-                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "john_leach@apple.com", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "john_doe@example.com", true, System.currentTimeMillis(), 0);
                 createComplexRecordJoinedToSimple(3, 1547L, 1547L, WAYLON, "hering@gmail.com", true, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
-                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"Vision\" AND complex_text2:jonleach@apple.com~"), null, ScanProperties.FORWARD_SCAN));
+                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"Vision\" AND complex_text2:johndoe@example.com~"), null, ScanProperties.FORWARD_SCAN));
 
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
-                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "john_doe@example.com", 2));
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2L, 1623L)),
-                        recordStore.scanIndex(index, fullTextSearch(index, "text:\"Vision\" AND text2:jonleach@apple.com~"), null, ScanProperties.FORWARD_SCAN));
+                        recordStore.scanIndex(index, fullTextSearch(index, "text:\"Vision\" AND text2:johndoe@example.com~"), null, ScanProperties.FORWARD_SCAN));
             }
 
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");

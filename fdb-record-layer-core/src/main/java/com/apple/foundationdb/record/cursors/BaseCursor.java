@@ -31,6 +31,6 @@ import com.apple.foundationdb.record.RecordCursor;
  * @see CursorLimitManager
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface BaseCursor<T> extends RecordCursor<T> {
 }

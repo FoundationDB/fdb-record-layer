@@ -70,7 +70,7 @@ quickCheck.dependsOn checkstyleMandatory
 apply plugin: 'com.github.spotbugs'
 
 spotbugs {
-    toolVersion = "${spotbugsVersion}"
+    toolVersion = libs.versions.spotbugs.get()
     ignoreFailures = false
     effort = 'max'
     excludeFilter = rootProject.file('gradle/codequality/spotbugs_exclude.xml')
@@ -121,6 +121,7 @@ pmd {
 }
 tasks.withType(Pmd) { task ->
     task.exclude '**/protogen/**'
+    task.exclude '**/generated-src/**'
     // the PMD plugin doesn't respect above exclusion, so we manually set the source directory instead
     task.setSource 'src/main/java'
 }

@@ -83,7 +83,7 @@ import java.util.function.Supplier;
  *
  * @see FDBDatabaseFactory
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class FDBDatabase {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabase.class);
@@ -931,7 +931,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#runAsync
      */
     @Nonnull
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         return runAsync(retriable, null);
     }
@@ -973,7 +973,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#runAsync
      */
     @Nonnull
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         return runAsync(timer, mdcContext, retriable, null);
@@ -995,7 +995,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#runAsync
      */
     @Nonnull
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
@@ -1045,7 +1045,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#runAsync
      */
     @Nonnull
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext, @Nullable WeakReadSemantics weakReadSemantics,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {

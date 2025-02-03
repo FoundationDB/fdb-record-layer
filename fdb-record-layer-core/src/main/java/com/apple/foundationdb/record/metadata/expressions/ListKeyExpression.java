@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
  * These would produce <code>[[[1.1], [2.1, 2.2]]]</code> and <code>[[[1.1, 1.2], [2.1]]]</code>, respectively.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ListKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("List-Key-Expression");
 

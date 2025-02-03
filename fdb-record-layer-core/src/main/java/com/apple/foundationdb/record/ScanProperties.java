@@ -30,7 +30,7 @@ import java.util.function.Function;
  * Among these properties is an {@link ExecuteProperties}, which holds the properties that pertain to an entire
  * execution.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ScanProperties {
     public static final ScanProperties FORWARD_SCAN = new ScanProperties(ExecuteProperties.newBuilder()
             .setReturnedRowLimit(Integer.MAX_VALUE)

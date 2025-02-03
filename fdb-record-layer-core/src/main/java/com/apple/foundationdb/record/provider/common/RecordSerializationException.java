@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 /**
  * Exception thrown when there is a problem serializing or deserializing a record.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordSerializationException extends RecordCoreException {
     public RecordSerializationException(@Nonnull String msg, @Nullable Object ... keyValues) {

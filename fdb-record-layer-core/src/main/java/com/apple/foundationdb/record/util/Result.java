@@ -39,7 +39,7 @@ import java.util.Objects;
  * @param <V> the type of a successful result
  * @param <E> the type of error from a failed result
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public final class Result<V, E extends Throwable> {
     @Nullable
     private final V value;

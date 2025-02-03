@@ -4,19 +4,26 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
-        <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/examples" />
             <option value="$PROJECT_DIR$/fdb-extensions" />
+            <option value="$PROJECT_DIR$/fdb-java-annotations" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core-shaded" />
             <option value="$PROJECT_DIR$/fdb-record-layer-icu" />
             <option value="$PROJECT_DIR$/fdb-record-layer-jmh" />
             <option value="$PROJECT_DIR$/fdb-record-layer-lucene" />
             <option value="$PROJECT_DIR$/fdb-record-layer-spatial" />
+            <option value="$PROJECT_DIR$/fdb-relational-api" />
+            <option value="$PROJECT_DIR$/fdb-relational-cli" />
+            <option value="$PROJECT_DIR$/fdb-relational-core" />
+            <option value="$PROJECT_DIR$/fdb-relational-grpc" />
+            <option value="$PROJECT_DIR$/fdb-relational-jdbc" />
+            <option value="$PROJECT_DIR$/fdb-relational-server" />
+            <option value="$PROJECT_DIR$/yaml-tests" />
           </set>
         </option>
       </GradleProjectSettings>

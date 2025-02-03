@@ -1,0 +1,83 @@
+/*
+ * fdb-relational-jdbc.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    alias(libs.plugins.serviceloader)
+    alias(libs.plugins.shadow)
+}
+
+
+apply from: rootProject.file('gradle/publishing.gradle')
+
+dependencies {
+    implementation project(":fdb-relational-api")
+    implementation project(":fdb-relational-grpc")
+    implementation(libs.grpc.inprocess)
+    implementation(libs.grpc.netty)
+    implementation(libs.grpc.protobuf)
+    implementation(libs.grpc.stub)
+    implementation(libs.grpc.services)
+    implementation(libs.dropwizard)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    // Server in the TEST context ONLY!!
+    testImplementation project(":fdb-relational-server")
+    testImplementation(testFixtures(project(":fdb-relational-server")))
+    // FDB Relational core test fixture in the TEST context only -- not in main!!!!
+    testImplementation(testFixtures(project(":fdb-relational-core")))
+    testImplementation(libs.grpc.testing)
+}
+
+serviceLoader {
+    serviceInterface 'java.sql.Driver'
+}
+
+jar {
+    duplicatesStrategy "exclude"
+}
+
+// Task to build a fat jar, one w/ all dependencies; good for handing out as the 'jdbc' jar.
+shadowJar {
+    archiveClassifier.set('driver')
+    mergeServiceFiles()
+}
+
+build.dependsOn {
+    shadowJar
+}
+
+createDistribution.configure {
+    afterEvaluate {
+        dependsOn shadowJar
+        from tasks.shadowJar
+    }
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'JDBC Driver for FDB Relational.'
+            }
+        }
+    }
+}

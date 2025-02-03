@@ -32,7 +32,7 @@ import java.util.Arrays;
  * The <code>metadata</code> is left null by {@link KeySpaceDirectory} but other implementations may make use of
  * it (e.g. {@link DirectoryLayerDirectory}.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class PathValue {
     @Nullable
     private Object resolvedValue;

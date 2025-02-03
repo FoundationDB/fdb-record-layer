@@ -100,7 +100,7 @@ import java.util.stream.StreamSupport;
  *
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public interface RecordCursor<T> extends AutoCloseable {
     /**
      * The reason that {@link RecordCursorResult#hasNext()} returned <code>false</code>.
@@ -254,7 +254,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * @return a view of this cursor as an {@link RecordCursorIterator}
      */
     @Nonnull
-    @API(API.Status.STABLE)
+    @API(API.Status.UNSTABLE)
     default RecordCursorIterator<T> asIterator() {
         return new RecordCursorIterator<>(this);
     }

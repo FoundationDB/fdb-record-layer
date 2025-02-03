@@ -54,7 +54,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValu
  *
  * @see com.apple.foundationdb.record.RecordMetaDataBuilder#addIndex
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class Index {
     @Nonnull
     public static final KeyExpression EMPTY_VALUE = EmptyKeyExpression.EMPTY;

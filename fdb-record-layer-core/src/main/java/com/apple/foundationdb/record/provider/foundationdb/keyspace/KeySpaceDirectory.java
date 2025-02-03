@@ -61,7 +61,7 @@ import java.util.function.Function;
 /**
  * Defines a directory within a {@link KeySpace}.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeySpaceDirectory {
     /**
      * Return value from <code>pathFromKey</code> to indicate that a given tuple value is not appropriate

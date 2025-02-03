@@ -42,7 +42,7 @@ import java.util.function.Supplier;
 /**
  * A {@link QueryComponent} that implements a {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} against a field of the record.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FieldWithComparison extends BaseField implements ComponentWithComparison {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-With-Comparison");
 

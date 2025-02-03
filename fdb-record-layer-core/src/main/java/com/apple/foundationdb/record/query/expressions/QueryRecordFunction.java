@@ -42,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
  * Class that provides context for asserting about a specially calculated value.
  * @param <T> the result type of the function
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class QueryRecordFunction<T> implements PlanHashable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Query-Record-Function");
 

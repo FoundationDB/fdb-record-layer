@@ -41,7 +41,7 @@ import java.util.List;
  * should be used in the key of a covering index and all of the values starting at the <code>splitPoint</code>
  * are to be used as the value of a covering index.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Key-With-Value-Expression");
 

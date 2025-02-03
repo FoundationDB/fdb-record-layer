@@ -34,7 +34,7 @@ import java.util.Map;
  *
  * @see Index#getOptions
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexOptions {
 
     /**

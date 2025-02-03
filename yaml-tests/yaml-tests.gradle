@@ -1,0 +1,169 @@
+/*
+ * yaml-tests.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: rootProject.file('gradle/proto.gradle')
+
+project.tasks.named("processResources") {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+project.tasks.named("processTestResources") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named("sourcesJar") {
+    duplicatesStrategy('include')
+    // classifier('sources')
+    from sourceSets.main.allSource
+}
+
+apply from: rootProject.file('gradle/publishing.gradle')
+
+configurations {
+    // The :fdb-relational-grpc project includes the slf4j bindings transitively through :fdb-relational-cli.
+    // Excluding it from the individual project seems to be insufficient (and results in a runtime
+    // warning about there being multiple implementations present from slf4j), so this applies the
+    // exclusion globally
+    runtime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
+    testImplementation.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
+    testRuntime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
+}
+
+def coreProject = ":${ext.coreProjectName}"
+dependencies {
+    implementation project(coreProject)
+    implementation project(path: coreProject, configuration: 'tests')
+    implementation project(":fdb-relational-api")
+    implementation project(":fdb-relational-core")
+    implementation(libs.asciitable)
+    implementation(libs.jsr305)
+    implementation(libs.junit.api)
+    implementation(libs.junit.params)
+    implementation(libs.log4j.api)
+    implementation(libs.protobuf)
+    implementation(libs.protobuf.util)
+    implementation(libs.snakeyaml)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    testImplementation project(":fdb-relational-server")
+    testImplementation project(":fdb-relational-jdbc")
+    implementation(libs.diffutils)
+}
+
+// This "method" resolves the latest shadowJar version of the valkyrie-server, and returns the file reference to it
+// which can be used in `Copy` tasks.
+ext.resolveOtherServer = { Set<String> rejectedVersions ->
+    def configurationName = "resolveArtifact-${UUID.randomUUID()}"
+    return rootProject.with {
+        configurations.create(configurationName, {
+            resolutionStrategy {
+                // Note: In the root of the project we set cacheChangingModulesFor and cacheDynamicVersionFor to 0
+                // We explicitly change that for changing modules, because we should reject those anyways.
+                cacheChangingModulesFor 1000, "days" // TTL for snapshots
+            }
+        })
+        // If you're wondering why this doesn't just use `latest.release`:
+        // `latest.release` becomes `LatestVersionSelector` which `requiresMetadata` in order to determine if the
+        // version in question is a release. This means that it can't just look at the version listing, it has to
+        // download all of them, and reject them. This adds a frustrating amount of time to the build.
+        // Instead we specify `+` which does not require the metadata, and then reject a list of versions.
+        // Every time we get a version that has `-SNAPSHOT` we add it to the `rejectedVersions` list, and recurse
+        // until we find a version that doesn't have a `-SNAPSHOT`, and that's what we use.
+        dependencies.add(configurationName,
+                ['group': 'org.foundationdb',
+                 'name': 'fdb-relational-server',
+                 // the all classifier specifies that we want to fetch the shadow jar, which includes all the
+                 // dependencies
+                 'classifier': 'all'],
+                {
+                    version {
+                        strictly '+'
+                        if (rejectedVersions.size() > 0) {
+                            reject rejectedVersions.toArray(new String[0])
+                        }
+                    }
+                    // we don't want to take in any transitive dependencies.
+                    // There shouldn't be any external dependencies, but commenting this out, this fails with a missing
+                    // grpc dependency.
+                    transitive=false
+                })
+        def configuration = configurations.getByName(configurationName, { })
+
+        def resolution = configuration.resolve()[0]
+        def versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
+        if (versionMatch.size() != 0) {
+            System.out.println("Rejecting old external server: " + resolution.getName())
+            def version = versionMatch[0][1]
+            // check that the version is new, to more obviously catch potential infinite loops
+            assert rejectedVersions.add(version)
+            return resolveOtherServer(rejectedVersions)
+        }
+        System.out.println("Downloaded old external server: " + resolution.getName())
+        return resolution
+    }
+}
+
+task cleanExternalServerDirectory(type: Delete) {
+    delete project.layout.buildDirectory.dir('externalServer')
+}
+
+task downloadExternalServer(type: Copy) {
+    dependsOn "cleanExternalServerDirectory"
+    from resolveOtherServer(new HashSet<String>())
+    into project.layout.buildDirectory.dir('externalServer')
+}
+
+test {
+    dependsOn "downloadExternalServer"
+    systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
+    // These are the system properties that are looked at by the YamlTesting framework to initialize the execution context
+    var isNightly = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY")
+    if (isNightly != null) {
+        systemProperty("yaml_testing_nightly", isNightly);
+    }
+    var seed = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_SEED")
+    if (seed != null) {
+        systemProperty("yaml_testing_seed", Long.parseLong(seed))
+    }
+    var maxThreads = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_MAX_THREADS")
+    if (maxThreads != null) {
+        systemProperty("yaml_testing_max_threads", Integer.parseInt(maxThreads))
+    } else {
+        systemProperty("yaml_testing_max_threads", (int) (Runtime.runtime.availableProcessors() / 2))
+    }
+    var nightlyRepetitions = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY_REPETITION")
+    if (nightlyRepetitions != null) {
+        systemProperty("yaml_testing_nightly_repetition", Integer.parseInt(nightlyRepetitions))
+    } else {
+        systemProperty("yaml_testing_nightly_repetition", 100)
+    }
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Tests of the Relational project driven off of YAML specifications.'
+            }
+        }
+    }
+}

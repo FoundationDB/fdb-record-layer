@@ -68,12 +68,14 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -98,7 +100,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * test suite for {@code GROUP BY} expression planning and execution.
+ * Test suite for {@code GROUP BY} expression planning and execution.
  */
 @Tag(Tags.RequiresFDB)
 public class GroupByTest extends FDBRecordStoreQueryTestBase {
@@ -108,7 +110,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         setupHookAndAddData(true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructGroupByPlan(false, false),
+                () -> constructGroupByPlan(false, false, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
@@ -128,7 +130,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         setupHookAndAddData(false, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
-                () -> constructGroupByPlan(false, false),
+                () -> constructGroupByPlan(false, false, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()), "Cascades planner could not plan query");
@@ -139,7 +141,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         setupHookAndAddData(false, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructGroupByPlan(false, false),
+                () -> constructGroupByPlan(false, false, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
@@ -152,7 +154,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         setupHookAndAddData(true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructGroupByPlan(true, false),
+                () -> constructGroupByPlan(true, false, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
@@ -172,7 +174,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         setupHookAndAddData(true, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructGroupByPlan(true, false),
+                () -> constructGroupByPlan(true, false, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
@@ -185,16 +187,93 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         setupHookAndAddData(true, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
-                () -> constructGroupByPlan(true, true),
+                () -> constructGroupByPlan(true, true, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[44]]")))));
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testAggregateIndexPlanningReversedGrouping() {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(false, false, GroupingKind.REVERSED_GROUPING),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testAggregateIndexPlanningReversedGroupingWithPredicateInSelectWhereMatchesAggregateIndex() {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(true, false, GroupingKind.REVERSED_GROUPING),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],>")))));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testAggregateIndexPlanningReversedGroupingWithPredicateInSelectWhereAndSelectHavingMatchesAggregateIndex() {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(true, true, GroupingKind.REVERSED_GROUPING),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[44]]")))));
+    }
+
+    // TODO re-enable
+    @Disabled
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testAggregateIndexPlanningReversedGroupingExplicitAndImplicitGrouping() {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(false, false, GroupingKind.EXPLICIT_AND_IMPLICIT_GROUPING),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[42]]")))));
+    }
+
+    // TODO re-enable
+    @Disabled
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testAggregateIndexPlanningReversedGroupingOnlyImplicitGrouping() {
+        setupHookAndAddData(true, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(false, false, GroupingKind.ONLY_IMPLICIT_GROUPING),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42, Hello World],[42, Hello World]]")))));
+    }
+
+    private enum GroupingKind {
+        REGULAR_GROUPING,
+        REVERSED_GROUPING,
+        EXPLICIT_AND_IMPLICIT_GROUPING,
+        ONLY_IMPLICIT_GROUPING
+    }
+
     @Nonnull
     private Reference constructGroupByPlan(final boolean withPredicateInSelectWhere,
-                                           final boolean withPredicateInSelectHaving) {
+                                           final boolean withPredicateInSelectHaving,
+                                           final GroupingKind groupingKind) {
+        Assertions.assertTrue(groupingKind == GroupingKind.REGULAR_GROUPING ||
+                groupingKind == GroupingKind.REVERSED_GROUPING ||
+                (!withPredicateInSelectWhere && !withPredicateInSelectHaving));
+
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
                 Quantifier.forEach(Reference.of(
@@ -208,6 +287,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
 
         final var num2Value = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
+        final var strValueIndexed = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "str_value_indexed");
 
         final var scanAlias = qun.getAlias();
 
@@ -222,7 +302,22 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col2));
 
             if (withPredicateInSelectWhere) {
-                selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
+                selectBuilder.addPredicate(new ValuePredicate(num2Value,
+                        new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
+            }
+
+            switch (groupingKind) {
+                case EXPLICIT_AND_IMPLICIT_GROUPING:
+                    selectBuilder.addPredicate(new ValuePredicate(num2Value,
+                            new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42)));
+                    break;
+                case ONLY_IMPLICIT_GROUPING:
+                    selectBuilder.addPredicate(new ValuePredicate(strValueIndexed,
+                            new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello World")));
+                    selectBuilder.addPredicate(new ValuePredicate(num2Value,
+                            new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42)));
+                    break;
+                default:
             }
 
             qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
@@ -231,12 +326,40 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
         {
             // 2.1. construct aggregate expression.
-            final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)),
+            final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.INT)),
                     new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed"))));
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
+            final Value groupingExpr;
             // 2.2. construct grouping columns expression.
-            final var groupingExpr = RecordConstructorValue.ofUnnamed(ImmutableList.of(FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0), "num_value_2")));
+            final var selectWhereReference = FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0);
+            switch (groupingKind) {
+                case REGULAR_GROUPING:
+                    groupingExpr =
+                            RecordConstructorValue.ofUnnamed(
+                                    ImmutableList.of(
+                                            FieldValue.ofFieldNameAndFuseIfPossible(selectWhereReference, "num_value_2"),
+                                            FieldValue.ofFieldNameAndFuseIfPossible(selectWhereReference, "str_value_indexed")));
+                    break;
+                case REVERSED_GROUPING:
+                    groupingExpr =
+                            RecordConstructorValue.ofUnnamed(
+                                    ImmutableList.of(
+                                            FieldValue.ofFieldNameAndFuseIfPossible(selectWhereReference, "str_value_indexed"),
+                                            FieldValue.ofFieldNameAndFuseIfPossible(selectWhereReference, "num_value_2")));
+                    break;
+                case EXPLICIT_AND_IMPLICIT_GROUPING:
+                    groupingExpr =
+                            RecordConstructorValue.ofUnnamed(
+                                    ImmutableList.of(
+                                            FieldValue.ofFieldNameAndFuseIfPossible(selectWhereReference, "str_value_indexed")));
+                    break;
+                case ONLY_IMPLICIT_GROUPING:
+                    groupingExpr = null;
+                    break;
+                default:
+                    throw (RuntimeException)Assertions.fail();
+            }
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
@@ -245,15 +368,63 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
         // 3. construct the select expression on top containing the final result set
         {
-            // construct a result set that makes sense.
-            final var numValue2FieldValue = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0);
-            final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
-            final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 1), 0));
+            final var aggregateReference =
+                    Column.unnamedOf(FieldValue.ofOrdinalNumber(
+                            FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()),
+                                    groupingKind == GroupingKind.ONLY_IMPLICIT_GROUPING ? 0 : 1), 0));
 
-            final var graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference));
+            final var graphBuilder = GraphExpansion.builder()
+                    .addQuantifier(qun);
+
+            final var groupingReference =
+                    groupingKind == GroupingKind.ONLY_IMPLICIT_GROUPING
+                    ? null : FieldValue.ofOrdinalNumber(
+                            QuantifiedObjectValue.of(qun.getAlias(),
+                                    qun.getFlowedObjectType()), 0);
+
+            final Value numValue2FieldValue;
+            switch (groupingKind) {
+                case REGULAR_GROUPING: {
+                    // construct a result set that makes sense.
+                    numValue2FieldValue =
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 0);
+                    final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
+                    final var strValueIndexedFieldValue =
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 1);
+                    final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
+                    graphBuilder.addAllResultColumns(ImmutableList.of(numValue2Reference, strValueIndexedReference, aggregateReference));
+                    break;
+                }
+                case REVERSED_GROUPING: {
+                    // construct a result set that makes sense.
+                    numValue2FieldValue =
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 1);
+                    final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
+                    final var strValueIndexedFieldValue =
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 0);
+                    final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
+                    graphBuilder.addAllResultColumns(ImmutableList.of(numValue2Reference, strValueIndexedReference, aggregateReference));
+                    break;
+                }
+                case EXPLICIT_AND_IMPLICIT_GROUPING: {
+                    numValue2FieldValue = null;
+                    final var strValueIndexedFieldValue =
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 0);
+                    final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
+                    graphBuilder.addAllResultColumns(ImmutableList.of(strValueIndexedReference, aggregateReference));
+                    break;
+                }
+                case ONLY_IMPLICIT_GROUPING:
+                    numValue2FieldValue = null;
+                    graphBuilder.addAllResultColumns(ImmutableList.of(aggregateReference));
+                    break;
+                default:
+                    throw (RuntimeException)Assertions.fail();
+            }
 
             if (withPredicateInSelectHaving) {
-                graphBuilder.addPredicate(new ValuePredicate(numValue2FieldValue, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 44)));
+                graphBuilder.addPredicate(new ValuePredicate(Objects.requireNonNull(numValue2FieldValue),
+                        new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 44)));
             }
 
             final var result = graphBuilder.build().buildSelect();
@@ -463,10 +634,14 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
+                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2",
+                            concat(field("num_value_2"), field("str_value_indexed")));
                 }
                 if (addAggregateIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
+                    metaDataBuilder.addIndex("MySimpleRecord",
+                            new Index("AggIndex",
+                                    field("num_value_3_indexed").groupBy(concat(field("num_value_2"),
+                                            field("str_value_indexed"))), IndexTypes.SUM));
                 }
                 if (addBitmapIndex) {
                     if (withZeroExplicitGroups) {

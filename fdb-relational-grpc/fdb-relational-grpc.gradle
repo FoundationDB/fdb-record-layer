@@ -1,0 +1,88 @@
+/*
+ * fdb-relational-grpc.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: rootProject.file('gradle/proto.gradle')
+apply from: rootProject.file('gradle/publishing.gradle')
+
+// Keep the generated protobufs in their own module so clients and servers \
+// can mix-in grpc dependencies independently without having to pull in \
+// unrelated concerns. In particular, we do not want client jars bundling \
+// server-side code or dependencies."
+
+// From https://github.com/google/protobuf-gradle-plugin
+protobuf {
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${libs.versions.grpc.asProvider().get()}"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            // Add these two dirs to the default src/main/java.
+            srcDir("${projectDir}/protogen/main/grpc")
+        }
+    }
+}
+
+dependencies {
+    // Have grpc depend on fdb-relational-api. Anyone that uses grpc will also use api.
+    // Having grpc depend on api makes it so we can add utility here shared by
+    // server and client, both of which depend on grpc and api.
+    implementation project(":fdb-relational-api")
+    compileOnly(libs.jsr305)
+    implementation(libs.generatedAnnotation)
+    implementation(libs.grpc.commonProtos)
+    implementation(libs.grpc.netty)
+    implementation(libs.grpc.protobuf)
+    implementation(libs.grpc.stub)
+    implementation(libs.grpc.services)
+    implementation(libs.protobuf)
+    implementation(libs.log4j.api)
+    runtimeOnly(libs.log4j.core)
+    // slf4j binding. Allows RL dependencies to log to same place as Relational
+    runtimeOnly(libs.log4j.slf4jBinding)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testImplementation(libs.grpc.testing)
+}
+
+javadoc {
+    source = sourceSets.main.allJava
+    exclude '**/grpc/**'
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Relational gRPC client/server protos and generated code.'
+            }
+        }
+    }
+}

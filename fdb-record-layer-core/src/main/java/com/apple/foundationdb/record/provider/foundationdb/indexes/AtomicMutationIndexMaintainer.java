@@ -59,7 +59,7 @@ import java.util.function.BiFunction;
  * implementation of most aggregate indexes inefficient. Ones that use the atomic mutation feature of FDB avoid this problem.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     protected final AtomicMutation mutation;
 

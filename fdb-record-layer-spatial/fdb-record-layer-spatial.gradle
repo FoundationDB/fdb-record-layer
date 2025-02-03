@@ -24,26 +24,20 @@ apply from: rootProject.file('gradle/publishing.gradle')
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)
-    implementation "org.locationtech.jts.io:jts-io-common:${jtsVersion}"
-    implementation "com.geophile:geophile:${geophileVersion}"
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
-    implementation "org.slf4j:jul-to-slf4j:${slf4jVersion}"
-    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    compileOnly "com.google.auto.service:auto-service:undefined"
-    annotationProcessor "com.google.auto.service:auto-service:undefined"
+    implementation(libs.jts)
+    implementation(libs.geophile)
+    implementation(libs.protobuf)
+    implementation(libs.slf4j.api)
+    implementation(libs.slf4j.julBridge)
+    compileOnly(libs.jsr305)
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
 
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation project(path: coreProject, configuration: 'tests')
-    testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    testCompileOnly "com.google.auto.service:auto-service:undefined"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
-
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
-    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
 def geonames_files = ['countryInfo.txt', 'cities15000.zip', 'shapes_all_low.zip']

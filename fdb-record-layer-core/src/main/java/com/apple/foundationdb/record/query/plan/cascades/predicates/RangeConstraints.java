@@ -351,17 +351,25 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     @Nonnull
-    public RangeConstraints translateCorrelations(@Nonnull final TranslationMap translationMap) {
+    public RangeConstraints translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                  final boolean shouldSimplifyValues) {
         if (evaluableRange == null) {
             if (deferredRanges.isEmpty()) {
                 return this;
             } else {
-                var newNonCompileTimeComparisons = deferredRanges.stream().map(c -> c.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet());
+                var newNonCompileTimeComparisons =
+                        deferredRanges.stream().map(c -> c.translateCorrelations(translationMap, shouldSimplifyValues))
+                                .collect(ImmutableSet.toImmutableSet());
                 return new RangeConstraints(null, newNonCompileTimeComparisons);
             }
         } else {
-            var newNonCompileTimeComparisons = deferredRanges.stream().map(c -> c.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet());
-            var newCompilableComparisons = evaluableRange.compilableComparisons.stream().map(c -> c.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet());
+            var newNonCompileTimeComparisons =
+                    deferredRanges.stream().map(c -> c.translateCorrelations(translationMap, shouldSimplifyValues))
+                            .collect(ImmutableSet.toImmutableSet());
+            var newCompilableComparisons =
+                    evaluableRange.compilableComparisons.stream().map(c ->
+                                    c.translateCorrelations(translationMap, shouldSimplifyValues))
+                            .collect(ImmutableSet.toImmutableSet());
             return new RangeConstraints(new CompilableRange(newCompilableComparisons), newNonCompileTimeComparisons);
         }
     }

@@ -136,7 +136,7 @@ import java.util.stream.Collectors;
  * Query planning means converting a {@link RecordQuery} to a {@link RecordQueryPlan}.
  * The plan can use secondary indexes defined in a {@link RecordMetaData} to execute the query efficiently.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class RecordQueryPlanner implements QueryPlanner {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(RecordQueryPlanner.class);

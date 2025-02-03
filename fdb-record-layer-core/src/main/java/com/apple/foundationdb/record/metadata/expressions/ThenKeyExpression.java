@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * <code>null</code> record, then it returns the concatenation of each of its children evaluated
  * against the <code>null</code> record.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Then-Key-Expression");
 

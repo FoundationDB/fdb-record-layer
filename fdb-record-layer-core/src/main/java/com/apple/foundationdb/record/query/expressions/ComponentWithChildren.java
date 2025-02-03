@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * A {@link QueryComponent} that has child components.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public interface ComponentWithChildren extends QueryComponent {
     @Nonnull
     List<QueryComponent> getChildren();

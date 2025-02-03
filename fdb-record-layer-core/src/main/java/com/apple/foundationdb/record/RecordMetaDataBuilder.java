@@ -92,7 +92,7 @@ import java.util.TreeMap;
  * </p>
  *
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     private static final Descriptors.FileDescriptor[] emptyDependencyList = new Descriptors.FileDescriptor[0];

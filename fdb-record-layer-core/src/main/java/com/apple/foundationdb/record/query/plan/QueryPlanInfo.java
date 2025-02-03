@@ -34,7 +34,7 @@ import java.util.Set;
  * This class holds some additional information regarding the query plan that can be attached to the plan itself, without
  * impacting its structure. This info can be added during planning to help reason about the plan and the planning process.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class QueryPlanInfo {
     private final Map<QueryPlanInfoKey<?>, Object> info;
 
@@ -66,7 +66,7 @@ public class QueryPlanInfo {
      * @param <T> The type of the value (not used in this method)
      * @return TRUE if the key exists in the table, FALSE otherwise
      */
-    public <T> boolean containsKey(@Nonnull QueryPlanInfoKey<T> key) {
+    public <T> boolean containsKey(@Nonnull final QueryPlanInfoKey<T> key) {
         return info.containsKey(key);
     }
 
@@ -111,22 +111,23 @@ public class QueryPlanInfo {
         @Nonnull
         private final String name;
 
-        public QueryPlanInfoKey(@Nonnull String name) {
+        public QueryPlanInfoKey(@Nonnull final String name) {
             this.name = name;
         }
 
+        @Nonnull
         public String getName() {
             return name;
         }
 
         // Suppress Unchecked Cast exception since all put() into the map use the right type for the value from the key.
         @SuppressWarnings("unchecked")
-        public T narrow(@Nonnull Object o) {
+        public T narrow(@Nonnull final Object o) {
             return (T) o;
         }
 
         @Override
-        public boolean equals(Object o) {
+        public boolean equals(final Object o) {
             if (this == o) {
                 return true;
             }
@@ -159,7 +160,7 @@ public class QueryPlanInfo {
             infoMap = new HashMap<>();
         }
 
-        private Builder(QueryPlanInfo source) {
+        private Builder(@Nonnull final QueryPlanInfo source) {
             infoMap = new HashMap<>(source.info);
         }
 
@@ -172,13 +173,13 @@ public class QueryPlanInfo {
          * @return this
          */
         @Nonnull
-        public <T> Builder put(@Nonnull QueryPlanInfoKey<T> key, @Nonnull T value) {
+        public <T> Builder put(@Nonnull final QueryPlanInfoKey<T> key, @Nullable final T value) {
             infoMap.put(key, value);
             return this;
         }
 
         @Nullable
-        public <T> T get(@Nonnull QueryPlanInfoKey<T> key) {
+        public <T> T get(@Nonnull final QueryPlanInfoKey<T> key) {
             return key.narrow(infoMap.get(key));
         }
 

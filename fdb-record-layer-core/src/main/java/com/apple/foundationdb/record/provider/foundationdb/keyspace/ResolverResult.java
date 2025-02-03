@@ -30,7 +30,7 @@ import java.util.Objects;
 /**
  * A class containing the result of resolving a key with {@link LocatableResolver}.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ResolverResult {
     private final long value;
     @Nullable

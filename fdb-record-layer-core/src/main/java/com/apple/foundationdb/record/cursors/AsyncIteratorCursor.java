@@ -32,7 +32,7 @@ import java.util.concurrent.Executor;
  * A cursor that returns the elements of an {@link AsyncIterator}.
  * @param <T> the type of elements of the cursor
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class AsyncIteratorCursor<T> extends IteratorCursorBase<T, AsyncIterator<T>> {
     public AsyncIteratorCursor(@Nonnull Executor executor, @Nonnull AsyncIterator<T> iterator) {
         super(executor, iterator);

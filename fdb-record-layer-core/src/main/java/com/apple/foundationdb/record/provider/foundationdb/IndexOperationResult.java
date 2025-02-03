@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.API;
 /**
  * The result of an {@link IndexOperation}.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class IndexOperationResult {
 }

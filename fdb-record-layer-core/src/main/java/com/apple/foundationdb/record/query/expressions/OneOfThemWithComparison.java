@@ -43,7 +43,7 @@ import java.util.function.Supplier;
 /**
  * A {@link QueryComponent} that evaluates a {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} against each of the values of a repeated field and is satisfied if any of those are.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class OneOfThemWithComparison extends BaseRepeatedField implements ComponentWithComparison {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("One-Of-Them-With-Comparison");
 

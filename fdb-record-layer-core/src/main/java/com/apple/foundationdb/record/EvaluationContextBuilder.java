@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * context.childBuilder().setBinding("x", x).build()
  * </code></pre>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class EvaluationContextBuilder {
     @Nonnull
     protected final Bindings.Builder bindings;

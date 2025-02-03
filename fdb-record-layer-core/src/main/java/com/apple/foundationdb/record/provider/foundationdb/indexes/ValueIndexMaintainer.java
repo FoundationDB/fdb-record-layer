@@ -51,7 +51,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * When more than one field is indexed, records are ordered lexicographically.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class ValueIndexMaintainer extends StandardIndexMaintainer {
     public ValueIndexMaintainer(IndexMaintainerState state) {
         super(state);

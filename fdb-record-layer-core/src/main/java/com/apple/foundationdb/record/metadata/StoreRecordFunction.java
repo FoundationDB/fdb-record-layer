@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
  * an {@link FDBRecordStoreBase} instance.
  * @param <T> the type of the result value
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class StoreRecordFunction<T> extends RecordFunction<T> {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Store-Record-Function");
 

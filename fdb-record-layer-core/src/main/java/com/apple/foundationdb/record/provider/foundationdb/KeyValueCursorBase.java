@@ -54,7 +54,7 @@ import java.util.concurrent.CompletableFuture;
  * The base class for cursors scanning ranges of the FDB database.
  * @param <K> the type of the KeyValue that this cursor iterates over
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIteratorCursor<K> implements BaseCursor<K> {
     @Nonnull
     private final FDBRecordContext context;
@@ -188,7 +188,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
      *                     .build()
      * </code></pre>
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public abstract static class Builder<T extends Builder<T>> {
 
         private int prefixLength;

@@ -294,8 +294,9 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     @Override
-    public RecordQueryRecursiveUnionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         Verify.verify(!translationMap.containsSourceAlias(tempTableScanAlias));
         Verify.verify(!translationMap.containsSourceAlias(tempTableInsertAlias));

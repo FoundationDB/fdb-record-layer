@@ -69,8 +69,8 @@ import java.util.function.IntUnaryOperator;
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
  *
- * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead clients
- * should use {@link #withDebugger} and {@link #mapDebugger}to invoke methods on the currently installed debugger.
+ * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
+ * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.
  * There is a guarantee that {@link #withDebugger} does not invoke any given action if there is no debugger currently
  * set for this thread. In this way, the planner implementation can freely call debug hooks which never will incur any
  * penalties (performance or otherwise) for a production deployment.
@@ -95,6 +95,12 @@ public interface Debugger {
     @Nullable
     static Debugger getDebugger() {
         return THREAD_LOCAL.get();
+    }
+
+    @Nonnull
+    static Optional<Debugger> getDebuggerMaybe() {
+        final var debugger = getDebugger();
+        return Optional.ofNullable(debugger);
     }
 
     /**
@@ -206,6 +212,9 @@ public interface Debugger {
 
     @SuppressWarnings("unused") // only used by debugger
     String showStats();
+
+    @Nonnull
+    Optional<StatsMaps> getStatsMaps();
 
     /**
      * Shorthands to identify a kind of event.
@@ -435,8 +444,9 @@ public interface Debugger {
 
         public ExecutingTaskEvent(@Nonnull final Reference rootReference,
                                   @Nonnull final Deque<Task> taskStack,
+                                  @Nonnull final Location location,
                                   @Nonnull final Task task) {
-            super(rootReference, taskStack, Location.COUNT);
+            super(rootReference, taskStack, location);
             this.task = task;
         }
 

@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
 /**
  * The basic cursor for scanning ranges of the FDB database.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
 
     private KeyValueCursor(@Nonnull final FDBRecordContext context,
@@ -54,7 +54,7 @@ public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
      *                     .build()
      * </code></pre>
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public static class Builder extends KeyValueCursorBase.Builder<Builder> {
 
         protected Builder(@Nonnull Subspace subspace) {

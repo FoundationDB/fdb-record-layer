@@ -101,16 +101,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Helper methods for building {@link Comparison}s.
  */
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class Comparisons {
     public static final Comparison LIST_EMPTY = new ListComparison(Type.EQUALS, Collections.emptyList());
 
@@ -800,6 +802,9 @@ public class Comparisons {
             throw new RecordCoreException("withValue is not implemented");
         }
 
+        @Nonnull
+        Optional<Comparison> replaceValuesMaybe(@Nonnull Function<Value, Optional<Value>> replacementFunction);
+
         /**
          * Get the comparison value without any bindings.
          * @return the value to be compared
@@ -848,11 +853,11 @@ public class Comparisons {
         @Nonnull
         @Override
         default Comparison rebase(@Nonnull AliasMap translationMap) {
-            return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+            return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
         }
 
         @Nonnull
-        Comparison translateCorrelations(@Nonnull TranslationMap translationMap);
+        Comparison translateCorrelations(@Nonnull TranslationMap translationMap, boolean shouldSimplifyValues);
 
         @Override
         default boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap) {
@@ -984,7 +989,17 @@ public class Comparisons {
         @Nonnull
         @Override
         public Comparison withValue(@Nonnull final Value value) {
+            if (value instanceof LiteralValue<?>) {
+                return new SimpleComparison(getType(),
+                        Objects.requireNonNull(((LiteralValue<?>)value).getLiteralValue()));
+            }
             return new ValueComparison(getType(), value);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
         }
 
         @Nullable
@@ -1055,7 +1070,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                final boolean shouldSimplifyValues) {
             return this;
         }
     }
@@ -1222,8 +1238,17 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            if (isCorrelation()) {
+                return Optional.empty();
+            }
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
             if (isCorrelation()) {
                 final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
                 final var quantifiedObjectValue = QuantifiedObjectValue.of(alias,
@@ -1234,7 +1259,7 @@ public class Comparisons {
                 //
                 final var translatedQuantifiedObjectValue =
                         (QuantifiedObjectValue)quantifiedObjectValue
-                                .translateCorrelations(translationMap);
+                                .translateCorrelations(translationMap, shouldSimplifyValues);
                 if (quantifiedObjectValue == translatedQuantifiedObjectValue) {
                     return this;
                 }
@@ -1550,6 +1575,19 @@ public class Comparisons {
             return comparandValue;
         }
 
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return replacementFunction.apply(getValue())
+                    .map(replacedComparandValue -> {
+                        if (replacedComparandValue == getValue()) {
+                            return this;
+                        }
+                        return withValue(replacedComparandValue);
+                    });
+        }
+
         @Nullable
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
@@ -1561,14 +1599,15 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
             if (comparandValue.getCorrelatedTo()
                     .stream()
                     .noneMatch(translationMap::containsSourceAlias)) {
                 return this;
             }
 
-            return new ValueComparison(type, comparandValue.translateCorrelations(translationMap), parameterRelationshipGraph);
+            return new ValueComparison(type, comparandValue.translateCorrelations(translationMap, shouldSimplifyValues),
+                    parameterRelationshipGraph);
         }
 
         @Nonnull
@@ -1814,7 +1853,14 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                final boolean shouldSimplifyValues) {
             return this;
         }
 
@@ -2003,7 +2049,14 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                final boolean shouldSimplifyValues) {
             return this;
         }
 
@@ -2131,7 +2184,14 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                final boolean shouldSimplifyValues) {
             return this;
         }
 
@@ -2250,7 +2310,14 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return Optional.of(this);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                final boolean shouldSimplifyValues) {
             return this;
         }
 
@@ -2705,8 +2772,22 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
-            final var translatedInner = inner.translateCorrelations(translationMap);
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return inner.replaceValuesMaybe(replacementFunction)
+                    .map(replacedInner -> {
+                        if (replacedInner == inner) {
+                            return this;
+                        }
+                        return new MultiColumnComparison(replacedInner);
+                    });
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                final boolean shouldSimplifyValues) {
+            final var translatedInner = inner.translateCorrelations(translationMap, shouldSimplifyValues);
             if (inner == translatedInner) {
                 return this;
             } else {
@@ -2985,8 +3066,22 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
-            Comparison translated = originalComparison.translateCorrelations(translationMap);
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return originalComparison.replaceValuesMaybe(replacementFunction)
+                    .map(translatedOriginalComparison -> {
+                        if (translatedOriginalComparison == originalComparison) {
+                            return this;
+                        }
+                        return new InvertedFunctionComparison(function, translatedOriginalComparison, type);
+                    });
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
+        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                final boolean shouldSimplifyValues) {
+            Comparison translated = originalComparison.translateCorrelations(translationMap, shouldSimplifyValues);
             if (translated == originalComparison) {
                 return this;
             } else {

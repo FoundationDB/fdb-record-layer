@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.API;
 /**
  * Names of core-supported query functions.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FunctionNames {
 
     /* Aggregate functions */

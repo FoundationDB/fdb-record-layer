@@ -38,7 +38,7 @@ import java.util.concurrent.Executor;
 /**
  * A cursor that returns a sequence from 0 to an (exclusive) limit.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RangeCursor implements RecordCursor<Integer> {
     @Nonnull
     private final Executor executor;

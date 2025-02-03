@@ -97,7 +97,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.SplitHelper.un
  *
  */
 // TODO: Need more practical examples to confirm what goes into what base class(es).
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public abstract class StandardIndexMaintainer extends IndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardIndexMaintainer.class);
     protected static final int TOO_LARGE_VALUE_MESSAGE_LIMIT = 100;

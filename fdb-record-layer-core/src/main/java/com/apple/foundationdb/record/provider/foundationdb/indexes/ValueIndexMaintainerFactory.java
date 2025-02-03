@@ -37,7 +37,7 @@ import java.util.Arrays;
  * A factory for {@link ValueIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
-@API(API.Status.STABLE)
+@API(API.Status.UNSTABLE)
 public class ValueIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.VALUE };
 

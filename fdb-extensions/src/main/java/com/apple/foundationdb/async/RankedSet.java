@@ -75,7 +75,7 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
  * and the value is the number of elements between this key and the previous key at the same level, encoded as a little-endian long.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RankedSet {
     /**
      * Hash using the JDK's default byte array hash.

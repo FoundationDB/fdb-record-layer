@@ -86,7 +86,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
     void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder);
 
     @Nonnull
-    IndexScanParameters translateCorrelations(@Nonnull TranslationMap translationMap);
+    IndexScanParameters translateCorrelations(@Nonnull TranslationMap translationMap, boolean shouldSimplifyValues);
 
     @Nonnull
     PIndexScanParameters toIndexScanParametersProto(@Nonnull PlanSerializationContext serializationContext);

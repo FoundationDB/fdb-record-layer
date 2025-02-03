@@ -50,7 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * append only set that can be used to keep track of the progress that that job is making.
  * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RangeSet {
     @Nonnull private Subspace subspace;
     @Nonnull private static final byte[] FIRST_KEY = { (byte)0x00 };

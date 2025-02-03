@@ -70,7 +70,7 @@ import java.util.stream.Stream;
  *
  * @see RecordMetaDataBuilder
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Descriptors.FileDescriptor recordsDescriptor;

@@ -69,7 +69,7 @@ public class Simplification {
                                  @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
         //
         // The general strategy is to invoke the rule engine bottom up in post-fix order of the values in the value tree.
-        // For each node, all rules are exhaustively applied until no rules can make progress anymore. We avoid creating
+        // For each node, all rules are iteratively applied until no rules can make progress anymore. We avoid creating
         // duplicate subtrees by detecting changes made to children using object identity.
         //
 
@@ -93,14 +93,111 @@ public class Simplification {
             //
             // Run the entire given rule set for current.
             //
-            final var executionResult = executeRuleSet(isRoot ? current : root,
+            final var executionResult = executeRuleSetIteratively(isRoot ? current : root,
                     current,
                     ruleSet,
-                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, aliasMap, constantAliases),
+                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings,
+                            aliasMap, constantAliases),
                     Iterables::getOnlyElement);
             Verify.verify(!executionResult.shouldReExplore());
             return executionResult.getBase();
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
+    }
+
+    /**
+     * Main function that simplifies the given value using the {@link AbstractValueRuleSet} passed in.
+     * @param current the {@link Value} to be simplified
+     * @param aliasMap an alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
+     * @return a new simplified {@link Value} of {@code root}
+     */
+    @Nonnull
+    public static List<Value> simplifyCurrent(@Nonnull final Value current,
+                                              @Nonnull final AliasMap aliasMap,
+                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                              @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
+        //
+        // Run the entire given rule set for current.
+        //
+        final var executionResults =
+                executeRuleSet(current,
+                        current,
+                        ruleSet,
+                        (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings,
+                                aliasMap, constantAliases),
+                        Iterables::getOnlyElement);
+        return executionResults.stream()
+                .map(ExecutionResult::getBase)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    /**
+     * Execute a set of rules on the current {@link Value}. This method assumes that all children of the current value
+     * have already been simplified, that is, the rules set has already been exhaustively applied to the entire subtree
+     * underneath the current value. Similar to {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}
+     * which creates new variations for yielded new expressions, the logic in this method applies the rule set to the
+     * current value. Unlike
+     * {@link #executeRuleSetIteratively(Object, Object, AbstractRuleSet, RuleCallCreator, Function)} which iterates
+     * starting from {code current} it attempts to exhaustively apply the rules over this {@code current}.
+     * @param <RESULT> type parameter for results
+     * @param <CALL> type parameter for the rule call object to be used
+     * @param <BASE> type parameter this rule set matches
+     * @param root the root value of the simplification/computation. This information is needed for some rules as
+     *             they may only fire if {@code current} is/is not the root.
+     * @param current the current value that the rule set should be executed on
+     * @param ruleSet the rule set
+     * @param ruleCallCreator a function that creates an instance of {@code C} which is some derivative of
+     *        {@link AbstractValueRuleCall}
+     * @param onResultsFunction a function that is called to manage and unwrap a computational result of a yield. This
+     *                          function is trivial for simplifications.
+     * @return all resulting {@link ExecutionResult}s after all rules in the rule set have been applied to {@code current}
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> List<ExecutionResult<BASE>> executeRuleSet(@Nonnull final BASE root,
+                                                                                                                                @Nonnull BASE current,
+                                                                                                                                @Nonnull final AbstractRuleSet<RESULT, CALL, BASE> ruleSet,
+                                                                                                                                @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
+                                                                                                                                @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
+        final boolean isRoot = current == root;
+
+        final var resultsBuilder = ImmutableList.<ExecutionResult<BASE>>builder();
+        final var ruleIterator =
+                ruleSet.getValueRules(current).iterator();
+
+        while (ruleIterator.hasNext()) {
+            final var rule = ruleIterator.next();
+            final BindingMatcher<? extends BASE> matcher = rule.getMatcher();
+
+            final var matchIterator =
+                    matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), current)
+                            .iterator();
+
+            while (matchIterator.hasNext()) {
+                final var plannerBindings = matchIterator.next();
+                final var ruleCall = ruleCallCreator.create(rule, isRoot ? current : root, current, plannerBindings);
+
+                //
+                // Run the rule. See if the rule yielded a simplification.
+                //
+                rule.onMatch(ruleCall);
+                final var results = ruleCall.getResults();
+
+                if (!results.isEmpty()) {
+                    final var newCurrent = onResultsFunction.apply(results);
+
+                    if (current != newCurrent) {
+                        //
+                        // We made progress.
+                        //
+                        resultsBuilder.add(new ExecutionResult<>(newCurrent, ruleCall.shouldReExplore()));
+                    }
+                }
+            }
+        }
+
+        return resultsBuilder.build();
     }
 
     /**
@@ -152,7 +249,7 @@ public class Simplification {
             // Run the entire given rule set for current.
             //
             final var executionResult =
-                    Simplification.executeRuleSet(isRoot ? current : root,
+                    executeRuleSetIteratively(isRoot ? current : root,
                             current,
                             ruleSet,
                             (rule, r, c, plannerBindings) ->
@@ -229,7 +326,7 @@ public class Simplification {
      * the rule set is important.
      * @param <RESULT> type parameter for results
      * @param <CALL> type parameter for the rule call object to be used
-     * @param <BASE> type parameter ths rule set matches
+     * @param <BASE> type parameter this rule set matches
      * @param root the root value of the simplification/computation. This information is needed for some rules as
      *             they may only fire if {@code current} is/is not the root.
      * @param current the current value that the rule set should be executed on
@@ -242,11 +339,11 @@ public class Simplification {
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> ExecutionResult<BASE> executeRuleSet(@Nonnull final BASE root,
-                                                                                                                          @Nonnull BASE current,
-                                                                                                                          @Nonnull final AbstractRuleSet<RESULT, CALL, BASE> ruleSet,
-                                                                                                                          @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
-                                                                                                                          @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
+    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> ExecutionResult<BASE> executeRuleSetIteratively(@Nonnull final BASE root,
+                                                                                                                                     @Nonnull BASE current,
+                                                                                                                                     @Nonnull final AbstractRuleSet<RESULT, CALL, BASE> ruleSet,
+                                                                                                                                     @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
+                                                                                                                                     @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
         BASE newCurrent = current;
         do {
@@ -337,7 +434,7 @@ public class Simplification {
      * TODO write this.
      * @param <ELEMENT>> type parameter for results elements
      * @param <CALL> type parameter for the rule call object to be used
-     * @param <BASE> type parameter ths rule set matches
+     * @param <BASE> type parameter this rule set matches
      * @param root the root value of the simplification/computation. This information is needed for some rules as
      *             they may only fire if {@code current} is/is not the root.
      * @param ruleSet the rule set
@@ -374,7 +471,7 @@ public class Simplification {
             current = computedCurrent;
 
             executionResult =
-                    Simplification.executeRuleSet(isRoot ? current : root,
+                    executeRuleSetIteratively(isRoot ? current : root,
                             current,
                             ruleSet,
                             ruleCallCreator,

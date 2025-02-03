@@ -42,7 +42,7 @@ import java.util.function.Supplier;
 /**
  * A comparison to determine whether a repeated field is empty (has no occurrences).
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class EmptyComparison extends BaseRepeatedField implements ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Comparison");
 

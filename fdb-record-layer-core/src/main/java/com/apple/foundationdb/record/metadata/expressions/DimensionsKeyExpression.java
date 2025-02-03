@@ -46,7 +46,7 @@ import java.util.Objects;
  * The remaining (up to <code>Index.getColumnSize()</code>) <em>rest</em> are stored within the R-tree as key-rest or
  * value.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Dimension-Key-Expression");
 

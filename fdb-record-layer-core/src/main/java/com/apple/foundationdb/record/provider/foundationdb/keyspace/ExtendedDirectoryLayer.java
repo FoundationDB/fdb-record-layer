@@ -50,7 +50,7 @@ import java.util.function.Function;
  * that were previously allocated and can even inter-operate with a {@link ScopedDirectoryLayer} allocating mappings in
  * parallel. The {@link KeySpacePath} that it is created with will be the root where the node subspace of the directory layer is located.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class ExtendedDirectoryLayer extends LocatableResolver {
     private static final byte[] RESERVED_CONTENT_SUBSPACE_PREFIX = {(byte)0xFD};
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;

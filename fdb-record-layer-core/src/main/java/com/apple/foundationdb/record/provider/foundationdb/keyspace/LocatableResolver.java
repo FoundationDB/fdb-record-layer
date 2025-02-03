@@ -68,7 +68,7 @@ import java.util.stream.Collectors;
  * When initializing, a <code>defaultWriteSafetyCheck</code> can be specified that will be evaluated on writes to determine
  * within the write transaction what the correct {@link LocatableResolver} scope is for the write.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public abstract class LocatableResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(LocatableResolver.class);
     @Nonnull

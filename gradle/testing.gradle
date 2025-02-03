@@ -21,7 +21,7 @@
 apply plugin: 'jacoco'
 // configure for test, other *Test are configured below
 jacoco {
-    toolVersion = jacocoVersion
+    toolVersion = libs.versions.jacoco.get()
 }
 jacocoTestReport {
     reports {
@@ -32,6 +32,8 @@ jacocoTestReport {
 test {
     useJUnitPlatform {
         excludeTags 'WipesFDB'
+        excludeTags 'AutomatedTest'
+        excludeEngines 'auto-test'
     }
 }
 
@@ -232,7 +234,7 @@ tasks.withType(Test).configureEach { task ->
 task testJar(type: Jar, dependsOn: testClasses) {
     group = 'Build'
     description = 'Build a jar file of test classes as an exported artifact'
-    classifier='test'
+    archiveClassifier = 'test'
     from sourceSets.test.output
 }
 

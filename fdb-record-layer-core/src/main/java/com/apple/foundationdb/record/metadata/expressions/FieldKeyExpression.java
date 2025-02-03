@@ -54,7 +54,7 @@ import java.util.List;
  * this returns no <code>Key.Evaluated</code>s; and if <code>FanType.Concatenate</code>, then this returns a single
  * <code>Key.Evaluated</code> containing the empty list.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Key-Expression");
 

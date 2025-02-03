@@ -27,13 +27,13 @@ import com.apple.foundationdb.annotation.API;
  *
  * @see ExecuteProperties#getIsolationLevel
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public enum IsolationLevel {
 
-    @API(API.Status.STABLE)
+    @API(API.Status.UNSTABLE)
     SNAPSHOT(true),
 
-    @API(API.Status.STABLE)
+    @API(API.Status.UNSTABLE)
     SERIALIZABLE(false)
     ;
 

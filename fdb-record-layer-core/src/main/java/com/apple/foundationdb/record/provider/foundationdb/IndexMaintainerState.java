@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
  * In particular, this includes the record store and index meta-data for the maintainer.
  *
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class IndexMaintainerState {
     @Nonnull
     public final FDBRecordStore store;

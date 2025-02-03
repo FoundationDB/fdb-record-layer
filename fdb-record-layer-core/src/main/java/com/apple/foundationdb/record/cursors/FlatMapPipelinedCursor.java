@@ -55,7 +55,7 @@ import java.util.function.Function;
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor produced by the function
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 @SuppressWarnings("PMD.CloseResource")
 public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 

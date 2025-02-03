@@ -56,7 +56,7 @@ import java.util.List;
  * @see com.apple.foundationdb.record.metadata.RecordType#getExplicitRecordTypeKey
  * @see com.apple.foundationdb.record.RecordMetaData#primaryKeyHasRecordTypePrefix
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Key-Expression");
     public static final RecordTypeKeyExpression RECORD_TYPE_KEY = new RecordTypeKeyExpression();
