@@ -115,7 +115,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
-        System.out.println("visitSelectElements is called");
         return Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
@@ -251,7 +250,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
-        System.out.println("visitUserDefinedFunctionCall called");
         final var functionName = ctx.userDefinedFunctionName().getText();
         Expressions arguments = visitFunctionArgs(ctx.functionArgs());
         return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
@@ -702,7 +700,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     private Expressions parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
                                           @Nullable List<Type.Record.Field> targetFields) {
-        System.out.println("parseRecordFields is called");
         Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
         final var resultsBuilder = ImmutableList.<Expression>builder();
         for (int i = 0; i < parserRuleContexts.size(); i++) {
