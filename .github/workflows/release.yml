@@ -11,6 +11,7 @@ jobs:
       contents: write
       packages: write
       pages: write
+      pull-requests: write
     steps:
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -31,28 +32,10 @@ jobs:
     - name: Push version increment
       run: git push
 
-    - name: Get version
-      id: get_version
-      run: |
-        echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
-    - name: Run Gradle Test
-      uses: ./actions/gradle-test
-      with:
-        gradle_args: "-PreleaseBuild=true"
+    - name: Build and publish
+      uses: ./actions/release-build-publish
 
-    # Post release clean up
-    - name: Update release notes
-      run: ARTIFACT_VERSION="${{ steps.get_version.outputs.version }}" ./build/update_release_notes.bash
-    - name: Update YAML test file versions
-      run: |
-        ./gradlew updateYamsql -PreleaseBuild=true
-        python ./build/commit_yamsql_updates.py "${{ steps.get_version.outputs.version }}"
-    - name: Create tag
-      run: git tag -m "Release ${{ steps.get_version_outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
-    - name: Push tag
-      run: git push origin "${{ steps.get_version.outputs.version }}"
-
-    # TODO: push documentation updates
+    # TODO: Publish documentation updates
 
     - name: Push Release Updates
       id: push_updates

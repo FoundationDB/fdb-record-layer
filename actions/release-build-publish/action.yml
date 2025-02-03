@@ -1,0 +1,27 @@
+name: Build and publish release
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get version
+      id: get_version
+      run: |
+        echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+    - name: Run Gradle Test
+      uses: ./actions/gradle-test
+      with:
+        gradle_args: "-PreleaseBuild=true"
+
+    # Post release: Update various files which reference version
+    - name: Update release notes
+      run: ARTIFACT_VERSION="${{ steps.get_version.outputs.version }}" ./build/update_release_notes.bash
+    - name: Update YAML test file versions
+      run: |
+        ./gradlew updateYamsql -PreleaseBuild=true
+        python ./build/commit_yamsql_updates.py "${{ steps.get_version.outputs.version }}"
+
+    # Create and push the tag
+    - name: Create tag
+      run: git tag -m "Release ${{ steps.get_version_outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
+    - name: Push tag
+      run: git push origin "${{ steps.get_version.outputs.version }}"
