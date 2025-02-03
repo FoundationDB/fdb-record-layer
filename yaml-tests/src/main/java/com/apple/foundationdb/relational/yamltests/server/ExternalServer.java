@@ -38,6 +38,7 @@ public class ExternalServer {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
+    private static final boolean SAVE_SERVER_OUTPUT = false;
 
     private static final int SERVER_PORT = 1111;
     private final String jarName;
@@ -98,8 +99,14 @@ public class ExternalServer {
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
                 "-jar", jar.getAbsolutePath(),
                 "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
-        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+        ProcessBuilder.Redirect out = SAVE_SERVER_OUTPUT ?
+                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerOut-" + grpcPort, ".log")) :
+                                      ProcessBuilder.Redirect.DISCARD;
+        ProcessBuilder.Redirect err = SAVE_SERVER_OUTPUT ?
+                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerErr-" + grpcPort, ".log")) :
+                                      ProcessBuilder.Redirect.DISCARD;
+        processBuilder.redirectOutput(out);
+        processBuilder.redirectError(err);
 
         if (!startServer(processBuilder)) {
             Assertions.fail("Failed to start the external server");
