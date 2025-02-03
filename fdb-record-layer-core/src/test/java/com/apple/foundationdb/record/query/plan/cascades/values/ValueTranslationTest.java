@@ -272,7 +272,7 @@ public class ValueTranslationTest {
         final var pAlias = CorrelationIdentifier.of("P");
         final var p_Alias = CorrelationIdentifier.of("P'");
         final var p = qov(pAlias, pv.getResultType());
-        final var pPredicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p, 0), LiteralValue.ofScalar(42)));
+        final var pPredicate = new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p, 0), LiteralValue.ofScalar(42)));
         final var p_ = qov(p_Alias, p_v.getResultType());
         final var rv = rcv(fv(p, 2, 0));
         final var r_v = rcv(fv(p_, 1, 0));
@@ -514,7 +514,7 @@ public class ValueTranslationTest {
         final var pAlias = CorrelationIdentifier.of("P");
         final var p_Alias = CorrelationIdentifier.of("P'");
         final var p = qov(pAlias, pv.getResultType());
-        final var pPredicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p, 0), LiteralValue.ofScalar(42)));
+        final var pPredicate = new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p, 0), LiteralValue.ofScalar(42)));
         final var p_ = qov(p_Alias, p_v.getResultType());
         final var rv = rcv(fv(p, 2, 0));
         final var r_v = rcv(fv(p_, 1, 0));
@@ -762,7 +762,7 @@ public class ValueTranslationTest {
         final var r = qov(rAlias, nv.getResultType());
 
         // p.0 + q.0.0 < n.0 - n.1.0
-        final var predicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(fv(r, 0), fv(r, 1, 0))));
+        final var predicate = new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(fv(r, 0), fv(r, 1, 0))));
 
 
         final var l2TranslationMapForPValue = pullUp(l1m3ForTValue, pAlias, p_Alias);
@@ -775,7 +775,7 @@ public class ValueTranslationTest {
         final var q_ = qov(q_Alias, m_v.getResultType());
         final var r_ = qov(r_Alias, n_v.getResultType());
 
-        final var expectedTranslatedPredicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p_, 0, 0), fv(q_, 2)), add(fv(r_, 2, 2), fv(r_, 1))));
+        final var expectedTranslatedPredicate = new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p_, 0, 0), fv(q_, 2)), add(fv(r_, 2, 2), fv(r_, 1))));
 
         Assertions.assertEquals(expectedTranslatedPredicate, translatedPredicate);
     }
@@ -1001,7 +1001,7 @@ public class ValueTranslationTest {
         final var r = qov(rAlias, nv.getResultType());
 
         // p.0 + q.0.0 < r.0 + s + u
-        final var predicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(add(fv(r, 0), s), u)));
+        final var predicate = new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(add(fv(r, 0), s), u)));
 
         final var translationMaps = new ArrayList<TranslationMap>();
         translationMaps.add(pullUp(l1m3ForTValue, pAlias, p_Alias));
@@ -1014,7 +1014,7 @@ public class ValueTranslationTest {
         final var q_ = qov(q_Alias, m_v.getResultType());
         final var r_ = qov(r_Alias, n_v.getResultType());
 
-        final var expectedTranslatedPredicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p_, 0, 0), fv(q_, 2)), add(add(fv(r_, 2, 2), s_), u_)));
+        final var expectedTranslatedPredicate = new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p_, 0, 0), fv(q_, 2)), add(add(fv(r_, 2, 2), s_), u_)));
 
         final var random = new Random(42);
         for (int i = 0; i < 10; i++) {
@@ -1056,7 +1056,7 @@ public class ValueTranslationTest {
         final var pAlias = CorrelationIdentifier.of("P");
         final var p_Alias = CorrelationIdentifier.of("P'");
         final var p = qov(pAlias, pv.getResultType());
-        final var pPredicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p, 0, 0),
+        final var pPredicate = new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p, 0, 0),
                 LiteralValue.ofScalar(42)));
         final var p_ = qov(p_Alias, p_v.getResultType());
 

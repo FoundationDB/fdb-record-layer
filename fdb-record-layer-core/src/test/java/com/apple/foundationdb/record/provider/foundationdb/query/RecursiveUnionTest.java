@@ -301,7 +301,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofCorrelated(scanTempTableAlias, getHierarchyType())));
             var idField = getIdCol(ttScanRecuQun);
-            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(2L))));
+            final var multByTwo = Column.of(Optional.of("id"), new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(2L))));
             selectExpression = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(multByTwo))
                     .addQuantifier(ttScanRecuQun)

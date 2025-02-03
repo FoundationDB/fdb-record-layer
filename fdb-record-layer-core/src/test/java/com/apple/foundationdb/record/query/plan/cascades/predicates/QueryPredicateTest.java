@@ -358,7 +358,7 @@ public class QueryPredicateTest {
         final var c1 = ConstantObjectValue.of( Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.INT));
         final var c2 = ConstantObjectValue.of( Quantifier.constant(), "2", Type.primitiveType(Type.TypeCode.INT));
         final var restnoGtC1PlusC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN,
-                (Value)new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
+                new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
         final var nameEqFoo = new ValuePredicate(name, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("foo")));
         final var predicate = or(and(restnoGtC1PlusC2, restnoGtC1PlusC2), nameEqFoo);
         final var expectedSimplifiedPredicate = or(restnoGtC1PlusC2, nameEqFoo);
@@ -379,7 +379,7 @@ public class QueryPredicateTest {
         final var c1 = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.INT));
         final var c2 = ConstantObjectValue.of(Quantifier.constant(), "2", Type.primitiveType(Type.TypeCode.INT));
         final var restnoGtC1PlusC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN,
-                (Value)new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
+                new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
         final var nameEqFoo = new ValuePredicate(name, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("foo")));
         final var restnoGtC1 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, c1));
         final var restnoGtC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, c2));

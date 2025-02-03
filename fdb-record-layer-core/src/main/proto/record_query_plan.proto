@@ -242,7 +242,8 @@ message PValue {
     PFromOrderedBytesValue from_ordered_bytes_value = 43;
     PCollateValue collate_value = 44;
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
-    PMacroFunctionValue macro_function_value = 46;
+    PQuantifiedRecordValue quantified_record_value = 46;
+    PMacroFunctionValue macro_function_value = 47;
   }
 }
 

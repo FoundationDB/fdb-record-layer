@@ -332,8 +332,8 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final FieldValue num2Value = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_2");
                 final FieldValue num3Value = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_3_indexed");
                 final FieldValue numUniqueValue = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique");
-                final Value sumValue = (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(num2Value, num3Value));
-                final Value maskValue = (Value) new ArithmeticValue.BitAndFn().encapsulate(ImmutableList.of(
+                final Value sumValue = new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(num2Value, num3Value));
+                final Value maskValue = new ArithmeticValue.BitAndFn().encapsulate(ImmutableList.of(
                         numUniqueValue,
                         LiteralValue.ofScalar(4L)
                 ));
@@ -423,7 +423,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final Bindings bindings = constantBindings(maskConstantValue, mask);
                 final RecordQueryPlan plan = planGraph(() -> {
                     Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-                    final Value maskValue = (Value)new ArithmeticValue.BitAndFn().encapsulate(List.of(
+                    final Value maskValue = new ArithmeticValue.BitAndFn().encapsulate(List.of(
                             FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique"),
                             maskConstantValue
                     ));
@@ -498,7 +498,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             final RecordQueryPlan plan = planGraph(() -> {
                 Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
-                final Value addValue = (Value) new ArithmeticValue.AddFn().encapsulate(List.of(
+                final Value addValue = new ArithmeticValue.AddFn().encapsulate(List.of(
                         FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_2"),
                         FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_3_indexed")
                 ));

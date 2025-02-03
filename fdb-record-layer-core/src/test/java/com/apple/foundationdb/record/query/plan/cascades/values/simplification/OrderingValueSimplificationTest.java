@@ -101,7 +101,7 @@ class OrderingValueSimplificationTest {
 
         // ('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3
         final var arithmeticValue =
-                (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValueB, LiteralValue.ofScalar(3)));
+                new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValueB, LiteralValue.ofScalar(3)));
 
         // ('fieldValue' as a, _ as b, 'World' as c).a
         final var fieldValueA = FieldValue.ofFieldName(recordConstructor, "a");
