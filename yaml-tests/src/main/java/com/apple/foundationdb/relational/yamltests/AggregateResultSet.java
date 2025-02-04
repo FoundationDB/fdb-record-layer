@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -55,6 +56,11 @@ public class AggregateResultSet extends AbstractAggregateResultSet {
     protected RelationalResultSet advanceRow() throws SQLException {
         if (!hasNext()) {
             return null;
+        }
+        if (currentRow != null) {
+            // Ensure that result sets don't have additional rows. Since we assume maxRows:1 here and advance the "outer" iterator,
+            // we should assert that the actual result doesn't contain extra "stuff"
+            Assertions.assertFalse(currentRow.next());
         }
         return rowIterator.next();
     }
