@@ -274,6 +274,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext ctx);
 
+    @Override
+    Object visitInlineTableItem(final RelationalParser.InlineTableItemContext ctx);
+
     @Nonnull
     @Override
     Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx);
@@ -281,6 +284,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx);
+
+    @Override
+    Object visitTableAlias(RelationalParser.TableAliasContext ctx);
 
     @Nonnull
     @Override
@@ -645,6 +651,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx);
+
+    @Override
+    Expression visitRecordConstructorForInlineTable(RelationalParser.RecordConstructorForInlineTableContext ctx);
 
     @Nonnull
     @Override

@@ -640,6 +640,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitRecordConstructorForInlineTable(@Nonnull final RelationalParser.RecordConstructorForInlineTableContext ctx) {
+        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
+    }
+
+    @Nonnull
+    @Override
     public Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx) {
         if (ctx.uid() != null) {
             final var id = visitUid(ctx.uid());

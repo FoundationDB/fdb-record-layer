@@ -397,6 +397,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitSubqueryTableItem(ctx);
     }
 
+    @Override
+    public Object visitInlineTableItem(final RelationalParser.InlineTableItemContext ctx) {
+        return getDelegate().visitInlineTableItem(ctx);
+    }
+
     @Nonnull
     @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx) {
@@ -407,6 +412,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx) {
         return getDelegate().visitIndexHintType(ctx);
+    }
+
+    @Override
+    public Object visitTableAlias(final RelationalParser.TableAliasContext ctx) {
+        return getDelegate().visitTableAlias(ctx);
     }
 
     @Nonnull
@@ -959,6 +969,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
         return getDelegate().visitRecordConstructorForInsert(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitRecordConstructorForInlineTable(@Nonnull RelationalParser.RecordConstructorForInlineTableContext ctx) {
+        return getDelegate().visitRecordConstructorForInlineTable(ctx);
     }
 
     @Nonnull
