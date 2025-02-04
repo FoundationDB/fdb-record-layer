@@ -45,11 +45,13 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -66,7 +68,9 @@ public final class YamlExecutionContext {
     private final List<String> editedFileStream;
     private boolean isDirty;
     @Nonnull
-    private final Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> metricsMap;
+    private final ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
+    @Nonnull
+    private final Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap;
     private boolean isDirtyMetrics;
     @Nonnull
     private final YamlRunner.YamlConnectionFactory connectionFactory;
@@ -95,7 +99,10 @@ public final class YamlExecutionContext {
         this.editedFileStream = yamlRunnerOptions.contains(YamlRunner.YamlRunnerOptions.CORRECT_EXPLAIN)
                                 ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = Map.copyOf(additionalOptions);
-        this.metricsMap = loadMetricsResource(resourcePath);
+        this.expectedMetricsMap = loadMetricsResource(resourcePath);
+        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getBlockName)
+                .thenComparing(QueryAndLocation::getLineNumber)
+                .thenComparing(QueryAndLocation::getQuery));
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
@@ -132,16 +139,18 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    public Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap() {
-        return metricsMap;
+    public ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap() {
+        return expectedMetricsMap;
     }
 
     @Nullable
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
+    public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final String blockName,
+                                                            @Nonnull final String query,
+                                                            @Nonnull final int lineNumber,
                                                             @Nonnull final PlannerMetricsProto.Info info) {
         this.isDirtyMetrics = true;
-        return metricsMap.put(identifier, info);
+        return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber), info);
     }
 
     public boolean isNightly() {
@@ -196,7 +205,7 @@ public final class YamlExecutionContext {
 
     /**
      * Infers the URI of the database to which a block should connect to.
-     *
+     * <br>
      * A block can define the connection in multiple ways:
      * 1. no explicit definition: connect to the only registered connection URI.
      *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
@@ -236,11 +245,11 @@ public final class YamlExecutionContext {
      * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
      * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
      * the form of a new {@link StackTraceElement}, else it just wraps the throwable.
-     *
+     * <br>
      * The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
      * exception/failure occurs in testing for a particular query_config, the following is the context that can be added
      * incrementally at appropriate places in code:
-     *
+     * <br>
      * query_config: lineNumber of the expected result
      * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
      * test_block: lineNumber of test_block, seed used for randomization, execution properties
@@ -293,9 +302,12 @@ public final class YamlExecutionContext {
                 .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(resourcePath)))
                 .toAbsolutePath().toString();
         try (final var fos = new FileOutputStream(fileName)) {
-            for (final var entry : metricsMap.entrySet()) {
+            for (final var entry : actualMetricsMap.entrySet()) {
+                final var queryAndLocation = entry.getKey();
                 PlannerMetricsProto.Entry.newBuilder()
-                        .setIdentifier(entry.getKey())
+                        .setIdentifier(PlannerMetricsProto.Identifier.newBuilder()
+                                .setBlockName(queryAndLocation.getBlockName())
+                                .setQuery(queryAndLocation.getQuery()))
                         .setInfo(entry.getValue())
                         .build()
                         .writeDelimitedTo(fos);
@@ -313,7 +325,7 @@ public final class YamlExecutionContext {
                 .toAbsolutePath().toString();
 
         final var mmap = LinkedListMultimap.<String, Map<String, Object>>create();
-        for (final var entry : metricsMap.entrySet()) {
+        for (final var entry : actualMetricsMap.entrySet()) {
             final var identifier = entry.getKey();
             final var info = entry.getValue();
             final var countersAndTimers = info.getCountersAndTimers();
@@ -349,7 +361,10 @@ public final class YamlExecutionContext {
     private static List<String> loadYamlResource(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final List<String> inMemoryFile = new ArrayList<>();
-        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(classLoader.getResourceAsStream(resourcePath), StandardCharsets.UTF_8))) {
+        try (BufferedReader bufferedReader =
+                     new BufferedReader(
+                             new InputStreamReader(Objects.requireNonNull(classLoader.getResourceAsStream(resourcePath)),
+                                     StandardCharsets.UTF_8))) {
             for (String line = bufferedReader.readLine(); line != null; line = bufferedReader.readLine()) {
                 inMemoryFile.add(line);
             }
@@ -360,20 +375,21 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    private static Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final String resourcePath) throws RelationalException {
+    private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resourcePath));
-        final var resultMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
+        final var resultMapBuilder =
+                ImmutableMap.<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>builder();
         if (fis == null) {
-            return resultMap;
+            return resultMapBuilder.build();
         }
         try {
             while (true) {
                 final var entry = PlannerMetricsProto.Entry.parseDelimitedFrom(fis);
                 if (entry == null) {
-                    return resultMap;
+                    return resultMapBuilder.build();
                 }
-                resultMap.put(entry.getIdentifier(), entry.getInfo());
+                resultMapBuilder.put(entry.getIdentifier(), entry.getInfo());
             }
         } catch (final IOException e) {
             throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
@@ -396,5 +412,45 @@ public final class YamlExecutionContext {
         Verify.verify(tokens.length == 2);
         Verify.verify(tokens[1].equals("yamsql"));
         return tokens[0];
+    }
+
+    private static class QueryAndLocation {
+        @Nonnull
+        private final String blockName;
+        private final String query;
+        private final int lineNumber;
+
+        public QueryAndLocation(@Nonnull final String blockName, final String query, final int lineNumber) {
+            this.blockName = blockName;
+            this.query = query;
+            this.lineNumber = lineNumber;
+        }
+
+        @Nonnull
+        public String getBlockName() {
+            return blockName;
+        }
+
+        public String getQuery() {
+            return query;
+        }
+
+        public int getLineNumber() {
+            return lineNumber;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (!(o instanceof QueryAndLocation)) {
+                return false;
+            }
+            final QueryAndLocation that = (QueryAndLocation)o;
+            return lineNumber == that.lineNumber && Objects.equals(blockName, that.blockName) && Objects.equals(query, that.query);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(blockName, query, lineNumber);
+        }
     }
 }

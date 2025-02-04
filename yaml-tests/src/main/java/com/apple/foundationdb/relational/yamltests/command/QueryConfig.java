@@ -284,7 +284,7 @@ public abstract class QueryConfig {
                                             .setInsertReusedCount(actualPlannerMetrics.getLong(8)))
                             .build();
                     if (expectedPlannerMetricsInfo == null) {
-                        executionContext.putMetrics(identifier, actualInfo);
+                        executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo);
                         logger.debug("⭐️ Successfully inserted new planner metrics at line {}", getLineNumber());
                     } else {
                         final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
@@ -311,7 +311,7 @@ public abstract class QueryConfig {
                                         "; actual = " + actualCountersAndTimers.getInsertReusedCount(), getLineNumber())) || isDifferent;
                         if (isDifferent) {
                             if (executionContext.testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.CORRECT_STATS)) {
-                                executionContext.putMetrics(identifier, actualInfo);
+                                executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo);
                                 logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
                             } else {
                                 reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());
