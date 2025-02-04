@@ -25,7 +25,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.Verify;
@@ -73,7 +72,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                if (!isNoRecords() || streamGrouping.isResultOnEmpty()) {
+                if (!isNoRecords()) {
                     streamGrouping.finalizeGroup();
                 }
                 return false;
@@ -86,11 +85,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }), getExecutor()).thenApply(vignore -> {
             if (isNoRecords()) {
                 // Edge case where there are no records at all
-                if (streamGrouping.isResultOnEmpty()) {
-                    return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
-                } else {
-                    return RecordCursorResult.exhausted();
-                }
+                return RecordCursorResult.exhausted();
             }
             // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = Verify.verifyNotNull(previousValidResult).getContinuation();

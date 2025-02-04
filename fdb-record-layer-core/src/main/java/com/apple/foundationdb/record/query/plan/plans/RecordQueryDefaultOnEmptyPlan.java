@@ -93,9 +93,10 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        return RecordCursor.orElse(cont -> getChild().executePlan(store, context, cont, executeProperties),
-                (executor, cont) -> RecordCursor.fromList(ImmutableList.of(QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))),
-                continuation);
+        return RecordCursor.orElse(cont -> getChild().executePlan(store, context, cont, executeProperties.clearSkipAndLimit()),
+                        (executor, cont) ->
+                                RecordCursor.fromList(ImmutableList.of(QueryResult.ofComputed(onEmptyResultValue.eval(store, context))), cont), continuation)
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override
