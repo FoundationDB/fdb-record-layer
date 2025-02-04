@@ -43,6 +43,9 @@ Our API stability annotations have been updated to reflect greater API instabili
 // end next release
 -->
 
+### 4.0.575.0
+
+
 ### 4.0.567.0
 
 * **Bug fix** Relational insert statement in does not work with an array value [(Issue #3041)](https://github.com/FoundationDB/fdb-record-layer/issues/3041)
