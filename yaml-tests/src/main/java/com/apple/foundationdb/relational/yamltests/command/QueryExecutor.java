@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.yamltests.AggregateResultSet;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -228,20 +229,23 @@ public class QueryExecutor {
             RelationalResultSetMetaData metadata = resultSet.getMetaData(); // The first metadata will be used for all
 
             boolean hasResult = resultSet.next(); // Initialize result set value retrieval. Has only one row.
-            // Edge case: when there are no results at all, we don't want to store the result set at all,
-            // to create an empty aggregated result set
-            if (hasResult) {
-                results.add(resultSet);
+            // Edge case: when there are no results at all, return the empty result set that is appropriate in this case
+            if (!hasResult) {
+                return resultSet;
             }
+            results.add(resultSet);
             // Have continuations - keep running the query
             Continuation continuation = resultSet.getContinuation();
             while (!continuation.atEnd()) {
                 try (var s2 = prepareContinuationStatement(connection, continuation, FORCED_MAX_ROWS)) {
                     resultSet = (RelationalResultSet)executeStatement(s2, null);
-                    resultSet.next(); // Initialize result set value retrieval. Has only one row.
+                    final boolean hasNext = resultSet.next(); // Initialize result set value retrieval. Has only one row.
                     continuation = resultSet.getContinuation();
                     if (!continuation.atEnd()) {
                         results.add(resultSet);
+                    } else {
+                        // We assume that the last result is empty because of the maxWors:1
+                        Assertions.assertFalse(hasNext);
                     }
                 }
             }
