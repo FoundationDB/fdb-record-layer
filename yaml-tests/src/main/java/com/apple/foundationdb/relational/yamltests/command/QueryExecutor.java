@@ -226,7 +226,7 @@ public class QueryExecutor {
             @SuppressWarnings("PMD.CloseResource")
             RelationalResultSet resultSet = (RelationalResultSet)result;
             List<RelationalResultSet> results = new ArrayList<>();
-            RelationalResultSetMetaData metadata = resultSet.getMetaData(); // The first metadata will be used for all
+            final RelationalResultSetMetaData metadata = resultSet.getMetaData(); // The first metadata will be used for all
 
             boolean hasResult = resultSet.next(); // Initialize result set value retrieval. Has only one row.
             // Edge case: when there are no results at all, return the empty result set that is appropriate in this case
