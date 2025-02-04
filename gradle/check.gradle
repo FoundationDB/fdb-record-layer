@@ -68,11 +68,14 @@ quickCheck.dependsOn checkstyleMandatory
 
 // SpotBugs
 apply plugin: 'com.github.spotbugs'
-
+// It looks like there is an issue with having spotbugs in a separate file
+// https://github.com/spotbugs/spotbugs-gradle-plugin/issues/972
+def classLoader = plugins['com.github.spotbugs'].class.classLoader
+def SpotBugsEffort = classLoader.findLoadedClass( 'com.github.spotbugs.snom.Effort' )
 spotbugs {
     toolVersion = libs.versions.spotbugs.get()
     ignoreFailures = false
-    effort = 'max'
+    effort = SpotBugsEffort.MAX
     excludeFilter = rootProject.file('gradle/codequality/spotbugs_exclude.xml')
 }
 
@@ -80,6 +83,8 @@ spotbugsTest.enabled = false
 
 def spotbugsFailed = false
 
+// TODO we may be able to remove this, as it should now print to stdout
+// https://github.com/spotbugs/spotbugs-gradle-plugin/commit/b78a1b349487031590e281fe17c7ed5c245d42ae
 def printInstructionsOnRunningWithHtmlOutput = task('printInstructionsOnRunningWithHtmlOutput') {
     doLast {
         if (spotbugsFailed) {
