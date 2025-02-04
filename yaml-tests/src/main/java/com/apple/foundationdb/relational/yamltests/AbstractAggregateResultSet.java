@@ -31,7 +31,7 @@ import java.sql.SQLException;
 /**
  * A result set implementation that aggregates many result sets into one, where each internal result set acts as a row
  * in the aggregate.
- * TODO: This is a copy of the AbstractMockRssultSet. We should clear that tech debt by integrating the types
+ * TODO: This is a copy of the AbstractMockResultSet. We should clear that tech debt by integrating the types
  * TODO: of testing results sets into more reusable code.
  */
 public abstract class AbstractAggregateResultSet implements RelationalResultSet {
@@ -195,7 +195,7 @@ public abstract class AbstractAggregateResultSet implements RelationalResultSet 
     }
 
     private void checkCurrentRow() throws SQLException {
-        if (currentRow == null) {
+        if ((currentRow == null) || isClosed()) {
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
     }

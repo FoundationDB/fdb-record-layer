@@ -23,12 +23,11 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Iterator;
-
-import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.UNSUPPORTED_OPERATION;
 
 /**
  * An implementation of a result set that is made up of a set of inner result sets.
@@ -64,7 +63,7 @@ public class AggregateResultSet extends AbstractAggregateResultSet {
     @Override
     public Continuation getContinuation() throws SQLException {
         if (hasNext()) {
-            throw new SQLException("Continuation can only be returned once the result set has been exhausted", UNSUPPORTED_OPERATION.getErrorCode());
+            throw new SQLException("Continuation can only be returned once the result set has been exhausted", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
         return continuation;
     }
