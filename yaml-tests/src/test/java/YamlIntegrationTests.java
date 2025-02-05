@@ -18,7 +18,9 @@
  * limitations under the License.
  */
 
+import com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
+import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 
@@ -205,11 +207,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = JDBCInProcessConfig.class, reason = "JDBC does not support enums")
     public void insertEnum(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("insert-enum.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = JDBCInProcessConfig.class, reason = "setObject is not supported by JDBC")
     public void prepared(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("prepared.yamsql");
     }
@@ -245,6 +249,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = JDBCInProcessConfig.class, reason = "JDBC does not support enums")
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }

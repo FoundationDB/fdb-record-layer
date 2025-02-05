@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
-import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -36,21 +35,20 @@ import java.util.Set;
 /**
  * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
  */
-public class MultiServerConfig implements YamlTestConfig {
+public class MultiServerConfig extends JDBCInProcessConfig {
 
-    private final JDBCInProcessConfig embeddedConfig;
     private final ExternalServer externalServer;
-    private int initialConnection;
+    private final int initialConnection;
 
     public MultiServerConfig(final int initialConnection, final int grpcPort, final int httpPort) {
+        super();
         this.initialConnection = initialConnection;
-        embeddedConfig = new JDBCInProcessConfig();
         externalServer = new ExternalServer(grpcPort, httpPort);
     }
 
     @Override
     public void beforeAll() throws Exception {
-        embeddedConfig.beforeAll();
+        super.beforeAll();
         externalServer.start();
     }
 
@@ -59,7 +57,7 @@ public class MultiServerConfig implements YamlTestConfig {
         try {
             externalServer.stop();
         } finally {
-            embeddedConfig.afterAll();
+            super.afterAll();
         }
     }
 
@@ -68,7 +66,7 @@ public class MultiServerConfig implements YamlTestConfig {
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                embeddedConfig.createConnectionFactory(),
+                super.createConnectionFactory(),
                 List.of(createExternalServerConnection()));
     }
 
@@ -85,12 +83,6 @@ public class MultiServerConfig implements YamlTestConfig {
                 return Set.of(externalServer.getVersion());
             }
         };
-    }
-
-    @Override
-    public void assumeSupport(final @Nonnull String fileName, final @Nonnull Set<Class<? extends YamlTestConfig>> excludedConfigs) {
-        embeddedConfig.assumeSupport(fileName, excludedConfigs);
-        Assumptions.assumeFalse(excludedConfigs.contains(embeddedConfig.getClass()));
     }
 
     @Override

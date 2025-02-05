@@ -154,8 +154,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
                 @Override
                 public void runYamsql(final String fileName, final boolean correctExplain) throws Exception {
-                    config.assumeSupport(fileName, excludedConfigs);
-                    Assumptions.assumeFalse(excludedConfigs.contains(config.getClass()), excludedReason);
+                    Assumptions.assumeTrue(
+                            excludedConfigs.stream().noneMatch(excluded -> excluded.isInstance(config)), excludedReason);
                     var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain);
                     try {
                         yamlRunner.run();

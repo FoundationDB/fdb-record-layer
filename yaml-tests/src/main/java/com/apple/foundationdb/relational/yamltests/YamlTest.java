@@ -36,8 +36,7 @@ import java.lang.annotation.RetentionPolicy;
  *     {@link YamlTest.Runner} to run the {@code .yamsql} file.
  * </p>
  * <p>
- *     If a specific test cannot be run with a specific config due to a bug, it can be ignored by either checking it in
- *     {@link com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig#assumeSupport}, or by adding the
+ *     If a specific test cannot be run with a specific config due to a bug, it can be ignored by adding the
  *     annotation {@link ExcludeYamlTestConfig}. Ideally, these are short lived, primarily to support adding a config,
  *     and then fixing some tests that may fail with that config.
  * </p>

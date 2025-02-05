@@ -22,9 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
-import javax.annotation.Nonnull;
-import java.util.Set;
-
 /**
  * Interface for configuring how to run a {@code .yamsql} file.
  * <p>
@@ -44,13 +41,4 @@ public interface YamlTestConfig {
 
     void afterAll() throws Exception;
 
-    /**
-     * Use {@link org.junit.jupiter.api.Assumptions} to skip tests if they are not working.
-     * @param fileName the name of the {@code .yamsql} file
-     * @param excludedConfigs a list of configs that are excluded via
-     * {@link com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig}. If {@code this} is in
-     * {@code excludedConfigs} it will be automatically excluded, checking this is only necessary if this config
-     * references another config.
-     */
-    void assumeSupport(@Nonnull String fileName, @Nonnull Set<Class<? extends YamlTestConfig>> excludedConfigs);
 }
