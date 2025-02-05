@@ -1,5 +1,5 @@
 /*
- * BuiltInFunction.java
+ * CatalogedFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class Function<T extends Typed> {
+public abstract class CatalogedFunction<T extends Typed> {
     @Nonnull
     final String functionName;
 
@@ -49,12 +49,12 @@ public abstract class Function<T extends Typed> {
     final Type variadicSuffixType;
 
     /**
-     * Creates a new instance of {@link Function}.
+     * Creates a new instance of {@link CatalogedFunction}.
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param variadicSuffixType The type of the function's vararg.
      */
-    public Function(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType) {
+    public CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType) {
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
         this.variadicSuffixType = variadicSuffixType;

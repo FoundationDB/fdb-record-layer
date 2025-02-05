@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -74,6 +73,6 @@ public class MacroFunctionTest {
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), 2L))
         ));
 
-        Assertions.assertEquals(new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, testValue1, testValue2), macroFunction.encapsulate(List.of(testValue1, testValue2)));
+        Assertions.assertEquals(new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, testValue1, testValue2), macroFunction.encapsulate(ImmutableList.of(testValue1, testValue2)));
     }
 }
