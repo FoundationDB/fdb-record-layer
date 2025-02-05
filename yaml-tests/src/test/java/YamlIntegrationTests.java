@@ -20,7 +20,7 @@
 
 import com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
-import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
+import com.apple.foundationdb.relational.yamltests.YamlTestConfigExclusions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 
@@ -35,31 +35,43 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void groupByTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("groupby-tests.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void standardTestsWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-proto.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-metadata.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void nullOperator(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("null-operator-tests.yamsql");
     }
@@ -81,16 +93,22 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void joinTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void subqueryTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("subquery-tests.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }
@@ -107,21 +125,29 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void aggregateIndexTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-index-tests.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void aggregateEmptyTable(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-empty-table.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void aggregateIndexTestsCount(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-index-tests-count.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void aggregateIndexTestsCountEmpty(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-index-tests-count-empty.yamsql");
     }
@@ -142,6 +168,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void primaryKey(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("primary-key-tests.yamsql");
     }
@@ -162,6 +190,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     void booleanTypes(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("boolean.yamsql");
     }
@@ -172,6 +202,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     void catalog(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("catalog.yamsql");
     }
@@ -182,21 +214,29 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "maxRows ignored on update (https://github.com/FoundationDB/fdb-record-layer/issues/3100)")
     public void updateDeleteReturning(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("update-delete-returning.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Like continuation failure (https://github.com/FoundationDB/fdb-record-layer/issues/3099)")
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Continuation mismatch (https://github.com/FoundationDB/fdb-record-layer/issues/3098)")
     void functions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("functions.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     void createDrop(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("create-drop.yamsql");
     }
@@ -207,13 +247,15 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = JDBCInProcessConfig.class, reason = "JDBC does not support enums")
+    @ExcludeYamlTestConfig(
+            value = YamlTestConfigExclusions.USES_JDBC,
+            reason = "JDBC does not support enums")
     public void insertEnum(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("insert-enum.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = JDBCInProcessConfig.class, reason = "setObject is not supported by JDBC")
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.USES_JDBC, reason = "setObject is not supported by JDBC")
     public void prepared(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("prepared.yamsql");
     }
@@ -224,11 +266,15 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void union(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void unionEmptyTables(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union-empty-tables.yamsql");
     }
@@ -239,17 +285,21 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "Continuation error (https://github.com/FoundationDB/fdb-record-layer/issues/3097)")
     public void bitmap(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("bitmap-aggregate-index.yamsql");
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.FORCES_CONTINUATIONS,
+            reason = "maxRows ignored (https://github.com/FoundationDB/fdb-record-layer/issues/3100)")
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = JDBCInProcessConfig.class, reason = "JDBC does not support enums")
+    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.USES_JDBC, reason = "JDBC does not support enums")
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }

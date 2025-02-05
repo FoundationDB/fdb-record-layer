@@ -29,6 +29,7 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -68,6 +69,11 @@ public class EmbeddedConfig implements YamlTestConfig {
                 return Set.of();
             }
         };
+    }
+
+    @Override
+    public @Nonnull Map<String, Object> getRunnerOptions() {
+        return Map.of();
     }
 
     @Override

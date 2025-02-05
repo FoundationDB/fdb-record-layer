@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
+import com.apple.foundationdb.relational.yamltests.configs.ForceContinuations;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
@@ -37,11 +38,11 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
-import java.util.Collections;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -60,7 +61,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     new EmbeddedConfig(),
                     new JDBCInProcessConfig(),
                     new MultiServerConfig(0, 1111, 1112),
-                    new MultiServerConfig(1, 1113, 1114)
+                    new ForceContinuations(new MultiServerConfig(0, 1113, 1114)),
+                    new MultiServerConfig(1, 1115, 1116),
+                    new ForceContinuations(new MultiServerConfig(1, 1117, 1118))
             );
         }
         for (final YamlTestConfig testConfig : testConfigs) {
@@ -102,14 +105,17 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
      * method and a {@link YamlTestConfig}).
      */
     private static class Context implements TestTemplateInvocationContext {
+        @Nonnull
         private final YamlTestConfig config;
-        private final Set<Class<? extends YamlTestConfig>> excludedConfigs;
+        @Nonnull
         private final String excludedReason;
+        @Nullable
+        private final YamlTestConfigExclusions exclusion;
 
-        public Context(final YamlTestConfig config, final ExcludeYamlTestConfig excludedConfigs) {
+        public Context(@Nonnull final YamlTestConfig config, @Nullable final ExcludeYamlTestConfig excludedConfigs) {
             this.config = config;
-            this.excludedConfigs = excludedConfigs == null ? Set.of() : Set.of(excludedConfigs.value());
-            this.excludedReason = excludedConfigs == null ? null : excludedConfigs.reason();
+            this.exclusion = excludedConfigs == null ? null : excludedConfigs.value();
+            this.excludedReason = excludedConfigs == null ? "" : excludedConfigs.reason();
         }
 
 
@@ -120,7 +126,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
         @Override
         public List<Extension> getAdditionalExtensions() {
-            return List.of(new ClassParameterResolver(config, excludedConfigs, excludedReason));
+            return List.of(new ClassParameterResolver(config, exclusion, excludedReason));
         }
     }
 
@@ -129,14 +135,18 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
      */
     private static final class ClassParameterResolver implements ParameterResolver {
 
+        @Nonnull
         private final YamlTestConfig config;
-        private final Set<Class<? extends YamlTestConfig>> excludedConfigs;
+        @Nullable
+        private final YamlTestConfigExclusions exclusion;
+        @Nullable
         private final String excludedReason;
 
-        public ClassParameterResolver(YamlTestConfig config, final Set<Class<? extends YamlTestConfig>> excludedConfigs,
-                                      final String excludedReason) {
+        public ClassParameterResolver(@Nonnull final YamlTestConfig config,
+                                      @Nullable final YamlTestConfigExclusions exclusion,
+                                      @Nullable final String excludedReason) {
             this.config = config;
-            this.excludedConfigs = excludedConfigs;
+            this.exclusion = exclusion;
             this.excludedReason = excludedReason;
         }
 
@@ -155,9 +165,10 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
                 @Override
                 public void runYamsql(final String fileName, final boolean correctExplain) throws Exception {
-                    Assumptions.assumeTrue(
-                            excludedConfigs.stream().noneMatch(excluded -> excluded.isInstance(config)), excludedReason);
-                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain, Collections.emptyMap());
+                    if (exclusion != null) {
+                        Assumptions.assumeFalse(exclusion.check(config), excludedReason);
+                    }
+                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain, config.getRunnerOptions());
                     try {
                         yamlRunner.run();
                     } catch (Exception e) {

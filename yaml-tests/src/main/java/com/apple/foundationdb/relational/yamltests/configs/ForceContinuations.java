@@ -1,5 +1,5 @@
 /*
- * YamlTestConfig.java
+ * ForceContinuations.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,34 +20,19 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
- * Interface for configuring how to run a {@code .yamsql} file.
+ * A configuration that runs an underlying configuration, but forces every query to be executed with {@code maxRows: 1}.
  * <p>
- *     Primarily this is concerned with global configuration that allows us to run <em>all</em> tests with a different
- *     configuration, such as a different server, or mixed-mode.
+ *     See {@link YamlExecutionContext#OPTION_FORCE_CONTINUATIONS}.
  * </p>
  */
-public interface YamlTestConfig {
-
-    /**
-     * Creates the connection to the database.
-     * @return a new connection factory
-     */
-    YamlRunner.YamlConnectionFactory createConnectionFactory();
-
-    /**
-     * A list of options to be provided to {@link YamlRunner}.
-     * @return the options for this config
-     */
-    @Nonnull
-    Map<String, Object> getRunnerOptions();
-
-    void beforeAll() throws Exception;
-
-    void afterAll() throws Exception;
+public class ForceContinuations extends ConfigWithOptions {
+    public ForceContinuations(@Nonnull final YamlTestConfig underlying) {
+        super(underlying, Map.of(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, true));
+    }
 }
