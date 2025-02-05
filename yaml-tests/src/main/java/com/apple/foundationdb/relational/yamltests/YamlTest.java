@@ -58,7 +58,7 @@ public @interface YamlTest {
          * @param fileName the filename of the {@code .yamsql} resource
          * @throws Exception if the test has issues
          */
-        void run(String fileName) throws Exception;
+        void runYamsql(String fileName) throws Exception;
 
         /**
          * Run a {@code .yamsql} test, but update all the `explain` assertions in the file with what `explain` actually
@@ -68,6 +68,6 @@ public @interface YamlTest {
          * @param correctExplain {@code true} to replace the expected explains in the associated file
          * @throws Exception if the test has issues
          */
-        void run(String fileName, boolean correctExplain) throws Exception;
+        void runYamsql(String fileName, boolean correctExplain) throws Exception;
     }
 }

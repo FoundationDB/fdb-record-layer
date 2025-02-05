@@ -143,12 +143,12 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
             return new YamlTest.Runner() {
                 @Override
-                public void run(final String fileName) throws Exception {
-                    run(fileName, false);
+                public void runYamsql(final String fileName) throws Exception {
+                    runYamsql(fileName, false);
                 }
 
                 @Override
-                public void run(final String fileName, final boolean correctExplain) throws Exception {
+                public void runYamsql(final String fileName, final boolean correctExplain) throws Exception {
                     config.assumeSupport(fileName, excludedConfigs);
                     Assumptions.assumeFalse(excludedConfigs.contains(config.getClass()));
                     var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain);
