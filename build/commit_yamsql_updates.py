@@ -39,9 +39,31 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('new_version', help='New version to use when updating the yamsql files')
     args = parser.parse_args(argv)
-    print("Updating !current_version in yamsql files to " + args.new_version)
-    subprocess.run(['git', 'commit', '-m', "Updating !current_version in yamsql files to " + args.new_version],
-                   check=True)
+
+
+    try:
+        process = subprocess.run(['git', 'diff', '--cached', '--name-only'],
+                                 check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        should_commit = False
+        for line in process.stdout.splitlines():
+            if line.endswith('.yamsql'):
+                should_commit = True
+            else:
+                print("Unexpected change: " + line)
+                exit(1)
+        
+        if should_commit:
+            print("Updating !current_version in yamsql files to " + args.new_version)
+            subprocess.run(['git', 'commit', '-m', "Updating !current_version in yamsql files to " + args.new_version],
+                           check=True)
+        else:
+            print("Nothing to commit")
+    except subprocess.CalledProcessError as e:
+        print("Failed: " + str(e.cmd))
+        print(e.stdout)
+        print(e.stderr)
+        exit(e.returncode)
+        
 
 if __name__ == '__main__':
     main(sys.argv[1:])

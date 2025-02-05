@@ -37,6 +37,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -156,7 +157,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                 public void runYamsql(final String fileName, final boolean correctExplain) throws Exception {
                     Assumptions.assumeTrue(
                             excludedConfigs.stream().noneMatch(excluded -> excluded.isInstance(config)), excludedReason);
-                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain);
+                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain, Collections.emptyMap());
                     try {
                         yamlRunner.run();
                     } catch (Exception e) {

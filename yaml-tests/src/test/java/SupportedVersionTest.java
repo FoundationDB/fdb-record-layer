@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -54,7 +55,7 @@ public class SupportedVersionTest {
     }
 
     private void doRun(String fileName) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), false).run();
+        new YamlRunner(fileName, createConnectionFactory(), false, Map.of()).run();
     }
 
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
