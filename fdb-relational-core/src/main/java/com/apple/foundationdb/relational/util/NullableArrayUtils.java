@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.util;
 
-import com.apple.foundationdb.annotation.API;
+import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.*;
 
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
@@ -70,7 +70,7 @@ public final class NullableArrayUtils {
      *
      * TODO Add the wrapped array structure for nullable arrays.
      */
-    public static RecordKeyExpressionProto.KeyExpression wrapArray(RecordKeyExpressionProto.KeyExpression keyExpression,
+    public static KeyExpression wrapArray(KeyExpression keyExpression,
                                                                    final Type.Record record,
                                                                    boolean containsNullableArray) {
         if (!containsNullableArray) {
@@ -87,7 +87,7 @@ public final class NullableArrayUtils {
     For example, reviews.rating -> reviews.values.rating
     (TODO): Add the wrapped array structure for nullable arrays.
      */
-    public static RecordKeyExpressionProto.KeyExpression wrapArray(RecordKeyExpressionProto.KeyExpression keyExpression,
+    public static KeyExpression wrapArray(KeyExpression keyExpression,
                                                               Descriptors.Descriptor parentDescriptor,
                                                               boolean containsNullableArray) {
         if (!containsNullableArray) {
@@ -97,15 +97,15 @@ public final class NullableArrayUtils {
         return wrapArrayInternal(keyExpression, parentDescriptor);
     }
 
-    private static RecordKeyExpressionProto.KeyExpression wrapArrayInternal(RecordKeyExpressionProto.KeyExpression keyExpression,
+    private static KeyExpression wrapArrayInternal(KeyExpression keyExpression,
                                                                       Descriptors.Descriptor parentDescriptor) {
         // handle concat (straightforward recursion)
         if (keyExpression.hasThen()) {
-            final var newThenBuilder = RecordKeyExpressionProto.Then.newBuilder();
+            final var newThenBuilder = Then.newBuilder();
             for (final var child : keyExpression.getThen().getChildList()) {
                 newThenBuilder.addChild(wrapArrayInternal(child, parentDescriptor));
             }
-            return RecordKeyExpressionProto.KeyExpression.newBuilder().setThen(newThenBuilder).build();
+            return KeyExpression.newBuilder().setThen(newThenBuilder).build();
         }
 
         // handle nested field
@@ -120,20 +120,20 @@ public final class NullableArrayUtils {
                 final var wrappedChild = wrapArrayInternal(child,
                         parentDescriptor.findFieldByName(parentFieldName).getMessageType().findFieldByName(REPEATED_FIELD_NAME).getMessageType());
                 // the child is actually a grand child (since parent->child is actually parent->values->child), fix that.
-                final var newChild = RecordKeyExpressionProto.KeyExpression.newBuilder()
-                        .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
+                final var newChild = KeyExpression.newBuilder()
+                        .setNesting(Nesting.newBuilder()
                                 .setParent(wrappedParent.getChild().getField())
                                 .setChild(wrappedChild))
                         .build();
-                return RecordKeyExpressionProto.KeyExpression.newBuilder()
-                        .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
+                return KeyExpression.newBuilder()
+                        .setNesting(Nesting.newBuilder()
                                 .setParent(wrappedParent.getParent())
                                 .setChild(newChild))
                         .build();
             } else {
                 final var wrappedChild = wrapArrayInternal(child, parentDescriptor.findFieldByName(parentFieldName).getMessageType());
-                return RecordKeyExpressionProto.KeyExpression.newBuilder()
-                        .setNesting(RecordKeyExpressionProto.Nesting.newBuilder()
+                return KeyExpression.newBuilder()
+                        .setNesting(Nesting.newBuilder()
                                 .setParent(parent)
                                 .setChild(wrappedChild))
                         .build();
@@ -143,7 +143,7 @@ public final class NullableArrayUtils {
         // check key expression's field
         if (keyExpression.hasField()) {
             if (NullableArrayUtils.isWrappedArrayDescriptor(keyExpression.getField().getFieldName(), parentDescriptor)) {
-                return RecordKeyExpressionProto.KeyExpression.newBuilder().setNesting(splitFieldIntoNestedWithValues(keyExpression.getField())).build();
+                return KeyExpression.newBuilder().setNesting(splitFieldIntoNestedWithValues(keyExpression.getField())).build();
             } else {
                 return keyExpression;
             }
@@ -152,50 +152,50 @@ public final class NullableArrayUtils {
         // grouping key expression
         if (keyExpression.hasGrouping()) {
             final var newWholeKey = wrapArrayInternal(keyExpression.getGrouping().getWholeKey(), parentDescriptor);
-            return RecordKeyExpressionProto.KeyExpression.newBuilder().setGrouping(keyExpression.getGrouping().toBuilder().setWholeKey(newWholeKey)).build();
+            return KeyExpression.newBuilder().setGrouping(keyExpression.getGrouping().toBuilder().setWholeKey(newWholeKey)).build();
         }
 
         // split key expression
         if (keyExpression.hasSplit()) {
             final var newJoined = wrapArrayInternal(keyExpression.getSplit().getJoined(), parentDescriptor);
-            return RecordKeyExpressionProto.KeyExpression.newBuilder().setSplit(keyExpression.getSplit().toBuilder().setJoined(newJoined)).build();
+            return KeyExpression.newBuilder().setSplit(keyExpression.getSplit().toBuilder().setJoined(newJoined)).build();
         }
 
         // function key expression.
         if (keyExpression.hasFunction()) {
             final var newArguments = wrapArrayInternal(keyExpression.getFunction().getArguments(), parentDescriptor);
-            return RecordKeyExpressionProto.KeyExpression.newBuilder().setFunction(keyExpression.getFunction().toBuilder().setArguments(newArguments)).build();
+            return KeyExpression.newBuilder().setFunction(keyExpression.getFunction().toBuilder().setArguments(newArguments)).build();
         }
 
         // covering key expression.
         if (keyExpression.hasKeyWithValue()) {
             final var newInnerKey = wrapArrayInternal(keyExpression.getKeyWithValue().getInnerKey(), parentDescriptor);
-            return RecordKeyExpressionProto.KeyExpression.newBuilder().setKeyWithValue(keyExpression.getKeyWithValue().toBuilder().setInnerKey(newInnerKey)).build();
+            return KeyExpression.newBuilder().setKeyWithValue(keyExpression.getKeyWithValue().toBuilder().setInnerKey(newInnerKey)).build();
         }
 
         // key expression containing list.
         if (keyExpression.hasList()) {
-            final var newListBuilder = RecordKeyExpressionProto.List.newBuilder();
+            final var newListBuilder = List.newBuilder();
             for (final var listItem : keyExpression.getList().getChildList()) {
                 newListBuilder.addChild(wrapArrayInternal(listItem, parentDescriptor));
             }
-            return RecordKeyExpressionProto.KeyExpression.newBuilder().setList(newListBuilder).build();
+            return KeyExpression.newBuilder().setList(newListBuilder).build();
         }
 
         return keyExpression;
     }
 
     // wrap repeated fields in a Field type keyExpression
-    private static RecordKeyExpressionProto.Nesting splitFieldIntoNestedWithValues(@Nonnull final RecordKeyExpressionProto.Field original) {
-        final var nestedArrayBuilder = RecordKeyExpressionProto.Field.newBuilder()
+    private static Nesting splitFieldIntoNestedWithValues(@Nonnull final Field original) {
+        final var nestedArrayBuilder = Field.newBuilder()
                 .setFieldName(original.getFieldName())
-                .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR)
+                .setFanType(Field.FanType.SCALAR)
                 .setNullInterpretation(original.getNullInterpretation());
-        final var arrayValueBuilder = RecordKeyExpressionProto.KeyExpression.newBuilder()
-                .setField(RecordKeyExpressionProto.Field.newBuilder()
+        final var arrayValueBuilder = KeyExpression.newBuilder()
+                .setField(Field.newBuilder()
                         .setFieldName(REPEATED_FIELD_NAME)
                         .setFanType(original.getFanType())
                         .setNullInterpretation(original.getNullInterpretation()));
-        return RecordKeyExpressionProto.Nesting.newBuilder().setParent(nestedArrayBuilder).setChild(arrayValueBuilder).build();
+        return Nesting.newBuilder().setParent(nestedArrayBuilder).setChild(arrayValueBuilder).build();
     }
 }

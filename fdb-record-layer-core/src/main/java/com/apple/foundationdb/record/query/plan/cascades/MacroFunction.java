@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.metadata.SerializableFunction;
 import com.apple.foundationdb.record.planprotos.PMacroFunctionValue;
-import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 /**
  * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
-public class MacroFunction extends CatalogedFunction<Value> {
+public class MacroFunction extends CatalogedFunction<Value> implements SerializableFunction<Value> {
     @Nonnull
     private final Value bodyValue;
     private final List<CorrelationIdentifier> parameterIdentifiers;
@@ -62,6 +62,7 @@ public class MacroFunction extends CatalogedFunction<Value> {
     }
 
     @Nonnull
+    @Override
     public PMacroFunctionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PMacroFunctionValue.Builder builder = PMacroFunctionValue.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
@@ -73,15 +74,9 @@ public class MacroFunction extends CatalogedFunction<Value> {
                 .build();
     }
 
-
     @Nonnull
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var specificValueProto = toProto(serializationContext);
-        return PValue.newBuilder().setMacroFunctionValue(specificValueProto).build();
-    }
-
-    @Nonnull
-    public static MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMacroFunctionValue functionValue) {
+    @Override
+    public CatalogedFunction<Value> fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMacroFunctionValue functionValue) {
         return new MacroFunction(functionValue.getFunctionName(),
                 functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
                 Value.fromValueProto(serializationContext, functionValue.getBody()));
