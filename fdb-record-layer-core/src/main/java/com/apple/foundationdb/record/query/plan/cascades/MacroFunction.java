@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Main interface for defining a user-defined function that can be evaluated against a number of arguments.
+ * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
 public class MacroFunction extends Function<Value> {
     @Nonnull

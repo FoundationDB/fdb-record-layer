@@ -704,7 +704,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
             builder.addFormerIndexes(formerIndex.toProto());
         }
 
-        // Add in the final options.
         builder.addAllScalarValuedFunction(scalarValuedFunctions.stream().map(ScalarValuedFunction::toProto).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);

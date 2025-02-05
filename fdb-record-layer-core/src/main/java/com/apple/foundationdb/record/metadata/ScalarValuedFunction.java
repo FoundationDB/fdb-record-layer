@@ -1,5 +1,5 @@
 /*
- * UDF.java
+ * ScalarValuedFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import javax.annotation.Nonnull;
 
 /**
- * Defines a scalar User-defined-function.
+ * Defines a scalar User-defined-function that can evaluate a list of arguments. A MetaData can have multiple ScalarValuedFunction.
  */
 public class ScalarValuedFunction {
     @Nonnull
