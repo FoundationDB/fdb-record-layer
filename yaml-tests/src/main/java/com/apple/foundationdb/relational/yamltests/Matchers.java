@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -428,7 +429,8 @@ public class Matchers {
         var i = 1;
         for (final var expectedRow : expectedAsList) {
             if (!actual.next()) {
-                return ImmutablePair.of(ResultSetMatchResult.fail("result does not contain all expected rows."), null);
+                printCurrentAndRemaining(actual, resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("result does not contain all expected rows! expected %d rows, got %d", expectedAsList.size(), i - 1)), null);
             }
             if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
                 printCurrentAndRemaining(actual, resultSetPrettyPrinter);
@@ -449,20 +451,24 @@ public class Matchers {
 
     private static ImmutablePair<ResultSetMatchResult, ResultSetPrettyPrinter> matchUnorderedResultSet(final RelationalResultSet actual, final @Nonnull Multiset<?> expectedAsMultiSet) throws SQLException {
         final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
-        var i = 1;
-        // O(n^2) -- we all got M1s
+        final var expectedRowCount = expectedAsMultiSet.size();
+        var actualRowsCounter = 1;
         while (actual.next()) {
             boolean found = false;
             if (expectedAsMultiSet.isEmpty()) {
                 printCurrentAndRemaining(actual, resultSetPrettyPrinter);
-                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("too many rows in actual result set! expected %d rows, got %d.", i - 1, i - 1 + resultSetPrettyPrinter.getRowCount())), resultSetPrettyPrinter);
+                // count the remaining actual rows.
+                while (actual.next()) {
+                    actualRowsCounter++;
+                }
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("too many rows in actual result set! expected %d row(s), got %d row(s) instead.", expectedRowCount, actualRowsCounter - 1)), resultSetPrettyPrinter);
             }
-            for (final var expectedRow : expectedAsMultiSet) {
+            for (final var expectedRow : expectedAsMultiSet.elementSet()) {
                 if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
                     printCurrentAndRemaining(actual, resultSetPrettyPrinter);
                     return ImmutablePair.of(ResultSetMatchResult.fail("unknown format of expected result set"), resultSetPrettyPrinter);
                 }
-                final var matchResult = matchRow(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), i);
+                final var matchResult = matchRow(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), actualRowsCounter);
                 if (matchResult.equals(ResultSetMatchResult.success())) {
                     found = true;
                     expectedAsMultiSet.remove(expectedRow);
@@ -471,12 +477,12 @@ public class Matchers {
             }
             if (!found) {
                 printCurrentAndRemaining(actual, resultSetPrettyPrinter);
-                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("result row at %d does not match any expected records", i)), resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("actual row at %d does not match any expected records", actualRowsCounter)), resultSetPrettyPrinter);
             }
-            i++;
+            actualRowsCounter++;
         }
         if (!expectedAsMultiSet.isEmpty()) {
-            return ImmutablePair.of(ResultSetMatchResult.fail("result does not contain all expected rows"), null);
+            return ImmutablePair.of(ResultSetMatchResult.fail(String.format("result does not contain all expected rows, expected %d row(s), got %d row(s) instead.", expectedRowCount, actualRowsCounter - 1)), null);
         }
         return ImmutablePair.of(ResultSetMatchResult.success(), null);
     }
