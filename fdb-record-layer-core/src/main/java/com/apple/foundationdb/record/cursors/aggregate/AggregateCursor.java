@@ -84,7 +84,10 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             } else {
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
                 boolean groupBreak = streamGrouping.apply(queryResult);
-                previousValidResult = innerResult;
+                if (!groupBreak) {
+                    // previousValidResult is the last one in the same group, it sets the continuation
+                    previousValidResult = innerResult;
+                }
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {

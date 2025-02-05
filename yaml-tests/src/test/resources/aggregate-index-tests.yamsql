@@ -145,9 +145,13 @@ test_block:
        - explain: "COVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)"
        - result: [{!l 5}, {!l 4}, {!l 3}, {!l 2}, {!l 1}]
     -
-      - query: select min(col3) from T2 group by col1, col2;
-      - explain: "ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._1._0 AS _0)"
-      - result: [{!l 1}, {!l 2}, {!l 3}]
+      - query: select col1, col2, min(col3) from T2 group by col1, col2;
+      - maxRows: 1
+      - explain: "ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._0._0 AS COL1, _._0._1 AS COL2, _._1._0 AS _2)"
+      - result: [{COL1: 1, COL2: 1, !l 1}]
+      - result: [{COL1: 1, COL2: 2, !l 2}]
+      - result: [{COL1: 2, COL2: 1, !l 3}]
+      - result: []
     -
       # this should use the aggregate index in the future, for now, it is using streaming aggregate
       # over base table scan.
