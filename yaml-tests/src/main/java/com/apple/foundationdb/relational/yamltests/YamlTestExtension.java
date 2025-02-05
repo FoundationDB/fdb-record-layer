@@ -90,11 +90,15 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(final ExtensionContext context) {
+        // excluded tests are still included as configs so that they show up in the test run as skipped, rather than
+        // just not being there. This may waste some resources if all the tests being run exclude a config that has
+        // expensive @BeforeAll.
         return testConfigs.stream().map(config -> new Context(config, context.getRequiredTestMethod().getAnnotation(ExcludeYamlTestConfig.class)));
     }
 
     /**
-     * Context for an individual test run (method + config).
+     * Context for an individual test run (a specific pair of a {@link org.junit.jupiter.api.TestTemplate}
+     * method and a {@link YamlTestConfig}).
      */
     private static class Context implements TestTemplateInvocationContext {
         private final YamlTestConfig config;

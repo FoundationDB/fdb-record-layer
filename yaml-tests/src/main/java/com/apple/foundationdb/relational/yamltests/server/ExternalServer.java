@@ -40,7 +40,6 @@ public class ExternalServer {
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     private static final boolean SAVE_SERVER_OUTPUT = false;
 
-    private static final int SERVER_PORT = 1111;
     private final String jarName;
     private final int grpcPort;
     private final int httpPort;
@@ -48,14 +47,14 @@ public class ExternalServer {
     private Process serverProcess;
 
     /**
-     * Create a new extension that will run latest released version of the server, as downloaded by gradle.
+     * Create a new instance that will run latest released version of the server, as downloaded by gradle.
      */
     public ExternalServer(final int grpcPort, final int httpPort) {
         this(null, grpcPort, httpPort);
     }
 
     /**
-     * Create a new extension that will run a specific jar.
+     * Create a new instance that will run a specific jar.
      *
      * @param jarName the path to the jar to run
      */
@@ -71,7 +70,7 @@ public class ExternalServer {
      * @return the grpc port that the server is listening to
      */
     public int getPort() {
-        return SERVER_PORT;
+        return grpcPort;
     }
 
     /**

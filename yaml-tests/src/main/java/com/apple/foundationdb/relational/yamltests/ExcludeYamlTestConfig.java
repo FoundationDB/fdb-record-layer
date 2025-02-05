@@ -26,9 +26,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Mark specific configs as disabled for the current test.
+ * Mark specific {@link YamlTestConfig} as disabled for the current test in an {@link YamlTest} test class.
+ * <p>
+ *     Any config in {@link #value()} will be skipped for the annotated test.
+ * </p>
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ExcludeYamlTestConfig {
+    /**
+     * Any {@code YamlTestConfig} class in this list will skip the associated
+     * {@link org.junit.jupiter.api.TestTemplate} test.
+     */
     Class<? extends YamlTestConfig>[] value();
 }
