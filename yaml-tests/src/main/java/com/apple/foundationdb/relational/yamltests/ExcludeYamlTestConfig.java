@@ -38,4 +38,9 @@ public @interface ExcludeYamlTestConfig {
      * {@link org.junit.jupiter.api.TestTemplate} test.
      */
     Class<? extends YamlTestConfig>[] value();
+
+    /**
+     * The reason this test is excluded for the given configs.
+     */
+    String reason();
 }

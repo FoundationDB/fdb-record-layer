@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
-import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 
@@ -40,7 +38,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(JDBCInProcessConfig.class)
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");
     }

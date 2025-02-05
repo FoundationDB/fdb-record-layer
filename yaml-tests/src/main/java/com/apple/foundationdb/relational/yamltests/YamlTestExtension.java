@@ -103,10 +103,12 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private static class Context implements TestTemplateInvocationContext {
         private final YamlTestConfig config;
         private final Set<Class<? extends YamlTestConfig>> excludedConfigs;
+        private final String excludedReason;
 
         public Context(final YamlTestConfig config, final ExcludeYamlTestConfig excludedConfigs) {
             this.config = config;
             this.excludedConfigs = excludedConfigs == null ? Set.of() : Set.of(excludedConfigs.value());
+            this.excludedReason = excludedConfigs == null ? null : excludedConfigs.reason();
         }
 
 
@@ -117,7 +119,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
         @Override
         public List<Extension> getAdditionalExtensions() {
-            return List.of(new ClassParameterResolver(config, excludedConfigs));
+            return List.of(new ClassParameterResolver(config, excludedConfigs, excludedReason));
         }
     }
 
@@ -128,10 +130,13 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
         private final YamlTestConfig config;
         private final Set<Class<? extends YamlTestConfig>> excludedConfigs;
+        private final String excludedReason;
 
-        public ClassParameterResolver(YamlTestConfig config, final Set<Class<? extends YamlTestConfig>> excludedConfigs) {
+        public ClassParameterResolver(YamlTestConfig config, final Set<Class<? extends YamlTestConfig>> excludedConfigs,
+                                      final String excludedReason) {
             this.config = config;
             this.excludedConfigs = excludedConfigs;
+            this.excludedReason = excludedReason;
         }
 
         @Override
@@ -150,7 +155,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                 @Override
                 public void runYamsql(final String fileName, final boolean correctExplain) throws Exception {
                     config.assumeSupport(fileName, excludedConfigs);
-                    Assumptions.assumeFalse(excludedConfigs.contains(config.getClass()));
+                    Assumptions.assumeFalse(excludedConfigs.contains(config.getClass()), excludedReason);
                     var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain);
                     try {
                         yamlRunner.run();
