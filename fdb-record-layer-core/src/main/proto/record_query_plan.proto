@@ -1659,6 +1659,7 @@ message PRecordQueryStreamingAggregationPlan {
     optional string grouping_key_alias = 4;
     optional string aggregate_alias = 5;
     optional PValue complete_result_value = 6;
+    optional bool is_create_default_on_empty = 7;
 }
 
 //
