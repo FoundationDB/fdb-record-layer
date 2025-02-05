@@ -157,6 +157,5 @@ jmh = { id = "me.champeau.jmh", version = "0.7.2" }
 protobuf = { id = "com.google.protobuf", version = "0.8.19" }
 serviceloader = { id = "com.github.harbby.gradle.serviceloader", version = "1.1.8" }
 shadow = { id = "com.github.johnrengelman.shadow", version = "7.1.2" }
-sonarqube = { id = "org.sonarqube", version = "3.3" }
 spotbugs = { id = "com.github.spotbugs", version = "4.6.1" }
 versions = { id = "com.github.ben-manes.versions", version = "0.38.0" }
