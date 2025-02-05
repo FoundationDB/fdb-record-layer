@@ -193,4 +193,8 @@ public class StreamGrouping<M extends Message> {
         final EvaluationContext nestedContext = context.withBinding(Bindings.Internal.CORRELATION, alias, currentObject);
         return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext);
     }
+
+    public boolean isResultOnEmpty() {
+        return groupingKeyValue == null;
+    }
 }
