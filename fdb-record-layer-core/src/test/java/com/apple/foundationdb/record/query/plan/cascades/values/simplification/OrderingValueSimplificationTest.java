@@ -74,7 +74,7 @@ class OrderingValueSimplificationTest {
                 new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue2, LiteralValue.ofScalar(3)));
 
 
-        final var simplifiedValue = simplifyOrderingValue(arithmeticValue);
+        final var simplifiedValue = simplifyOrderingValue((Value) arithmeticValue);
 
         // ('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3 => _
         // meaning ORDER BY ('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3 <=> ORDER BY _.a.ab
@@ -112,7 +112,7 @@ class OrderingValueSimplificationTest {
         //   ('fieldValue' as a, _ as b, 'World' as c).c)
         final var outerRecordConstructor =
                 RecordConstructorValue.ofUnnamed(
-                        ImmutableList.of(RecordConstructorValue.ofUnnamed(ImmutableList.of(arithmeticValue, fieldValueA)), fieldValueC));
+                        ImmutableList.of(RecordConstructorValue.ofUnnamed(ImmutableList.of((Value) arithmeticValue, fieldValueA)), fieldValueC));
 
         // record : = ('fieldValue' as a, _ as b, 'World' as c)
         // (record.b.a.ab + 3, record.a), record.c) -> (record.b.a.ab, record.a, record.c) -> (_, 'fieldValue', 'World')

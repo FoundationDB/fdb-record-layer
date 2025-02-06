@@ -20,15 +20,11 @@
 
 package com.apple.foundationdb.record.metadata;
 
-import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.google.protobuf.Message;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 
 import javax.annotation.Nonnull;
 
-public interface SerializableFunction<T extends Typed> {
+public interface SerializableFunction {
     @Nonnull
-    Message toProto(@Nonnull final PlanSerializationContext serializationContext);
-    CatalogedFunction<T> fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final Message functionValue);
+    RecordMetaDataProto.SerializableFunction toProto();
 }

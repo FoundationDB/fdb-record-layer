@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -357,7 +358,7 @@ public class QueryPredicateTest {
         final var c1 = ConstantObjectValue.of( Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.INT));
         final var c2 = ConstantObjectValue.of( Quantifier.constant(), "2", Type.primitiveType(Type.TypeCode.INT));
         final var restnoGtC1PlusC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN,
-                new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
+                (Value) new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
         final var nameEqFoo = new ValuePredicate(name, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("foo")));
         final var predicate = or(and(restnoGtC1PlusC2, restnoGtC1PlusC2), nameEqFoo);
         final var expectedSimplifiedPredicate = or(restnoGtC1PlusC2, nameEqFoo);
@@ -378,7 +379,7 @@ public class QueryPredicateTest {
         final var c1 = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.INT));
         final var c2 = ConstantObjectValue.of(Quantifier.constant(), "2", Type.primitiveType(Type.TypeCode.INT));
         final var restnoGtC1PlusC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN,
-                new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
+                (Value) new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
         final var nameEqFoo = new ValuePredicate(name, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("foo")));
         final var restnoGtC1 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, c1));
         final var restnoGtC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, c2));

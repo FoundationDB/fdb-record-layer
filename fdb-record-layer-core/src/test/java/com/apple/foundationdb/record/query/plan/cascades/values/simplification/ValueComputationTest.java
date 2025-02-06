@@ -137,7 +137,7 @@ class ValueComputationTest {
         final var _a_b = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab"));
         final var _x_b = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb"));
         // _.a.ab + _.x.xb
-        final var _a_ab__plus__x_xb = new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
+        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
         final var toBePulledUpValues = ImmutableList.of(record_type, _a_ab__plus__x_xb);
 
         final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), UPPER_ALIAS);
@@ -148,7 +148,7 @@ class ValueComputationTest {
 
         final var expectedMap = ImmutableMap.of(
                 record_type, new RecordTypeValue(QuantifiedObjectValue.of(UPPER_ALIAS, new Type.AnyRecord(true))),
-                _a_ab__plus__x_xb, new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
+                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
     }
 
@@ -164,7 +164,7 @@ class ValueComputationTest {
         final var _a_b = FieldValue.ofFieldNames(qov, ImmutableList.of("a", "ab"));
         final var _x_b = FieldValue.ofFieldNames(qov, ImmutableList.of("x", "xb"));
         // _.a.ab + _.x.xb
-        final var _a_ab__plus__x_xb = new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
+        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
         final var toBePulledUpValues = ImmutableList.of(record_type, _a_ab__plus__x_xb);
 
         final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), UPPER_ALIAS);
@@ -175,7 +175,7 @@ class ValueComputationTest {
 
         final var expectedMap = ImmutableMap.of(
                 record_type, new RecordTypeValue(QuantifiedObjectValue.of(UPPER_ALIAS, new Type.AnyRecord(true))),
-                _a_ab__plus__x_xb, new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
+                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
     }
 

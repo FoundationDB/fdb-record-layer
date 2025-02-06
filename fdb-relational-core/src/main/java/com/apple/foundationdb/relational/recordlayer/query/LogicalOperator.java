@@ -537,7 +537,7 @@ public class LogicalOperator {
                 // "If no row qualifies, then the result of COUNT is 0 (zero), and the result of any other aggregate function is the null value.
                 if (subValue instanceof CountValue) {
                     final var zero = LiteralValue.ofScalar(0L);
-                    return new VariadicFunctionValue.CoalesceFn().encapsulate(ImmutableList.of(subValue, zero));
+                    return (Value) new VariadicFunctionValue.CoalesceFn().encapsulate(ImmutableList.of(subValue, zero));
                 }
                 return subValue;
             })));

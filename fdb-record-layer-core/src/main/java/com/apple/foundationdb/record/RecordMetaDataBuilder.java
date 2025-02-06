@@ -33,9 +33,9 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
+import com.apple.foundationdb.record.metadata.SerializableFunction;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
-import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -43,6 +43,8 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -111,7 +113,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
-    private final Set<ScalarValuedFunction> scalarValuedFunctions;
+    private final Set<SerializableFunction> serializableFunctions;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -147,7 +149,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
         evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
         syntheticRecordTypes = new HashMap<>();
-        scalarValuedFunctions = new HashSet<>();
+        serializableFunctions = new HashSet<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -226,8 +228,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
             }
         }
-        for (RecordMetaDataProto.ScalarValuedFunction scalarValuedFunction: metaDataProto.getScalarValuedFunctionList()) {
-            scalarValuedFunctions.add(ScalarValuedFunction.fromProto(scalarValuedFunction));
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        for (RecordMetaDataProto.SerializableFunction serializableFunction: metaDataProto.getSerializableFunctionList()) {
+            serializableFunctions.add(MacroFunction.fromProto(serializationContext, serializableFunction));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1186,12 +1190,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(formerIndex);
     }
 
-    public void addScalarValuedFunction(@Nonnull ScalarValuedFunction scalarValuedFunction) {
-        scalarValuedFunctions.add(scalarValuedFunction);
+    public void addSerializableFunction(@Nonnull SerializableFunction serializableFunction) {
+        serializableFunctions.add(serializableFunction);
     }
 
-    public void addScalarValuedFunctions(@Nonnull Iterable<? extends ScalarValuedFunction> scalarValuedFunctions) {
-        scalarValuedFunctions.forEach(this.scalarValuedFunctions::add);
+    public void addSerializableFunctions(@Nonnull Iterable<? extends SerializableFunction> functions) {
+        functions.forEach(this.serializableFunctions::add);
     }
 
     public boolean isSplitLongRecords() {
@@ -1435,7 +1439,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, scalarValuedFunctions,
+                indexes, universalIndexes, formerIndexes, serializableFunctions,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

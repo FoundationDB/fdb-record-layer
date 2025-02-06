@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -300,7 +301,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             final var ttScanRecuQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofCorrelated(scanTempTableAlias, getHierarchyType())));
             var idField = getIdCol(ttScanRecuQun);
-            final var multByTwo = Column.of(Optional.of("id"), new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(2L))));
+            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(ImmutableList.of(idField.getValue(), LiteralValue.ofScalar(2L))));
             selectExpression = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(multByTwo))
                     .addQuantifier(ttScanRecuQun)
