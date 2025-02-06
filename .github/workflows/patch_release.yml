@@ -18,14 +18,14 @@ jobs:
       pages: read
       pull-requests: write
     steps:
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
         with:
           ref: ${{ inputs.branch }}
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
 
       # Push a version bump back to main. There are failure scenarios that can result
       # in published artifacts but an erroneous build, so it's safer to bump the version

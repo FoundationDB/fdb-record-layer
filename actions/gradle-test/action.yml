@@ -12,29 +12,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-  - name: Download FDB Client
-    shell: bash
-    run: wget -nv https://github.com/apple/foundationdb/releases/download/${{ inputs.fdb_version }}/foundationdb-clients_${{ inputs.fdb_version }}-1_amd64.deb
-  - name: Download FDB Server
-    shell: bash
-    run: wget -nv https://github.com/apple/foundationdb/releases/download/${{ inputs.fdb_version }}/foundationdb-server_${{ inputs.fdb_version }}-1_amd64.deb
-  - name: Install FDB Server
-    shell: bash
-    run: sudo dpkg -i foundationdb-clients_${{ inputs.fdb_version }}-1_amd64.deb foundationdb-server_${{ inputs.fdb_version }}-1_amd64.deb
-  - name: Fix FDB Network Addresses
-    shell: bash
-    run: sudo sed -i -e "s/public_address = auto:\$ID/public_address = 127.0.0.1:\$ID/g" -e "s/listen_address = public/listen_address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
-  - name: Start FDB Server
-    shell: bash
-    run: sudo /usr/lib/foundationdb/fdbmonitor /etc/foundationdb/foundationdb.conf --daemonize
-  - name: Switch FDB to SSD
-    shell: bash
-    run: fdbcli --exec "configure single ssd storage_migration_type=aggressive; status"
-  - name: Set up JDK 17
-    uses: actions/setup-java@v4.7.0
-    with:
-      java-version: '17'
-      distribution: 'temurin'
   - name: Run build and test
     uses: ./actions/run-gradle
     with:

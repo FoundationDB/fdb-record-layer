@@ -14,6 +14,10 @@ jobs:
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4.2.2
+    - name: Setup Base Environment
+      uses: ./actions/setup-base-env
+    - name: Setup FDB
+      uses: ./actions/setup-fdb
     - name: Run Gradle Test
       uses: ./actions/gradle-test
       with:
