@@ -241,6 +241,88 @@ public class TypeConversion {
         return Struct.newBuilder().setColumns(listColumnBuilder.build()).build();
     }
 
+    /**
+     * Return the Java object stored within the proto.
+     * @param columnType the type of object in the column
+     * @param column the column to process
+     * @return the Java object from the Column representation
+     * @throws SQLException in case of an error
+     */
+    public static Object fromColumn(int columnType, Column column) throws SQLException {
+        switch (columnType) {
+            case Types.ARRAY:
+                return fromArray(column.getArray());
+            case Types.BIGINT:
+                return column.getLong();
+            case Types.INTEGER:
+                return column.getInteger();
+            case Types.BOOLEAN:
+                return column.getBoolean();
+            case Types.VARCHAR:
+                return column.getString();
+            case Types.BINARY:
+                return column.getBinary().toByteArray();
+            case Types.DOUBLE:
+                return column.getDouble();
+            default:
+                // TODO: NULL?
+                throw new SQLException("java.sql.Type=" + columnType + " not supported",
+                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+    }
+
+    /**
+     * Return the Java array stored within the proto.
+     * @param array the array to process
+     * @return the Java array from the proto representation
+     * @throws SQLException in case of an error
+     */
+    public static Object[] fromArray(Array array) throws SQLException {
+        Object[] result = new Object[array.getElementCount()];
+        final List<Column> elements = array.getElementList();
+        for (int i = 0 ; i < elements.size() ; i++) {
+            result[i] = fromColumn(array.getElementType(), elements.get(i));
+        }
+        return result;
+    }
+
+    /**
+     * Create column from a Java object.
+     * @param columnType the SQL type to create
+     * @param obj the value to use for the column
+     * @return the created column
+     * @throws SQLException in case of error
+     */
+    public static Column toColumn(int columnType, Object obj) throws SQLException {
+        Column.Builder builder = Column.newBuilder();
+        switch (columnType) {
+            case Types.BIGINT:
+                builder = (obj == null) ? builder.clearLong() : builder.setLong((Long)obj);
+                break;
+            case Types.INTEGER:
+                builder = (obj == null) ? builder.clearInteger() : builder.setInteger((Integer)obj);
+                break;
+            case Types.BOOLEAN:
+                builder = (obj == null) ? builder.clearBoolean() : builder.setBoolean((Boolean)obj);
+                break;
+            case Types.VARCHAR:
+                builder = (obj == null) ? builder.clearString() : builder.setString((String)obj);
+                break;
+            case Types.BINARY:
+                builder = (obj == null) ? builder.clearBinary() : builder.setBinary((ByteString)obj);
+                break;
+            case Types.DOUBLE:
+                builder = (obj == null) ? builder.clearDouble() : builder.setDouble((Double)obj);
+                break;
+            default:
+                // TODO: NULL
+                // TODO Note that ARRAY type is not supported since we would need additional info (the element type)
+                throw new SQLException("java.sql.Type=" + columnType + " not supported",
+                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+        return builder.build();
+    }
+
     private static Column toColumn(RelationalStruct relationalStruct, int oneBasedIndex) throws SQLException {
         int columnType = relationalStruct.getMetaData().getColumnType(oneBasedIndex);
         Column column;

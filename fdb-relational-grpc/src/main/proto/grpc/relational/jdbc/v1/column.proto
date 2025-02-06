@@ -49,7 +49,10 @@ message Struct {
 
 // Relational Array.
 message Array {
-  repeated Column element = 1;
+  // The java.sql.Types of the elements of the array. This is somewhat redundant with the type of the
+  // columns, but it makes it easier to verify correctness.
+  int32 elementType = 1;
+  repeated Column element = 2;
 }
 
 // `Column` represents a dynamically typed column which can be either
@@ -59,8 +62,8 @@ message Array {
 message Column {
   // The kind/type of column.
   oneof kind {
-    // Represents a null column.
-    NullColumn null = 1;
+    // Represents a null column. These can be typed, so the value is the java.sql.Types of the parameter
+    int32 nullType = 1;
     // Represents a double column.
     double double = 2;
 
@@ -78,15 +81,6 @@ message Column {
 
     float float = 10;
   }
-}
-
-// `NullValue` is a singleton enumeration to represent the null value for the
-// `Column` type union.
-//
-//  The JSON representation for `NullValue` is JSON `null`.
-enum NullColumn {
-  // Null value.
-  NULL_COLUMN = 0;
 }
 
 // `ListColumn` is a wrapper around a repeated field of columns.
