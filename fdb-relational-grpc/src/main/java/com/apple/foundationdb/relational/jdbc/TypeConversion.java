@@ -287,8 +287,25 @@ public class TypeConversion {
     }
 
     /**
-     * Create column from a Java object.
-     * @param columnType the SQL type to create
+     * Return the protobuf {@link Array} for a SQL {@link java.sql.Array}.
+     * @param array the SQL array
+     * @return the resulting protobuf array
+     */
+    public static Array toArray(@Nonnull java.sql.Array array) throws SQLException {
+        Array.Builder builder = Array.newBuilder();
+        builder.setElementType(array.getBaseType());
+        for (Object o: (Object[])array.getArray()) {
+            builder.addElement(toColumn(array.getBaseType(), o));
+        }
+        return builder.build();
+    }
+
+    /**
+     * Create {@link Column} from a Java object.
+     * Note: In case the column is of a composite type (array, struct) then the actual type has to be a SQL flavor
+     * ({@link java.sql.Array} or {@link java.sql.Struct}.
+     * Note: In case of {@link Types#NULL} null column, the obje parameter is expected to be the type of null
+     * @param columnType the SQL type to create (from {@link Types})
      * @param obj the value to use for the column
      * @return the created column
      * @throws SQLException in case of error
@@ -314,9 +331,13 @@ public class TypeConversion {
             case Types.DOUBLE:
                 builder = (obj == null) ? builder.clearDouble() : builder.setDouble((Double)obj);
                 break;
+            case Types.ARRAY:
+                builder = (obj == null) ? builder.clearArray() : builder.setArray(toArray((java.sql.Array)obj));
+                break;
+            case Types.NULL:
+                builder = builder.setNullType((Integer)obj);
+                break;
             default:
-                // TODO: NULL
-                // TODO Note that ARRAY type is not supported since we would need additional info (the element type)
                 throw new SQLException("java.sql.Type=" + columnType + " not supported",
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
