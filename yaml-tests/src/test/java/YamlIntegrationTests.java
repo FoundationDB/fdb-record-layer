@@ -255,7 +255,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigExclusions.USES_JDBC, reason = "setObject is not supported by JDBC")
     public void prepared(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("prepared.yamsql");
     }
