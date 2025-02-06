@@ -423,7 +423,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final Bindings bindings = constantBindings(maskConstantValue, mask);
                 final RecordQueryPlan plan = planGraph(() -> {
                     Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-                    final Value maskValue = (Value) new ArithmeticValue.BitAndFn().encapsulate(List.of(
+                    final Value maskValue = (Value)new ArithmeticValue.BitAndFn().encapsulate(List.of(
                             FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique"),
                             maskConstantValue
                     ));

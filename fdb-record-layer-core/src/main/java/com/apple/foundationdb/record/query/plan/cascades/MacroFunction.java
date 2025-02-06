@@ -90,29 +90,10 @@ public class MacroFunction implements SerializableFunction {
     }
 
     @Nonnull
-    public static MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final RecordMetaDataProto.SerializableFunction serializableFunction) {
-        var functionValue = serializableFunction.getMacroFunction();
-        return new MacroFunction(functionValue.getFunctionName(),
+    public static MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMacroFunctionValue functionValue) {
+        return new MacroFunction(
+                functionValue.getFunctionName(),
                 functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
                 Value.fromValueProto(serializationContext, functionValue.getBody()));
-    }
-
-    /**
-     * Deserializer.
-     */
-    @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<RecordMetaDataProto.SerializableFunction, MacroFunction> {
-        @Nonnull
-        @Override
-        public Class<RecordMetaDataProto.SerializableFunction> getProtoMessageClass() {
-            return RecordMetaDataProto.SerializableFunction.class;
-        }
-
-        @Nonnull
-        @Override
-        public MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final RecordMetaDataProto.SerializableFunction serializableFunction) {
-            return MacroFunction.fromProto(serializationContext, serializableFunction);
-        }
     }
 }

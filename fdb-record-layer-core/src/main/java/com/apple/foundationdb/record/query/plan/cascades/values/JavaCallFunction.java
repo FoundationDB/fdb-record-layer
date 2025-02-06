@@ -72,7 +72,7 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         // the class must have parameterless constructor
         try {
             final Constructor<?> constructor = clazz.getDeclaredConstructor();
-            return ((UdfFunction)constructor.newInstance()).encapsulate(arguments.stream().skip(1).collect(Collectors.toUnmodifiableList()));
+            return (Value)((UdfFunction)constructor.newInstance()).encapsulate(arguments.stream().skip(1).collect(Collectors.toUnmodifiableList()));
         } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RecordCoreException("could not instantiate call-site from '" + clazz.getName() + "'", e);
         }

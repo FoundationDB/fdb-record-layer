@@ -231,7 +231,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         for (RecordMetaDataProto.SerializableFunction serializableFunction: metaDataProto.getSerializableFunctionList()) {
-            serializableFunctions.add(MacroFunction.fromProto(serializationContext, serializableFunction));
+            SerializableFunction func = SerializableFunction.fromProto(serializationContext, serializableFunction);
+            if (func != null) {
+                serializableFunctions.add(func);
+            }
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();

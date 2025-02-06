@@ -20,11 +20,23 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public interface SerializableFunction {
     @Nonnull
     RecordMetaDataProto.SerializableFunction toProto();
+
+    @Nullable
+    static SerializableFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final RecordMetaDataProto.SerializableFunction proto) {
+        if (proto.hasMacroFunction()) {
+            return MacroFunction.fromProto(serializationContext, proto.getMacroFunction());
+        } else {
+            return null;
+        }
+    }
 }
