@@ -47,6 +47,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -100,8 +101,8 @@ public final class YamlExecutionContext {
                                 ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = Map.copyOf(additionalOptions);
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
-        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getBlockName)
-                .thenComparing(QueryAndLocation::getLineNumber)
+        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
+                .thenComparing(QueryAndLocation::getBlockName)
                 .thenComparing(QueryAndLocation::getQuery));
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
@@ -147,9 +148,10 @@ public final class YamlExecutionContext {
     @SuppressWarnings("UnusedReturnValue")
     public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final String blockName,
                                                             @Nonnull final String query,
-                                                            @Nonnull final int lineNumber,
-                                                            @Nonnull final PlannerMetricsProto.Info info) {
-        this.isDirtyMetrics = true;
+                                                            final int lineNumber,
+                                                            @Nonnull final PlannerMetricsProto.Info info,
+                                                            boolean isDirtyMetrics) {
+        this.isDirtyMetrics |= isDirtyMetrics;
         return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber), info);
     }
 
@@ -301,13 +303,36 @@ public final class YamlExecutionContext {
         final var fileName = Path.of(System.getProperty("user.dir"))
                 .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(resourcePath)))
                 .toAbsolutePath().toString();
-        try (final var fos = new FileOutputStream(fileName)) {
-            for (final var entry : actualMetricsMap.entrySet()) {
-                final var queryAndLocation = entry.getKey();
+
+        //
+        // It is possible that some queries are repeated within the same block. These explain queries, if served from
+        // the cache contain their original planner metrics when they were planned, thus they are identical and we
+        // pick one of them. If not served from the cache (for instance by explicitly switching it off) we should
+        // still see the same counters which is all we test for at this moment. If someone adds a testcase that
+        // switches off the cache, executes an explain, changes something about the schema and then runs the same
+        // query in the same block a second time, there will be pain. Don't do that! We log a warning for this case
+        // but continue.
+        //
+        final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
+        for (final var entry : actualMetricsMap.entrySet()) {
+            final var queryAndLocation = entry.getKey();
+            final var identifier = PlannerMetricsProto.Identifier.newBuilder()
+                    .setBlockName(queryAndLocation.getBlockName())
+                    .setQuery(queryAndLocation.getQuery())
+                    .build();
+            if (condensedMetricsMap.containsKey(identifier)) {
+                logger.warn("⚠️ Repeated query in block {} at line {}", queryAndLocation.getBlockName(),
+                        queryAndLocation.getLineNumber());
+            } else {
+                condensedMetricsMap.put(identifier,
+                        entry.getValue());
+            }
+        }
+
+        try (var fos = new FileOutputStream(fileName)) {
+            for (final var entry : condensedMetricsMap.entrySet()) {
                 PlannerMetricsProto.Entry.newBuilder()
-                        .setIdentifier(PlannerMetricsProto.Identifier.newBuilder()
-                                .setBlockName(queryAndLocation.getBlockName())
-                                .setQuery(queryAndLocation.getQuery()))
+                        .setIdentifier(entry.getKey())
                         .setInfo(entry.getValue())
                         .build()
                         .writeDelimitedTo(fos);
@@ -343,13 +368,13 @@ public final class YamlExecutionContext {
             mmap.put(identifier.getBlockName(), infoMap);
         }
 
-        try (final var fos = new FileOutputStream(fileName)) {
+        try (var fos = new FileOutputStream(fileName)) {
             DumperOptions options = new DumperOptions();
             options.setIndent(4);
             options.setPrettyFlow(true);
             options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
             Yaml yaml = new Yaml(options);
-            yaml.dump(mmap.asMap(), new PrintWriter(fos));
+            yaml.dump(mmap.asMap(), new PrintWriter(fos, false, StandardCharsets.UTF_8));
             logger.info("🟢 Planner metrics file {} replaced.", fileName);
         } catch (final IOException iOE) {
             logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
@@ -410,7 +435,7 @@ public final class YamlExecutionContext {
     private static String baseName(@Nonnull final String resourcePath) {
         final var tokens = resourcePath.split("\\.(?=[^\\.]+$)");
         Verify.verify(tokens.length == 2);
-        Verify.verify(tokens[1].equals("yamsql"));
+        Verify.verify("yamsql".equals(tokens[1]));
         return tokens[0];
     }
 

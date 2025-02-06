@@ -40,6 +40,7 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -160,15 +161,16 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             return new YamlTest.Runner() {
                 @Override
                 public void runYamsql(final String fileName) throws Exception {
-                    runYamsql(fileName, false);
+                    runYamsql(fileName, EnumSet.noneOf(YamlRunner.YamlRunnerOptions.class));
                 }
 
                 @Override
-                public void runYamsql(final String fileName, final boolean correctExplain) throws Exception {
+                public void runYamsql(final String fileName, final EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions) throws Exception {
                     if (exclusion != null) {
                         Assumptions.assumeFalse(exclusion.check(config), excludedReason);
                     }
-                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain, config.getRunnerOptions());
+                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), yamlRunnerOptions,
+                            config.getRunnerOptions());
                     try {
                         yamlRunner.run();
                     } catch (Exception e) {

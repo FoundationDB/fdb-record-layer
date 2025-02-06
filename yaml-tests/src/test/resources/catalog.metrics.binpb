@@ -1,7 +1,7 @@
 ‰
 8
 catalog-tests'EXPLAIN select count(*) from databases;ß
-ö£µ£ä Ïﬁ„(0˙.8%@óAISCAN(DATABASES_COUNT_INDEX <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ódigraph G {
+ö”–Ëä º–Ã(0ÆŒ+8%@óAISCAN(DATABASES_COUNT_INDEX <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -14,37 +14,10 @@
   4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‘
-`
-catalog-testsOEXPLAIN select database_id, schema_name from schemas where template_name = 't';Ô
-ŸÜûµ
-Ä ⁄Û›(%0Ôß18,@‚COVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)Î
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q62.DATABASE_ID AS DATABASE_ID, q62.SCHEMA_NAME AS SCHEMA_NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TEMPLATES_VALUE_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ß
-y
-catalog-testshEXPLAIN select database_id, schema_name from schemas where template_name = 't' and template_version = 3;©
-ŸÛ≥È
-Ä ·‡ˇ(%0‰•38,@ˇCOVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS INT)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)àdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q62.DATABASE_ID AS DATABASE_ID, q62.SCHEMA_NAME AS SCHEMA_NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TEMPLATES_VALUE_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }¸
 §
 catalog-testsíEXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version) as t;“
-‘∞—Œ£ º·π('0ÁÂ48)@AISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¿digraph G {
+‘÷Û £ Õõ('0¶£(8)@AISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -64,7 +37,7 @@ y
 }…
 ø
 catalog-tests≠EXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version having template_name = 't') as t;Ñ
-ﬂË§Ã§ éÁ¶('0é´#8*@çAISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)’digraph G {
+ﬂÔ„Í§ ¡¨“('0¬ *8*@çAISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -84,7 +57,7 @@ y
 }ú
 ÿ
 catalog-tests∆EXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version having template_name = 't' and template_version = 1) as t;æ
-ﬂïª”§ ΩÎï('0´Á#8*@™AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING), EQUALS promote(@c33 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Údigraph G {
+ﬂ€îü§ ˙Õ¿('0Ì™"8*@™AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING), EQUALS promote(@c33 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -101,24 +74,11 @@ y
   6 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}”
-ª
-catalog-tests©EXPLAIN select template_name, template_version from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version) as t;í
-–ŸÈïu ≥ç("0ÜŒ8@ÌAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_.TEMPLATE_NAME AS TEMPLATE_NAME, _.TEMPLATE_VERSION AS TEMPLATE_VERSION)Ñdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q8.TEMPLATE_NAME AS TEMPLATE_NAME, q8.TEMPLATE_VERSION AS TEMPLATE_VERSION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEMPLATE_NAME, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._2 AS CNT, q6._0 AS TEMPLATE_NAME, q6._1 AS TEMPLATE_VERSION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS CNT, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TEMPLATES_COUNT_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
-  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }≥
 ù
 catalog-testsãEXPLAIN select count(*) from (select count(*), template_name, template_version from schemas group by template_name, template_version) as t;ê
-‘í˙à£ ÀÆÒ('0ﬁ¬%8)@ëAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS _0, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)›digraph G {
+‘˙≠–
+£ Ûúì('0‡…8)@ëAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS _0, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -135,4 +95,43 @@ y
   6 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}”
+ª
+catalog-tests©EXPLAIN select template_name, template_version from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version) as t;í
+–Õ¬“	u ˝ˆø("0ö˘8@ÌAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_.TEMPLATE_NAME AS TEMPLATE_NAME, _.TEMPLATE_VERSION AS TEMPLATE_VERSION)Ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q8.TEMPLATE_NAME AS TEMPLATE_NAME, q8.TEMPLATE_VERSION AS TEMPLATE_VERSION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS TEMPLATE_NAME, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._2 AS CNT, q6._0 AS TEMPLATE_NAME, q6._1 AS TEMPLATE_VERSION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS CNT, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TEMPLATES_COUNT_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‘
+`
+catalog-testsOEXPLAIN select database_id, schema_name from schemas where template_name = 't';Ô
+Ÿ£î∆Ä ÁÔÄ(%0®‚%8,@‚COVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)Î
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q62.DATABASE_ID AS DATABASE_ID, q62.SCHEMA_NAME AS SCHEMA_NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TEMPLATES_VALUE_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ß
+y
+catalog-testshEXPLAIN select database_id, schema_name from schemas where template_name = 't' and template_version = 3;©
+ŸÒ˚ΩÄ ©í«(%0â√38,@ˇCOVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS INT)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)àdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q62.DATABASE_ID AS DATABASE_ID, q62.SCHEMA_NAME AS SCHEMA_NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">TEMPLATES_VALUE_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS DATABASE_ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

@@ -1,7 +1,18 @@
-‹
+ƒ
+5
+	unnamed-2(EXPLAIN select * from t where b + c > 7;ä
+ƒ¿£ﬁç –∑Å	(K0Ê∆¯8S@
+4ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])¥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">BPLUSC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‹
 T
 	unnamed-2GEXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;É
-”Ü¶Ík ◊ÚÉ(+0Å§08@TISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)è
+”≈Ùk °¡‰(+0ñÑ&8@TISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)è
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -13,19 +24,19 @@ digraph G {
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }¥
 5
-	unnamed-2(EXPLAIN select * from t where d & 2 = 0;˙
-ƒ¿ü˜é àﬂ∂(K0Úä°8S@
-,ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])¨digraph G {
+	unnamed-2(EXPLAIN select * from t where d & 1 = 1;˙
+ƒ»Ÿ£é Õ¶Ë(K0·´Œ8S@
+,ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DMASK2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DMASK1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }¥
 5
 	unnamed-2(EXPLAIN select * from t where d & 1 = 0;˙
-ƒÏûœé ˚‚ƒ(K0ˇçæ8S@
+ƒ»Ÿ£é Õ¶Ë(K0·´Œ8S@
 ,ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])¨digraph G {
   fontname=courier;
   rankdir=BT;
@@ -35,19 +46,8 @@ digraph G {
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }≤
 5
-	unnamed-2(EXPLAIN select * from t where d & 1 = 1;¯
-ƒØ°é ©«Ù(K0ú¢¡8S@
-+ISCAN(DMASK1 [EQUALS promote(@c8 AS LONG)])´digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DMASK1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
-5
 	unnamed-2(EXPLAIN select * from t where d & 2 = 2;¯
-ƒ‚∏Ëé Â≈˚(K0¨ΩÉ8S@
+ƒç≈ãé úÇÜ	(K0Æ◊º8S@
 +ISCAN(DMASK2 [EQUALS promote(@c8 AS LONG)])´digraph G {
   fontname=courier;
   rankdir=BT;
@@ -55,15 +55,15 @@ digraph G {
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DMASK2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ƒ
+}¥
 5
-	unnamed-2(EXPLAIN select * from t where b + c > 7;ä
-ƒ†¶…ç Ù÷Â(K0ª®â8S@
-4ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])¥digraph G {
+	unnamed-2(EXPLAIN select * from t where d & 2 = 0;˙
+ƒÀï⁄é Ÿ‘Œ(K0≥“Ÿ8S@
+,ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">BPLUSC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DMASK2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

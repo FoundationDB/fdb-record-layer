@@ -67,6 +67,7 @@ public abstract class YamlTestBase {
 
     protected final void doRun(@Nonnull final String fileName) throws Exception {
         doRun(fileName, EnumSet.noneOf(YamlRunner.YamlRunnerOptions.class));
+        // doRun(fileName, EnumSet.of(YamlRunner.YamlRunnerOptions.CORRECT_STATS));
     }
 
     protected void doRun(String fileName, EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions) throws Exception {

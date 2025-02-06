@@ -15,7 +15,7 @@ cte-tests:
     explain: SCAN(<,>) | MAP (_.COL1 AS X, _.COL2 AS Y) | FILTER _.Y LESS_THAN promote(@c21
         AS LONG) | MAP (_.X AS X)
     task_count: 295
-    task_total_time_ms: 4
+    task_total_time_ms: 3
     transform_count: 90
     transform_time_ms: 1
     transform_yield_count: 25

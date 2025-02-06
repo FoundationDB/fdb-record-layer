@@ -1,7 +1,7 @@
 Ø
 7
 	cte-tests*EXPLAIN select col1 from t1 where col2 < 3œ
-¸Ÿÿ{ èéa(!0Öê8*@rCOVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)‹
+¸²Ýª{ ß„l(!0¼¯8*@rCOVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)‹
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +14,7 @@ digraph G {
 }œ
 [
 	cte-testsNEXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where y < 3¼
-§ÞŒùZ à…L(0Æ’8@hSCAN(<,>) | MAP (_.COL1 AS X, _.COL2 AS Y) | FILTER _.Y LESS_THAN promote(@c21 AS LONG) | MAP (_.X AS X)µdigraph G {
+§ê²ÐZ ²­H(0ýª8@hSCAN(<,>) | MAP (_.COL1 AS X, _.COL2 AS Y) | FILTER _.Y LESS_THAN promote(@c21 AS LONG) | MAP (_.X AS X)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -30,7 +30,7 @@ digraph G {
 }½
 ^
 	cte-testsQEXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where y < 3Ú
-§±ÝZ Î³C(0´ö8@tSCAN(<,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | FILTER _.COL2 LESS_THAN promote(@c24 AS LONG) | MAP (_.COL1 AS X)Çdigraph G {
+§Ú¬ÉZ §àF(0óÏ8@tSCAN(<,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | FILTER _.COL2 LESS_THAN promote(@c24 AS LONG) | MAP (_.COL1 AS X)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
