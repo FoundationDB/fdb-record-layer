@@ -155,7 +155,7 @@ public final class QueryCommand extends Command {
         enableCascadesDebugger();
         boolean queryIsRunning = false;
         Continuation continuation = null;
-        int maxRows = 0;
+        Integer maxRows = null;
         boolean exhausted = false;
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
@@ -167,13 +167,13 @@ public final class QueryCommand extends Command {
                 // Ignore debugger configuration, always set the debugger for plan hashes. Executing the plan hash
                 // can result in the explain plan being put into the plan cache, so running without the debugger
                 // can pollute cache and thus interfere with the explain's results
-                int finalMaxRows = maxRows;
+                Integer finalMaxRows = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
-                int finalMaxRows1 = maxRows;
+                Integer finalMaxRows1 = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
             } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
                 // Do nothing for noop execution.
