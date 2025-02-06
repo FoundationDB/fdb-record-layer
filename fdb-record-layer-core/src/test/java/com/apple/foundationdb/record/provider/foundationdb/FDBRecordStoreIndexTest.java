@@ -1239,8 +1239,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
-                    .build()) {
+            try (OnlineIndexer indexBuilder = newIndexer(indexName)) {
                 indexBuilder.buildIndex(false);
             }
             commit(context);
@@ -2251,7 +2250,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordStore.clearAndMarkIndexWriteOnly("index-1").join();
             context.commit();
         }
-        try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "index-1")) {
+        try (OnlineIndexer onlineIndexBuilder = newIndexerBuilder().setIndex("index-1").build()) {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {

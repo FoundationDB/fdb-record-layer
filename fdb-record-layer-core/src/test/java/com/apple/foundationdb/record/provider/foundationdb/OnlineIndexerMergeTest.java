@@ -50,6 +50,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -72,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  * Tests specifically of {@link OnlineIndexer#mergeIndex()}.
  */
 @Tag(Tags.RequiresFDB)
+@Isolated
 public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
     private static final String INDEX_NAME = "mergableIndex";
@@ -145,6 +147,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setRecordStoreBuilder(storeBuilder)
                 .setTargetIndexesByName(List.of(INDEX_NAME))
+                .setPriority(FDBTransactionPriority.DEFAULT)
                 .setMaxAttempts(9)
                 .build()) {
             Assertions.assertThrows(FDBExceptions.FDBStoreTransactionIsTooOldException.class, indexer::mergeIndex);

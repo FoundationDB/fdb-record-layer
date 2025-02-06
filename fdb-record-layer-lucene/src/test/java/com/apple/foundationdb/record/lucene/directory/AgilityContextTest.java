@@ -30,8 +30,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
-import com.apple.foundationdb.record.util.RandomUtil;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -51,7 +52,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,7 +71,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AgilityContextTest extends FDBRecordStoreTestBase {
     int loopCount = 20;
     int threadCount = 5; // if exceeds a certain size, may cause an execution pool deadlock
-    final String prefix = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100).toString();
 
     private AgilityContext getAgilityContextAgileProp(FDBRecordContext callerContext) {
         final long timeQuotaMillis =
@@ -396,16 +395,18 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "testAgilityContextAtomicAttribute[useAgile={0}]")
     @BooleanSource
     void testAgilityContextAtomicAttribute(boolean useAgile) {
         // assert that commits doesn't happen in he middle of an accept or apply call
+        final KeySpacePath rawDataPath = pathManager.createPath(TestKeySpace.RAW_DATA);
         for (int sizeQuota : new int[] {1, 21, 100, 10000}) {
             final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                     .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeQuota);
 
             IntStream.rangeClosed(0, threadCount).parallel().forEach(threadNum -> {
                 try (FDBRecordContext context = openContext(insertProps)) {
+                    byte[] prefix = rawDataPath.toTuple(context).pack();
                     final AgilityContext agilityContext = getAgilityContext(context, useAgile);
                     for (int i = 1700; i < 1900; i += 17) {
                         final long iFinal = i;
@@ -477,14 +478,15 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
 
     @Test
     void testAgilityContextRecoveryPath2() {
+        final KeySpacePath rawDataPath = pathManager.createPath(TestKeySpace.RAW_DATA);
         final Tuple value = Tuple.from(800, "Green eggs and ham", 0);
-        final Tuple successTuple = Tuple.from(prefix, "yes");
-        final Tuple abortedTuple = Tuple.from(prefix, "abort");
-        final Tuple failTuple = Tuple.from(prefix, "no");
+        final Tuple successTuple = Tuple.from("yes");
+        final Tuple abortedTuple = Tuple.from("abort");
+        final Tuple failTuple = Tuple.from("no");
         byte[] packedValue = value.pack();
         try (FDBRecordContext context = openContext()) {
+            final Subspace subspace = rawDataPath.toSubspace(context);
             final AgilityContext agilityContext = getAgilityContext(context, true);
-            final Subspace subspace = path.toSubspace(context);
             byte[] keyAborted = subspace.pack(abortedTuple);
             byte[] keySucceeds = subspace.pack(successTuple);
             byte[] keyFails = subspace.pack(failTuple);
@@ -511,7 +513,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
-            final Subspace subspace = path.toSubspace(context);
+            final Subspace subspace = rawDataPath.toSubspace(context);
             byte[] keyAborted = subspace.pack(abortedTuple);
             byte[] keySucceeds = subspace.pack(successTuple);
             byte[] keyFails = subspace.pack(failTuple);
@@ -525,6 +527,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testAgilityContextAtomicAttributeMultiContext(boolean useAgile) {
         // assert that commits doesn't happen in he middle of an accept or apply call
+        final KeySpacePath rawDataPath = pathManager.createPath(TestKeySpace.RAW_DATA);
         IntStream.rangeClosed(0, threadCount).parallel().forEach(threadNum -> {
             for (int i = 1700; i < 1900; i += 17) {
                 final long iFinal = i;
@@ -532,11 +535,12 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 int numWriters = 1; // in this test, two writes may conflict each other
                 if (threadNum < numWriters) {
                     try (FDBRecordContext context = openContext()) {
+                        final Tuple rawDataTuple = rawDataPath.toTuple(context);
                         final AgilityContext agilityContext = getAgilityContext(context, useAgile);
                         agilityContext.accept(aContext -> {
                             for (int j = 0; j < 5; j++) {
                                 final Transaction tr = aContext.ensureActive();
-                                tr.set(Tuple.from(prefix, iFinal, j).pack(),
+                                tr.set(rawDataTuple.add(iFinal).add(j).pack(),
                                         Tuple.from(iFinal).pack());
                                 napTime(1);
                             }
@@ -549,10 +553,11 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     try (FDBRecordContext context = openContext()) {
                         final AgilityContext agilityContext = getAgilityContext(context, useAgile);
                         agilityContext.accept(aContext -> {
+                            final Tuple rawDataTuple = rawDataPath.toTuple(context);
                             long[] values = new long[5];
                             final Transaction tr = aContext.ensureActive();
                             for (int j = 4; j >= 0; j--) {
-                                byte[] val = tr.get(Tuple.from(prefix, iFinal, j).pack()).join();
+                                byte[] val = tr.get(rawDataTuple.add(iFinal).add(j).pack()).join();
                                 values[j] = val == null ? 0 : Tuple.fromBytes(val).getLong(0);
                             }
                             for (int j = 1; j < 5; j++) {
@@ -570,7 +575,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     void testCloseOnCommitFailure() {
         final byte[] key;
         try (FDBRecordContext context = openContext()) {
-            key = this.path.toSubspace(context).pack(Tuple.from(prefix, "a").pack());
+            key = this.path.toSubspace(context).pack(Tuple.from("a").pack());
             context.ensureActive().set(key, Tuple.from(1).pack());
             context.commit();
         }
@@ -601,7 +606,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     void testAutoCommitVersionStampOuterSleep() throws InterruptedException {
         final byte[] key;
         try (FDBRecordContext userContext = openContext()) {
-            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            key = this.path.toSubspace(userContext).pack(Tuple.from("a").pack());
             final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
             AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
             agilityContext.accept(context -> {
@@ -626,7 +631,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     void testAutoCommitVersionStampOuterSleepUseApply() throws InterruptedException {
         final byte[] key;
         try (FDBRecordContext userContext = openContext()) {
-            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            key = this.path.toSubspace(userContext).pack(Tuple.from("a").pack());
             final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
             AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
             agilityContext.apply(context -> context.ensureActive()
@@ -655,7 +660,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     void testAutoCommitVersionStampInnerSleep() {
         final byte[] key;
         try (FDBRecordContext userContext = openContext()) {
-            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            key = this.path.toSubspace(userContext).pack(Tuple.from("a").pack());
             final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
             AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
             agilityContext.accept(context -> {
@@ -682,7 +687,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     void testAutoCommitVersionStampInnerSleepUseApply() {
         final byte[] key;
         try (FDBRecordContext userContext = openContext()) {
-            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            key = this.path.toSubspace(userContext).pack(Tuple.from("a").pack());
             final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
             AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
             agilityContext.apply(context -> context.ensureActive()

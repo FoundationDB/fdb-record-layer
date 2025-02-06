@@ -25,12 +25,15 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -49,6 +52,7 @@ import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
  * Additional tests for Multidimensional Index around concurrency and large data-sets.
  */
 @Tag(Tags.Slow)
+@Execution(ExecutionMode.CONCURRENT)
 class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     static Stream<Arguments> argumentsForBasicReads() {
@@ -88,27 +92,20 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     }
 
     static Stream<Arguments> argumentsForIndexReadsAfterDeletes() {
-        final Random random = new Random(System.currentTimeMillis());
-        return Stream.concat(
-                SimpleMultidimensionalIndexTest.argumentsForIndexReadsAfterDeletes(),
-                Stream.of(
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_SLOT.toString(), false, false),
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_SLOT.toString(), false, true),
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_SLOT.toString(), true, false),
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_SLOT.toString(), true, true),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_SLOT.toString(), false, false),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_SLOT.toString(), false, true),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_SLOT.toString(), true, false),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_SLOT.toString(), true, true),
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_NODE.toString(), false, false),
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_NODE.toString(), false, true),
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_NODE.toString(), true, false),
-                    Arguments.of(random.nextLong(), 1000, random.nextInt(1000) + 1, BY_NODE.toString(), true, true),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), false, false),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), false, true),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), true, false),
-                    Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), true, true)
-                ));
+        Stream<Arguments> fixedArgs = Stream.of(
+                Arguments.of(0x5ca1b13, 1000, 459, BY_NODE.toString(), true, false),
+                Arguments.of(0xd133451045L, 5000, 1259, BY_NODE.toString(), true, false)
+        );
+        Stream<Arguments> randomArgs = RandomizedTestUtils.randomArguments(random -> {
+            long seed = random.nextLong();
+            int size = random.nextInt(4000) + 1000;
+            int deletes = random.nextInt(size);
+            String storageAdapter = random.nextBoolean() ? BY_SLOT.toString() : BY_NODE.toString();
+            boolean useHilbertValue = random.nextBoolean();
+            boolean useNodeSlotIndex = random.nextBoolean();
+            return Arguments.of(seed, size, deletes, storageAdapter, useHilbertValue, useNodeSlotIndex);
+        });
+        return Stream.concat(fixedArgs, randomArgs);
     }
 
     static Stream<Arguments> argumentsForIndexReadsWithDuplicates() {

@@ -51,6 +51,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
@@ -71,6 +73,7 @@ import java.util.stream.Stream;
  *   <li>Nullability tests.</li>
  * </ul>
  */
+@Execution(ExecutionMode.SAME_THREAD) // necessary as the debugger can do weird things with the current quantifier if run in multiple threads
 class BooleanValueTest {
 
     private static final Type.Enum ENUM_TYPE_FOR_TEST = new Type.Enum(false, List.of(
