@@ -88,6 +88,30 @@ publishing {
         }
         publications(publishing.publications.library)
     }
+
+    repositories {
+        if (Boolean.parseBoolean(githubPublish)) {
+            maven {
+                name = "GitHubPackages"
+                url = "https://maven.pkg.github.com/FoundationDB/fdb-record-layer"
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
+            }
+        }
+
+        if (Boolean.parseBoolean(centralPublish)) {
+            maven {
+                name = "OSSRH"
+                url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+                credentials {
+                    username = System.getenv("MAVEN_USER")
+                    password = System.getenv("MAVEN_PASSWORD")
+                }
+            }
+        }
+    }
 }
 
 if (System.getenv('ARTIFACTORY_USER') != null && System.getenv('ARTIFACTORY_KEY') != null) {

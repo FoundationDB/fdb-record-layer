@@ -5,25 +5,36 @@ runs:
   steps:
     - name: Get version
       id: get_version
+      shell: bash
       run: |
         echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
     - name: Run Gradle Test
       uses: ./actions/gradle-test
       with:
         gradle_args: "-PreleaseBuild=true"
+    - name: Publish Artifacts
+      uses: ./actions/run-gradle
+      with:
+        gradle_command: publish -PreleaseBuild=true -PgithubPublish=true -PcentralPublish=true
 
     # Post release: Update various files which reference version
     - name: Update release notes
+      shell: bash
       run: ARTIFACT_VERSION="${{ steps.get_version.outputs.version }}" ./build/update_release_notes.bash
     - name: Update YAML test file versions
-      run: |
-        ./gradlew updateYamsql -PreleaseBuild=true
-        python ./build/commit_yamsql_updates.py "${{ steps.get_version.outputs.version }}"
+      uses: ./actions/run-gradle
+      with:
+        gradle_command: updateYamsql -PreleaseBuild=true
+    - name: Commit YAML updates
+      shell: bash
+      run: python ./build/commit_yamsql_updates.py "${{ steps.get_version.outputs.version }}"
 
     # Create and push the tag
     - name: Create tag
+      shell: bash
       run: git tag -m "Release ${{ steps.get_version_outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
     - name: Push tag
+      shell: bash
       run: git push origin "${{ steps.get_version.outputs.version }}"
     - name: Push Updates
       id: push_updates
