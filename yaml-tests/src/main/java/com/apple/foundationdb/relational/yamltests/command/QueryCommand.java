@@ -87,10 +87,10 @@ public final class QueryCommand extends Command {
             }
             final var queryString = Matchers.notNull(Matchers.string(queryCommand.getValue(), "query string"), "query string");
             final var queryInterpreter = QueryInterpreter.withQueryString(lineNumber, queryString, executionContext);
-            final var queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
+            final List<?> queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
-                    queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, blockName, executionContext)).collect(Collectors.toList());
+                    QueryConfig.parseConfigs(blockName, queryConfigsWithValueList, executionContext);
 
             Assert.thatUnchecked(configs.stream().skip(1)
                     .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),

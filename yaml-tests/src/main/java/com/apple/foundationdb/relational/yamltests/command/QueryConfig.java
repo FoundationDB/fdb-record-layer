@@ -45,10 +45,12 @@ import org.opentest4j.AssertionFailedError;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
 
@@ -453,20 +455,13 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getSupportedVersionConfig(final Object value, final int lineNumber, final YamlExecutionContext executionContext) {
-        final SupportedVersionCheck check = SupportedVersionCheck.parse(value, executionContext);
+    @Nullable
+    public static QueryConfig getSupportedVersionConfig(final Map<?, ?> options, final int lineNumber, final YamlExecutionContext executionContext) {
+        final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(options, executionContext);
         if (!check.isSupported()) {
-            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext, check.getMessage());
+            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, options, lineNumber, executionContext, check.getMessage());
         }
-        return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext) {
-            @Override
-            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                     @Nonnull final String queryDescription) throws SQLException {
-                // Nothing to do, this query is supported
-                // SupportedVersion configs are not executed
-                Assertions.fail("Supported version configs are not meant to be executed.");
-            }
-        };
+        return null;
     }
 
     /**
@@ -488,46 +483,65 @@ public abstract class QueryConfig {
         };
     }
 
-    public static QueryConfig parse(@Nonnull Object object, @Nonnull String blockName, @Nonnull YamlExecutionContext executionContext) {
-        final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
-        final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
-        final var lineNumber = linedObject.getLineNumber();
-        try {
-            final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
-            final var value = Matchers.notNull(configEntry, "query configuration").getValue();
-            if (QUERY_CONFIG_COUNT.equals(key)) {
-                return getCheckCountConfig(value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_ERROR.equals(key)) {
-                return getCheckErrorConfig(value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
-                if (shouldExecuteExplain(executionContext)) {
-                    return getCheckExplainConfig(true, blockName, key, value, lineNumber, executionContext);
+    @Nonnull
+    public static List<QueryConfig> parseConfigs(String blockName, @Nonnull List<?> objects, @Nonnull YamlExecutionContext executionContext) {
+        List<QueryConfig> configs = new ArrayList<>();
+        SupportedVersionCheck.Builder versionCheckBuilder = SupportedVersionCheck.newBuilder(executionContext);
+
+        int versionCheckLine = -1;
+        for (Object object : objects) {
+            final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
+            final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
+            final var lineNumber = linedObject.getLineNumber();
+            try {
+                final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
+                final var value = Matchers.notNull(configEntry, "query configuration").getValue();
+                if (SupportedVersionCheck.OPTION_KEYS.contains(key)) {
+                    versionCheckBuilder = versionCheckBuilder.consumeLine(key, value);
+                    versionCheckLine = lineNumber;
                 } else {
-                    return getNoOpConfig(lineNumber, executionContext);
+                    configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
                 }
-            } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
-                if (shouldExecuteExplain(executionContext)) {
-                    return getCheckExplainConfig(false, blockName, key, value, lineNumber, executionContext);
-                } else {
-                    return getNoOpConfig(lineNumber, executionContext);
-                }
-            } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
-                return getCheckPlanHashConfig(value, lineNumber, executionContext);
-            } else if (key.contains(QUERY_CONFIG_RESULT)) {
-                return getCheckResultConfig(true, key, value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_UNORDERED_RESULT.equals(key)) {
-                return getCheckResultConfig(false, key, value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
-                return getMaxRowConfig(value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
-                return getSupportedVersionConfig(value, lineNumber, executionContext);
-            } else {
-                Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+            } catch (Exception e) {
+                throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
             }
-            // should not happen
-            return null;
-        } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
+        }
+
+        final SupportedVersionCheck check = versionCheckBuilder.build();
+        if (!check.isSupported()) {
+            configs.add(new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, check, versionCheckLine, executionContext, check.getMessage()));
+        }
+
+        return configs;
+    }
+
+    private static QueryConfig parseConfig(String blockName, String key, Object value, int lineNumber, YamlExecutionContext executionContext) {
+        if (QUERY_CONFIG_COUNT.equals(key)) {
+            return getCheckCountConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_ERROR.equals(key)) {
+            return getCheckErrorConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
+            if (shouldExecuteExplain(executionContext)) {
+                return getCheckExplainConfig(true, blockName, key, value, lineNumber, executionContext);
+            } else {
+                return getNoOpConfig(lineNumber, executionContext);
+            }
+        } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
+            if (shouldExecuteExplain(executionContext)) {
+                return getCheckExplainConfig(false, blockName, key, value, lineNumber, executionContext);
+            } else {
+                return getNoOpConfig(lineNumber, executionContext);
+            }
+        } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
+            return getCheckPlanHashConfig(value, lineNumber, executionContext);
+        } else if (key.contains(QUERY_CONFIG_RESULT)) {
+            return getCheckResultConfig(true, key, value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_UNORDERED_RESULT.equals(key)) {
+            return getCheckResultConfig(false, key, value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
+            return getMaxRowConfig(value, lineNumber, executionContext);
+        } else {
+            throw Assert.failUnchecked("‼️ '%s' is not a valid configuration");
         }
     }
 

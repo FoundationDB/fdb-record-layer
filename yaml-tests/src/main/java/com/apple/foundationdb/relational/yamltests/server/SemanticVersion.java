@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.yamltests.server;
 
 
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
@@ -145,6 +147,7 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
     @Nonnull
     public List<SemanticVersion> lesserVersions(@Nonnull Collection<String> rawVersions) {
         return rawVersions.stream()
+                .filter(version -> !version.equals(FileOptions.CurrentVersion.TEXT))
                 .map(SemanticVersion::parse)
                 .filter(other -> other.compareTo(this) < 0)
                 .collect(Collectors.toList());

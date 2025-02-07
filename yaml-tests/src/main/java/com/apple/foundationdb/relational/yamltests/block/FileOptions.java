@@ -55,8 +55,7 @@ public class FileOptions {
 
     public static Block parse(int lineNumber, Object document, YamlExecutionContext executionContext) {
         final Map<?, ?> options = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
-        Object rawVersion = options.get(SUPPORTED_VERSION_OPTION);
-        final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
+        final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(options, executionContext);
         if (!check.isSupported()) {
             // IntelliJ, at least, doesn't display the reason, so log it
             if (logger.isInfoEnabled()) {
@@ -69,13 +68,14 @@ public class FileOptions {
 
     public static final class CurrentVersion {
         public static final CurrentVersion INSTANCE = new CurrentVersion();
+        public static final String TEXT = "!current_version";
 
         private CurrentVersion() {
         }
 
         @Override
         public String toString() {
-            return "!current_version";
+            return TEXT;
         }
     }
 }

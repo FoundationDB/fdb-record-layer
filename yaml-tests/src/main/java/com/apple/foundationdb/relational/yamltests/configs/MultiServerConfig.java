@@ -73,6 +73,11 @@ public class MultiServerConfig extends JDBCInProcessConfig {
             public Set<String> getVersionsUnderTest() {
                 return Set.of(externalServer.getVersion());
             }
+
+            @Override
+            public String getQueryInitialVersion() {
+                return externalServer.getVersion();
+            }
         };
     }
 

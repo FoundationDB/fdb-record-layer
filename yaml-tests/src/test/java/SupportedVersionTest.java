@@ -83,7 +83,6 @@ public class SupportedVersionTest {
                 "unspecified",
                 "lower-at-block",
                 "lower-at-query",
-                "late-query-supported-version",
                 "late-file-options"
         );
     }
@@ -107,6 +106,7 @@ public class SupportedVersionTest {
                 "higher-at-block",
                 "higher-at-query",
                 "fully-supported",
+                "late-query-supported-version",
                 "query-with-multiple-configs"
         );
     }

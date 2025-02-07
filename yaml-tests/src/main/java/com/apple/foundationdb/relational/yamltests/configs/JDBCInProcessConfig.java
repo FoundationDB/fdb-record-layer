@@ -76,7 +76,12 @@ public class JDBCInProcessConfig implements YamlTestConfig {
 
             @Override
             public Set<String> getVersionsUnderTest() {
-                return Set.of();
+                return Set.of(CURRENT_VERSION);
+            }
+
+            @Override
+            public String getQueryInitialVersion() {
+                return CURRENT_VERSION;
             }
         };
     }
