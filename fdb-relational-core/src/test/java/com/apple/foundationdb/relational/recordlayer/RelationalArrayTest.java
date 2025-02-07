@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -123,8 +124,9 @@ public class RelationalArrayTest {
                         "['11', '22'], null, " +
                         "[x'31', x'32'], null, " +
                         "[(11, '11'), (22, '22')], null " +
-                        ")"));
-        RelationalAssertions.assertThrowsSqlException(() -> insertQuery("INSERT INTO T (pk) VALUES (4)"));
+                        ")")).hasErrorCode(ErrorCode.SYNTAX_ERROR);
+        RelationalAssertions.assertThrowsSqlException(() -> insertQuery("INSERT INTO T (pk) VALUES (4)"))
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
     @Test
@@ -207,7 +209,7 @@ public class RelationalArrayTest {
                 ps.setNull("bytes_not_null", Types.ARRAY);
                 ps.setArray("struct_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
                 ps.setNull("struct_not_null", Types.ARRAY);
-                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate);
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }
@@ -221,7 +223,8 @@ public class RelationalArrayTest {
                 ps.setInt("pk", 1);
                 ps.setArray("boolean_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
                 ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder().addAll(true, false).build());
-                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("Too many parameters");
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("Too many parameters")
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }
@@ -233,7 +236,8 @@ public class RelationalArrayTest {
             conn.setAutoCommit(true);
             try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk) VALUES (?pk)"))) {
                 ps.setInt("pk", 1);
-                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("violates not-null constraint");
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("violates not-null constraint")
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }
@@ -290,7 +294,8 @@ public class RelationalArrayTest {
                 ps.setArray("float_not_null", EmbeddedRelationalArray.newBuilder().addAll(11.0f, 22.0f).build());
                 ps.setArray("double_not_null", EmbeddedRelationalArray.newBuilder().addAll(11.0, 22.0).build());
                 ps.setArray("string_not_null", EmbeddedRelationalArray.newBuilder().addAll("11", "22").build());
-                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("not provided");
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("not provided")
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }
