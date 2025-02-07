@@ -81,12 +81,38 @@ publishing {
         // As a safeguard, only actually publish to artifactory if -PpublishBuild=true is passed to gradle
         // Note: skip is documented, but onlyIf seems to also be required to make this work for some reason
         // See: https://gist.github.com/DALDEI/40925568cef57e16e8a7
-        def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
+        def publishBuild = Boolean.parseBoolean(publishBuild)
         skip = !publishBuild
         onlyIf {
             publishBuild
         }
         publications(publishing.publications.library)
+    }
+
+    if (Boolean.parseBoolean(publishBuild)) {
+        repositories {
+            if (Boolean.parseBoolean(githubPublish)) {
+                maven {
+                    name = "GitHubPackages"
+                    url = "https://maven.pkg.github.com/FoundationDB/fdb-record-layer"
+                    credentials {
+                        username = System.getenv("GITHUB_ACTOR")
+                        password = System.getenv("GITHUB_TOKEN")
+                    }
+                }
+            }
+
+            if (Boolean.parseBoolean(centralPublish)) {
+                maven {
+                    name = "OSSRH"
+                    url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+                    credentials {
+                        username = System.getenv("MAVEN_USER")
+                        password = System.getenv("MAVEN_PASSWORD")
+                    }
+                }
+            }
+        }
     }
 }
 

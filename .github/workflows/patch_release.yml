@@ -1,7 +1,12 @@
-name: Release
+name: Patch Release
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build off of'
+        required: true
+
 
 jobs:
   gradle:
@@ -10,11 +15,13 @@ jobs:
       checks: write
       contents: write
       packages: write
-      pages: write
+      pages: read
       pull-requests: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ inputs.branch }}
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -23,20 +30,18 @@ jobs:
       # Push a version bump back to main. There are failure scenarios that can result
       # in published artifacts but an erroneous build, so it's safer to bump the version
       # at the beginning
-      - name: Configure git
+      - name: Configure Git
         run: |
           git config --global user.name 'FoundationDB CI'
           git config --global user.email 'foundationdb_ci@apple.com'
-      - name: Increment version
-        run: python build/versionutils.py gradle.properties --increment --commit
-      - name: Push version increment
+      - name: Increment Version
+        run: python build/versionutils.py gradle.properties -u PATCH --increment --commit
+      - name: Push Version Update
         run: git push
 
-      - name: Build and publish
+      - name: Build and publish release
         uses: ./actions/release-build-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-
-    # TODO: Publish documentation updates
