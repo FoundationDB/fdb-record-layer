@@ -91,13 +91,21 @@ public class ParameterHelper {
     }
 
     public static Parameter ofArray(final Array a) throws SQLException {
-        // TODO: Check type, we may be able to just copy columns
         List<Column> elements = new ArrayList<>();
-        Object[] arrayElements = (Object[])a.getArray();
-        for (Object o: arrayElements) {
-            Parameter p = ofObject(o);
-            // TODO: Assert that the type matches the array type
-            elements.add(p.getParameter());
+        if (a instanceof JDBCArrayImpl) {
+            // we can shortcut the process and use the existing columns
+            JDBCArrayImpl arrayImpl = (JDBCArrayImpl)a;
+            elements.addAll(arrayImpl.getUnderlying().getElementList());
+        } else {
+            // TODO: Do we even want to allow creation of parameter from an array created by another connection?
+            Object[] arrayElements = (Object[])a.getArray();
+            for (Object o : arrayElements) {
+                Parameter p = ofObject(o);
+                if (p.getJavaSqlTypesCode() != a.getBaseType()) {
+                    throw new SQLException("Array base type does not match element type: " + a.getBaseType() + ":" + p.getJavaSqlTypesCode());
+                }
+                elements.add(p.getParameter());
+            }
         }
         return Parameter.newBuilder()
                 .setJavaSqlTypesCode(Types.ARRAY)

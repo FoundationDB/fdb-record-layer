@@ -97,4 +97,13 @@ public class JDBCArrayImpl implements Array {
     @Override
     public void free() throws SQLException {
     }
+
+    /**
+     * Package protected getter.
+     * @return the underlying protobuf struct
+     */
+    @Nonnull
+    public com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array getUnderlying() {
+        return underlying;
+    }
 }
