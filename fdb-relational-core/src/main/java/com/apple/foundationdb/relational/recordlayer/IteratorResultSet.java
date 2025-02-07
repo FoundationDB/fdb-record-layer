@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -29,9 +28,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
-import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Iterator;
+
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.UNSUPPORTED_OPERATION;
 
 
 /**
@@ -56,15 +56,13 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
     public Continuation getContinuation() throws SQLException {
         boolean hasNext = rowIter.hasNext();
         boolean beginning = currentRowPosition == 0;
-        int currPos = currentRowPosition + 1;
+
+        if (hasNext) {
+            throw new SQLException("Continuation can only be returned once the result set has been exhausted", UNSUPPORTED_OPERATION.getErrorCode());
+        }
 
         if (beginning) {
             return ContinuationImpl.BEGIN;
-        } else if (hasNext) {
-            ByteBuffer buffer = ByteBuffer.allocate(4);
-            buffer.putInt(currPos);
-            buffer.flip();
-            return ContinuationImpl.fromUnderlyingBytes(buffer.array());
         } else {
             return ContinuationImpl.END;
         }

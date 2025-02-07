@@ -24,10 +24,11 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.Block;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -35,14 +36,13 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
+    public static final String OPTION_FORCE_CONTINUATIONS = "optionForceContinuations";
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
@@ -56,6 +56,8 @@ public final class YamlExecutionContext {
     private final List<Block> finalizeBlocks = new ArrayList<>();
     @SuppressWarnings("AbbreviationAsWordInName")
     private final List<String> connectionURIs = new ArrayList<>();
+    // Additional options that can be set by the runners to impact test execution
+    private final Map<String, Object> additionalOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -66,10 +68,11 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
+    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
         this.editedFileStream = correctExplain ? loadFileToMemory(resourcePath) : null;
+        this.additionalOptions = Map.copyOf(additionalOptions);
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
@@ -205,19 +208,38 @@ public final class YamlExecutionContext {
      */
     @Nonnull
     public YamlExecutionError wrapContext(@Nullable Throwable e, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+        String fileName;
+        if (resourcePath.contains("/")) {
+            final String[] split = resourcePath.split("/");
+            fileName = split[split.length - 1];
+        } else {
+            fileName = resourcePath;
+        }
         if (e instanceof YamlExecutionError) {
             final var oldStackTrace = e.getStackTrace();
             final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
             System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
-            newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber);
+            newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber);
             e.setStackTrace(newStackTrace);
             return (YamlExecutionError) e;
         } else {
             // wrap
             final var wrapper = new YamlExecutionError(msg.get(), e);
-            wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber)});
+            wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber)});
             return wrapper;
         }
+    }
+
+    /**
+     * Return the value of an additional option, or a default value.
+     * Additional options are options set by the test execution environment that can control the test execution, in additional
+     * to the "core" set of options defined in this class.
+     * @param name the name of the option
+     * @param defaultValue the default value (if option is undefined)
+     * @return the defined value of the option, or the default value, if undefined
+     */
+    public Object getOption(String name, Object defaultValue) {
+        return additionalOptions.getOrDefault(name, defaultValue);
     }
 
     @Nonnull

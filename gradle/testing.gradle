@@ -54,6 +54,13 @@ task performanceTest(type: Test) {
     }
 }
 
+task quickTest(type: Test) {
+    systemProperties["tests.runQuick"] = true
+    useJUnitPlatform {
+        excludeTags 'WipesFDB'
+    }
+}
+
 def getFullDisplayName(descriptor) {
     def fullName = ""
     fullName = descriptor.displayName
