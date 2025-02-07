@@ -163,8 +163,11 @@ tasks.withType(Test) { theTask ->
         println()
         if (System.getenv("GITHUB_STEP_SUMMARY") != null && result.resultType == TestResult.ResultType.FAILURE) {
             new File(System.getenv("GITHUB_STEP_SUMMARY")).append(
-                "\n## ${getFullDisplayName(descriptor)} [FAILED] (${duration}ms)\n" +
-                "```\n${result.getException().asString()}\n```\n")
+                "<details>\n" +
+                    "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
+                    "(${duration}ms)\n" +
+                    "```\n${result.getException().asString()}\n```\n" +
+                "</details>\n")
         }
     }
     reports {
