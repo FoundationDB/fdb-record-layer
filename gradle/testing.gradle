@@ -161,6 +161,11 @@ tasks.withType(Test) { theTask ->
         def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
         println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
         println()
+        if (System.getenv("GITHUB_STEP_SUMMARY") != null && result.resultType == TestResult.ResultType.FAILURE) {
+            new File(System.getenv("GITHUB_STEP_SUMMARY")).append(
+                "\n## ${getFullDisplayName(descriptor)} [FAILED] (${duration}ms)\n" +
+                "```\n${result.getException().asString()}\n```\n")
+        }
     }
     reports {
         junitXml.outputPerTestCase = true
