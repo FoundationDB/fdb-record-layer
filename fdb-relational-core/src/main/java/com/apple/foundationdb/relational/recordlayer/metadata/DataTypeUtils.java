@@ -33,6 +33,7 @@ import com.google.common.collect.HashBiMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -79,7 +80,7 @@ public class DataTypeUtils {
                 final var enumValues = asEnum.getEnumValues().stream().map(v -> DataType.EnumType.EnumValue.of(v.getName(), v.getNumber())).collect(Collectors.toList());
                 return DataType.EnumType.from(asEnum.getName() == null ? toProtoBufCompliantName(UUID.randomUUID().toString()) : asEnum.getName(), enumValues, asEnum.isNullable());
             default:
-                Assert.failUnchecked(String.format("unexpected type %s", type));
+                Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
                 return null; // make compiler happy.
         }
     }
@@ -131,7 +132,7 @@ public class DataTypeUtils {
             case UNKNOWN:
                 return new Type.Any();
             default:
-                Assert.failUnchecked(String.format("unexpected type %s", type));
+                Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
                 return null; // make compiler happy.
         }
     }

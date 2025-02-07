@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -140,7 +141,7 @@ public final class QueryCommand extends Command {
             if (maybeExecutionThrowable.get() == null) {
                 maybeExecutionThrowable.set(executionContext.wrapContext(e,
                         () -> "‼️ Error executing query command at line " + getLineNumber(),
-                        String.format("query [%s] ", executor), getLineNumber()));
+                        String.format(Locale.ROOT, "query [%s] ", executor), getLineNumber()));
             }
         }
     }
@@ -184,7 +185,7 @@ public final class QueryCommand extends Command {
                 }
 
                 if (exhausted && (QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(queryConfig.getConfigName()))) {
-                    Assert.fail(String.format("‼️ Expecting more results, however no more rows are available to fetch at line %d%n" +
+                    Assert.fail(String.format(Locale.ROOT, "‼️ Expecting more results, however no more rows are available to fetch at line %d%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                             "%s%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
@@ -196,7 +197,7 @@ public final class QueryCommand extends Command {
                     exhausted = true;
                 } else if (!queryConfigsIterator.hasNext()) {
                     queryIsRunning = false;
-                    Assert.fail(String.format("Query returned more results, but no more were expected after line %d",
+                    Assert.fail(String.format(Locale.ROOT, "Query returned more results, but no more were expected after line %d",
                             queryConfig.getLineNumber()));
                 } else {
                     queryIsRunning = true;

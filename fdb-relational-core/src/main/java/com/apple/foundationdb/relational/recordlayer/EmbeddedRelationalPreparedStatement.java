@@ -35,6 +35,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -58,7 +59,7 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
         if (execute()) {
             return currentResultSet;
         } else {
-            throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
         }
     }
 
@@ -66,7 +67,7 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     public int executeUpdate() throws SQLException {
         checkOpen();
         if (execute()) {
-            throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
         }
         return currentRowCount;
     }

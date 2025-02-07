@@ -46,6 +46,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @API(API.Status.EXPERIMENTAL)
@@ -263,7 +264,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public ProceduralPlan visitDropSchemaStatement(@Nonnull RelationalParser.DropSchemaStatementContext ctx) {
         final var schemaId = visitUid(ctx.uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
-        Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), ErrorCode.UNKNOWN_DATABASE, () -> String.format("invalid database identifier in '%s'", ctx.uid().getText()));
+        Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), ErrorCode.UNKNOWN_DATABASE, () -> String.format(Locale.ROOT, "invalid database identifier in '%s'", ctx.uid().getText()));
         return ProceduralPlan.of(metadataOperationsFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.NONE));
     }
 

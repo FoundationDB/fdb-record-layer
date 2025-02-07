@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
+import java.util.Locale;
+
 @API(API.Status.EXPERIMENTAL)
 public class RelationalMetric {
 
@@ -80,7 +82,7 @@ public class RelationalMetric {
         private final String logKey;
 
         RelationalEvent(String title) {
-            this.title = String.format("%s %s", RELATIONAL_TITLE_PREFIX, title);
+            this.title = String.format(Locale.ROOT, "%s %s", RELATIONAL_TITLE_PREFIX, title);
             this.logKey = RELATIONAL_LOG_PREFIX + StoreTimer.Event.super.logKey();
         }
 
@@ -111,7 +113,7 @@ public class RelationalMetric {
         private final String logKey;
 
         RelationalCount(String title, boolean isSize) {
-            this.title = String.format("%s %s", RELATIONAL_TITLE_PREFIX, title);
+            this.title = String.format(Locale.ROOT, "%s %s", RELATIONAL_TITLE_PREFIX, title);
             this.logKey = RELATIONAL_LOG_PREFIX + StoreTimer.Count.super.logKey();
             this.isSize = isSize;
         }
