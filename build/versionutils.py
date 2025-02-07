@@ -1,6 +1,6 @@
 #!/bin/python3
 #
-# increment_version.py
+# versionutils.py
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -29,7 +29,7 @@ VERSION_POSITIONS = ['MAJOR', 'MINOR', 'BUILD', 'PATCH']
 VERSION_LINE = re.compile(r'version\s*\=\s*(\d+)\.(\d+)\.(\d+)\.(\d+)')
 
 
-def incremented_version(version: (int, int, int, int), update_type: str) -> tuple[int, int, int, int]:
+def incremented_version(version: tuple[int, int, int, int], update_type: str) -> tuple[int, int, int, int]:
     update_pos = VERSION_POSITIONS.index(update_type)
     new_version = []
     for i in range(len(version)):
@@ -48,7 +48,6 @@ def version_string(version: tuple[int, int, int, int]) -> str:
 
 def update_version(filename: str, update_type: str) -> tuple[int, int, int, int]:
     lines = []
-    found = False
     version = None
     new_version = None
     with open(filename, 'r') as fin:
@@ -60,27 +59,31 @@ def update_version(filename: str, update_type: str) -> tuple[int, int, int, int]
                  version = (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
                  new_version = incremented_version(version, update_type)
                  lines.append(f'version={version_string(new_version)}\n')
-                 found = True
             else:
                  lines.append(l)
 
-    if not found:
+    if version is None:
         raise ValueError(f'Unable to find version in {filename}')
 
     with open(filename, 'w') as fout:
         for l in lines:
             fout.write(l)
-    print(f'Update version file {filename}')
+    print(f'Updated version in {filename} from {version_string(version)} to {version_string(new_version)}')
     return new_version
 
 
 def get_version(filename: str) -> tuple[int, int, int, int]:
+    version = None
     with open(filename, 'r') as fin:
         for l in fin:
             m = VERSION_LINE.match(l)
             if m:
-               return int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
-    raise ValueError(f'Unable to find version in {filename}')
+               if version is not None:
+                     raise ValueError('File contains multiple version lines')
+               version = (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+    if version is None:
+        raise ValueError(f'Unable to find version in {filename}')
+    return version
 
 
 def main(argv: list[str]):
