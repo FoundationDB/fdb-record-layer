@@ -58,6 +58,7 @@ public class SupportedVersionTest {
     }
 
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
+        final String testVersion = "3.0.18.0";
         return new YamlRunner.YamlConnectionFactory() {
             @Override
             public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
@@ -66,7 +67,12 @@ public class SupportedVersionTest {
 
             @Override
             public Set<String> getVersionsUnderTest() {
-                return Set.of("3.0.18.0");
+                return Set.of(testVersion);
+            }
+
+            @Override
+            public String getQueryInitialVersion() {
+                return testVersion;
             }
         };
     }
@@ -80,7 +86,6 @@ public class SupportedVersionTest {
                 "unspecified",
                 "lower-at-block",
                 "lower-at-query",
-                "late-query-supported-version",
                 "late-file-options"
         );
     }
@@ -104,6 +109,7 @@ public class SupportedVersionTest {
                 "higher-at-block",
                 "higher-at-query",
                 "fully-supported",
+                "late-query-supported-version",
                 "query-with-multiple-configs"
         );
     }

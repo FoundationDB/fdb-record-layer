@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -68,6 +69,8 @@ public final class YamlRunner {
     private final YamlExecutionContext executionContext;
 
     public interface YamlConnectionFactory {
+        String CURRENT_VERSION = FileOptions.CurrentVersion.TEXT;
+
         /**
          * Convert a connection uri into an actual connection.
          * @param connectPath the path to connect to
@@ -87,6 +90,8 @@ public final class YamlRunner {
          * version
          */
         Set<String> getVersionsUnderTest();
+
+        String getQueryInitialVersion();
 
         /**
          * Whether the connection supports multiple servers.

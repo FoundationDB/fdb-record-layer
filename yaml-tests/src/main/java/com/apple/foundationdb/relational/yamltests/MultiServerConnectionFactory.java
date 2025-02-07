@@ -38,7 +38,6 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -67,8 +66,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     @Nonnull
     private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
     private final int totalFactories;
-    @Nonnull
-    private final AtomicInteger currentConnectionSelector;
+    private final int initialConnection;
 
     public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
                                         @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
@@ -89,12 +87,12 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         this.totalFactories = 1 + alternateFactories.size(); // one default and N alternates
         Assertions.assertTrue(initialConnection >= 0);
         Assertions.assertTrue(initialConnection < totalFactories, "Initial connections should be <= number of factories");
-        this.currentConnectionSelector = new AtomicInteger(initialConnection);
+        this.initialConnection = initialConnection;
     }
 
     @Override
     public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return new MultiServerRelationalConnection(connectionSelectionPolicy, getNextConnectionNumber(), defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
+        return new MultiServerRelationalConnection(connectionSelectionPolicy, getInitialConnectionNumber(), defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
     }
 
     @Override
@@ -103,12 +101,29 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     }
 
     @Override
+    public String getQueryInitialVersion() {
+        int nextConnection = getInitialConnectionNumber();
+        if (nextConnection == 0) {
+            return defaultFactory.getQueryInitialVersion();
+        } else {
+            return alternateFactories.get(nextConnection - 1).getQueryInitialVersion();
+        }
+    }
+
+    @Override
     public boolean isMultiServer() {
         return true;
     }
 
-    public int getCurrentConnectionSelector() {
-        return currentConnectionSelector.get();
+    public int getInitialConnectionNumber() {
+        switch (connectionSelectionPolicy) {
+            case DEFAULT:
+                return DEFAULT_CONNECTION;
+            case ALTERNATE:
+                return initialConnection;
+            default:
+                throw new IllegalStateException("unknown connection selection policy: " + connectionSelectionPolicy);
+        }
     }
 
     @Nonnull
@@ -120,24 +135,6 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
                 throw new IllegalStateException("Failed to create a connection", e);
             }
         }).collect(Collectors.toList());
-    }
-
-    /**
-     * Increment and return the next connection's initialConnection number.
-     * This allows us to better distribute the connections positions as connections are created per query in the tests
-     * and thus connections with a single query should increment their position between connection creation or else they
-     * will always execute with the same initial connection.
-     * @return the next initial connection number to use
-     */
-    private int getNextConnectionNumber() {
-        switch (connectionSelectionPolicy) {
-            case DEFAULT:
-                return DEFAULT_CONNECTION;
-            case ALTERNATE:
-                return currentConnectionSelector.getAndUpdate(i -> (i + 1) % totalFactories);
-            default:
-                throw new IllegalArgumentException("Unknown policy");
-        }
     }
 
     /**

@@ -41,6 +41,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -104,7 +105,6 @@ public final class TestBlock extends ConnectedBlock {
     static final String OPTION_STATEMENT_TYPE = "statement_type";
     static final String OPTION_STATEMENT_TYPE_SIMPLE = "simple";
     static final String OPTION_STATEMENT_TYPE_PREPARED = "prepared";
-    static final String OPTION_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
 
     /**
      * Defines the way in which the tests are run.
@@ -190,7 +190,7 @@ public final class TestBlock extends ConnectedBlock {
         private boolean checkCache = true;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         private StatementType statementType = StatementType.BOTH;
-        private Object rawSupportedVersion;
+        private final Map<String, Object> supportedVersionOptions = new HashMap<>();
 
         private void verifyPreset(@Nonnull String preset) {
             switch (preset) {
@@ -246,8 +246,11 @@ public final class TestBlock extends ConnectedBlock {
                         break;
                 }
             }
-            if (optionsMap.containsKey(OPTION_SUPPORTED_VERSION)) {
-                this.rawSupportedVersion = optionsMap.get(OPTION_SUPPORTED_VERSION);
+            for (String option : SupportedVersionCheck.OPTION_KEYS) {
+                Object optionValue = optionsMap.get(option);
+                if (optionValue != null) {
+                    supportedVersionOptions.put(option, optionValue);
+                }
             }
             setOptionConnectionLifecycle(optionsMap);
         }
@@ -338,8 +341,8 @@ public final class TestBlock extends ConnectedBlock {
             final String blockName = testsMap.containsKey(TEST_BLOCK_NAME)
                                      ? Matchers.string(testsMap.get(TEST_BLOCK_NAME)) : "unnamed-" + blockNumber;
             final var testsObject = Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber);
-            if (options.rawSupportedVersion != null) {
-                final SupportedVersionCheck check = SupportedVersionCheck.parse(options.rawSupportedVersion, executionContext);
+            if (!options.supportedVersionOptions.isEmpty()) {
+                final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(options.supportedVersionOptions, executionContext);
                 if (!check.isSupported()) {
                     return new SkipBlock(lineNumber, check.getMessage());
                 }
