@@ -170,6 +170,13 @@ tasks.withType(Test) { theTask ->
                 "</details>\n")
         }
     }
+    afterSuite { descriptor, result ->
+        if (descriptor.parent == null) {
+            println("Summary: ")
+            def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
+            println("${descriptor}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms")
+        }
+    }
     reports {
         junitXml.outputPerTestCase = true
     }
