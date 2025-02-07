@@ -154,6 +154,19 @@ tasks.withType(Test) { theTask ->
         events 'failed'
         exceptionFormat = 'full'
     }
+    def markdownReports = new File("$rootDir/.out/reports/")
+    def summary = new File(markdownReports, "test-summary.md")
+    def failures = new File(markdownReports, "test-failures.md")
+    doFirst {
+        // This may have issues with running tasks concurrently
+        if (!markdownReports.exists()) {
+            markdownReports.mkdirs()
+        }
+        if (!summary.exists()) {
+            summary.append("|Test run|❌|⚠️|✅|time|\n")
+        }
+    }
+
     beforeTest { descriptor -> 
         println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
     } 
@@ -161,8 +174,8 @@ tasks.withType(Test) { theTask ->
         def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
         println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
         println()
-        if (System.getenv("GITHUB_STEP_SUMMARY") != null && result.resultType == TestResult.ResultType.FAILURE) {
-            new File(System.getenv("GITHUB_STEP_SUMMARY")).append(
+        if (result.resultType == TestResult.ResultType.FAILURE) {
+            failures.append(
                 "<details>\n" +
                     "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
                     "(${duration}ms)\n" +
@@ -172,9 +185,9 @@ tasks.withType(Test) { theTask ->
     }
     afterSuite { descriptor, result ->
         if (descriptor.parent == null) {
-            println("Summary: ")
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
-            println("${descriptor}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms")
+            summary.append(
+                "|${descriptor}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
         }
     }
     reports {
