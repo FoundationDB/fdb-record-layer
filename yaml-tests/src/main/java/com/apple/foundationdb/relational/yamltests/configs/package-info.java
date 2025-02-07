@@ -1,9 +1,9 @@
 /*
- * FunctionCatalog.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query.functions;
-
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-
-import javax.annotation.Nonnull;
-
-public interface FunctionCatalog {
-    @Nonnull
-    BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull String name);
-
-    boolean containsFunction(@Nonnull String name);
-}
+/**
+ * Configurations that provide different standard ways to run a test.
+ */
+package com.apple.foundationdb.relational.yamltests.configs;

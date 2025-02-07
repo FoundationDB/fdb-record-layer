@@ -21,6 +21,9 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -28,6 +31,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -36,7 +40,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Tests that {@code supported_version} skip what they should and nothing else.
  */
-public class SupportedVersionTest extends YamlTestBase {
+public class SupportedVersionTest {
+
+    private static EmbeddedConfig config = new EmbeddedConfig();
+
+    @BeforeAll
+    static void beforeAll() throws Exception {
+        config.beforeAll();
+    }
+
+    @AfterAll
+    static void afterAll() throws Exception {
+        config.afterAll();
+    }
+
+    private void doRun(String fileName) throws Exception {
+        new YamlRunner(fileName, createConnectionFactory(), false, Map.of()).run();
+    }
 
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
         return new YamlRunner.YamlConnectionFactory() {

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -93,7 +94,9 @@ public class MultiServerConnectionFactoryTest {
         return new YamlRunner.YamlConnectionFactory() {
             @Override
             public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return null;
+                final RelationalConnection connection = Mockito.mock(RelationalConnection.class);
+                Mockito.when(connection.unwrap(RelationalConnection.class)).thenReturn(connection);
+                return connection;
             }
 
             @Override
