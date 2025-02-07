@@ -121,6 +121,16 @@ test_block:
       - supported_version: !current_version
       - count: 1
     -
+      # Case when a nullable column's value is not provided and column is the first one
+      - query: insert into A(A2, A3) values (6, 7);
+      - supported_version: !current_version
+      - count: 1
+    -
+      # Case when a nullable column's value is not provided and column is the last one
+      - query: insert into A(A1, A2) values (7, 8);
+      - supported_version: !current_version
+      - count: 1
+    -
       - query: select * from A where A1 = 6
       - supported_version: !current_version
       - result: [{ A1: 6, A2: !null , A3: 7 }]

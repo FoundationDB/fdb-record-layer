@@ -132,7 +132,7 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
     private boolean startServer(ProcessBuilder processBuilder) throws IOException, InterruptedException {
         try {
             serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and  running
+            // TODO: There should be a better way to figure out that the server is fully up and running
             Thread.sleep(3000);
             if (!serverProcess.isAlive()) {
                 throw new Exception("Failed to start server once - retrying");
@@ -141,7 +141,7 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         } catch (Exception ex) {
             // Try once more
             serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and  running
+            // TODO: There should be a better way to figure out that the server is fully up and running
             Thread.sleep(3000);
         }
 
