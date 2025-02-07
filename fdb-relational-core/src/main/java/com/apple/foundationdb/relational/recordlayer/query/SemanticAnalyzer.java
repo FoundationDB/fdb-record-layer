@@ -692,7 +692,7 @@ public class SemanticAnalyzer {
     public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
         final var expressions = logicalOperator.getOutput().expanded();
         Assert.thatUnchecked(expressions.size() == columnAliases.size(), ErrorCode.INVALID_COLUMN_REFERENCE,
-                () -> String.format(Locale.ROOT, "cte query has %d column(s), however %s aliases defined", expressions.size(), columnAliases.size()));
+                () -> String.format(Locale.ROOT, "cte query has %d column(s), however %d aliases defined", expressions.size(), columnAliases.size()));
     }
 
     @Nonnull
