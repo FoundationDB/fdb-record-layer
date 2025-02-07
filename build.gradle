@@ -38,7 +38,6 @@ plugins {
     alias(libs.plugins.spotbugs)
     alias(libs.plugins.artifactory)
     alias(libs.plugins.download)
-    alias(libs.plugins.sonarqube)
 }
 
 ext {
@@ -49,7 +48,6 @@ ext {
 defaultTasks 'build'
 
 apply from: 'gradle/root.gradle'
-apply from: 'gradle/sonar.gradle'
 
 def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
 

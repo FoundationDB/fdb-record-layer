@@ -1,9 +1,9 @@
 /*
- * YamlTestBase.java
+ * EmbeddedConfig.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,30 +18,28 @@
  * limitations under the License.
  */
 
+package com.apple.foundationdb.relational.yamltests.configs;
+
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-
 import javax.annotation.Nonnull;
+import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
-@Deprecated
-public abstract class YamlTestBase {
+/**
+ * Run directly against an instance of {@link FRL}.
+ */
+public class EmbeddedConfig implements YamlTestConfig {
+    private FRL frl;
 
-    private static final Logger logger = LogManager.getLogger(YamlTestBase.class);
-
-    protected static FRL frl;
-
-    @BeforeAll
-    public static void beforeAll() throws RelationalException, SQLException {
+    @Override
+    public void beforeAll() throws Exception {
         var options = Options.builder()
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
@@ -50,25 +48,36 @@ public abstract class YamlTestBase {
         frl = new FRL(options);
     }
 
-    @AfterAll
-    public static void afterAll() throws Exception {
+    @Override
+    public void afterAll() throws Exception {
         if (frl != null) {
             frl.close();
             frl = null;
         }
     }
 
-    abstract YamlRunner.YamlConnectionFactory createConnectionFactory();
+    @Override
+    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
+        return new YamlRunner.YamlConnectionFactory() {
+            @Override
+            public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+                return DriverManager.getConnection(connectPath.toString());
+            }
 
-    protected Map<String, Object> getAdditionalOptions() {
-        return Collections.emptyMap();
+            @Override
+            public Set<String> getVersionsUnderTest() {
+                return Set.of();
+            }
+        };
     }
 
-    protected final void doRun(@Nonnull final String fileName) throws Exception {
-        doRun(fileName, false);
+    @Override
+    public @Nonnull Map<String, Object> getRunnerOptions() {
+        return Map.of();
     }
 
-    protected void doRun(String fileName, boolean correctExplain) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), correctExplain, getAdditionalOptions()).run();
+    @Override
+    public String toString() {
+        return "Embedded";
     }
 }

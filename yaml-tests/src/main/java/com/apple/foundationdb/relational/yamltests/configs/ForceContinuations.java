@@ -1,5 +1,5 @@
 /*
- * JDBCYamlIntegrationTests.java
+ * ForceContinuations.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,21 @@
  * limitations under the License.
  */
 
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+package com.apple.foundationdb.relational.yamltests.configs;
+
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+
+import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
- * An extension of {@link YamlIntegrationTests} that disables tests that do not work when running
- * through JDBC.
+ * A configuration that runs an underlying configuration, but forces every query to be executed with {@code maxRows: 1}.
+ * <p>
+ *     See {@link YamlExecutionContext#OPTION_FORCE_CONTINUATIONS}.
+ * </p>
  */
-public abstract class JDBCYamlIntegrationTests extends YamlIntegrationTests {
-
-    @Override
-    @Test
-    @Disabled("TODO: Not supported")
-    public void prepared() throws Exception {
-        super.prepared();
+public class ForceContinuations extends ConfigWithOptions {
+    public ForceContinuations(@Nonnull final YamlTestConfig underlying) {
+        super(underlying, Map.of(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, true));
     }
 }
