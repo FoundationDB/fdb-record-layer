@@ -40,7 +40,7 @@ jobs:
       - name: 'Unzip artifact'
         run: unzip test-reports.zip
       - name: Test Coverage Comment
-        uses: madrapps/jacoco-report@7c362aca34caf958e7b1c03464bd8781db9f8da7
+        uses: madrapps/jacoco-report@e4bbaf00a0b8920cb86a448ae3ec0fc6f6bfeacc
         with:
           paths: |
             ${{ github.workspace }}/**/jacoco/test/jacocoTestReport.xml
