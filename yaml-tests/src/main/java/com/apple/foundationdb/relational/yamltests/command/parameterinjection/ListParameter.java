@@ -76,7 +76,7 @@ public class ListParameter implements Parameter {
         for (int i = 0; i < values.size(); i++) {
             array[i] = values.get(i).getSqlObject(connection);
         }
-        return Objects.requireNonNull(connection).createArrayOf(getSqlTypeName(array), array); // TODO: This should be the type of the element, not the array
+        return Objects.requireNonNull(connection).createArrayOf(getSqlTypeName(array), array);
     }
 
     // Best-effort approach to determine the type of constituent elements.
