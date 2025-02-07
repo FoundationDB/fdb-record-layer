@@ -68,6 +68,51 @@ test_block:
                  {210, 20},
                  {250, 50},
                  {250, 50}]
+    -
+      - query: with recursive c1 as (
+            select id, parent from t1 where parent = -1
+            union all
+            select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent) select id from c1
+      - supported_version: !current_version
+      - maxRows: 1
+      - result: [{ID: 1}]
+      - result: [{ID: 10}]
+      - result: [{ID: 20}]
+      - result: [{ID: 40}]
+      - result: [{ID: 50}]
+      - result: [{ID: 70}]
+      - result: [{ID: 100}]
+      - result: [{ID: 210}]
+      - result: [{ID: 250}]
+      - result: []
+    -
+      - query: with recursive allDescendants as (
+            with recursive ancestorsOf250 as (
+            select id, parent from t1 where id = 250
+            union all
+            select b.id, b.parent from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent from ancestorsOf250
+            union all
+            select b.id, b.parent from allDescendants as a, t1 as b where a.id = b.parent) select id, parent from allDescendants
+      - supported_version: !current_version
+      - maxRows: 1
+      - result: [{250, 50}]
+      - result: [{50, 10}]
+      - result: [{10, 1}]
+      - result: [{1, -1}]
+      - result: [{10, 1}]
+      - result: [{20, 1}]
+      - result: [{40, 10}]
+      - result: [{50, 10}]
+      - result: [{70, 10}]
+      - result: [{250, 50}]
+      - result: [{40, 10}]
+      - result: [{50, 10}]
+      - result: [{70, 10}]
+      - result: [{100, 20}]
+      - result: [{210, 20}]
+      - result: [{250, 50}]
+      - result: [{250, 50}]
+      - result: []
 #    -
 # does not currently work due to bug in NLJ planning, see https://github.com/FoundationDB/fdb-record-layer/issues/2997
 #      - query: with recursive c1 as (
