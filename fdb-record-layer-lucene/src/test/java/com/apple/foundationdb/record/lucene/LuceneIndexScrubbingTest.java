@@ -91,12 +91,21 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 .setPartitionHighWatermark(isPartitioned ? 5 : 0)
                 .build();
 
+        boolean flipFlop = false;
         for (int i = 0; i < 14; i++) {
+            dataModel.setReverseSaveOrder(flipFlop);
+            flipFlop = !flipFlop;
             try (final FDBRecordContext context = openContext()) {
                 dataModel.saveRecords(7, context, i / 6);
                 context.commit();
             }
         }
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
+            context.commit();
+        }
+
         try (final FDBRecordContext context = openContext()) {
             dataModel.explicitMergeIndex(context, timer);
         }
@@ -174,7 +183,10 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         final InjectedFailureRepository injectedFailures = new InjectedFailureRepository();
         registry.overrideFactory(new MockedLuceneIndexMaintainerFactory(injectedFailures));
 
+        boolean flipFlop = false;
         for (int i = 0; i < 14; i++) {
+            dataModel.setReverseSaveOrder(flipFlop);
+            flipFlop = !flipFlop;
             try (final FDBRecordContext context = openContext()) {
                 dataModel.saveRecords(7, context, i / 6);
                 context.commit();
@@ -186,9 +198,13 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             // Write some documents
-            dataModel.saveRecords(7, context, 1);
-            dataModel.saveRecords(7, context, 2);
-            dataModel.saveRecords(7, context, 3);
+            dataModel.saveRecordsToAllGroups(7, context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
+            context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
@@ -196,12 +212,16 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         }
 
         try (final FDBRecordContext context = openContext()) {
+            dataModel.setReverseSaveOrder(true);
             dataModel.saveRecords(7, context, 1);
+            dataModel.setReverseSaveOrder(false);
             dataModel.saveRecords(7, context, 2);
             // Write few more records without updating
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
             dataModel.saveRecords(5, context, 4);
+            dataModel.setReverseSaveOrder(true);
             dataModel.saveRecords(3, context, 1);
+            dataModel.setReverseSaveOrder(false);
             dataModel.saveRecords(2, context, 3);
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE, false);
             context.commit();
