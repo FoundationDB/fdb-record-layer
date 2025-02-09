@@ -192,6 +192,12 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 context.commit();
             }
         }
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
+            context.commit();
+        }
+
         try (final FDBRecordContext context = openContext()) {
             dataModel.explicitMergeIndex(context, timer);
         }
@@ -199,12 +205,6 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         try (final FDBRecordContext context = openContext()) {
             // Write some documents
             dataModel.saveRecordsToAllGroups(7, context);
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
-            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
-            context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
