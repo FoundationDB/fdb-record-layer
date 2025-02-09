@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
@@ -219,7 +218,7 @@ public abstract class QueryConfig {
                 if (success) {
                     logger.debug("✅️ plan match!");
                 } else {
-                    if (executionContext.testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.SHOW_PLAN_ON_DIFF) &&
+                    if (executionContext.shouldShowPlanOnDiff() &&
                             actualDot != null && expectedPlannerMetricsInfo != null) {
                         BrowserHelper.browse("/showPlanDiff.html",
                                 ImmutableMap.of("$SQL", queryDescription,
@@ -267,7 +266,7 @@ public abstract class QueryConfig {
                     final var taskTotalTimeInNs = actualPlannerMetrics.getLong(2);
                     Verify.verify(taskTotalTimeInNs > 0);
 
-                    if (expectedPlannerMetricsInfo == null && !executionContext.testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.CORRECT_STATS)) {
+                    if (expectedPlannerMetricsInfo == null && !executionContext.shouldCorrectMetrics()) {
                         reportTestFailure("‼️ No planner metrics for line " + getLineNumber());
                     }
                     final var actualInfo = PlannerMetricsProto.Info.newBuilder()
@@ -285,6 +284,7 @@ public abstract class QueryConfig {
                             .build();
                     if (expectedPlannerMetricsInfo == null) {
                         executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, true);
+                        executionContext.markDirty();
                         logger.debug("⭐️ Successfully inserted new planner metrics at line {}", getLineNumber());
                     } else {
                         final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
@@ -293,25 +293,26 @@ public abstract class QueryConfig {
                                 actualCountersAndTimers.getTaskCount() != expectedCountersAndTimers.getTaskCount()
                                 && log("‼️ taskCount differs; expected = " + expectedCountersAndTimers.getTaskCount() +
                                         "; actual = " + actualCountersAndTimers.getTaskCount(), getLineNumber());
-                        isDifferent =
+                        isDifferent |=
                                 (actualCountersAndTimers.getTransformCount() != expectedCountersAndTimers.getTransformCount()
                                         && log("‼️ transformCount differs; expected = " + expectedCountersAndTimers.getTransformCount() +
-                                        "; actual = " + actualCountersAndTimers.getTransformCount(), getLineNumber())) || isDifferent;
-                        isDifferent =
+                                        "; actual = " + actualCountersAndTimers.getTransformCount(), getLineNumber()));
+                        isDifferent |=
                                 (actualCountersAndTimers.getTransformYieldCount() != expectedCountersAndTimers.getTransformYieldCount()
                                         && log("‼️ transformYieldCount differs; expected = " + expectedCountersAndTimers.getTransformYieldCount() +
-                                        "; actual = " + actualCountersAndTimers.getTransformYieldCount(), getLineNumber())) || isDifferent;
-                        isDifferent =
+                                        "; actual = " + actualCountersAndTimers.getTransformYieldCount(), getLineNumber()));
+                        isDifferent |=
                                 (actualCountersAndTimers.getInsertNewCount() != expectedCountersAndTimers.getInsertNewCount()
                                          && log("‼️ insertNewCount differs; expected = " + expectedCountersAndTimers.getInsertNewCount() +
-                                        "; actual = " + actualCountersAndTimers.getInsertNewCount(), getLineNumber())) || isDifferent;
-                        isDifferent =
+                                        "; actual = " + actualCountersAndTimers.getInsertNewCount(), getLineNumber()));
+                        isDifferent |=
                                 (actualCountersAndTimers.getInsertReusedCount() != expectedCountersAndTimers.getInsertReusedCount()
                                          && log("‼️ insertReusedCount differs; expected = " + expectedCountersAndTimers.getInsertReusedCount() +
-                                        "; actual = " + actualCountersAndTimers.getInsertReusedCount(), getLineNumber())) || isDifferent;
+                                        "; actual = " + actualCountersAndTimers.getInsertReusedCount(), getLineNumber()));
                         executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, isDifferent);
                         if (isDifferent) {
-                            if (executionContext.testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.CORRECT_STATS)) {
+                            if (executionContext.shouldCorrectMetrics()) {
+                                executionContext.markDirty();
                                 logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
                             } else {
                                 reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());

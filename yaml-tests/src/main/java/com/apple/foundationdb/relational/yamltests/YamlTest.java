@@ -24,7 +24,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.EnumSet;
 
 /**
  * An annotation for test classes that run {@code .yamsql} files.
@@ -59,15 +58,5 @@ public @interface YamlTest {
          * @throws Exception if the test has issues
          */
         void runYamsql(String fileName) throws Exception;
-
-        /**
-         * Run a {@code .yamsql} test, but update all the `explain` assertions in the file with what `explain` actually
-         * returns, so that you, as a developer, can compare the explain results in a diff.
-         * This should never be committed
-         * @param fileName the filename of the {@code .yamsql} resource
-         * @param yamlRunnerOptions a set of (boolean) options handed in through the test case method itself
-         * @throws Exception if the test has issues
-         */
-        void runYamsql(String fileName, EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions) throws Exception;
     }
 }

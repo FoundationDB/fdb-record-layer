@@ -1,7 +1,7 @@
-¸
+˚
 U
-disable-index-tests-proto8EXPLAIN select tombstone from t1 where tombstone is null¢
-ÀÕ∏É< Æ€¡(0ªû8@TSCAN(<,>) | TFILTER T1 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ædigraph G {
+disable-index-tests-proto8EXPLAIN select tombstone from t1 where tombstone is null°
+Àãôâ< ¡ëy(0ˇ…8@TSCAN(<,>) | TFILTER T1 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -14,10 +14,10 @@ U
   4 -> 3 [ label=<&nbsp;q15> label="q15" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Å
+}Ä
 Y
-disable-index-tests-proto<EXPLAIN select tombstone from t1 where tombstone is not null£
-Àæ∫Í< äûr(0ò˘8@USCAN(<,>) | TFILTER T1 | FILTER _.TOMBSTONE NOT_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ødigraph G {
+disable-index-tests-proto<EXPLAIN select tombstone from t1 where tombstone is not null¢
+À£Ú|< ô∞A(0åˆ8@USCAN(<,>) | TFILTER T1 | FILTER _.TOMBSTONE NOT_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -33,7 +33,7 @@ Y
 }Û
 U
 disable-index-tests-proto8EXPLAIN select tombstone from t2 where tombstone is nullô
-—ø∆◊{ ”òû(!0 ú"8,@jCOVERING(T2$TOMBSTONE [[null],[null]] -> [ID: KEY[1], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE AS TOMBSTONE)è
+—˚∆Æ{ ®ÜÂ(!0ç“)8,@jCOVERING(T2$TOMBSTONE [[null],[null]] -> [ID: KEY[1], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE AS TOMBSTONE)è
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -46,7 +46,7 @@ digraph G {
 }Ò
 Y
 disable-index-tests-proto<EXPLAIN select tombstone from t2 where tombstone is not nullì
-—›°ñ| ”Õ(!0Úº)8,@dCOVERING(T2$TOMBSTONE ([null],> -> [ID: KEY[1], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE AS TOMBSTONE)è
+—ï—∂| ˝’›(!0È≥.8,@dCOVERING(T2$TOMBSTONE ([null],> -> [ID: KEY[1], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE AS TOMBSTONE)è
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -56,10 +56,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2$TOMBSTONE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q52> label="q52" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¸
+}˚
 U
-disable-index-tests-proto8EXPLAIN select tombstone from t3 where tombstone is null¢
-Àº˛Ü< µ≠¡(0‘ô8@TSCAN(<,>) | TFILTER T3 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ædigraph G {
+disable-index-tests-proto8EXPLAIN select tombstone from t3 where tombstone is null°
+ÀÑ‡Ö< ßãu(0Åù8@TSCAN(<,>) | TFILTER T3 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -72,10 +72,10 @@ U
   4 -> 3 [ label=<&nbsp;q15> label="q15" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ç
+}Å
 Y
-disable-index-tests-proto<EXPLAIN select tombstone from t3 where tombstone is not null§
-Àâ˛Ù< ˇß¿(0õÊ8@USCAN(<,>) | TFILTER T3 | FILTER _.TOMBSTONE NOT_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ødigraph G {
+disable-index-tests-proto<EXPLAIN select tombstone from t3 where tombstone is not null£
+ÀÒ©˘< »Êx(0È∫8@USCAN(<,>) | TFILTER T3 | FILTER _.TOMBSTONE NOT_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

@@ -2,9 +2,9 @@ unnamed-1:
 -   query: EXPLAIN select id from t3 where tombstone = true or tombstone is not null
     explain: 'COVERING(I4 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)'
     task_count: 306
-    task_total_time_ms: 19
+    task_total_time_ms: 21
     transform_count: 89
-    transform_time_ms: 6
+    transform_time_ms: 12
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 26
@@ -12,9 +12,9 @@ unnamed-1:
 -   query: EXPLAIN select id from t3 where tombstone = true or tombstone is not null
     explain: 'COVERING(I4 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)'
     task_count: 306
-    task_total_time_ms: 19
+    task_total_time_ms: 21
     transform_count: 89
-    transform_time_ms: 6
+    transform_time_ms: 12
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 26
@@ -22,9 +22,9 @@ unnamed-1:
 -   query: EXPLAIN select id from t3 where tombstone = true or tombstone is not null
     explain: 'COVERING(I4 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)'
     task_count: 306
-    task_total_time_ms: 19
+    task_total_time_ms: 21
     transform_count: 89
-    transform_time_ms: 6
+    transform_time_ms: 12
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 26
@@ -33,9 +33,9 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T2 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE
         AS TOMBSTONE)
     task_count: 207
-    task_total_time_ms: 11
+    task_total_time_ms: 14
     transform_count: 62
-    transform_time_ms: 3
+    transform_time_ms: 9
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 15
@@ -44,9 +44,9 @@ unnamed-1:
     explain: 'COVERING(I3 ([null],> -> [ID: KEY[2], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE
         AS TOMBSTONE)'
     task_count: 306
-    task_total_time_ms: 17
+    task_total_time_ms: 6
     transform_count: 88
-    transform_time_ms: 6
+    transform_time_ms: 3
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 26
@@ -54,31 +54,31 @@ unnamed-1:
 -   query: EXPLAIN select id from t5 where col1 < 40 or col1 > 90
     explain: 'COVERING(I6 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)'
     task_count: 306
-    task_total_time_ms: 17
+    task_total_time_ms: 21
     transform_count: 89
-    transform_time_ms: 6
+    transform_time_ms: 11
     transform_yield_count: 22
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 26
     insert_reused_count: 1
 -   query: EXPLAIN select id from t5 where col1 < 40 or col1 > 90
     explain: 'COVERING(I6 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)'
     task_count: 306
-    task_total_time_ms: 17
+    task_total_time_ms: 21
     transform_count: 89
-    transform_time_ms: 6
+    transform_time_ms: 11
     transform_yield_count: 22
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 26
     insert_reused_count: 1
 -   query: EXPLAIN select id from t5 where col1 < 40 or col1 > 90
     explain: 'COVERING(I6 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)'
     task_count: 306
-    task_total_time_ms: 17
+    task_total_time_ms: 21
     transform_count: 89
-    transform_time_ms: 6
+    transform_time_ms: 11
     transform_yield_count: 22
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 26
     insert_reused_count: 1
 sparse-index-tests:
@@ -86,7 +86,7 @@ sparse-index-tests:
     explain: 'COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID:
         KEY[2]]) | MAP (_.ID AS ID)'
     task_count: 409
-    task_total_time_ms: 10
+    task_total_time_ms: 12
     transform_count: 115
     transform_time_ms: 4
     transform_yield_count: 32
@@ -99,7 +99,7 @@ sparse-index-tests:
     task_count: 310
     task_total_time_ms: 5
     transform_count: 90
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 26
@@ -108,7 +108,7 @@ sparse-index-tests:
     explain: 'COVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12
         AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)'
     task_count: 409
-    task_total_time_ms: 8
+    task_total_time_ms: 6
     transform_count: 115
     transform_time_ms: 3
     transform_yield_count: 32
@@ -119,7 +119,7 @@ sparse-index-tests:
     explain: 'COVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12
         AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)'
     task_count: 409
-    task_total_time_ms: 8
+    task_total_time_ms: 6
     transform_count: 115
     transform_time_ms: 3
     transform_yield_count: 32
@@ -130,9 +130,9 @@ sparse-index-tests:
     explain: 'COVERING(I2 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12
         AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)'
     task_count: 310
-    task_total_time_ms: 5
+    task_total_time_ms: 6
     transform_count: 90
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 26
@@ -142,7 +142,7 @@ sparse-index-tests-with-data:
     explain: 'COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID:
         KEY[2]]) | MAP (_.ID AS ID)'
     task_count: 409
-    task_total_time_ms: 10
+    task_total_time_ms: 12
     transform_count: 115
     transform_time_ms: 4
     transform_yield_count: 32
@@ -155,7 +155,7 @@ sparse-index-tests-with-data:
     task_count: 310
     task_total_time_ms: 5
     transform_count: 90
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 26
@@ -166,7 +166,7 @@ sparse-index-tests-with-data:
     task_count: 310
     task_total_time_ms: 5
     transform_count: 90
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 26
@@ -177,7 +177,7 @@ sparse-index-tests-with-data:
     task_count: 310
     task_total_time_ms: 5
     transform_count: 90
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 24
     insert_time_ms: 0
     insert_new_count: 26

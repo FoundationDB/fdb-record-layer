@@ -46,7 +46,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,13 +57,14 @@ import java.util.function.Supplier;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
-    public static final String OPTION_FORCE_CONTINUATIONS = "optionForceContinuations";
-
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
+    public static final String OPTION_FORCE_CONTINUATIONS = "optionForceContinuations";
+    public static final String OPTION_CORRECT_EXPLAIN = "optionCorrectExplain";
+    public static final String OPTION_CORRECT_METRICS = "optionCorrectMetrics";
+    public static final String OPTION_SHOW_PLAN_ON_DIFF = "optionShowPlanOnDiff";
+
     @Nonnull final String resourcePath;
-    @Nonnull
-    private final EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions;
     @Nullable
     private final List<String> editedFileStream;
     private boolean isDirty;
@@ -92,12 +92,10 @@ public final class YamlExecutionContext {
     }
 
     YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory,
-                         @Nonnull EnumSet<YamlRunner.YamlRunnerOptions> yamlRunnerOptions,
                          @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
-        this.yamlRunnerOptions = yamlRunnerOptions;
-        this.editedFileStream = yamlRunnerOptions.contains(YamlRunner.YamlRunnerOptions.CORRECT_EXPLAIN)
+        this.editedFileStream = (boolean)additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
                                 ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = Map.copyOf(additionalOptions);
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
@@ -116,14 +114,18 @@ public final class YamlExecutionContext {
         return connectionFactory;
     }
 
-    public boolean testYamlRunnerOptions(@Nonnull final YamlRunner.YamlRunnerOptions yamlRunnerOption) {
-        return yamlRunnerOptions.contains(yamlRunnerOption);
+    public boolean shouldCorrectExplains() {
+        final var shouldCorrectExplains = (boolean)additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false);
+        Verify.verify(!shouldCorrectExplains || editedFileStream != null);
+        return shouldCorrectExplains;
     }
 
-    public boolean shouldCorrectExplains() {
-        Verify.verify(!yamlRunnerOptions.contains(YamlRunner.YamlRunnerOptions.CORRECT_EXPLAIN) ||
-                editedFileStream != null);
-        return testYamlRunnerOptions(YamlRunner.YamlRunnerOptions.CORRECT_EXPLAIN);
+    public boolean shouldCorrectMetrics() {
+        return (boolean)additionalOptions.getOrDefault(OPTION_CORRECT_METRICS, false);
+    }
+
+    public boolean shouldShowPlanOnDiff() {
+        return (boolean)additionalOptions.getOrDefault(OPTION_SHOW_PLAN_ON_DIFF, false);
     }
 
     public boolean correctExplain(int lineNumber, @Nonnull String actual) {
@@ -151,8 +153,13 @@ public final class YamlExecutionContext {
                                                             final int lineNumber,
                                                             @Nonnull final PlannerMetricsProto.Info info,
                                                             boolean isDirtyMetrics) {
-        this.isDirtyMetrics |= isDirtyMetrics;
         return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber), info);
+    }
+
+    @Nullable
+    @SuppressWarnings("UnusedReturnValue")
+    public synchronized void markDirty() {
+        this.isDirtyMetrics = true;
     }
 
     public boolean isNightly() {

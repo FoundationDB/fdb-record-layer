@@ -26,21 +26,17 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Mark specific {@link YamlTestConfig} as disabled for the current test in an {@link YamlTest} test class.
+ * Mark specific {@link YamlTestConfig} that are designated test maintenance helper configs as enabled for the current
+ * test in an {@link YamlTest} test class.
  * <p>
- *     Any config in {@link #value()} will be skipped for the annotated test.
+ *     Any config in {@link #value()} will be included for the annotated test. Any config not included will be skipped.
  * </p>
  */
 @Retention(RetentionPolicy.RUNTIME)
-public @interface ExcludeYamlTestConfig {
+public @interface MaintainYamlTestConfig {
     /**
-     * Any {@code YamlTestConfig} class in this list will skip the associated
+     * Any {@code YamlTestConfig} class in this list will run
      * {@link org.junit.jupiter.api.TestTemplate} test.
      */
     YamlTestConfigFilters value();
-
-    /**
-     * The reason this test is excluded for the given configs.
-     */
-    String reason();
 }

@@ -20,12 +20,6 @@
 
 syntax = "proto3";
 
-// make sure to use this package naming convention:
-// com.apple.foundationdb.relational.yamltests.generated.<name_of_test_suite>
-// adding "generated" is important to exclude the generated Java file from Jacoco reports.
-// suffixing the namespace with your test name is important for segregating similarly-named
-// generated-Java-classes (such as RecordTypeUnion) into separate packages, otherwise you
-// get an error from `protoc`.
 package com.apple.foundationdb.relational.yamltests.generated.stats;
 
 option java_outer_classname = "PlannerMetricsProto";

@@ -1,7 +1,7 @@
 ‰
 8
 catalog-tests'EXPLAIN select count(*) from databases;ß
-ö”–Ëä º–Ã(0ÆŒ+8%@óAISCAN(DATABASES_COUNT_INDEX <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ódigraph G {
+ö¨Ëúä îè‚(0Óü*8%@óAISCAN(DATABASES_COUNT_INDEX <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -17,7 +17,7 @@
 }¸
 §
 catalog-testsíEXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version) as t;“
-‘÷Û £ Õõ('0¶£(8)@AISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¿digraph G {
+‘Ç……	£ í“‚('0§Â8)@AISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -37,7 +37,7 @@
 }…
 ø
 catalog-tests≠EXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version having template_name = 't') as t;Ñ
-ﬂÔ„Í§ ¡¨“('0¬ *8*@çAISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)’digraph G {
+ﬂ˛˛÷§ ›ŒÕ('0∏Ë8*@çAISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -57,7 +57,7 @@
 }ú
 ÿ
 catalog-tests∆EXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version having template_name = 't' and template_version = 1) as t;æ
-ﬂ€îü§ ˙Õ¿('0Ì™"8*@™AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING), EQUALS promote(@c33 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Údigraph G {
+ﬂïËã§ Ü¢Å('0ˆÅ8*@™AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING), EQUALS promote(@c33 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -77,8 +77,7 @@
 }≥
 ù
 catalog-testsãEXPLAIN select count(*) from (select count(*), template_name, template_version from schemas group by template_name, template_version) as t;ê
-‘˙≠–
-£ Ûúì('0‡…8)@ëAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS _0, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)›digraph G {
+‘¿Û≤£ ’£∫('0ÑË8)@ëAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS _0, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -98,7 +97,7 @@
 }”
 ª
 catalog-tests©EXPLAIN select template_name, template_version from (select count(*) as cnt, template_name, template_version from schemas group by template_name, template_version) as t;í
-–Õ¬“	u ˝ˆø("0ö˘8@ÌAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_.TEMPLATE_NAME AS TEMPLATE_NAME, _.TEMPLATE_VERSION AS TEMPLATE_VERSION)Ñdigraph G {
+–§´–	u ¶¥è("0±¶8@ÌAISCAN(TEMPLATES_COUNT_INDEX <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_.TEMPLATE_NAME AS TEMPLATE_NAME, _.TEMPLATE_VERSION AS TEMPLATE_VERSION)Ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -112,7 +111,7 @@
 }‘
 `
 catalog-testsOEXPLAIN select database_id, schema_name from schemas where template_name = 't';Ô
-Ÿ£î∆Ä ÁÔÄ(%0®‚%8,@‚COVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)Î
+ŸÆ≠ÈÄ ”™Ò(%0èí"8,@‚COVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)Î
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -125,7 +124,7 @@ digraph G {
 }ß
 y
 catalog-testshEXPLAIN select database_id, schema_name from schemas where template_name = 't' and template_version = 3;©
-ŸÒ˚ΩÄ ©í«(%0â√38,@ˇCOVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS INT)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)àdigraph G {
+Ÿä£πÄ «ª”(%0Íﬂ18,@ˇCOVERING(TEMPLATES_VALUE_INDEX [EQUALS promote(@c10 AS STRING), EQUALS promote(@c14 AS INT)] -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | MAP (_.DATABASE_ID AS DATABASE_ID, _.SCHEMA_NAME AS SCHEMA_NAME)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

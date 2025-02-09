@@ -3,9 +3,9 @@ disable-index-tests-proto:
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE
         AS TOMBSTONE)
     task_count: 203
-    task_total_time_ms: 10
+    task_total_time_ms: 6
     transform_count: 60
-    transform_time_ms: 5
+    transform_time_ms: 1
     transform_yield_count: 12
     insert_time_ms: 0
     insert_new_count: 15
@@ -14,7 +14,7 @@ disable-index-tests-proto:
     explain: SCAN(<,>) | TFILTER T1 | FILTER _.TOMBSTONE NOT_NULL | MAP (_.TOMBSTONE
         AS TOMBSTONE)
     task_count: 203
-    task_total_time_ms: 10
+    task_total_time_ms: 2
     transform_count: 60
     transform_time_ms: 1
     transform_yield_count: 12
@@ -25,9 +25,9 @@ disable-index-tests-proto:
     explain: 'COVERING(T2$TOMBSTONE [[null],[null]] -> [ID: KEY[1], TOMBSTONE: KEY[0]])
         | MAP (_.TOMBSTONE AS TOMBSTONE)'
     task_count: 465
-    task_total_time_ms: 9
+    task_total_time_ms: 13
     transform_count: 123
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 44
@@ -36,7 +36,7 @@ disable-index-tests-proto:
     explain: 'COVERING(T2$TOMBSTONE ([null],> -> [ID: KEY[1], TOMBSTONE: KEY[0]])
         | MAP (_.TOMBSTONE AS TOMBSTONE)'
     task_count: 465
-    task_total_time_ms: 15
+    task_total_time_ms: 13
     transform_count: 124
     transform_time_ms: 3
     transform_yield_count: 33
@@ -47,9 +47,9 @@ disable-index-tests-proto:
     explain: SCAN(<,>) | TFILTER T3 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE
         AS TOMBSTONE)
     task_count: 203
-    task_total_time_ms: 10
+    task_total_time_ms: 6
     transform_count: 60
-    transform_time_ms: 5
+    transform_time_ms: 1
     transform_yield_count: 12
     insert_time_ms: 0
     insert_new_count: 15
@@ -58,9 +58,9 @@ disable-index-tests-proto:
     explain: SCAN(<,>) | TFILTER T3 | FILTER _.TOMBSTONE NOT_NULL | MAP (_.TOMBSTONE
         AS TOMBSTONE)
     task_count: 203
-    task_total_time_ms: 10
+    task_total_time_ms: 6
     transform_count: 60
-    transform_time_ms: 5
+    transform_time_ms: 1
     transform_yield_count: 12
     insert_time_ms: 0
     insert_new_count: 15

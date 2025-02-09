@@ -2,7 +2,8 @@
 V
 	unnamed-1IEXPLAIN select id from t3 where tombstone = true or tombstone is not nullæ
 
-≤üŸò	Y ”ßù(0∂08@3COVERING(I4 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)Î	digraph G {
+≤˝ÿµ
+Y ±‰Ì(0“˛78@3COVERING(I4 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)Î	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -14,7 +15,7 @@ V
 }Ó
 E
 	unnamed-18EXPLAIN select tombstone from t2 where tombstone is null§
-œœÜ°> ÇÇ‚(0‘Ø8@TSCAN(<,>) | TFILTER T2 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)∞digraph G {
+œÑ∆·> «ä©(0⁄” 8@TSCAN(<,>) | TFILTER T2 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -31,7 +32,7 @@ E
 I
 	unnamed-1<EXPLAIN select tombstone from t2 where tombstone is not null˝
 
-≤¯˘ùX Ä€ö(0ﬂ§*8@ZCOVERING(I3 ([null],> -> [ID: KEY[2], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE AS TOMBSTONE)É
+≤¡ÒêX Àåƒ(0¡’8@ZCOVERING(I3 ([null],> -> [ID: KEY[2], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE AS TOMBSTONE)É
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -45,7 +46,8 @@ digraph G {
 C
 	unnamed-16EXPLAIN select id from t5 where col1 < 40 or col1 > 90æ
 
-≤§É¿Y ‡ÁÜ(0€¬O8@3COVERING(I6 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)Î	digraph G {
+≤ßØ∞
+Y æ∑–(0¡–-8@3COVERING(I6 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)Î	digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -57,7 +59,7 @@ C
 }≈
 @
 sparse-index-tests*EXPLAIN select id from t1 where col1 < 100Ä
-ô‹˚Âs ¬…†( 0ÇÊ#8%@_COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
+ôâïès ⁄Ä±( 0ÀÅ!8%@_COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -70,7 +72,7 @@ digraph G {
 }≈
 @
 sparse-index-tests*EXPLAIN select id from t1 where col1 < 453Ä
-∂‘ÌŒZ ÷à†(0·Ä8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
+∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -83,7 +85,7 @@ digraph G {
 }≤
 P
 sparse-index-tests:EXPLAIN select col1 from t1 where col1 > 55 and col1 < 100›
-ôƒ§¸s âŸ·( 0íæ8%@àCOVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
+ôÎ‚ùs ¿ÏΩ( 0πÓ8%@àCOVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -96,7 +98,7 @@ digraph G {
 }≤
 P
 sparse-index-tests:EXPLAIN select col1 from t1 where col1 > 55 and col1 < 199›
-ôƒ§¸s âŸ·( 0íæ8%@àCOVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
+ôÎ‚ùs ¿ÏΩ( 0πÓ8%@àCOVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -109,7 +111,7 @@ digraph G {
 }≤
 P
 sparse-index-tests:EXPLAIN select col1 from t1 where col1 > 50 and col1 < 350›
-∂Ç™ÌZ Óæù(0Œ8@àCOVERING(I2 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
+∂ò¿éZ ¨ôÁ(0≤8@àCOVERING(I2 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -122,7 +124,7 @@ digraph G {
 }œ
 J
 sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 200Ä
-ô‹˚Âs ¬…†( 0ÇÊ#8%@_COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
+ôâïès ⁄Ä±( 0ÀÅ!8%@_COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -135,7 +137,7 @@ digraph G {
 }œ
 J
 sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 201Ä
-∂‘ÌŒZ ÷à†(0·Ä8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
+∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -148,7 +150,7 @@ digraph G {
 }œ
 J
 sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 250Ä
-∂‘ÌŒZ ÷à†(0·Ä8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
+∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -161,7 +163,7 @@ digraph G {
 }œ
 J
 sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 500Ä
-∂‘ÌŒZ ÷à†(0·Ä8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
+∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -174,7 +176,8 @@ digraph G {
 }«
 9
 sparse-index-tests-with-dataEXPLAIN select id from t1â
-ã„„Â- ã©Ö(0‰ì8	@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)¿digraph G {
+ãÎ£À- œ¯Ñ(0°∆
+8	@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
