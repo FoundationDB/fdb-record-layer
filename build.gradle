@@ -205,6 +205,7 @@ subprojects {
     ext {
         coreProjectName = "fdb-record-layer-core"
         shadedProjectName = "fdb-record-layer-core-shaded"
+        publishLibrary = true
     }
 
     artifacts {
