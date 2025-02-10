@@ -104,6 +104,11 @@ public final class YamlExecutionContext {
                 .thenComparing(QueryAndLocation::getQuery));
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
+            if (shouldCorrectExplains() || shouldCorrectMetrics()) {
+                logger.error("‼️ Explain and/or planner metrics cannot be modified during nightly runs.");
+                Assertions.fail("‼️ Explain or planner metrics cannot be modified during nightly runs. " +
+                        "Make sure maintenance annotations have not been checked in.");
+            }
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
             getNightlyRepetition().ifPresent(rep -> logger.info("ℹ️ Running with high repetition value set to " + rep));
         }

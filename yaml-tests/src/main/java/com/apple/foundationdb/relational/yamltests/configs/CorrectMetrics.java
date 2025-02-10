@@ -1,5 +1,5 @@
 /*
- * ForceContinuations.java
+ * CorrectMetrics.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,7 +29,7 @@ import java.util.Map;
  * A configuration that runs an underlying configuration, but heals expected explains in YAML files where
  * expected and actual explains differ.
  * <p>
- *     See {@link YamlExecutionContext#OPTION_CORRECT_EXPLAIN}.
+ *     See {@link YamlExecutionContext#OPTION_CORRECT_METRICS}.
  * </p>
  */
 public class CorrectMetrics extends ConfigWithOptions {

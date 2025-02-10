@@ -1,5 +1,5 @@
 /*
- * CorrectExplainsAndMetrics.java
+ * ShowPlanOnDiff.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,15 +26,14 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
- * A configuration that runs an underlying configuration, but heals expected explains in YAML files where
+ * A configuration that runs an underlying configuration, but shows the dots of the expected and the actual plan where
  * expected and actual explains differ.
  * <p>
- *     See {@link YamlExecutionContext#OPTION_CORRECT_EXPLAIN} and {@link YamlExecutionContext#OPTION_CORRECT_METRICS}.
+ *     See {@link YamlExecutionContext#OPTION_SHOW_PLAN_ON_DIFF}.
  * </p>
  */
-public class CorrectExplainsAndMetrics extends ConfigWithOptions {
-    public CorrectExplainsAndMetrics(@Nonnull final YamlTestConfig underlying) {
-        super(underlying, Map.of(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, true,
-                YamlExecutionContext.OPTION_CORRECT_METRICS, true));
+public class ShowPlanOnDiff extends ConfigWithOptions {
+    public ShowPlanOnDiff(@Nonnull final YamlTestConfig underlying) {
+        super(underlying, Map.of(YamlExecutionContext.OPTION_SHOW_PLAN_ON_DIFF, true));
     }
 }

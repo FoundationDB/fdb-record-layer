@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ForceContinuations;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
+import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -75,7 +76,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             maintainConfigs = List.of(
                     new CorrectExplains(new EmbeddedConfig()),
                     new CorrectMetrics(new EmbeddedConfig()),
-                    new CorrectExplainsAndMetrics(new EmbeddedConfig())
+                    new CorrectExplainsAndMetrics(new EmbeddedConfig()),
+                    new ShowPlanOnDiff(new EmbeddedConfig())
             );
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
