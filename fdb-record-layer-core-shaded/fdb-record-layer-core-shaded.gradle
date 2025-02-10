@@ -32,6 +32,10 @@ shadowJar {
     setArchiveClassifier(null)
     relocate 'com.google', 'com.apple.foundationdb.record.shaded.com.google'
     dependencies {
+        // Exclude transitive information from the guava dependency to avoid
+        // confusing tooling inspecting the jar
+        exclude "META-INF/maven/**"
+
         include(dependency(coreProject))
         include(dependency(':fdb-extensions'))
         include(dependency('com.google.guava:guava'))
