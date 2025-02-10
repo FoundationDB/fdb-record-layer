@@ -5,6 +5,10 @@ inputs:
     description: 'Version of FDB to run'
     required: false
     default: "7.3.42"
+  gradle_command:
+    description: 'Gradle command to run'
+    default: build destructiveTest
+    required: false
   gradle_args:
     description: 'Gradle arguments for running'
     required: true
@@ -15,7 +19,7 @@ runs:
   - name: Run build and test
     uses: ./actions/run-gradle
     with:
-      gradle_command: build destructiveTest -PcoreNotStrict ${{ inputs.gradle_args }}
+      gradle_command: ${{ inputs.gradle_command }} -PcoreNotStrict ${{ inputs.gradle_args }}
   - name: Copy Test Reports
     shell: bash
     if: always()
