@@ -1,191 +1,0 @@
-ô
-V
-	unnamed-1IEXPLAIN select id from t3 where tombstone = true or tombstone is not nullæ
-
-≤˝ÿµ
-Y ±‰Ì(0“˛78@3COVERING(I4 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)Î	digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q37.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ó
-E
-	unnamed-18EXPLAIN select tombstone from t2 where tombstone is null§
-œÑ∆·> «ä©(0⁄” 8@TSCAN(<,>) | TFILTER T2 | FILTER _.TOMBSTONE IS_NULL | MAP (_.TOMBSTONE AS TOMBSTONE)∞digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q25.TOMBSTONE AS TOMBSTONE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS TOMBSTONE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.TOMBSTONE IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T5, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q21> label="q21" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}À
-I
-	unnamed-1<EXPLAIN select tombstone from t2 where tombstone is not null˝
-
-≤¡ÒêX Àåƒ(0¡’8@ZCOVERING(I3 ([null],> -> [ID: KEY[2], TOMBSTONE: KEY[0]]) | MAP (_.TOMBSTONE AS TOMBSTONE)É
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q39.TOMBSTONE AS TOMBSTONE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS TOMBSTONE)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: ((null), ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ü
-C
-	unnamed-16EXPLAIN select id from t5 where col1 < 40 or col1 > 90æ
-
-≤ßØ∞
-Y æ∑–(0¡–-8@3COVERING(I6 <,> -> [ID: KEY[0]]) | MAP (_.ID AS ID)Î	digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q37.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I6</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≈
-@
-sparse-index-tests*EXPLAIN select id from t1 where col1 < 100Ä
-ôâïès ⁄Ä±( 0ÀÅ!8%@_COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≈
-@
-sparse-index-tests*EXPLAIN select id from t1 where col1 < 453Ä
-∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
-P
-sparse-index-tests:EXPLAIN select col1 from t1 where col1 > 55 and col1 < 100›
-ôÎ‚ùs ¿ÏΩ( 0πÓ8%@àCOVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.COL1 AS COL1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS COL1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c8 AS INT) &amp;&amp; LESS_THAN promote(@c12 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
-P
-sparse-index-tests:EXPLAIN select col1 from t1 where col1 > 55 and col1 < 199›
-ôÎ‚ùs ¿ÏΩ( 0πÓ8%@àCOVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.COL1 AS COL1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS COL1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c8 AS INT) &amp;&amp; LESS_THAN promote(@c12 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
-P
-sparse-index-tests:EXPLAIN select col1 from t1 where col1 > 50 and col1 < 350›
-∂ò¿éZ ¨ôÁ(0≤8@àCOVERING(I2 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.COL1 AS COL1)¥
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.COL1 AS COL1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS COL1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c8 AS INT) &amp;&amp; LESS_THAN promote(@c12 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}œ
-J
-sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 200Ä
-ôâïès ⁄Ä±( 0ÀÅ!8%@_COVERING(I1 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}œ
-J
-sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 201Ä
-∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}œ
-J
-sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 250Ä
-∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}œ
-J
-sparse-index-tests-with-data*EXPLAIN select id from t1 where col1 < 500Ä
-∂ˆ¯⁄Z ÌØ√(0≤∫8@_COVERING(I2 [[LESS_THAN promote(@c8 AS INT)]] -> [COL1: KEY[0], ID: KEY[2]]) | MAP (_.ID AS ID)Å
-digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q45.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c8 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}«
-9
-sparse-index-tests-with-dataEXPLAIN select id from t1â
-ãÎ£À- œ¯Ñ(0°∆
-8	@)SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID)¿digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T5, T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}

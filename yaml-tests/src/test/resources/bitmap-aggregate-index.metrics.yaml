@@ -4,9 +4,9 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) |
         MAP (_._1 AS BITMAP, _._0 AS OFFSET)'
     task_count: 361
-    task_total_time_ms: 33
+    task_total_time_ms: 38
     transform_count: 125
-    transform_time_ms: 22
+    transform_time_ms: 26
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 24
@@ -16,9 +16,9 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
         | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)'
     task_count: 361
-    task_total_time_ms: 31
+    task_total_time_ms: 38
     transform_count: 125
-    transform_time_ms: 21
+    transform_time_ms: 24
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 24
@@ -29,9 +29,9 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) |
         MAP (_._1 AS BITMAP, _._0 AS OFFSET)'
     task_count: 361
-    task_total_time_ms: 17
+    task_total_time_ms: 36
     transform_count: 125
-    transform_time_ms: 10
+    transform_time_ms: 24
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 24
@@ -42,9 +42,9 @@ bitmap-agg-index-tests:
     explain: 'AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
         | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)'
     task_count: 361
-    task_total_time_ms: 36
+    task_total_time_ms: 33
     transform_count: 125
-    transform_time_ms: 23
+    transform_time_ms: 22
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 24
@@ -55,9 +55,9 @@ bitmap-agg-index-tests:
         bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset
         10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)
     task_count: 220
-    task_total_time_ms: 18
+    task_total_time_ms: 11
     transform_count: 72
-    transform_time_ms: 11
+    transform_time_ms: 5
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 16
@@ -69,9 +69,9 @@ bitmap-agg-index-tests:
         bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY,
         _._0._1 AS OFFSET)
     task_count: 220
-    task_total_time_ms: 10
+    task_total_time_ms: 16
     transform_count: 72
-    transform_time_ms: 5
+    transform_time_ms: 7
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 16

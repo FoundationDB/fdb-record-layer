@@ -7,9 +7,9 @@ unnamed-1:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 676
-    task_total_time_ms: 12
+    task_total_time_ms: 25
     transform_count: 237
-    transform_time_ms: 5
+    transform_time_ms: 7
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 53
@@ -23,7 +23,7 @@ unnamed-1:
         _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS S)
     task_count: 738
-    task_total_time_ms: 13
+    task_total_time_ms: 21
     transform_count: 252
     transform_time_ms: 5
     transform_yield_count: 44
