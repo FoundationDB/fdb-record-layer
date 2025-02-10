@@ -668,17 +668,17 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>);
         final var value = ((LiteralValue<?>) underlying).getLiteralValue();
         Assert.notNullUnchecked(value, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
-                () -> String.format(Locale.ROOT, "limit value out of range [1, %s]", Integer.MAX_VALUE));
+                () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
         if (value.getClass() == Integer.class) {
             Assert.thatUnchecked(minInclusive <= ((Integer) value) && ((Integer) value) <= maxInclusive,
                     ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
-                    () -> String.format(Locale.ROOT, "limit value out of range [1, %s]", Integer.MAX_VALUE));
+                    () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
             return;
         }
         if (value.getClass() == Long.class) {
             Assert.thatUnchecked(minInclusive <= ((Long) value) && ((Long) value) <= maxInclusive,
                     ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
-                    () -> String.format(Locale.ROOT, "limit value out of range [1, %s]", Integer.MAX_VALUE));
+                    () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
             return;
         }
         Assert.failUnchecked("unexpected limit type " + value.getClass());
