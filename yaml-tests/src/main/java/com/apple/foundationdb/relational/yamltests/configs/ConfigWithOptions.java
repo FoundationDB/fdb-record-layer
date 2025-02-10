@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import javax.annotation.Nonnull;
@@ -33,13 +34,11 @@ public class ConfigWithOptions implements YamlTestConfig {
     @Nonnull
     private final YamlTestConfig underlying;
     @Nonnull
-    private final Map<String, Object> runnerOptions;
+    private final YamlExecutionContext.ContextOptions runnerOptions;
 
-    public ConfigWithOptions(@Nonnull final YamlTestConfig underlying, @Nonnull Map<String, Object> newOptions) {
+    public ConfigWithOptions(@Nonnull final YamlTestConfig underlying, @Nonnull YamlExecutionContext.ContextOptions newOptions) {
         this.underlying = underlying;
-        final HashMap<String, Object> options = new HashMap<>(underlying.getRunnerOptions());
-        options.putAll(newOptions);
-        this.runnerOptions = Map.copyOf(options);
+        this.runnerOptions = underlying.getRunnerOptions().mergeFrom(newOptions);
     }
 
 
@@ -49,7 +48,7 @@ public class ConfigWithOptions implements YamlTestConfig {
     }
 
     @Override
-    public @Nonnull Map<String, Object> getRunnerOptions() {
+    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
         return runnerOptions;
     }
 

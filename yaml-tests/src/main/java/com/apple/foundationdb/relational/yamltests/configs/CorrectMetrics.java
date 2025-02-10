@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 
 /**
  * A configuration that runs an underlying configuration, but heals expected explains in YAML files where
@@ -34,6 +33,6 @@ import java.util.Map;
  */
 public class CorrectMetrics extends ConfigWithOptions {
     public CorrectMetrics(@Nonnull final YamlTestConfig underlying) {
-        super(underlying, Map.of(YamlExecutionContext.OPTION_CORRECT_METRICS, true));
+        super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_CORRECT_METRICS, true));
     }
 }
