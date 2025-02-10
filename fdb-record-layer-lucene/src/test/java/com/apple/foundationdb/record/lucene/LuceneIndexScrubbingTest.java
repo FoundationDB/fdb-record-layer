@@ -52,7 +52,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
-    TestingIndexMaintainerRegistry registry;
+    private TestingIndexMaintainerRegistry registry;
+    private boolean flipBoolean = false;
 
     @BeforeEach
     public void beforeEach() {
@@ -65,11 +66,16 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         this.planner = pair.getRight();
     }
 
-    public static Stream<Arguments> threeBooleanArgs() {
+    private static Stream<Arguments> threeBooleanArgs() {
         return Stream.of(false, true)
                 .flatMap(isSynthetic -> Stream.of(false, true)
                         .flatMap(isPartitioned -> Stream.of(false, true)
                                 .map(isGrouped -> Arguments.of(isSynthetic, isGrouped, isPartitioned))));
+    }
+
+    private boolean yinYang() {
+        flipBoolean = !flipBoolean;
+        return flipBoolean;
     }
 
     @Nonnull
@@ -91,10 +97,8 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 .setPartitionHighWatermark(isPartitioned ? 5 : 0)
                 .build();
 
-        boolean flipFlop = false;
         for (int i = 0; i < 14; i++) {
-            dataModel.setReverseSaveOrder(flipFlop);
-            flipFlop = !flipFlop;
+            dataModel.setReverseSaveOrder(yinYang());
             try (final FDBRecordContext context = openContext()) {
                 dataModel.saveRecords(7, context, i / 6);
                 context.commit();
@@ -108,6 +112,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             dataModel.explicitMergeIndex(context, timer);
+            context.commit();
         }
         try (final FDBRecordContext context = openContext()) {
             FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
@@ -176,39 +181,36 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 .setPartitionHighWatermark(isPartitioned ? 5 : 0)
                 .build();
 
-        try (final FDBRecordContext context = openContext()) {
-            context.commit();
-        }
-
         final InjectedFailureRepository injectedFailures = new InjectedFailureRepository();
         registry.overrideFactory(new MockedLuceneIndexMaintainerFactory(injectedFailures));
 
-        boolean flipFlop = false;
         for (int i = 0; i < 14; i++) {
-            dataModel.setReverseSaveOrder(flipFlop);
-            flipFlop = !flipFlop;
+            dataModel.setReverseSaveOrder(yinYang());
             try (final FDBRecordContext context = openContext()) {
                 dataModel.saveRecords(7, context, i / 6);
                 context.commit();
             }
         }
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
-            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
-            context.commit();
-        }
 
         try (final FDBRecordContext context = openContext()) {
             dataModel.explicitMergeIndex(context, timer);
+            context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
             // Write some documents
             dataModel.saveRecordsToAllGroups(7, context);
+            context.commit();
         }
 
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
+            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
+            context.commit();
+        }
         try (final FDBRecordContext context = openContext()) {
             dataModel.explicitMergeIndex(context, timer);
+            context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
@@ -229,6 +231,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             dataModel.explicitMergeIndex(context, timer);
+            context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
