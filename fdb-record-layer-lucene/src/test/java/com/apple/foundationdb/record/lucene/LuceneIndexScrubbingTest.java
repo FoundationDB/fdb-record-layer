@@ -73,11 +73,6 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                                 .map(isGrouped -> Arguments.of(isSynthetic, isGrouped, isPartitioned))));
     }
 
-    private boolean yinYang() {
-        flipBoolean = !flipBoolean;
-        return flipBoolean;
-    }
-
     @Nonnull
     protected FDBRecordStore.Builder getStoreBuilderWithRegistry(@Nonnull FDBRecordContext context,
                                                                  @Nonnull RecordMetaDataProvider metaData,
@@ -98,16 +93,10 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                 .build();
 
         for (int i = 0; i < 14; i++) {
-            dataModel.setReverseSaveOrder(yinYang());
             try (final FDBRecordContext context = openContext()) {
                 dataModel.saveRecords(7, context, i / 6);
                 context.commit();
             }
-        }
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
-            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
-            context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
@@ -184,36 +173,20 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         final InjectedFailureRepository injectedFailures = new InjectedFailureRepository();
         registry.overrideFactory(new MockedLuceneIndexMaintainerFactory(injectedFailures));
 
-        for (int i = 0; i < 14; i++) {
-            dataModel.setReverseSaveOrder(yinYang());
-            try (final FDBRecordContext context = openContext()) {
-                dataModel.saveRecords(7, context, i / 6);
-                context.commit();
-            }
-        }
-
-        try (final FDBRecordContext context = openContext()) {
-            dataModel.explicitMergeIndex(context, timer);
-            context.commit();
-        }
-
         try (final FDBRecordContext context = openContext()) {
             // Write some documents
-            dataModel.saveRecordsToAllGroups(7, context);
+            dataModel.saveRecordsToAllGroups(17, context);
             context.commit();
         }
 
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
-            dataModel.sampleRecordsUnderTest().forEach(sampleRecord -> sampleRecord.deleteRecord(recordStore).join());
-            context.commit();
-        }
         try (final FDBRecordContext context = openContext()) {
             dataModel.explicitMergeIndex(context, timer);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
+            // By saving records with both setReverseSaveOrder true and false, we ensure that records
+            // are in the oldest and most-recent partitions (if there are partitions)
             dataModel.setReverseSaveOrder(true);
             dataModel.saveRecords(7, context, 1);
             dataModel.setReverseSaveOrder(false);
