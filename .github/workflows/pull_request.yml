@@ -9,9 +9,9 @@ jobs:
   #  1. style: Runs all checks on the build (including compilation static analysis) except the tests
   #     This allows us to catch anything related to build and style faster, as we don't have to wait
   #     on tests to complete. It also allows the test jobs to continue even if there's a style failure.
-  #  2. core-tests: Runs the fdb-record-layer-core tests. This is the longest one of the tests, so
-  #     separating it out allows us to speed up the PRB time.
-  #  3. other-tests: Runs the rest of the tests. This completes the build steps.
+  #  2. core-tests: Runs the fdb-record-layer-core tests. This is the longest test suite of the
+  #     various subprojects, so separating it out allows us to speed up the PRB time.
+  #  3. other-tests: Runs the rest of the tests. This tests everything else
 
   style:
     runs-on: ubuntu-latest
@@ -27,7 +27,7 @@ jobs:
       - name: Run Gradle Build
         uses: ./actions/run-gradle
         with:
-          gradle_command: build -x test -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+          gradle_command: build -x test -x destructiveTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
 
   core-tests:
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
       uses: ./actions/gradle-test
       with:
         gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
-        gradle_args: -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+        gradle_args: -PreleaseBuild=false -PpublishBuild=false
     - name: Publish Test Reports
       if: always()
       uses: actions/upload-artifact@v4.6.0
@@ -86,7 +86,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: test -x :fdb-record-layer-core:test destructiveTest -x :fdb-record-layer-core:destructiveTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
