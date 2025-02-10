@@ -179,7 +179,7 @@ tasks.withType(Test) { theTask ->
             failures.append(
                 "<details>\n" +
                     "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
-                    "(${duration}ms)\n" +
+                    "(${duration}ms)\n\n" + // blank line is required for ``` to work
                     "```\n${result.getException().asString()}\n```\n" +
                 "</details>\n")
         }
