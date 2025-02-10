@@ -164,7 +164,7 @@ tasks.withType(Test) { theTask ->
         }
         if (!summary.exists()) {
             summary.append("|Test run|❌|⚠️|✅|time|\n")
-            summary.append("|--|--|--️|--|--|\n")
+            summary.append("|-|-|-|-|-|\n")
         }
     }
 
