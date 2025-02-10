@@ -21,18 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
