@@ -5,7 +5,7 @@ agg-empty-table-tests:
     task_count: 263
     task_total_time_ms: 4
     transform_count: 87
-    transform_time_ms: 1
+    transform_time_ms: 0
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 22
@@ -15,9 +15,9 @@ agg-empty-table-tests:
         MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 335
-    task_total_time_ms: 2
+    task_total_time_ms: 9
     transform_count: 106
-    transform_time_ms: 0
+    transform_time_ms: 2
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 28
@@ -27,9 +27,9 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 335
-    task_total_time_ms: 3
+    task_total_time_ms: 9
     transform_count: 106
-    transform_time_ms: 0
+    transform_time_ms: 2
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 28
@@ -38,9 +38,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 450
-    task_total_time_ms: 9
+    task_total_time_ms: 21
     transform_count: 158
-    transform_time_ms: 5
+    transform_time_ms: 12
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 37
@@ -50,9 +50,9 @@ agg-empty-table-tests:
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
     task_count: 538
-    task_total_time_ms: 24
+    task_total_time_ms: 31
     transform_count: 182
-    transform_time_ms: 13
+    transform_time_ms: 20
     transform_yield_count: 60
     insert_time_ms: 0
     insert_new_count: 43
@@ -62,9 +62,9 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 393
-    task_total_time_ms: 6
+    task_total_time_ms: 27
     transform_count: 135
-    transform_time_ms: 4
+    transform_time_ms: 19
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 28
@@ -73,9 +73,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 259
-    task_total_time_ms: 12
+    task_total_time_ms: 17
     transform_count: 97
-    transform_time_ms: 7
+    transform_time_ms: 12
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 12
@@ -84,9 +84,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 259
-    task_total_time_ms: 12
+    task_total_time_ms: 8
     transform_count: 97
-    transform_time_ms: 7
+    transform_time_ms: 5
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 12
@@ -95,9 +95,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 259
-    task_total_time_ms: 10
+    task_total_time_ms: 16
     transform_count: 97
-    transform_time_ms: 7
+    transform_time_ms: 9
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 12
@@ -106,7 +106,7 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 509
-    task_total_time_ms: 10
+    task_total_time_ms: 14
     transform_count: 151
     transform_time_ms: 3
     transform_yield_count: 44
@@ -118,11 +118,11 @@ agg-empty-table-tests:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 730
-    task_total_time_ms: 13
+    task_total_time_ms: 24
     transform_count: 215
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 50
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 79
     insert_reused_count: 5
 -   query: EXPLAIN select count(*) from T3 where col1 > 0;
@@ -130,7 +130,7 @@ agg-empty-table-tests:
         AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)
     task_count: 757
-    task_total_time_ms: 20
+    task_total_time_ms: 21
     transform_count: 218
     transform_time_ms: 5
     transform_yield_count: 53
@@ -141,9 +141,9 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
         (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 220
-    task_total_time_ms: 5
+    task_total_time_ms: 7
     transform_count: 72
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 16
@@ -152,9 +152,9 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 317
-    task_total_time_ms: 6
+    task_total_time_ms: 12
     transform_count: 97
-    transform_time_ms: 2
+    transform_time_ms: 4
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 26
@@ -163,9 +163,9 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 317
-    task_total_time_ms: 7
+    task_total_time_ms: 17
     transform_count: 97
-    transform_time_ms: 3
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 26
@@ -174,9 +174,9 @@ agg-empty-table-tests:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0)
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 263
-    task_total_time_ms: 3
+    task_total_time_ms: 7
     transform_count: 87
-    transform_time_ms: 0
+    transform_time_ms: 1
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 22
@@ -186,7 +186,7 @@ agg-empty-table-tests:
         MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 335
-    task_total_time_ms: 7
+    task_total_time_ms: 5
     transform_count: 106
     transform_time_ms: 1
     transform_yield_count: 17
@@ -198,9 +198,9 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 335
-    task_total_time_ms: 3
+    task_total_time_ms: 4
     transform_count: 106
-    transform_time_ms: 0
+    transform_time_ms: 1
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 28
@@ -209,9 +209,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 450
-    task_total_time_ms: 19
+    task_total_time_ms: 23
     transform_count: 158
-    transform_time_ms: 11
+    transform_time_ms: 13
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 37
@@ -221,9 +221,9 @@ agg-empty-table-tests:
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)'
     task_count: 538
-    task_total_time_ms: 20
+    task_total_time_ms: 24
     transform_count: 182
-    transform_time_ms: 12
+    transform_time_ms: 15
     transform_yield_count: 60
     insert_time_ms: 0
     insert_new_count: 43
@@ -233,9 +233,9 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 393
-    task_total_time_ms: 13
+    task_total_time_ms: 10
     transform_count: 135
-    transform_time_ms: 10
+    transform_time_ms: 7
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 28
@@ -244,7 +244,7 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 259
-    task_total_time_ms: 7
+    task_total_time_ms: 8
     transform_count: 97
     transform_time_ms: 5
     transform_yield_count: 42
@@ -255,9 +255,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 259
-    task_total_time_ms: 13
+    task_total_time_ms: 18
     transform_count: 97
-    transform_time_ms: 10
+    transform_time_ms: 11
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 12
@@ -266,9 +266,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 259
-    task_total_time_ms: 11
+    task_total_time_ms: 16
     transform_count: 97
-    transform_time_ms: 7
+    transform_time_ms: 10
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 12
@@ -277,9 +277,9 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON
         EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 509
-    task_total_time_ms: 8
+    task_total_time_ms: 12
     transform_count: 151
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 44
     insert_time_ms: 0
     insert_new_count: 59
@@ -289,9 +289,9 @@ agg-empty-table-tests:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 730
-    task_total_time_ms: 26
+    task_total_time_ms: 21
     transform_count: 215
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 50
     insert_time_ms: 1
     insert_new_count: 79
@@ -301,9 +301,9 @@ agg-empty-table-tests:
         AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0)
     task_count: 757
-    task_total_time_ms: 23
+    task_total_time_ms: 25
     transform_count: 218
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 53
     insert_time_ms: 1
     insert_new_count: 84
@@ -312,9 +312,9 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
         BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 220
-    task_total_time_ms: 8
+    task_total_time_ms: 9
     transform_count: 72
-    transform_time_ms: 2
+    transform_time_ms: 3
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 16
@@ -323,9 +323,9 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 317
-    task_total_time_ms: 14
+    task_total_time_ms: 6
     transform_count: 97
-    transform_time_ms: 7
+    transform_time_ms: 2
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 26
@@ -335,9 +335,9 @@ agg-empty-table-tests:
         AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS
         _0)
     task_count: 317
-    task_total_time_ms: 6
+    task_total_time_ms: 15
     transform_count: 97
-    transform_time_ms: 2
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 26
@@ -346,7 +346,7 @@ agg-empty-table-tests:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0)
         | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 263
-    task_total_time_ms: 4
+    task_total_time_ms: 6
     transform_count: 87
     transform_time_ms: 1
     transform_yield_count: 15
@@ -370,7 +370,7 @@ agg-empty-table-tests:
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 335
-    task_total_time_ms: 7
+    task_total_time_ms: 4
     transform_count: 106
     transform_time_ms: 1
     transform_yield_count: 17
@@ -382,7 +382,7 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 335
-    task_total_time_ms: 6
+    task_total_time_ms: 3
     transform_count: 106
     transform_time_ms: 1
     transform_yield_count: 17
@@ -394,7 +394,7 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 335
-    task_total_time_ms: 6
+    task_total_time_ms: 9
     transform_count: 106
     transform_time_ms: 1
     transform_yield_count: 17
@@ -405,9 +405,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
     task_count: 450
-    task_total_time_ms: 19
+    task_total_time_ms: 13
     transform_count: 158
-    transform_time_ms: 12
+    transform_time_ms: 7
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 37
@@ -417,9 +417,9 @@ agg-empty-table-tests:
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 393
-    task_total_time_ms: 24
+    task_total_time_ms: 20
     transform_count: 135
-    transform_time_ms: 18
+    transform_time_ms: 14
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 28
@@ -429,11 +429,11 @@ agg-empty-table-tests:
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)'
     task_count: 538
-    task_total_time_ms: 28
+    task_total_time_ms: 35
     transform_count: 182
-    transform_time_ms: 16
+    transform_time_ms: 22
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 43
     insert_reused_count: 4
 -   query: EXPLAIN select sum(col1) from T2 where col1 > 0;
@@ -441,9 +441,9 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 393
-    task_total_time_ms: 22
+    task_total_time_ms: 23
     transform_count: 135
-    transform_time_ms: 16
+    transform_time_ms: 15
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 28
@@ -453,9 +453,9 @@ agg-empty-table-tests:
         | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS _0)
     task_count: 393
-    task_total_time_ms: 14
+    task_total_time_ms: 11
     transform_count: 135
-    transform_time_ms: 10
+    transform_time_ms: 7
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 28
@@ -464,9 +464,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 259
-    task_total_time_ms: 16
+    task_total_time_ms: 18
     transform_count: 97
-    transform_time_ms: 11
+    transform_time_ms: 12
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 12
@@ -475,9 +475,9 @@ agg-empty-table-tests:
     explain: 'AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 259
-    task_total_time_ms: 17
+    task_total_time_ms: 21
     transform_count: 97
-    transform_time_ms: 11
+    transform_time_ms: 15
     transform_yield_count: 42
     insert_time_ms: 0
     insert_new_count: 12
@@ -486,20 +486,20 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON
         EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 509
-    task_total_time_ms: 8
+    task_total_time_ms: 18
     transform_count: 151
-    transform_time_ms: 2
+    transform_time_ms: 5
     transform_yield_count: 44
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 59
     insert_reused_count: 6
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0;
     explain: ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 730
-    task_total_time_ms: 18
+    task_total_time_ms: 13
     transform_count: 215
-    transform_time_ms: 6
+    transform_time_ms: 3
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 79
@@ -508,20 +508,20 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 730
-    task_total_time_ms: 15
+    task_total_time_ms: 25
     transform_count: 215
-    transform_time_ms: 4
+    transform_time_ms: 7
     transform_yield_count: 50
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 79
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col1 > 0;
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 757
-    task_total_time_ms: 18
+    task_total_time_ms: 27
     transform_count: 218
-    transform_time_ms: 4
+    transform_time_ms: 7
     transform_yield_count: 53
     insert_time_ms: 1
     insert_new_count: 84
@@ -530,11 +530,11 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) |
         AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 757
-    task_total_time_ms: 22
+    task_total_time_ms: 15
     transform_count: 218
-    transform_time_ms: 7
+    transform_time_ms: 4
     transform_yield_count: 53
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 84
     insert_reused_count: 5
 -   query: EXPLAIN select sum(col1) from T3 where col1 = 0 group by col2;
@@ -542,9 +542,9 @@ agg-empty-table-tests:
         AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0
         AS _0)
     task_count: 299
-    task_total_time_ms: 9
+    task_total_time_ms: 17
     transform_count: 95
-    transform_time_ms: 3
+    transform_time_ms: 5
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 24
@@ -553,9 +553,9 @@ agg-empty-table-tests:
     explain: ISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
         AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
     task_count: 317
-    task_total_time_ms: 7
+    task_total_time_ms: 10
     transform_count: 97
-    transform_time_ms: 2
+    transform_time_ms: 4
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 26
@@ -565,9 +565,9 @@ agg-empty-table-tests:
         MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) |
         MAP (_._1._0 AS _0)
     task_count: 299
-    task_total_time_ms: 14
+    task_total_time_ms: 10
     transform_count: 95
-    transform_time_ms: 8
+    transform_time_ms: 4
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 24
@@ -577,9 +577,9 @@ agg-empty-table-tests:
         AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS
         _0)
     task_count: 317
-    task_total_time_ms: 10
+    task_total_time_ms: 17
     transform_count: 97
-    transform_time_ms: 3
+    transform_time_ms: 5
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 26

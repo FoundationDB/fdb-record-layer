@@ -2,50 +2,30 @@ unnamed-2:
 -   query: EXPLAIN select * from t where b + c > 7;
     explain: ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])
     task_count: 836
-    task_total_time_ms: 53
+    task_total_time_ms: 56
     transform_count: 269
-    transform_time_ms: 17
+    transform_time_ms: 21
     transform_yield_count: 75
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 83
     insert_reused_count: 10
 -   query: EXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;
     explain: ISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B
         + _.C AS SUM)
     task_count: 339
-    task_total_time_ms: 33
+    task_total_time_ms: 16
     transform_count: 107
-    transform_time_ms: 18
+    transform_time_ms: 6
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 28
     insert_reused_count: 2
--   query: EXPLAIN select * from t where d & 1 = 1;
-    explain: ISCAN(DMASK1 [EQUALS promote(@c8 AS LONG)])
-    task_count: 836
-    task_total_time_ms: 51
-    transform_count: 270
-    transform_time_ms: 23
-    transform_yield_count: 75
-    insert_time_ms: 2
-    insert_new_count: 83
-    insert_reused_count: 10
 -   query: EXPLAIN select * from t where d & 1 = 0;
     explain: ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])
     task_count: 836
-    task_total_time_ms: 27
+    task_total_time_ms: 58
     transform_count: 270
-    transform_time_ms: 12
-    transform_yield_count: 75
-    insert_time_ms: 2
-    insert_new_count: 83
-    insert_reused_count: 10
--   query: EXPLAIN select * from t where d & 2 = 2;
-    explain: ISCAN(DMASK2 [EQUALS promote(@c8 AS LONG)])
-    task_count: 836
-    task_total_time_ms: 52
-    transform_count: 270
-    transform_time_ms: 25
+    transform_time_ms: 22
     transform_yield_count: 75
     insert_time_ms: 3
     insert_new_count: 83
@@ -53,9 +33,9 @@ unnamed-2:
 -   query: EXPLAIN select * from t where d & 2 = 0;
     explain: ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])
     task_count: 836
-    task_total_time_ms: 54
+    task_total_time_ms: 59
     transform_count: 270
-    transform_time_ms: 20
+    transform_time_ms: 22
     transform_yield_count: 75
     insert_time_ms: 2
     insert_new_count: 83

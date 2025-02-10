@@ -35,6 +35,7 @@ import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -259,7 +260,7 @@ public abstract class QueryConfig {
                 }
 
                 final var actualPlannerMetrics = resultSet.getStruct(6);
-                if (actualPlannerMetrics != null) {
+                if (isExact && actualPlannerMetrics != null) {
                     Objects.requireNonNull(actualDot);
                     final var taskCount = actualPlannerMetrics.getLong(1);
                     Verify.verify(taskCount > 0);
@@ -287,28 +288,31 @@ public abstract class QueryConfig {
                         executionContext.markDirty();
                         logger.debug("⭐️ Successfully inserted new planner metrics at line {}", getLineNumber());
                     } else {
-                        final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
                         final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
+                        final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
+                        final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
+
                         boolean isDifferent =
-                                actualCountersAndTimers.getTaskCount() != expectedCountersAndTimers.getTaskCount()
-                                && log("‼️ taskCount differs; expected = " + expectedCountersAndTimers.getTaskCount() +
-                                        "; actual = " + actualCountersAndTimers.getTaskCount(), getLineNumber());
-                        isDifferent |=
-                                (actualCountersAndTimers.getTransformCount() != expectedCountersAndTimers.getTransformCount()
-                                        && log("‼️ transformCount differs; expected = " + expectedCountersAndTimers.getTransformCount() +
-                                        "; actual = " + actualCountersAndTimers.getTransformCount(), getLineNumber()));
-                        isDifferent |=
-                                (actualCountersAndTimers.getTransformYieldCount() != expectedCountersAndTimers.getTransformYieldCount()
-                                        && log("‼️ transformYieldCount differs; expected = " + expectedCountersAndTimers.getTransformYieldCount() +
-                                        "; actual = " + actualCountersAndTimers.getTransformYieldCount(), getLineNumber()));
-                        isDifferent |=
-                                (actualCountersAndTimers.getInsertNewCount() != expectedCountersAndTimers.getInsertNewCount()
-                                         && log("‼️ insertNewCount differs; expected = " + expectedCountersAndTimers.getInsertNewCount() +
-                                        "; actual = " + actualCountersAndTimers.getInsertNewCount(), getLineNumber()));
-                        isDifferent |=
-                                (actualCountersAndTimers.getInsertReusedCount() != expectedCountersAndTimers.getInsertReusedCount()
-                                         && log("‼️ insertReusedCount differs; expected = " + expectedCountersAndTimers.getInsertReusedCount() +
-                                        "; actual = " + actualCountersAndTimers.getInsertReusedCount(), getLineNumber()));
+                                isMetricDifferent(expectedCountersAndTimers,
+                                        actualCountersAndTimers,
+                                        metricsDescriptor.findFieldByName("task_count"),
+                                        lineNumber) |
+                                        isMetricDifferent(expectedCountersAndTimers,
+                                                actualCountersAndTimers,
+                                                metricsDescriptor.findFieldByName("transform_count"),
+                                                lineNumber) |
+                                        isMetricDifferent(expectedCountersAndTimers,
+                                                actualCountersAndTimers,
+                                                metricsDescriptor.findFieldByName("transform_yield_count"),
+                                                lineNumber) |
+                                        isMetricDifferent(expectedCountersAndTimers,
+                                                actualCountersAndTimers,
+                                                metricsDescriptor.findFieldByName("insert_new_count"),
+                                                lineNumber) |
+                                        isMetricDifferent(expectedCountersAndTimers,
+                                                actualCountersAndTimers,
+                                                metricsDescriptor.findFieldByName("insert_reused_count"),
+                                                lineNumber);
                         executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, isDifferent);
                         if (isDifferent) {
                             if (executionContext.shouldCorrectMetrics()) {
@@ -324,9 +328,18 @@ public abstract class QueryConfig {
         };
     }
 
-    private static boolean log(@Nonnull final String message, int lineNumber) {
-        logger.error(message + lineNumber);
-        return true;
+    private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
+                                             @Nonnull final PlannerMetricsProto.CountersAndTimers actual,
+                                             @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
+                                             int lineNumber) {
+        final long expectedMetric = (long)expected.getField(fieldDescriptor);
+        final long actualMetric = (long)actual.getField(fieldDescriptor);
+        if (expectedMetric != actualMetric) {
+            logger.warn("‼️ metric {} differs; lineNumber = {}; expected = {}; actual = {}",
+                    fieldDescriptor.getName(), lineNumber, expectedMetric, actualMetric);
+            return true;
+        }
+        return false;
     }
 
     private static QueryConfig getCheckErrorConfig(@Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
