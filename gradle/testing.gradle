@@ -154,6 +154,10 @@ tasks.withType(Test) { theTask ->
         events 'failed'
         exceptionFormat = 'full'
     }
+    // This creates two reports to be picked up by the gradle actions (see actions/gradle-test/action.yml)
+    // We initialize the files here, to be filled out by test listeners below
+    // summary has a summary of all the test tasks we ran, and the success/skipped/failure counts & duration
+    // failures includes any failures that happened, with the stack trace
     def markdownReports = new File("$rootDir/.out/reports/")
     def summary = new File(markdownReports, "test-summary.md")
     def failures = new File(markdownReports, "test-failures.md")
