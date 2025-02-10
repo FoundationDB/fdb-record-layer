@@ -1,0 +1,32 @@
+unnamed-1:
+-   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
+        10 group by a union all select count(*) from t4) as X
+    explain: 'AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
+        _1: VALUE:[0]]) | MAP (_._1 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T4
+        | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
+        ON EMPTY NULL | MAP (_._0._0 AS S)'
+    task_count: 676
+    task_total_time_ms: 12
+    transform_count: 237
+    transform_time_ms: 5
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 53
+    insert_reused_count: 3
+-   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
+        select count(*) from t1) as X
+    explain: SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
+        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP
+        (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS
+        _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
+        _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0
+        AS S)
+    task_count: 738
+    task_total_time_ms: 13
+    transform_count: 252
+    transform_time_ms: 5
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 63
+    insert_reused_count: 5

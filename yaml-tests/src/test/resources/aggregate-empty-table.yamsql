@@ -32,6 +32,7 @@ schema_template:
     create index t3_i2 as select col2 from t3
 ---
 test_block:
+  name: agg-empty-table-tests
   tests:
     -
       - query: select count(*) from T1;
@@ -303,6 +304,7 @@ test_block:
       - count: 3
 ---
 test_block:
+  name: agg-empty-table-tests-after-modifications
   tests:
     -
       - query: select count(*) from T1;

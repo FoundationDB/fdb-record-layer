@@ -18,6 +18,7 @@ setup:
                    (250, 50)
 ---
 test_block:
+  name: recursive-cte-tests
   preset: single_repetition_ordered
   tests:
     -

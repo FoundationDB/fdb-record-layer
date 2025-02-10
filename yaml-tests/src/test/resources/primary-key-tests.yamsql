@@ -23,6 +23,7 @@ schema_template:
     create table t1(id s1, g bigint, primary key(id.a, id.b))
 ---
 test_block:
+  name: primary-key-tests
   preset: single_repetition_ordered
   tests:
     -
