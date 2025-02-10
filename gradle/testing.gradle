@@ -32,6 +32,7 @@ test {
         excludeTags 'WipesFDB'
         excludeTags 'AutomatedTest'
         excludeEngines 'auto-test'
+        includeTags 'Quicky'
     }
 }
 
