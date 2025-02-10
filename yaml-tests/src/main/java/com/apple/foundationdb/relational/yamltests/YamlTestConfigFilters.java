@@ -48,7 +48,7 @@ public enum YamlTestConfigFilters {
     DO_NOT_FORCE_CONTINUATIONS {
         @Override
         boolean filter(final YamlTestConfig config) {
-            return !(boolean)config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
+            return !config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
         }
     },
     /**
@@ -57,8 +57,8 @@ public enum YamlTestConfigFilters {
     CORRECT_EXPLAINS {
         @Override
         boolean filter(final YamlTestConfig config) {
-            return (boolean)config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
-                    !(boolean)config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
+                    !config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
         }
     },
     /**
@@ -67,8 +67,8 @@ public enum YamlTestConfigFilters {
     CORRECT_METRICS {
         @Override
         boolean filter(final YamlTestConfig config) {
-            return !(boolean)config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
-                    (boolean)config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
+            return !config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
+                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
         }
     },
     /**
@@ -77,8 +77,8 @@ public enum YamlTestConfigFilters {
     CORRECT_EXPLAIN_AND_METRICS {
         @Override
         boolean filter(final YamlTestConfig config) {
-            return (boolean)config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
-                    (boolean)config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
+                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
         }
     };
 

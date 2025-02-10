@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import javax.annotation.Nonnull;
@@ -29,7 +30,6 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -72,8 +72,8 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
-    public @Nonnull Map<String, Object> getRunnerOptions() {
-        return Map.of();
+    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+        return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
     }
 
     @Override

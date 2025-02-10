@@ -46,6 +46,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,10 +60,10 @@ import java.util.function.Supplier;
 public final class YamlExecutionContext {
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
-    public static final String OPTION_FORCE_CONTINUATIONS = "optionForceContinuations";
-    public static final String OPTION_CORRECT_EXPLAIN = "optionCorrectExplain";
-    public static final String OPTION_CORRECT_METRICS = "optionCorrectMetrics";
-    public static final String OPTION_SHOW_PLAN_ON_DIFF = "optionShowPlanOnDiff";
+    public static final ContextOption<Boolean> OPTION_FORCE_CONTINUATIONS = new ContextOption<>("optionForceContinuation");
+    public static final ContextOption<Boolean> OPTION_CORRECT_EXPLAIN = new ContextOption<>("optionCorrectExplain");
+    public static final ContextOption<Boolean> OPTION_CORRECT_METRICS = new ContextOption<>("optionCorrectMetrics");
+    public static final ContextOption<Boolean> OPTION_SHOW_PLAN_ON_DIFF = new ContextOption<>("optionShowPlanOnDiff");
 
     @Nonnull final String resourcePath;
     @Nullable
@@ -80,7 +81,7 @@ public final class YamlExecutionContext {
     @SuppressWarnings("AbbreviationAsWordInName")
     private final List<String> connectionURIs = new ArrayList<>();
     // Additional options that can be set by the runners to impact test execution
-    private final Map<String, Object> additionalOptions;
+    private final ContextOptions additionalOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -92,12 +93,12 @@ public final class YamlExecutionContext {
     }
 
     YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory,
-                         @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
+                         @Nonnull final ContextOptions additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
-        this.editedFileStream = (boolean)additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
+        this.editedFileStream = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
                                 ? loadYamlResource(resourcePath) : null;
-        this.additionalOptions = Map.copyOf(additionalOptions);
+        this.additionalOptions = additionalOptions;
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
         this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
                 .thenComparing(QueryAndLocation::getBlockName)
@@ -115,17 +116,17 @@ public final class YamlExecutionContext {
     }
 
     public boolean shouldCorrectExplains() {
-        final var shouldCorrectExplains = (boolean)additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false);
+        final var shouldCorrectExplains = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false);
         Verify.verify(!shouldCorrectExplains || editedFileStream != null);
         return shouldCorrectExplains;
     }
 
     public boolean shouldCorrectMetrics() {
-        return (boolean)additionalOptions.getOrDefault(OPTION_CORRECT_METRICS, false);
+        return additionalOptions.getOrDefault(OPTION_CORRECT_METRICS, false);
     }
 
     public boolean shouldShowPlanOnDiff() {
-        return (boolean)additionalOptions.getOrDefault(OPTION_SHOW_PLAN_ON_DIFF, false);
+        return additionalOptions.getOrDefault(OPTION_SHOW_PLAN_ON_DIFF, false);
     }
 
     public boolean correctExplain(int lineNumber, @Nonnull String actual) {
@@ -298,12 +299,12 @@ public final class YamlExecutionContext {
      * Return the value of an additional option, or a default value.
      * Additional options are options set by the test execution environment that can control the test execution, in additional
      * to the "core" set of options defined in this class.
-     * @param name the name of the option
+     * @param option the option to get value for
      * @param defaultValue the default value (if option is undefined)
      * @return the defined value of the option, or the default value, if undefined
      */
-    public Object getOption(String name, Object defaultValue) {
-        return additionalOptions.getOrDefault(name, defaultValue);
+    public <T> T getOption(ContextOption<T> option, T defaultValue) {
+        return additionalOptions.getOrDefault(option, defaultValue);
     }
 
     public void saveMetricsAsBinaryProto() {
@@ -483,6 +484,61 @@ public final class YamlExecutionContext {
         @Override
         public int hashCode() {
             return Objects.hash(blockName, query, lineNumber);
+        }
+    }
+
+    public static class ContextOptions {
+        public static final ContextOptions EMPTY_OPTIONS = new ContextOptions(Map.of());
+
+        @Nonnull
+        private final Map<ContextOption<?>, Object> map;
+
+        private ContextOptions(final @Nonnull Map<ContextOption<?>, Object> map) {
+            this.map = map;
+        }
+
+        public static <T> ContextOptions of(ContextOption<T> prop, T value) {
+            return new ContextOptions(Map.of(prop, value));
+        }
+
+        public static <T1, T2> ContextOptions of(ContextOption<T1> prop1, T1 value1, ContextOption<T2> prop2, T2 value2) {
+            return new ContextOptions(Map.of(prop1, value1, prop2, value2));
+        }
+
+        public ContextOptions mergeFrom(ContextOptions other) {
+            final Map<ContextOption<?>, Object> newMap = new HashMap<>(map);
+            newMap.putAll(other.map);
+            return new ContextOptions(newMap);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> T getOrDefault(ContextOption<T> prop, T defaultValue) {
+            return (T)map.getOrDefault(prop, defaultValue);
+        }
+    }
+
+    public static class ContextOption<T> {
+        private final String name;
+
+        public ContextOption(final String name) {
+            this.name = name;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof ContextOption)) {
+                return false;
+            }
+            final ContextOption<?> that = (ContextOption<?>)o;
+            return Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(name);
         }
     }
 }
