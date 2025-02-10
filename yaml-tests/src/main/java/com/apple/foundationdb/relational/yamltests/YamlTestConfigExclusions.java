@@ -48,7 +48,7 @@ public enum YamlTestConfigExclusions {
     FORCES_CONTINUATIONS {
         @Override
         boolean check(final YamlTestConfig config) {
-            return (Boolean) config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
         }
     };
 

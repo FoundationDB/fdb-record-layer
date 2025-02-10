@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import javax.annotation.Nonnull;
@@ -45,7 +46,7 @@ public interface YamlTestConfig {
      * @return the options for this config
      */
     @Nonnull
-    Map<String, Object> getRunnerOptions();
+    YamlExecutionContext.ContextOptions getRunnerOptions();
 
     void beforeAll() throws Exception;
 

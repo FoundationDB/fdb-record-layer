@@ -35,6 +35,7 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +43,7 @@ import java.util.function.Supplier;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
-    public static final String OPTION_FORCE_CONTINUATIONS = "optionForceContinuations";
+    public static final ContextOption<Boolean> OPTION_FORCE_CONTINUATIONS = new ContextOption<>() {};
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
@@ -57,7 +58,7 @@ public final class YamlExecutionContext {
     @SuppressWarnings("AbbreviationAsWordInName")
     private final List<String> connectionURIs = new ArrayList<>();
     // Additional options that can be set by the runners to impact test execution
-    private final Map<String, Object> additionalOptions;
+    private final ContextOptions additionalOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -68,11 +69,11 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
+    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain, @Nonnull final ContextOptions additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
         this.editedFileStream = correctExplain ? loadFileToMemory(resourcePath) : null;
-        this.additionalOptions = Map.copyOf(additionalOptions);
+        this.additionalOptions = additionalOptions;
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
@@ -234,12 +235,12 @@ public final class YamlExecutionContext {
      * Return the value of an additional option, or a default value.
      * Additional options are options set by the test execution environment that can control the test execution, in additional
      * to the "core" set of options defined in this class.
-     * @param name the name of the option
+     * @param option the option to get value for
      * @param defaultValue the default value (if option is undefined)
      * @return the defined value of the option, or the default value, if undefined
      */
-    public Object getOption(String name, Object defaultValue) {
-        return additionalOptions.getOrDefault(name, defaultValue);
+    public <T> T getOption(ContextOption<T> option, T defaultValue) {
+        return additionalOptions.getOrDefault(option, defaultValue);
     }
 
     @Nonnull
@@ -254,5 +255,38 @@ public final class YamlExecutionContext {
             throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
         }
         return inMemoryFile;
+    }
+
+    public static class ContextOptions {
+        public static final ContextOptions EMPTY_OPTIONS = new ContextOptions(Map.of());
+
+        @Nonnull
+        private final Map<ContextOption<?>, Object> map;
+
+        private ContextOptions(final @Nonnull Map<ContextOption<?>, Object> map) {
+            this.map = map;
+        }
+
+        public static <T> ContextOptions of(ContextOption<T> prop, T value) {
+            return new ContextOptions(Map.of(prop, value));
+        }
+
+        public static <T1, T2> ContextOptions of(ContextOption<T1> prop1, T1 value1, ContextOption<T2> prop2, T2 value2) {
+            return new ContextOptions(Map.of(prop1, value1, prop2, value2));
+        }
+
+        public ContextOptions mergeFrom(ContextOptions other) {
+            final Map<ContextOption<?>, Object> newMap = new HashMap<>(map);
+            newMap.putAll(other.map);
+            return new ContextOptions(newMap);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> T getOrDefault(ContextOption<T> prop, T defaultValue) {
+            return (T)map.getOrDefault(prop, defaultValue);
+        }
+    }
+
+    public interface ContextOption<T> {
     }
 }
