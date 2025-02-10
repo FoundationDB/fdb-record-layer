@@ -187,8 +187,9 @@ tasks.withType(Test) { theTask ->
     afterSuite { descriptor, result ->
         if (descriptor.parent == null) {
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
+            def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
             summary.append(
-                "|${descriptor}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
+                "|${description}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
         }
     }
     reports {
