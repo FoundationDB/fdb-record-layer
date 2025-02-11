@@ -1,22 +1,44 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - 'main'
+  workflow_dispatch:
 
 jobs:
   gradle:
     runs-on: ubuntu-latest
     permissions:
       checks: write
-      contents: read
+      contents: write
       packages: write
       pages: write
+      pull-requests: write
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4.2.2
-    - name: Run Gradle Test
-      uses: ./actions/gradle-test
-      with:
-        gradle_args: "-PreleaseBuild=true"
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+
+      # Push a version bump back to main. There are failure scenarios that can result
+      # in published artifacts but an erroneous build, so it's safer to bump the version
+      # at the beginning
+      - name: Configure git
+        run: |
+          git config --global user.name 'FoundationDB CI'
+          git config --global user.email 'foundationdb_ci@apple.com'
+      - name: Increment version
+        run: python build/versionutils.py gradle.properties --increment --commit
+      - name: Push version increment
+        run: git push
+
+      - name: Build and publish
+        uses: ./actions/release-build-publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAVEN_USER: ${{ secrets.MAVEN_USER }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+
+    # TODO: Publish documentation updates

@@ -1,0 +1,914 @@
+À
+9
+agg-empty-table-tests EXPLAIN select count(*) from T1;ç
+áèÌ˘W ˙ ;(0Êï8@åSCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)·digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ô
+H
+agg-empty-table-tests/EXPLAIN select count(*) from T1 where col1 = 0;¢
+œ…πªj ‹ (0¥“8@πSCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)…digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˚
+H
+agg-empty-table-tests/EXPLAIN select count(*) from T1 where col1 > 0;Æ
+œéÌ⁄j ˙å~(0œä8@øSCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}º
+9
+agg-empty-table-tests EXPLAIN select count(*) from T2;˛
+¬∞≈Ç
+û °√Á(20ˇ†(8%@áAISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)’digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}û
+H
+agg-empty-table-tests/EXPLAIN select count(*) from T2 where col1 = 0;—
+ö¸Ω˛∂ ÇÌ∆	(<0ªà.8+@∫AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ıdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((q4._1 AS _0) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˝
+H
+agg-empty-table-tests/EXPLAIN select count(*) from T2 where col1 > 0;∞
+âÎí˝á ª¢¶	(.0™—8@øSCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q77 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q77> label="q77" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q73> label="q73" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
+G
+agg-empty-table-tests.EXPLAIN select count(*) from T2 group by col1;Ñ
+ÉÇ√¡a ò∆Ç(*0ı£8@ MAISCAN(T2_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ó
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ç
+V
+agg-empty-table-tests=EXPLAIN select count(*) from T2 where col1 = 0 group by col1;≤
+ÉÛîÅa Äõ◊(*0ÔÃ8@ hAISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)™
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ù
+V
+agg-empty-table-tests=EXPLAIN select count(*) from T2 where col1 > 0 group by col1;¬
+É»˙Êa Å•Õ(*0˘‹8@ pAISCAN(T2_I2 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)≤
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ó
+9
+agg-empty-table-tests EXPLAIN select count(*) from T3;∞
+˝◊≤˛ó ÃëÏ(,0åÜ98;@ÜISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)àdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}´
+H
+agg-empty-table-tests/EXPLAIN select count(*) from T3 where col1 = 0;ﬁ
+⁄€ç„◊ ÿ´Ñ(20ÕóQ8O@°ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)õdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q78> label="q78" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ª
+H
+agg-empty-table-tests/EXPLAIN select count(*) from T3 where col1 > 0;Ó
+ı ÷ò
+⁄ ô‚ﬁ(50óúK8T@©ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)£digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q78> label="q78" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ø
+G
+agg-empty-table-tests.EXPLAIN select count(*) from T3 group by col1;„
+‹ÕµÃH ¥±Õ(0àü8@mISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr><tr><td align="left">GROUP BY (q40._0.COL1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q40> label="q40" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ì
+V
+agg-empty-table-tests=EXPLAIN select count(*) from T3 where col1 = 0 group by col1;í
+Ω‚øòa  ¯ô(0òΩ8@àISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)Èdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr><tr><td align="left">GROUP BY (q48._0.COL1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˝
+V
+agg-empty-table-tests=EXPLAIN select count(*) from T3 where col1 > 0 group by col1;¢
+ΩÏ˛¥a §≤¬(0öﬂ8@êISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)Òdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr><tr><td align="left">GROUP BY (q48._0.COL1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
+<
+agg-empty-table-tests#EXPLAIN select count(col2) from T1;ï
+á§û≈W ∆¡_(0≠Ò8@èSCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Êdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q27._0.COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˙
+K
+agg-empty-table-tests2EXPLAIN select count(col2) from T1 where col1 = 0;™
+œ„ÿºj ø√[(0±õ8@ºSCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q32._0.COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ü
+K
+agg-empty-table-tests2EXPLAIN select count(col2) from T1 where col1 > 0;∂
+œıÀÙj Æ…M(0Õƒ8@¬SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)‘digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q32._0.COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ø
+<
+agg-empty-table-tests#EXPLAIN select count(col2) from T2;˛
+¬Ïûâû úﬁ…(20¯ò58%@áAISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)’digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}°
+K
+agg-empty-table-tests2EXPLAIN select count(col2) from T2 where col1 = 0;—
+ööˆª∂ ™ó±(<0»§-8+@∫AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ıdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((q4._1 AS _0) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}à
+K
+agg-empty-table-tests2EXPLAIN select count(col2) from T2 where col1 > 0;∏
+âﬁÕÖá ˛Ø∂(.0ƒ8@¬SCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)‘digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q86._0.COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q77 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q77> label="q77" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q73> label="q73" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}”
+J
+agg-empty-table-tests1EXPLAIN select count(col2) from T2 group by col1;Ñ
+Éë£åa ó––(*0Â≠8@ MAISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ó
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ê
+Y
+agg-empty-table-tests@EXPLAIN select count(col2) from T2 where col1 = 0 group by col1;≤
+ÉÅ˛÷a ◊∑€(*0„ç8@ hAISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)™
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}†
+Y
+agg-empty-table-tests@EXPLAIN select count(col2) from T2 where col1 > 0 group by col1;¬
+Éé€Ëa ‚÷ù(*0ﬂõ8@ pAISCAN(T2_I4 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)≤
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˘
+<
+agg-empty-table-tests#EXPLAIN select count(col2) from T3;∏
+˝’ÀÁó îÛÃ(,0·‘-8;@âISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)çdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q59._0.COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q59> label="q59" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∂
+K
+agg-empty-table-tests2EXPLAIN select count(col2) from T3 where col1 = 0;Ê
+⁄Ô¸∑
+◊ ºﬁı(20≈ËE8O@§ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)†digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q78._0.COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q78> label="q78" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∆
+K
+agg-empty-table-tests2EXPLAIN select count(col2) from T3 where col1 > 0;ˆ
+ı∆Ô§⁄ ä…å(50Áﬁ\8T@¨ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)®digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q6._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q78._0.COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q78> label="q78" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∫
+J
+agg-empty-table-tests1EXPLAIN select count(col2) from T3 group by col1;Î
+‹ó∂ΩH ïŸ‰(0∑Â8@pISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)€digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q40._0.COL2) AS _0)</td></tr><tr><td align="left">GROUP BY (q40._0.COL1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q40> label="q40" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¯
+Y
+agg-empty-table-tests@EXPLAIN select count(col2) from T3 where col1 = 0 group by col1;ö
+ΩØ´õa Îéå(0√ﬂ8@ãISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)Ódigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q48._0.COL2) AS _0)</td></tr><tr><td align="left">GROUP BY (q48._0.COL1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}à
+Y
+agg-empty-table-tests@EXPLAIN select count(col2) from T3 where col1 > 0 group by col1;™
+ΩåÃ§a û˚¥(0ºà8@ìISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)ˆdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count(q48._0.COL2) AS _0)</td></tr><tr><td align="left">GROUP BY (q48._0.COL1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ã
+:
+agg-empty-table-tests!EXPLAIN select sum(col1) from T1;Ã
+áîç˘W ºªT(0Ò»8@kSCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¬digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q27._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}±
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T1 where col1 = 0;„
+œ◊Ê≤j áéÖ(0óí8@òSCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)™digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q32._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∞
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T1 where col2 = 0;‚
+œüÑıj êø](0£ˆ8@òSCAN(<,>) | TFILTER T1 | FILTER _.COL2 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)™digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q32._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL2 EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}º
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T1 where col1 > 0;Ó
+œ™ÊÓj ô∏H(0Õ˙8@ûSCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q32._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}º
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T1 where col2 > 0;Ó
+œÍÒ≈j ª±](0’Î8@ûSCAN(<,>) | TFILTER T1 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q32._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q23 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL2 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ù
+:
+agg-empty-table-tests!EXPLAIN select sum(col1) from T2;µ
+¬Ω¯∏û û‚Ÿ(20ﬂ…'8%@cAISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)±digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I5</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}≤
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T2 where col1 = 0;‰
+â÷√Ô	á ‹–ê(.0ˆÔ8@òSCAN(<,>) | TFILTER T2 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)™digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q86._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q77 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q77> label="q77" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q73> label="q73" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}◊
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T2 where col2 = 0;â
+öß∞∂ ó∞Ë
+(<0ú—>8+@ñAISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((q4._1 AS _0) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I6</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}æ
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T2 where col1 > 0;
+â÷Ììá ˙Äü(.0Úà8@ûSCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q86._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q77 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q77> label="q77" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q73> label="q73" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}æ
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T2 where col2 > 0;
+â≈Àÿá ûÇÊ(.0åÔ8@ûSCAN(<,>) | TFILTER T2 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q86._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q77 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL2 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T2]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q77> label="q77" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q73> label="q73" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}é
+W
+agg-empty-table-tests>EXPLAIN select sum(col1) from T2 where col2 = 0 group by col2;≤
+ÉóˆÂa ⁄◊ﬁ(*0ºµ8@ hAISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)™
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I6</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}û
+W
+agg-empty-table-tests>EXPLAIN select sum(col1) from T2 where col2 > 0 group by col2;¬
+ÉÉ´ï
+a ä÷Æ(*0ô•8@ pAISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)≤
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I6</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Æ
+:
+agg-empty-table-tests!EXPLAIN select sum(col1) from T3;Ô
+˝∑Ó„ó åëΩ(,0Ï∆G8;@eISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Èdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q59._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q59> label="q59" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ï
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T3 where col1 = 0;û
+⁄¨⁄°◊ ÁˆÈ(20˚„28O@ÄISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¸digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q78._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q78> label="q78" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ï
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T3 where col2 = 0;û
+⁄Ñäó◊ Ã≤∂(20ΩêL8O@ÄISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¸digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q80._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q80> label="q80" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¸
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T3 where col1 > 0;Æ
+ı·¶⁄ Ä©∆(50·•T8T@àISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q78._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q78> label="q78" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¸
+I
+agg-empty-table-tests0EXPLAIN select sum(col1) from T3 where col2 > 0;Æ
+ı¢„æ⁄ ®µú(50º¬;8T@àISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q6 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q80._0.COL1) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q80> label="q80" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}›
+W
+agg-empty-table-tests>EXPLAIN select sum(col1) from T3 where col1 = 0 group by col2;Å
+´Õé…_ ˇô∑(0´º8@ùISCAN(T3_I2 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)√digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q46._0.COL1) AS _0)</td></tr><tr><td align="left">GROUP BY (q46._0.COL2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 EQUALS promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ˆ
+W
+agg-empty-table-tests>EXPLAIN select sum(col1) from T3 where col2 = 0 group by col2;ö
+Ωí∑áa Ñ’ë(0∏≤8@ãISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)Ódigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q48._0.COL1) AS _0)</td></tr><tr><td align="left">GROUP BY (q48._0.COL2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}È
+W
+agg-empty-table-tests>EXPLAIN select sum(col1) from T3 where col1 > 0 group by col2;ç
+´–ÿû_ ÛöÅ(0Œ‘8@£ISCAN(T3_I2 <,>) | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)…digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q46._0.COL1) AS _0)</td></tr><tr><td align="left">GROUP BY (q46._0.COL2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q35 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.COL1 GREATER_THAN promote(@c11 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q35> label="q35" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ü
+W
+agg-empty-table-tests>EXPLAIN select sum(col1) from T3 where col2 > 0 group by col2;™
+Ω◊Åªa Ïæø(0Û˙8@ìISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)ˆdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (sum_l(q48._0.COL1) AS _0)</td></tr><tr><td align="left">GROUP BY (q48._0.COL2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID,  AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}
