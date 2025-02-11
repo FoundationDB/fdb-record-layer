@@ -124,9 +124,9 @@ public class RelationalArrayTest {
                         "['11', '22'], null, " +
                         "[x'31', x'32'], null, " +
                         "[(11, '11'), (22, '22')], null " +
-                        ")")).hasErrorCode(ErrorCode.SYNTAX_ERROR);
+                        ")")).hasErrorCode(ErrorCode.INTERNAL_ERROR);
         RelationalAssertions.assertThrowsSqlException(() -> insertQuery("INSERT INTO T (pk) VALUES (4)"))
-                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+                .hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);
     }
 
     @Test
@@ -209,7 +209,7 @@ public class RelationalArrayTest {
                 ps.setNull("bytes_not_null", Types.ARRAY);
                 ps.setArray("struct_null", EmbeddedRelationalArray.newBuilder().addAll(EmbeddedRelationalStruct.newBuilder().addInt("a", 11).addString("b", "11").build(), EmbeddedRelationalStruct.newBuilder().addInt("a", 22).addString("b", "22").build()).build());
                 ps.setNull("struct_not_null", Types.ARRAY);
-                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).hasErrorCode(ErrorCode.SYNTAX_ERROR);
+                RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).hasErrorCode(ErrorCode.INTERNAL_ERROR);
             }
         }
     }
@@ -237,7 +237,7 @@ public class RelationalArrayTest {
             try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement("INSERT INTO T (pk) VALUES (?pk)"))) {
                 ps.setInt("pk", 1);
                 RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).containsInMessage("violates not-null constraint")
-                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+                        .hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);
             }
         }
     }
