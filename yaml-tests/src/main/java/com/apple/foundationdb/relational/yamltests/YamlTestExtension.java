@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
@@ -46,9 +47,12 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.File;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -58,6 +62,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
+    private List<ExternalServer> servers;
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
@@ -65,14 +70,23 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             testConfigs = List.of(new EmbeddedConfig());
             maintainConfigs = List.of();
         } else {
-            testConfigs = List.of(
-                    new EmbeddedConfig(),
-                    new JDBCInProcessConfig(),
-                    new MultiServerConfig(0, 1111, 1112),
-                    new ForceContinuations(new MultiServerConfig(0, 1113, 1114)),
-                    new MultiServerConfig(1, 1115, 1116),
-                    new ForceContinuations(new MultiServerConfig(1, 1117, 1118))
-            );
+            AtomicInteger serverPort = new AtomicInteger(1111);
+            List<File> jars = ExternalServer.getAvailableServers();
+            servers = jars.stream().map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement())).collect(Collectors.toList());
+            for (ExternalServer server : servers) {
+                server.start();
+            }
+            testConfigs = Stream.concat(
+                    // The configs for local testing (single server)
+                    Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig()),
+                    // The configs for multi-server testing (4 configs for each server available)
+                    servers.stream().flatMap(server ->
+                            Stream.of(new MultiServerConfig(0, server),
+                                    new ForceContinuations(new MultiServerConfig(0, server)),
+                                    new MultiServerConfig(1, server),
+                                    new ForceContinuations(new MultiServerConfig(1, server)))
+                    )).collect(Collectors.toList());
+
             maintainConfigs = List.of(
                     new CorrectExplains(new EmbeddedConfig()),
                     new CorrectMetrics(new EmbeddedConfig()),
@@ -99,6 +113,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                 }).filter(Objects::nonNull).findFirst();
         if (exception.isPresent()) {
             throw exception.get();
+        }
+        for (ExternalServer server : servers) {
+            server.stop();
         }
     }
 

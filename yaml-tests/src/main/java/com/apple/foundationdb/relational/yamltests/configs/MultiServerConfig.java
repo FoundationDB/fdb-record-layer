@@ -40,25 +40,15 @@ public class MultiServerConfig extends JDBCInProcessConfig {
     private final ExternalServer externalServer;
     private final int initialConnection;
 
-    public MultiServerConfig(final int initialConnection, final int grpcPort, final int httpPort) {
+    public MultiServerConfig(final int initialConnection, ExternalServer externalServer) {
         super();
         this.initialConnection = initialConnection;
-        externalServer = new ExternalServer(grpcPort, httpPort);
+        this.externalServer = externalServer;
     }
 
     @Override
     public void beforeAll() throws Exception {
         super.beforeAll();
-        externalServer.start();
-    }
-
-    @Override
-    public void afterAll() throws Exception {
-        try {
-            externalServer.stop();
-        } finally {
-            super.afterAll();
-        }
     }
 
     @Override
@@ -88,9 +78,9 @@ public class MultiServerConfig extends JDBCInProcessConfig {
     @Override
     public String toString() {
         if (initialConnection == 0) {
-            return "MultiServer (Embedded then External)";
+            return "MultiServer version " + externalServer.getVersion() + " (Embedded then External)";
         } else {
-            return "MultiServer (External then Embedded)";
+            return "MultiServer version " + externalServer.getVersion() + " (External then Embedded)";
         }
     }
 }
