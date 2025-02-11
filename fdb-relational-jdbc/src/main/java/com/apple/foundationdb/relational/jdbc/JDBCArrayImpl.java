@@ -103,7 +103,7 @@ public class JDBCArrayImpl implements Array {
      * @return the underlying protobuf struct
      */
     @Nonnull
-    public com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array getUnderlying() {
+    com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array getUnderlying() {
         return underlying;
     }
 }

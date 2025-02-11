@@ -102,7 +102,7 @@ public class ParameterHelper {
             for (Object o : arrayElements) {
                 Parameter p = ofObject(o);
                 if (p.getJavaSqlTypesCode() != a.getBaseType()) {
-                    throw new SQLException("Array base type does not match element type: " + a.getBaseType() + ":" + p.getJavaSqlTypesCode());
+                    throw new SQLException("Array base type does not match element type: " + a.getBaseType() + ":" + p.getJavaSqlTypesCode(), ErrorCode.ARRAY_ELEMENT_ERROR.getErrorCode());
                 }
                 elements.add(p.getParameter());
             }

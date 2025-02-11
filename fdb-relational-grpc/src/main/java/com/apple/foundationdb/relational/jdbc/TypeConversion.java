@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -251,23 +252,36 @@ public class TypeConversion {
     public static Object fromColumn(int columnType, Column column) throws SQLException {
         switch (columnType) {
             case Types.ARRAY:
+                checkColumnType(columnType, column.hasArray());
                 return fromArray(column.getArray());
             case Types.BIGINT:
+                checkColumnType(columnType, column.hasLong());
                 return column.getLong();
             case Types.INTEGER:
+                checkColumnType(columnType, column.hasInteger());
                 return column.getInteger();
             case Types.BOOLEAN:
+                checkColumnType(columnType, column.hasBoolean());
                 return column.getBoolean();
             case Types.VARCHAR:
+                checkColumnType(columnType, column.hasString());
                 return column.getString();
             case Types.BINARY:
+                checkColumnType(columnType, column.hasBinary());
                 return column.getBinary().toByteArray();
             case Types.DOUBLE:
+                checkColumnType(columnType, column.hasDouble());
                 return column.getDouble();
             default:
                 // TODO: NULL?
                 throw new SQLException("java.sql.Type=" + columnType + " not supported",
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+    }
+
+    private static void checkColumnType(final int expectedColumnType, final boolean columnHasType) throws SQLException {
+        if (!columnHasType) {
+            throw new SQLException("Column has wrong type (expected " + expectedColumnType + ")", ErrorCode.WRONG_OBJECT_TYPE.getErrorCode());
         }
     }
 
@@ -302,37 +316,44 @@ public class TypeConversion {
 
     /**
      * Create {@link Column} from a Java object.
-     * Note: In case the column is of a composite type (array, struct) then the actual type has to be a SQL flavor
-     * ({@link java.sql.Array} or {@link java.sql.Struct}.
-     * Note: In case of {@link Types#NULL} null column, the obje parameter is expected to be the type of null
+     * Note: In case the column is of a composite type (array) then the actual type has to be a SQL flavor
+     * ({@link java.sql.Array}.
+     * Note: In case {@code columnType} is of value {@link Types#NULL}, the {@code obj} parameter is expected to be the
+     * type of null. That is, the {@code obj} will represent the {@link Types} constant for the type of variable whose
+     * value is null.
      * @param columnType the SQL type to create (from {@link Types})
      * @param obj the value to use for the column
      * @return the created column
      * @throws SQLException in case of error
      */
-    public static Column toColumn(int columnType, Object obj) throws SQLException {
+    public static Column toColumn(int columnType, @Nonnull Object obj) throws SQLException {
+        if (columnType != SqlTypeNamesSupport.getSqlTypeCodeFromObject(obj)) {
+            throw new SQLException("Column element type does not match object type: " + columnType + " / " + obj.getClass().getSimpleName(),
+                    ErrorCode.WRONG_OBJECT_TYPE.getErrorCode());
+        }
+
         Column.Builder builder = Column.newBuilder();
         switch (columnType) {
             case Types.BIGINT:
-                builder = (obj == null) ? builder.clearLong() : builder.setLong((Long)obj);
+                builder = builder.setLong((Long)obj);
                 break;
             case Types.INTEGER:
-                builder = (obj == null) ? builder.clearInteger() : builder.setInteger((Integer)obj);
+                builder = builder.setInteger((Integer)obj);
                 break;
             case Types.BOOLEAN:
-                builder = (obj == null) ? builder.clearBoolean() : builder.setBoolean((Boolean)obj);
+                builder = builder.setBoolean((Boolean)obj);
                 break;
             case Types.VARCHAR:
-                builder = (obj == null) ? builder.clearString() : builder.setString((String)obj);
+                builder = builder.setString((String)obj);
                 break;
             case Types.BINARY:
-                builder = (obj == null) ? builder.clearBinary() : builder.setBinary((ByteString)obj);
+                builder = builder.setBinary((ByteString)obj);
                 break;
             case Types.DOUBLE:
-                builder = (obj == null) ? builder.clearDouble() : builder.setDouble((Double)obj);
+                builder = builder.setDouble((Double)obj);
                 break;
             case Types.ARRAY:
-                builder = (obj == null) ? builder.clearArray() : builder.setArray(toArray((java.sql.Array)obj));
+                builder = builder.setArray(toArray((java.sql.Array)obj));
                 break;
             case Types.NULL:
                 builder = builder.setNullType((Integer)obj);
