@@ -62,7 +62,7 @@ public class IndexingThrottle {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingThrottle.class);
     @Nonnull private final IndexingCommon common;
     @Nonnull private final Booker booker;
-    private final IndexState expectedIndexState;
+    private final boolean isScrubber;
     private Set<Index> mergeRequiredIndexes = new HashSet<>();
 
     static class Booker {
@@ -275,9 +275,9 @@ public class IndexingThrottle {
         }
     }
 
-    IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
+    IndexingThrottle(@Nonnull IndexingCommon common, boolean isScrubber) {
         this.common = common;
-        this.expectedIndexState = expectedIndexState;
+        this.isScrubber = isScrubber;
         this.booker = new Booker(common);
     }
 
@@ -385,7 +385,16 @@ public class IndexingThrottle {
 
     private void expectedIndexStatesOrThrow(FDBRecordStore store, FDBRecordContext context) {
         List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).collect(Collectors.toList());
-        if (indexStates.stream().allMatch(state -> state == expectedIndexState)) {
+        if (isScrubber) {
+            // index scrubbing requires a scannable state
+            if (indexStates.stream().allMatch(IndexState::isScannable)) {
+                return;
+            }
+            throw new IndexingBase.UnexpectedReadableException(false, "Attempt to scrub a non readable index",
+                    LogMessageKeys.INDEX_STATE, indexStates);
+        }
+        // Here: index building
+        if (indexStates.stream().allMatch(IndexState::isWriteOnly)) {
             return;
         }
         // possible exceptions:
@@ -393,18 +402,17 @@ public class IndexingThrottle {
         // 2. Some indexes are built, but all the others are in the expected state.
         // 3. Some indexes are not in the expected state (disabled?).
         // During mutual indexing, the first two may be part of the valid path
-        if (indexStates.stream().allMatch(state -> (state == IndexState.READABLE || state == IndexState.READABLE_UNIQUE_PENDING))) {
+        if (indexStates.stream().allMatch(IndexState::isScannable)) {
             throw new IndexingBase.UnexpectedReadableException(true, "All indexes are built");
         }
-        if (indexStates.stream().allMatch(state -> state == expectedIndexState || state == IndexState.READABLE || state == IndexState.READABLE_UNIQUE_PENDING)) {
+        if (indexStates.stream().allMatch(state -> state.isWriteOnly() || state.isScannable())) {
             throw new IndexingBase.UnexpectedReadableException(false, "Some indexes are built");
         }
         final SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
         throw new RecordCoreStorageException("Unexpected index state(s)",
                 subspaceProvider == null ? "nullSubspaceProvider" : subspaceProvider.logKey(), subspaceProvider == null ? "" : subspaceProvider.toString(context),
                 LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                LogMessageKeys.INDEX_STATE, indexStates,
-                LogMessageKeys.INDEX_STATE_PRECONDITION, expectedIndexState);
+                LogMessageKeys.INDEX_STATE, indexStates);
     }
 
     private <R> CompletableFuture<Boolean> completeExceptionally(CompletableFuture<R> ret, Throwable e, List<Object> additionalLogMessageKeyValues) {

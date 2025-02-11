@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexBuildProto;
-import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -147,8 +146,8 @@ public class IndexScrubbing extends IndexingBase {
     }
 
     private <T> CompletableFuture<Boolean> indexScrubRangeOnly(final @Nonnull FDBRecordStore store, final @Nonnull AtomicLong recordsScanned, final Index index, final IndexScrubbingTools<T> tools, boolean isIdempotent) {
-        // scrubbing only readable
-        validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
+        // scrubbing only scannable index (in readable or readable-unique-pending state)
+        validateOrThrowEx(store.getIndexState(index).isScannable(), "scrubbed index is not readable");
         // scrubbing only idempotent indexes (at least for now)
         validateOrThrowEx(isIdempotent, "scrubbed index is not idempotent");
 
