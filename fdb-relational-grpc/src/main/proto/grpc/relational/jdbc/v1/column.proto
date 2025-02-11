@@ -49,10 +49,10 @@ message Struct {
 
 // Relational Array.
 message Array {
+  repeated Column element = 1;
   // The java.sql.Types of the elements of the array. This is somewhat redundant with the type of the
   // columns, but it makes it easier to verify correctness.
-  int32 elementType = 1;
-  repeated Column element = 2;
+  int32 elementType = 2;
 }
 
 // `Column` represents a dynamically typed column which can be either
@@ -62,8 +62,8 @@ message Array {
 message Column {
   // The kind/type of column.
   oneof kind {
-    // Represents a null column. These can be typed, so the value is the java.sql.Types of the parameter
-    int32 nullType = 1;
+    // Deprecated
+    NullColumn null = 1;
     // Represents a double column.
     double double = 2;
 
@@ -78,9 +78,16 @@ message Column {
     Struct struct = 7;
     Array array = 8;
     bytes binary = 9;
-
     float float = 10;
+    // Represents a null value. These can be typed, so the value is the java.sql.Types of the parameter
+    int32 nullType = 11;
   }
+}
+
+// Deprecated
+enum NullColumn {
+  // Null value.
+  NULL_COLUMN = 0;
 }
 
 // `ListColumn` is a wrapper around a repeated field of columns.

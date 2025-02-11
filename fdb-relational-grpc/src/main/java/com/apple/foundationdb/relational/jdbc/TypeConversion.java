@@ -273,9 +273,9 @@ public class TypeConversion {
                 checkColumnType(columnType, column.hasDouble());
                 return column.getDouble();
             default:
-                // TODO: NULL?
-                throw new SQLException("java.sql.Type=" + columnType + " not supported",
-                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+                // NULL (java.sql.Types value 0) is not a valid column type for an array and is likely the result of a default value for the
+                // (optional) array.getElementType() protobuf field.
+                throw new SQLException("java.sql.Type=" + columnType + " not supported", ErrorCode.ARRAY_ELEMENT_ERROR.getErrorCode());
         }
     }
 
