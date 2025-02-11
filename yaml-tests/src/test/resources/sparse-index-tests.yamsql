@@ -64,6 +64,7 @@ test_block:
 # index I2. However, if second query is executed first and puts the plan with index I2 in the cache, the other queries
 # can use the same.
 test_block:
+  name: sparse-index-tests
   preset: single_repetition_ordered
   tests:
     -
@@ -95,6 +96,7 @@ setup:
                (6, 879, 7)
 ---
 test_block:
+  name: sparse-index-tests-with-data
   preset: single_repetition_ordered
   tests:
     -

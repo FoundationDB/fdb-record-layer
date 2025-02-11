@@ -154,6 +154,24 @@ tasks.withType(Test) { theTask ->
         events 'failed'
         exceptionFormat = 'full'
     }
+    // This creates two reports to be picked up by the gradle actions (see actions/gradle-test/action.yml)
+    // We initialize the files here, to be filled out by test listeners below
+    // summary has a summary of all the test tasks we ran, and the success/skipped/failure counts & duration
+    // failures includes any failures that happened, with the stack trace
+    def markdownReports = new File("$rootDir/.out/reports/")
+    def summary = new File(markdownReports, "test-summary.md")
+    def failures = new File(markdownReports, "test-failures.md")
+    doFirst {
+        // This may have issues with running tasks concurrently
+        if (!markdownReports.exists()) {
+            markdownReports.mkdirs()
+        }
+        if (!summary.exists()) {
+            summary.append("|Test run|❌|⚠️|✅|time|\n")
+            summary.append("|-|-|-|-|-|\n")
+        }
+    }
+
     beforeTest { descriptor -> 
         println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
     } 
@@ -161,6 +179,22 @@ tasks.withType(Test) { theTask ->
         def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
         println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
         println()
+        if (result.resultType == TestResult.ResultType.FAILURE) {
+            failures.append(
+                "<details>\n" +
+                    "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
+                    "(${duration}ms)\n\n" + // blank line is required for ``` to work
+                    "```\n${result.getException().asString()}\n```\n" +
+                "</details>\n")
+        }
+    }
+    afterSuite { descriptor, result ->
+        if (descriptor.parent == null) {
+            def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
+            def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
+            summary.append(
+                "|${description}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
+        }
     }
     reports {
         junitXml.outputPerTestCase = true

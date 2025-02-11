@@ -36,6 +36,7 @@ setup:
                (19, 20.01, false, 1853, [21, 22, 23], 'luke cage')
 ---
 test_block:
+  name: prepared-tests
   tests:
     -
       # with random range parameter

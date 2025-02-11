@@ -42,7 +42,7 @@ runs:
       run: git push origin
     - name: Create Merge PR if conflict
       if: failure() && steps.push_updates.conclusion == 'failure'
-      uses: peter-evans/create-pull-request@v7
+      uses: peter-evans/create-pull-request@bb88e27d3f9cc69c8bc689eba126096c6fe3dded
       id: pr_on_conflict
       with:
         branch: release-build

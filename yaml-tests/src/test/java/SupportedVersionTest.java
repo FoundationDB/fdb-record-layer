@@ -55,7 +55,7 @@ public class SupportedVersionTest {
     }
 
     private void doRun(String fileName) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), false, Map.of()).run();
+        new YamlRunner(fileName, createConnectionFactory(), Map.of()).run();
     }
 
     YamlRunner.YamlConnectionFactory createConnectionFactory() {

@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
