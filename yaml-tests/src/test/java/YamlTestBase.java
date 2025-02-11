@@ -21,23 +21,13 @@
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.Map;
 
 @Deprecated
 public abstract class YamlTestBase {
-
-    private static final Logger logger = LogManager.getLogger(YamlTestBase.class);
-
     protected static FRL frl;
 
     @BeforeAll
@@ -56,19 +46,5 @@ public abstract class YamlTestBase {
             frl.close();
             frl = null;
         }
-    }
-
-    abstract YamlRunner.YamlConnectionFactory createConnectionFactory();
-
-    protected Map<String, Object> getAdditionalOptions() {
-        return Collections.emptyMap();
-    }
-
-    protected final void doRun(@Nonnull final String fileName) throws Exception {
-        doRun(fileName, false);
-    }
-
-    protected void doRun(String fileName, boolean correctExplain) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), correctExplain, getAdditionalOptions()).run();
     }
 }

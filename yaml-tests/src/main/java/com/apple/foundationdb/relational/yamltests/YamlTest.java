@@ -58,15 +58,5 @@ public @interface YamlTest {
          * @throws Exception if the test has issues
          */
         void runYamsql(String fileName) throws Exception;
-
-        /**
-         * Run a {@code .yamsql} test, but update all the `explain` assertions in the file with what `explain` actually
-         * returns, so that you, as a developer, can compare the explain results in a diff.
-         * This should never be committed
-         * @param fileName the filename of the {@code .yamsql} resource
-         * @param correctExplain {@code true} to replace the expected explains in the associated file
-         * @throws Exception if the test has issues
-         */
-        void runYamsql(String fileName, boolean correctExplain) throws Exception;
     }
 }

@@ -42,6 +42,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  name: catalog-tests
   tests:
     -
       # How many databases exist in this cluster?
