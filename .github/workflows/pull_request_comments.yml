@@ -26,19 +26,22 @@ jobs:
                repo: context.repo.repo,
                run_id: context.payload.workflow_run.id,
             });
-            let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == 'test-reports';
-            })[0];
-            let download = await github.rest.actions.downloadArtifact({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               artifact_id: matchArtifact.id,
-               archive_format: 'zip',
+            let matchingArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name.endsWith('-test-reports');
             });
             const fs = require('fs');
-            fs.writeFileSync('${{ github.workspace }}/test-reports.zip', Buffer.from(download.data));
-      - name: 'Unzip artifact'
-        run: unzip test-reports.zip
+            for (matchingArtifact of matchingArtifacts) {
+              core.info(`Downloading ${matchingArtifact.name}.`);
+              let download = await github.rest.actions.downloadArtifact({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 artifact_id: matchingArtifact.id,
+                 archive_format: 'zip',
+              });
+              fs.writeFileSync(`${{ github.workspace }}/${ matchingArtifact.name }.zip`, Buffer.from(download.data));
+            }
+      - name: 'Unzip artifacts'
+        run: for file in *-test-reports.zip; do unzip -q $file; done
       - name: Test Coverage Comment
         uses: madrapps/jacoco-report@e4bbaf00a0b8920cb86a448ae3ec0fc6f6bfeacc
         with:
