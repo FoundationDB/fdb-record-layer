@@ -391,6 +391,7 @@ public class IndexingThrottle {
                 return;
             }
             throw new IndexingBase.UnexpectedReadableException(false, "Attempt to scrub a non readable index",
+                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                     LogMessageKeys.INDEX_STATE, indexStates);
         }
         // Here: index building
