@@ -1,0 +1,16 @@
+name: Run Gradle
+
+inputs:
+  gradle_command:
+    description: 'Gradle command to run'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Remove JVM args
+      shell: bash
+      run: sed -i -e "s/^org\.gradle\..*/#&/g" gradle.properties
+    - name: Run Command
+      shell: bash
+      run: GRADLE_OPTS="-XX:+HeapDumpOnOutOfMemoryError -Xverify:none -XX:+TieredCompilation -Xmx4096m -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" ./gradlew --no-daemon --console=plain -b ./build.gradle ${{ inputs.gradle_command }}

@@ -86,6 +86,7 @@ setup:
                (6, 'valueZ', 20)
 ---
 test_block:
+  name: agg-index-tests
   tests:
     -
       - query: select col1, sum(col2) from T1 group by col1;
