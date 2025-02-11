@@ -22,8 +22,8 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Ungrouped GROUP BY queries result in infinite continuations when maxRows is 1 [(Issue #3093)](https://github.com/FoundationDB/fdb-record-layer/issues/3093)
-* **Bug fix** Skips and limits are now enforced on CTE queries [(Issue #3100)](https://github.com/FoundationDB/fdb-record-layer/issues/3100)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -32,16 +32,23 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add verifications to yaml-tests that assert on planner metrics regressions [(Issue #3113)](https://github.com/FoundationDB/fdb-record-layer/issues/3113)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Changes to supprt CTE skips and limits can result in plan hash mismatches during online upgrades [(Issue #3100)](https://github.com/FoundationDB/fdb-record-layer/issues/3100)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 4.1.4.0
+
+* **Bug fix** Ungrouped GROUP BY queries result in infinite continuations when maxRows is 1 [(Issue #3093)](https://github.com/FoundationDB/fdb-record-layer/issues/3093)
+* **Bug fix** Skips and limits are now enforced on CTE queries [(Issue #3100)](https://github.com/FoundationDB/fdb-record-layer/issues/3100)
+* **Feature** Add verifications to yaml-tests that assert on planner metrics regressions [(Issue #3113)](https://github.com/FoundationDB/fdb-record-layer/issues/3113)
+* **Breaking change** Changes to supprt CTE skips and limits can result in plan hash mismatches during online upgrades [(Issue #3100)](https://github.com/FoundationDB/fdb-record-layer/issues/3100)
 
 ## 4.0
 
