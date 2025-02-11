@@ -16,6 +16,14 @@ runs:
     uses: ./actions/run-gradle
     with:
       gradle_command: build destructiveTest -PcoreNotStrict ${{ inputs.gradle_args }}
+  - name: Test Summary
+    shell: bash
+    if: ${{ !cancelled() && hashFiles('.out/reports/test-summary.md') != '' }}
+    run: cat .out/reports/test-summary.md > $GITHUB_STEP_SUMMARY
+  - name: Test Failures
+    shell: bash
+    if: ${{ !cancelled() && hashFiles('.out/reports/test-failures.md') != '' }}
+    run: cat .out/reports/test-failures.md > $GITHUB_STEP_SUMMARY
   - name: Copy Test Reports
     shell: bash
     if: always()
