@@ -19,7 +19,7 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Plan hashes for queries involving recursive CTEs are now stable across JVM invocations [(Issue #3139)](https://github.com/FoundationDB/fdb-record-layer/issues/3139)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Insert statement does not fully validate the column names with supplied values [(Issue #3069)](https://github.com/FoundationDB/fdb-record-layer/issues/3069)

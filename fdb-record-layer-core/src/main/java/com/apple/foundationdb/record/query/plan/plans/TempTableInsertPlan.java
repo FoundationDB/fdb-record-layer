@@ -184,7 +184,7 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getTempTableReferenceValue());
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild());
     }
 
     @Nonnull
