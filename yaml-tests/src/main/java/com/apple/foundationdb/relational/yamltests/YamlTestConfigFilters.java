@@ -80,6 +80,15 @@ public enum YamlTestConfigFilters {
             return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
                     config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
         }
+    },
+    /**
+     * Used to show the plan diffs graphically.
+     */
+    SHOW_PLAN_ON_DIFF {
+        @Override
+        boolean filter(final YamlTestConfig config) {
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_SHOW_PLAN_ON_DIFF, false);
+        }
     };
 
     /**
