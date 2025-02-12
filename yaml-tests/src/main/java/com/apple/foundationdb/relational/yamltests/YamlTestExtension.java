@@ -121,7 +121,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             try {
                 server.stop();
             } catch (Exception ex) {
-                logger.info("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+                logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
             }
         }
         if (exception.isPresent()) {
