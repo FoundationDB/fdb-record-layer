@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 
 /**
  * A configuration that runs an underlying configuration, but shows the dots of the expected and the actual plan where
@@ -34,6 +33,6 @@ import java.util.Map;
  */
 public class ShowPlanOnDiff extends ConfigWithOptions {
     public ShowPlanOnDiff(@Nonnull final YamlTestConfig underlying) {
-        super(underlying, Map.of(YamlExecutionContext.OPTION_SHOW_PLAN_ON_DIFF, true));
+        super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_SHOW_PLAN_ON_DIFF, true));
     }
 }

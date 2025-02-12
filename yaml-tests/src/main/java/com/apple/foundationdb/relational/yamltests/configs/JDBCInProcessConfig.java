@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,7 +33,6 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -81,8 +81,8 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     }
 
     @Override
-    public @Nonnull Map<String, Object> getRunnerOptions() {
-        return Map.of();
+    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+        return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
     }
 
     @Override

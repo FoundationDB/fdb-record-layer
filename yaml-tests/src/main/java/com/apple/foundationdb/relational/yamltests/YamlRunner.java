@@ -47,7 +47,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -100,7 +99,7 @@ public final class YamlRunner {
     }
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                      @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
+                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
         this.resourcePath = resourcePath;
         this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
     }
