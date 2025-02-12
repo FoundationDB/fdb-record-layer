@@ -99,18 +99,14 @@ message MetaData {
   optional bool uses_subspace_key_counter = 11;
   repeated JoinedRecordType joined_record_types = 12;
   repeated UnnestedRecordType unnested_record_types = 13;
-  repeated SerializableFunction serializable_function = 14;
+  repeated AbstractCatalogedFunction cataloged_function = 14;
   extensions 1000 to 2000;
 }
 
-message SerializableFunction {
+message AbstractCatalogedFunction {
   oneof specific_function {
     com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
   }
-}
-
-message ScalarValuedFunction {
-  optional com.apple.foundationdb.record.planprotos.PMacroFunctionValue function_value = 1;
 }
 
 message JoinedRecordType {

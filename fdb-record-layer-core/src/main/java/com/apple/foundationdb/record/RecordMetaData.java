@@ -27,12 +27,13 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.SerializableFunction;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCatalogFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.common.base.Verify;
@@ -85,7 +86,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Set<SerializableFunction> serializableFunctions;
+    private final Set<AbstractCatalogFunction> catalogedFunctions;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -116,7 +117,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
-                Collections.unmodifiableSet(orig.serializableFunctions),
+                Collections.unmodifiableSet(orig.catalogedFunctions),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -136,7 +137,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Set<SerializableFunction> serializableFunctions,
+                             @Nonnull Set<AbstractCatalogFunction> catalogedFunctions,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -153,7 +154,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.serializableFunctions = serializableFunctions;
+        this.catalogedFunctions = catalogedFunctions;
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
@@ -350,8 +351,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Collection<SerializableFunction> getAllSerializableFunctions() {
-        return serializableFunctions;
+    public Collection<AbstractCatalogFunction> getAllCatalogedFunctions() {
+        return catalogedFunctions;
     }
 
     public boolean isSplitLongRecords() {
@@ -704,7 +705,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
             builder.addFormerIndexes(formerIndex.toProto());
         }
 
-        builder.addAllSerializableFunction(serializableFunctions.stream().map(SerializableFunction::toProto).collect(Collectors.toList()));
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        builder.addAllCatalogedFunction(catalogedFunctions.stream().map(func -> func.toProto(serializationContext)).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);

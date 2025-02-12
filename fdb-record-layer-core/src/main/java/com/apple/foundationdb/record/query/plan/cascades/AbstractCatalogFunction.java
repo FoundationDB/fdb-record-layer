@@ -1,5 +1,5 @@
 /*
- * SerializableFunction.java
+ * AbstractCatalogFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,25 +18,33 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.metadata;
+package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
-public interface SerializableFunction {
-    @Nonnull
-    RecordMetaDataProto.SerializableFunction toProto();
+public abstract class AbstractCatalogFunction extends CatalogedFunction implements PlanSerializable {
+
+    public AbstractCatalogFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
+        super(functionName, parameterTypes, null);
+    }
 
     @Nullable
-    static SerializableFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final RecordMetaDataProto.SerializableFunction proto) {
+    public static AbstractCatalogFunction fromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull RecordMetaDataProto.AbstractCatalogedFunction proto) {
         if (proto.hasMacroFunction()) {
-            return MacroFunction.fromProto(serializationContext, proto.getMacroFunction());
+            return MacroFunction.fromProto(serializationContext, proto);
         } else {
             return null;
         }
     }
+
+    @Nonnull
+    @Override
+    public abstract RecordMetaDataProto.AbstractCatalogedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
 }
