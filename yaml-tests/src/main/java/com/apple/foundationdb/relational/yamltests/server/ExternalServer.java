@@ -94,6 +94,7 @@ public class ExternalServer {
             jar = serverJar;
         }
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
+        this.version = getVersion(jar);
         ProcessBuilder processBuilder = new ProcessBuilder("java",
                 // TODO add support for debugging by adding, but need to take care with ports
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
@@ -112,7 +113,6 @@ public class ExternalServer {
             Assertions.fail("Failed to start the external server");
         }
 
-        this.version = getVersion(jar);
         logger.info("Started {} Version: {}", jar, version);
     }
 

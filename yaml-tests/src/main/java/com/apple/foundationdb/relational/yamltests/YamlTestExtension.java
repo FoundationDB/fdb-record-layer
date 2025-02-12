@@ -34,6 +34,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -72,6 +73,11 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);
             List<File> jars = ExternalServer.getAvailableServers();
+            // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
+            // we don't have access to the artifacts.
+            // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
+            // not a likely scenario.
+            Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
             servers = jars.stream().map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement())).collect(Collectors.toList());
             for (ExternalServer server : servers) {
                 server.start();
@@ -111,11 +117,15 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                         return e;
                     }
                 }).filter(Objects::nonNull).findFirst();
+        for (ExternalServer server : servers) {
+            try {
+                server.stop();
+            } catch (Exception ex) {
+                logger.info("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+            }
+        }
         if (exception.isPresent()) {
             throw exception.get();
-        }
-        for (ExternalServer server : servers) {
-            server.stop();
         }
     }
 

@@ -78,9 +78,9 @@ public class MultiServerConfig extends JDBCInProcessConfig {
     @Override
     public String toString() {
         if (initialConnection == 0) {
-            return "MultiServer version " + externalServer.getVersion() + " (Embedded then External)";
+            return "MultiServer (Embedded then " + externalServer.getVersion() + ")";
         } else {
-            return "MultiServer version " + externalServer.getVersion() + " (External then Embedded)";
+            return "MultiServer (" + externalServer.getVersion() + " then Embedded)";
         }
     }
 }
