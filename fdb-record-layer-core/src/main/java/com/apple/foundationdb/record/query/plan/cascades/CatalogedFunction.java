@@ -106,5 +106,5 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public abstract Typed encapsulate(@Nonnull final List<? extends Typed> arguments);
+    public abstract Typed encapsulate(@Nonnull List<? extends Typed> arguments);
 }
