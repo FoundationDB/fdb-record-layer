@@ -18,6 +18,9 @@
 # limitations under the License.
 
 ---
+options:
+    supported_version: !current_version
+---
 schema_template:
     create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
 ---
