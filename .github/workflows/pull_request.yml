@@ -12,6 +12,7 @@ jobs:
   #  2. core-tests: Runs the fdb-record-layer-core tests. This is the longest test suite of the
   #     various subprojects, so separating it out allows us to speed up the PRB time.
   #  3. other-tests: Runs the rest of the tests. This tests everything else
+  #  4. coverage: Merges the JaCoCo output of 2 and 3 and generates reports.
 
   style:
     runs-on: ubuntu-latest
@@ -110,3 +111,31 @@ jobs:
             **/.out/libs/*.jar
           include-hidden-files: true
           retention-days: 1
+
+  coverage:
+    needs: [core-tests, other-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Checkout HEAD sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: 'Download artifacts'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: |
+            *-coverage-data
+          merge-multiple: true
+      - name: Run JaCoCo Report
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: codeCoverageReport
+      - name: Publish Coverage Report
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: coverage-report
+          path: |
+            ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/

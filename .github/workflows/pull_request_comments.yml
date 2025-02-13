@@ -2,7 +2,7 @@ name: Pull Request Comments
 
 on:
   workflow_run:
-    workflows: [Pull Request Coverage]
+    workflows: [Pull Request]
     types:
       - completed
 
@@ -10,7 +10,7 @@ jobs:
   download:
     runs-on: ubuntu-latest
     if: >
-      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success'
     permissions:
       checks: write
