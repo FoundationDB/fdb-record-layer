@@ -17,7 +17,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: 'Download artifact'
+      - name: 'Download artifact(s)'
         uses: actions/github-script@v7
         with:
           script: |
@@ -27,7 +27,7 @@ jobs:
                run_id: context.payload.workflow_run.id,
             });
             let matchingArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name.endsWith('-test-reports');
+              return artifact.name == 'coverage-report';
             });
             const fs = require('fs');
             for (matchingArtifact of matchingArtifacts) {
@@ -40,13 +40,13 @@ jobs:
               });
               fs.writeFileSync(`${{ github.workspace }}/${ matchingArtifact.name }.zip`, Buffer.from(download.data));
             }
-      - name: 'Unzip artifacts'
-        run: for file in *-test-reports.zip; do unzip -q $file; done
+      - name: 'Unzip artifact(s)'
+        run: unzip coverage-report.zip codeCoverageReport.xml
       - name: Test Coverage Comment
         uses: madrapps/jacoco-report@e4bbaf00a0b8920cb86a448ae3ec0fc6f6bfeacc
         with:
           paths: |
-            ${{ github.workspace }}/**/jacoco/test/jacocoTestReport.xml
+            ${{ github.workspace }}/codeCoverageReport.xml
           token: ${{ secrets.GITHUB_TOKEN }}
           min-coverage-overall: 75
           min-coverage-changed-files: 80
