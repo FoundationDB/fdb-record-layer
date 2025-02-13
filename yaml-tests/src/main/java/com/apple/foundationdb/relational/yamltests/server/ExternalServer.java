@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Assertions;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
@@ -40,7 +41,7 @@ public class ExternalServer {
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     private static final boolean SAVE_SERVER_OUTPUT = false;
 
-    private final String jarName;
+    private final File serverJar;
     private final int grpcPort;
     private final int httpPort;
     private String version;
@@ -48,6 +49,7 @@ public class ExternalServer {
 
     /**
      * Create a new instance that will run latest released version of the server, as downloaded by gradle.
+     * This assumes only one server exists in the download directory.
      */
     public ExternalServer(final int grpcPort, final int httpPort) {
         this(null, grpcPort, httpPort);
@@ -56,10 +58,10 @@ public class ExternalServer {
     /**
      * Create a new instance that will run a specific jar.
      *
-     * @param jarName the path to the jar to run
+     * @param serverJar the path to the jar to run
      */
-    public ExternalServer(String jarName, final int grpcPort, final int httpPort) {
-        this.jarName = jarName;
+    public ExternalServer(File serverJar, final int grpcPort, final int httpPort) {
+        this.serverJar = serverJar;
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
     }
@@ -84,15 +86,15 @@ public class ExternalServer {
 
     public void start() throws Exception {
         File jar;
-        if (jarName == null) {
-            final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-            final File[] externalServers = Objects.requireNonNull(externalDirectory.listFiles(file -> file.getName().endsWith(".jar")));
-            Assertions.assertEquals(1, externalServers.length);
-            jar = externalServers[0];
+        if (serverJar == null) {
+            final List<File> externalServers = getAvailableServers();
+            Assertions.assertEquals(1, externalServers.size());
+            jar = externalServers.get(0);
         } else {
-            jar = new File(jarName);
+            jar = serverJar;
         }
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
+        this.version = getVersion(jar);
         ProcessBuilder processBuilder = new ProcessBuilder("java",
                 // TODO add support for debugging by adding, but need to take care with ports
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
@@ -111,8 +113,18 @@ public class ExternalServer {
             Assertions.fail("Failed to start the external server");
         }
 
-        this.version = getVersion(jar);
         logger.info("Started {} Version: {}", jar, version);
+    }
+
+    /**
+     * Get a list of available servers in the download folder.
+     *
+     * @return a list of jar {@link File}s available to run
+     */
+    public static List<File> getAvailableServers() {
+        final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
+        final File[] externalServers = Objects.requireNonNull(externalDirectory.listFiles(file -> file.getName().endsWith(".jar")));
+        return List.of(externalServers);
     }
 
     private static String getVersion(File jar) throws IOException {

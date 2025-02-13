@@ -1,5 +1,13 @@
 name: Build and publish release
 
+inputs:
+  gpg_private_key:
+    description: 'GPG key for artifact signing'
+    required: true
+  gpg_passphrase:
+    description: 'GPG passphrase for artifact signing'
+    required: true
+
 runs:
   using: "composite"
   steps:
@@ -15,7 +23,10 @@ runs:
     - name: Publish Artifacts
       uses: ./actions/run-gradle
       with:
-        gradle_command: publish -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+        gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+      env:
+        ORG_GRADLE_PROJECT_signingKey: ${{ inputs.gpg_private_key }}
+        ORG_GRADLE_PROJECT_signingPassword: ${{ inputs.gpg_passphrase }}
 
     # Post release: Update various files which reference version
     - name: Update release notes

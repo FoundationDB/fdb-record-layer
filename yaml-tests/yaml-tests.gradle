@@ -71,7 +71,7 @@ dependencies {
     implementation(libs.diffutils)
 }
 
-// This "method" resolves the latest shadowJar version of the valkyrie-server, and returns the file reference to it
+// This "method" resolves the latest shadowJar version of the relational-server, and returns the file reference to it
 // which can be used in `Copy` tasks.
 ext.resolveOtherServer = { Set<String> rejectedVersions ->
     def configurationName = "resolveArtifact-${UUID.randomUUID()}"
