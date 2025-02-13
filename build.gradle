@@ -49,7 +49,6 @@ ext {
 defaultTasks 'build'
 
 apply from: 'gradle/root.gradle'
-apply from: 'gradle/sphinx.gradle'
 
 def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
 

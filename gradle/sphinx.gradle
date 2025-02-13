@@ -118,8 +118,8 @@ task sphinxDocs(type: Exec) {
 // Compile the final documentation site by copying the generated javadoc into the appropriate
 // location in the build
 task documentationSite(type: Copy) {
-    dependsOn(javadoc)
-    dependsOn(sphinxDocs)
+    dependsOn(tasks.javadoc)
+    dependsOn(tasks.sphinxDocs)
 
     into("${sphinxBuildDir}/html/api")
     documented_subprojects.forEach { proj ->
