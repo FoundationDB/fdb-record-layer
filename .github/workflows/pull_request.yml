@@ -36,24 +36,32 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4.2.2
-    - name: Setup Base Environment
-      uses: ./actions/setup-base-env
-    - name: Setup FDB
-      uses: ./actions/setup-fdb
-    - name: Run Gradle Test
-      uses: ./actions/gradle-test
-      with:
-        gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
-        gradle_args: -PreleaseBuild=false -PpublishBuild=false
-    - name: Publish Test Reports
-      if: always()
-      uses: actions/upload-artifact@v4.6.0
-      with:
-        name: core-test-reports
-        path: |
-          test-reports/fdb-record-layer-core/
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      - name: Publish Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: core-test-reports
+          path: |
+            test-reports/fdb-record-layer-core/
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: core-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+          include-hidden-files: true
+          retention-days: 1
 
   other-tests:
     runs-on: ubuntu-latest
@@ -93,3 +101,12 @@ jobs:
             test-reports/fdb-relational-jdbc/
             test-reports/fdb-relational-server/
             test-reports/yaml-tests/
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: other-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
