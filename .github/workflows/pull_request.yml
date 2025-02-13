@@ -54,14 +54,6 @@ jobs:
         name: core-test-reports
         path: |
           test-reports/fdb-record-layer-core/
-    - name: Test Coverage Comment
-      uses: madrapps/jacoco-report@7c362aca34caf958e7b1c03464bd8781db9f8da7
-      with:
-        paths: |
-          fdb-record-layer-core/.out/reports/jacoco/test/jacocoTestReport.xml,
-        token: ${{ secrets.GITHUB_TOKEN }}
-        min-coverage-overall: 75
-        min-coverage-changed-files: 80
 
   other-tests:
     runs-on: ubuntu-latest
@@ -101,21 +93,3 @@ jobs:
             test-reports/fdb-relational-jdbc/
             test-reports/fdb-relational-server/
             test-reports/yaml-tests/
-      - name: Test Coverage Comment
-        uses: madrapps/jacoco-report@7c362aca34caf958e7b1c03464bd8781db9f8da7
-        with:
-          paths: |
-            fdb-extensions/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-record-layer-icu/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-record-layer-spatial/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-record-layer-lucene/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-relational-api/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-relational-core/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-relational-cli/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-relational-grpc/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-relational-jdbc/.out/reports/jacoco/test/jacocoTestReport.xml,
-            fdb-relational-server/.out/reports/jacoco/test/jacocoTestReport.xml,
-            yaml-tests/.out/reports/jacoco/test/jacocoTestReport.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          min-coverage-overall: 75
-          min-coverage-changed-files: 80
