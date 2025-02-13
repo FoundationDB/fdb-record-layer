@@ -19,6 +19,7 @@
  */
 
 apply plugin: 'com.jfrog.artifactory'
+apply plugin: 'signing'
 
 // Add various details to the pom file to allow for publishing
 def addPublishingInfo(publication) {
@@ -99,6 +100,11 @@ if (ext.publishLibrary) {
             }
         }
     }
+    if (Boolean.parseBoolean(centralPublish)) {
+        signing {
+            sign publishing.publications.library
+        }
+    }
 }
 
 ext {
@@ -116,17 +122,6 @@ publishing {
                     credentials {
                         username = System.getenv("GITHUB_ACTOR")
                         password = System.getenv("GITHUB_TOKEN")
-                    }
-                }
-            }
-
-            if (Boolean.parseBoolean(centralPublish)) {
-                maven {
-                    name = "OSSRH"
-                    url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-                    credentials {
-                        username = System.getenv("MAVEN_USER")
-                        password = System.getenv("MAVEN_PASSWORD")
                     }
                 }
             }
