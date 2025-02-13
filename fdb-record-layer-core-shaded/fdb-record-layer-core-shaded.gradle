@@ -123,3 +123,9 @@ publishing {
         publications (publishing.publications.shadow)
     }
 }
+
+if (Boolean.parseBoolean(centralPublish)) {
+    signing {
+        sign publishing.publications.shadow
+    }
+}
