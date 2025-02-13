@@ -56,6 +56,12 @@ task quickTest(type: Test) {
     }
 }
 
+task mixedModeTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'MixedMode'
+    }
+}
+
 def getFullDisplayName(descriptor) {
     def fullName = ""
     fullName = descriptor.displayName
