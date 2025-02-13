@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -54,6 +56,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -119,7 +122,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withGroupCriterion("num_value_3_indexed")
                             .build(useNestedResult);
 
-            final var result = executePlan(plan);
+            final var result = executePlanWithRowLimit(plan, 1);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));
         }
     }
@@ -135,7 +138,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .build(useNestedResult);
 
-            final var result = executePlan(plan);
+            final var result = executePlanWithRowLimit(plan, 1);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(15));
         }
     }
@@ -169,7 +172,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withGroupCriterion("str_value_indexed")
                             .build(useNestedResult);
 
-            final var result = executePlan(plan);
+            final var result = executePlanWithRowLimit(plan, 1);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
         }
     }
@@ -305,6 +308,36 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         } catch (final Throwable t) {
             throw Assertions.<RuntimeException>fail(t);
         }
+    }
+
+    @Nonnull
+    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan plan, final int rowLimit, final byte[] continuation) {
+        final var types = plan.getDynamicTypes();
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
+        ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
+        executeProperties = executeProperties.setReturnedRowLimit(rowLimit);
+        try {
+            return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
+        } catch (final Throwable t) {
+            throw Assertions.<RuntimeException>fail(t);
+        }
+    }
+
+
+    private List<QueryResult> executePlanWithRowLimit(final RecordQueryPlan plan, final int rowLimit) {
+        byte[] continuation = null;
+        List<QueryResult> queryResults = new LinkedList<>();
+        while (true) {
+            RecordCursorResult<QueryResult> cursor = executePlan(plan, rowLimit, continuation).getNext();
+            if (cursor.hasNext()) {
+                continuation = cursor.getContinuation().toBytes();
+                System.out.println("current result:" + cursor.get().getMessage());
+                queryResults.add(cursor.get());
+            } else {
+                break;
+            }
+        }
+        return queryResults;
     }
 
     private void assertResults(@Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer, @Nonnull final List<QueryResult> actual, @Nonnull final List<?>... expected) {
