@@ -12,7 +12,10 @@ jobs:
   #  2. core-tests: Runs the fdb-record-layer-core tests. This is the longest test suite of the
   #     various subprojects, so separating it out allows us to speed up the PRB time.
   #  3. other-tests: Runs the rest of the tests. This tests everything else
-  #  4. coverage: Merges the JaCoCo output of 2 and 3 and generates reports.
+  #
+  # Once those complete, we have two jobs to handle publishing coverage information:
+  #  1. coverage: Merges the JaCoCo output of 2 and 3 and generates reports.
+  #  2. coverage-comment: Comments the final report
 
   style:
     runs-on: ubuntu-latest
@@ -139,3 +142,30 @@ jobs:
           name: coverage-report
           path: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/
+
+  coverage-comment:
+    runs-on: ubuntu-latest
+    needs: coverage
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Download report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-report.zip
+      - name: 'Unzip artifact(s)'
+        run: unzip coverage-report.zip codeCoverageReport.xml
+      - name: Test Coverage Comment
+        uses: madrapps/jacoco-report@e4bbaf00a0b8920cb86a448ae3ec0fc6f6bfeacc
+        with:
+          paths: |
+            ${{ github.workspace }}/codeCoverageReport.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 75
+          min-coverage-changed-files: 80
