@@ -76,7 +76,9 @@ public class ExternalServer {
                                         argument.startsWith(serverPath)))
                         .orElse(false))
                 .forEach(process -> {
-                    logger.info("Killing existing server: pid=" + process.pid() + " " + process.info());
+                    if (logger.isInfoEnabled()) {
+                        logger.info("Killing existing server: pid=" + process.pid() + " " + process.info());
+                    }
                     process.destroy();
                 });
     }
