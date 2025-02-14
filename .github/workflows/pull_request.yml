@@ -139,13 +139,12 @@ jobs:
           name: coverage-report
           path: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/
-      - name: Save Pull Request Number
-        run: echo ${{ github.event.number }} >.pr_number
-      - name: Upload Pull Request Number
-        uses: actions/upload-artifact@v4.6.0
+      - name: Add Coverage Summary
+        uses: madrapps/jacoco-report@e4bbaf00a0b8920cb86a448ae3ec0fc6f6bfeacc
         with:
-          name: pull-request-number
-          path: |
-            ${{ github.workspace }}/.pr_number
-          include-hidden-files: true
-          retention-days: 1
+          paths: |
+            ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          comment-type: summary
+          min-coverage-overall: 75
+          min-coverage-changed-files: 80
