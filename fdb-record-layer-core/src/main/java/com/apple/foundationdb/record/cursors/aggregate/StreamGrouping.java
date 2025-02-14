@@ -78,9 +78,6 @@ public class StreamGrouping<M extends Message> {
     // The previous completed group result - with both grouping criteria and accumulated values
     @Nullable
     private Object previousCompleteResult;
-    // The last row in the previous group
-    @Nullable
-    private Object previousValidResult;
     @Nonnull
     private final CorrelationIdentifier groupingKeyAlias;
     @Nonnull
@@ -162,17 +159,6 @@ public class StreamGrouping<M extends Message> {
         return previousCompleteResult;
     }
 
-    /**
-     * Get the last row in the last completed group (prior to the last group break).
-     *
-     * @return the last row in the last completed group. Null if no group was completed by this aggregator.
-     */
-    @Nullable
-    public Object getPreviousValidResult() {
-        return previousValidResult;
-    }
-
-
     private boolean isGroupBreak(final Object currentGroup, final Object nextGroup) {
         if (currentGroup == null) {
             return false;
@@ -191,7 +177,6 @@ public class StreamGrouping<M extends Message> {
                 .setBinding(aggregateAlias, accumulator.finish())
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
-        previousValidResult = currentGroup;
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
