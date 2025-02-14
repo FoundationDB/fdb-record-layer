@@ -74,7 +74,10 @@ public class ExternalServer {
                 process.info().arguments().map(arguments ->
                                 Arrays.stream(arguments).anyMatch(argument ->
                                         argument.startsWith(serverPath)))
-                        .orElse(false))
+                        .orElse(false) &&
+                        process.info().command().map(command ->
+                                        command.endsWith("/java"))
+                                .orElse(false))
                 .forEach(process -> {
                     if (logger.isInfoEnabled()) {
                         logger.info("Killing existing server: pid=" + process.pid() + " " + process.info());
