@@ -139,3 +139,13 @@ jobs:
           name: coverage-report
           path: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/
+      - name: Save Pull Request Number
+        run: echo ${{ github.event.number }} >.pr_number
+      - name: Upload Pull Request Number
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: pull-request-number
+          path: |
+            ${{ github.workspace }}/.pr_number
+          include-hidden-files: true
+          retention-days: 1
