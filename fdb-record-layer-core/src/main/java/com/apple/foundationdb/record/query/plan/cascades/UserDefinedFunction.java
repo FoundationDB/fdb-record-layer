@@ -1,5 +1,5 @@
 /*
- * AbstractCatalogFunction.java
+ * UserDefinedFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,14 +29,17 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public abstract class AbstractCatalogFunction extends CatalogedFunction implements PlanSerializable {
+/**
+ * User defined functions that are serialized in MetaData
+ */
+public abstract class UserDefinedFunction extends CatalogedFunction implements PlanSerializable {
 
-    public AbstractCatalogFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
+    public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
         super(functionName, parameterTypes, null);
     }
 
     @Nullable
-    public static AbstractCatalogFunction fromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull RecordMetaDataProto.AbstractCatalogedFunction proto) {
+    public static UserDefinedFunction fromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull RecordMetaDataProto.UserDefinedFunction proto) {
         if (proto.hasMacroFunction()) {
             return MacroFunction.fromProto(serializationContext, proto);
         } else {
@@ -46,5 +49,5 @@ public abstract class AbstractCatalogFunction extends CatalogedFunction implemen
 
     @Nonnull
     @Override
-    public abstract RecordMetaDataProto.AbstractCatalogedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
+    public abstract RecordMetaDataProto.UserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
 }

@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 /**
  * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
-public class MacroFunction extends AbstractCatalogFunction {
+public class MacroFunction extends UserDefinedFunction {
     @Nonnull
     private final Value bodyValue;
     private final List<CorrelationIdentifier> parameterIdentifiers;
@@ -65,12 +65,12 @@ public class MacroFunction extends AbstractCatalogFunction {
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.AbstractCatalogedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
+    public RecordMetaDataProto.UserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
         PMacroFunctionValue.Builder builder = PMacroFunctionValue.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
             builder.addArguments(QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
         }
-        return RecordMetaDataProto.AbstractCatalogedFunction.newBuilder()
+        return RecordMetaDataProto.UserDefinedFunction.newBuilder()
                 .setMacroFunction(builder
                         .setFunctionName(functionName)
                         .setBody(bodyValue.toValueProto(serializationContext)))

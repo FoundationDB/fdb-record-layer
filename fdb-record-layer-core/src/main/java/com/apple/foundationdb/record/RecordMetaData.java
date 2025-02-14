@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.AbstractCatalogFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -86,7 +86,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Set<AbstractCatalogFunction> catalogedFunctions;
+    private final Set<UserDefinedFunction> userDefinedFunctions;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -117,7 +117,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
-                Collections.unmodifiableSet(orig.catalogedFunctions),
+                Collections.unmodifiableSet(orig.userDefinedFunctions),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -137,7 +137,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Set<AbstractCatalogFunction> catalogedFunctions,
+                             @Nonnull Set<UserDefinedFunction> userDefinedFunctions,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -154,7 +154,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.catalogedFunctions = catalogedFunctions;
+        this.userDefinedFunctions = userDefinedFunctions;
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
@@ -348,11 +348,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     public List<FormerIndex> getFormerIndexes() {
         return formerIndexes;
-    }
-
-    @Nonnull
-    public Collection<AbstractCatalogFunction> getAllCatalogedFunctions() {
-        return catalogedFunctions;
     }
 
     public boolean isSplitLongRecords() {
@@ -707,7 +702,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        builder.addAllCatalogedFunction(catalogedFunctions.stream().map(func -> func.toProto(serializationContext)).collect(Collectors.toList()));
+        builder.addAllUserDefinedFunctions(userDefinedFunctions.stream().map(func -> func.toProto(serializationContext)).collect(Collectors.toList()));
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
