@@ -32,7 +32,7 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Add enum column support to relational server [(Issue #3073)](https://github.com/FoundationDB/fdb-record-layer/issues/3073)
 * **Feature** Allow scrubbing of indexes in READABLE_UNIQUE_PENDING state [(Issue #3135)](https://github.com/FoundationDB/fdb-record-layer/issues/3135)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** FRL now respects PLAN_CACHE_*_MAX_ENTRIES options [(Issue #3155)](https://github.com/FoundationDB/fdb-record-layer/issues/3155)
 * **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
