@@ -1,0 +1,23 @@
+Diagram(
+    Stack(
+        Sequence(
+            Terminal('CREATE'),
+            Terminal('SCHEMA'),
+            Terminal('TEMPLATE'),
+            NonTerminal('schemaTemplateName')
+        ),
+        Optional(
+            OneOrMore(
+                NonTerminal('createTypeClause')
+            )
+        ),
+        OneOrMore(
+            NonTerminal('createTableCluase')
+        ),
+        Optional(
+            OneOrMore(
+                NonTerminal('createIndexCluase')
+            )
+        )
+    )
+)

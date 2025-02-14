@@ -1,0 +1,4 @@
+Diagram(
+    Terminal('EXISTS'),
+    NonTerminal('subquery')
+)

@@ -1,7 +1,0 @@
-title: FoundationDB Record Layer
-footer: 
-  copy: Copyright 2015-2019 Apple, Inc and the FoundationDB project authors.
-markdown: kramdown
-
-kramdown:
-  parse_block_html: true

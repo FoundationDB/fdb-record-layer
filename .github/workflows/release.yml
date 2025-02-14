@@ -10,7 +10,6 @@ jobs:
       checks: write
       contents: write
       packages: write
-      pages: write
       pull-requests: write
     steps:
       - name: Checkout sources
@@ -44,4 +43,25 @@ jobs:
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
 
-    # TODO: Publish documentation updates
+      - name: Build Documentation Site
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: documentationSite -PreleaseBuild=true
+      - name: Upload Documentation
+        id: doc_upload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/sphinx/.out/html/
+
+    deploy_docs:
+      needs: gradle
+      permissions:
+        pages: write
+        id-token: write
+      environment:
+        name: github-pages
+        url: ${{ steps.doc_upload.outputs.page_url }}
+      runs-on: ubuntu-latest
+      steps:
+        - name: Deploy Documentation
+          uses: actions/deploy-pages@v4
