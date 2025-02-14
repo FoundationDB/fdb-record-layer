@@ -202,8 +202,9 @@ public abstract class OnlineIndexerTest {
         }
     }
 
-    protected void assertAllValidated(List<Index> indexes) {
+    protected void scrubAndValidate(List<Index> indexes) {
         final FDBStoreTimer timer = new FDBStoreTimer();
+        long numIssues = 0;
         for (Index index: indexes) {
             if (index.getType().equals(IndexTypes.VALUE)) {
                 try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(index, timer)
@@ -212,11 +213,12 @@ public abstract class OnlineIndexerTest {
                                 .setAllowRepair(false)
                                 .build())
                         .build()) {
-                    indexScrubber.scrubDanglingIndexEntries();
-                    indexScrubber.scrubMissingIndexEntries();
+                    numIssues += indexScrubber.scrubDanglingIndexEntries();
+                    numIssues += indexScrubber.scrubMissingIndexEntries();
                 }
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+                assertEquals(0, numIssues);
             }
         }
     }

@@ -45,6 +45,7 @@ setup:
                (10001, 'hello')
 ---
 test_block:
+  name: bitmap-agg-index-tests
   tests:
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id)

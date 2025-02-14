@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -47,9 +48,14 @@ public class InjectedFailureRepository {
         LUCENE_GET_ALL_FIELDS_INFO_STREAM
     }
 
+    public enum Flags {
+        LUCENE_MAINTAINER_SKIP_INDEX_UPDATE,
+    }
+
     // The injected failure state
     private EnumMap<Methods, FailureDescription> failureDescriptions = new EnumMap<>(Methods.class);
     private EnumMap<Methods, AtomicLong> invocationCounts = new EnumMap<>(Methods.class);
+    private EnumMap<Flags, Boolean> flagsMap = new EnumMap<>(Flags.class);
 
     public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count) {
         failureDescriptions.put(method, new FailureDescription(method, exception, count));
@@ -63,6 +69,18 @@ public class InjectedFailureRepository {
     public void clear() {
         failureDescriptions.clear();
         invocationCounts.clear();
+    }
+
+    public void setFlag(@Nonnull Flags flag) {
+        setFlag(flag, true);
+    }
+
+    public void setFlag(@Nonnull Flags flag, Boolean value) {
+        flagsMap.put(flag, value);
+    }
+
+    public boolean hasFlag(@Nonnull Flags flag) {
+        return Optional.ofNullable(flagsMap.get(flag)).orElse(false);
     }
 
     public void checkFailureForIoException(@Nonnull final Methods method) throws IOException {

@@ -5,6 +5,51 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.1
+
+### Features
+
+Builds and releases have been moved to a new CI system. This includes the resumption of publishing artifacts to the Maven Central repository and now also to GitHub packages. This should mostly be transparent to users, other than that they can remove the reference to our Artifactory repository from their build in favor of one of the new publishing locations.
+
+### Update Compatibility
+
+Users performing online updates are encouraged to update from [4.0.559.4](#405594). The continuations of some queries have changed in ways that may break if continued on other 4.0 builds. See: [Issue #3093](https://github.com/FoundationDB/fdb-record-layer/issues/3093), [PR #3092](https://github.com/FoundationDB/fdb-record-layer/pull/3092) fixing the issue, and [PR #3108](https://github.com/FoundationDB/fdb-record-layer/issues/3108) preparing 4.0.559.4 to accept newer continuations.
+
+<!--
+// begin next release
+### NEXT_RELEASE
+
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Insert statement does not fully validate the column names with supplied values [(Issue #3069)](https://github.com/FoundationDB/fdb-record-layer/issues/3069)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Add enum column support to relational server [(Issue #3073)](https://github.com/FoundationDB/fdb-record-layer/issues/3073)
+* **Feature** Allow scrubbing of indexes in READABLE_UNIQUE_PENDING state [(Issue #3135)](https://github.com/FoundationDB/fdb-record-layer/issues/3135)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+
+// end next release
+-->
+
+### 4.1.4.0
+
+* **Bug fix** Ungrouped GROUP BY queries result in infinite continuations when maxRows is 1 [(Issue #3093)](https://github.com/FoundationDB/fdb-record-layer/issues/3093)
+* **Bug fix** Skips and limits are now enforced on CTE queries [(Issue #3100)](https://github.com/FoundationDB/fdb-record-layer/issues/3100)
+* **Feature** Add verifications to yaml-tests that assert on planner metrics regressions [(Issue #3113)](https://github.com/FoundationDB/fdb-record-layer/issues/3113)
+* **Breaking change** Changes to supprt CTE skips and limits can result in plan hash mismatches during online upgrades [(Issue #3100)](https://github.com/FoundationDB/fdb-record-layer/issues/3100)
+
 ## 4.0
 
 ### Features
@@ -14,34 +59,6 @@ Several "FDB relational" sub-projects have been added which present a new relati
 ### Breaking Changes
 
 Our API stability annotations have been updated to reflect greater API instability. We have degraded existing `STABLE` and `MAINTAINED` APIs to `UNSTABLE`, and the `MAINTAINED` classification has been removed from the project. The new relational sub-projects' APIs are all `EXPERIMENTAL` (or `INTERNAL`). These APIs are expected to evolve in the future as more functionality is moved to the relational APIs. The API annotation class was moved to its own module, to avoid having the new sub-projects depend on the FDB java bindings.
-
-<!--
-// begin next release
-### NEXT_RELEASE
-
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** ungrouped GROUP BY queries result in infinite continuations when maxRows is 1 [(Issue #3093)](https://github.com/FoundationDB/fdb-record-layer/issues/3093)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-
-// end next release
--->
 
 ### 4.0.575.0
 

@@ -26,6 +26,7 @@ setup:
     - query: insert into lb values (1, x'deadbeef'), (2, b64'yv4='), (3, null);
 ---
 test_block:
+  name: bytes-tests
   tests:
     -
       - query: select b from lb

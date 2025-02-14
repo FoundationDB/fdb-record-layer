@@ -77,7 +77,7 @@ public final class QueryCommand extends Command {
     }
 
     @Nonnull
-    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull final Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
         final var lineNumber = Matchers.notNull(linedObject, "query").getLineNumber();
@@ -90,7 +90,7 @@ public final class QueryCommand extends Command {
             final var queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
-                    queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, executionContext)).collect(Collectors.toList());
+                    queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, blockName, executionContext)).collect(Collectors.toList());
 
             Assert.thatUnchecked(configs.stream().skip(1)
                     .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),

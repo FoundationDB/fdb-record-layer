@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.JavaCallFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -52,8 +51,8 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
-import com.apple.foundationdb.relational.recordlayer.query.functions.FunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Equivalence;
@@ -95,10 +94,10 @@ public class SemanticAnalyzer {
     private final SchemaTemplate metadataCatalog;
 
     @Nonnull
-    private final FunctionCatalog functionCatalog;
+    private final SqlFunctionCatalog functionCatalog;
 
     public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
-                            @Nonnull FunctionCatalog functionCatalog) {
+                            @Nonnull SqlFunctionCatalog functionCatalog) {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
     }
@@ -723,13 +722,13 @@ public class SemanticAnalyzer {
     }
 
     /**
-     * Resolves a function given its name and a list of arguments by looking it up in the {@link FunctionCatalog}.
+     * Resolves a function given its name and a list of arguments by looking it up in the {@link SqlFunctionCatalog}.
      * <br>
      * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
      * whether the single-item records should be flattened or not.
      * Currently almost all supported SQL functions do not expect {@code Record} objects,
      * so this is probably ok, however, this does not necessarily hold for the future.
-     * See {@link SqlFunctionCatalog#flattenRecordWithOneField(Typed)} for more information.
+     * See {@link SqlFunctionCatalogImpl#flattenRecordWithOneField(Typed)} for more information.
      * @param functionName The function name.
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      *                                 content, otherwise {@code false}.
@@ -737,25 +736,25 @@ public class SemanticAnalyzer {
      * @return A resolved SQL function {@code Expression}.
      */
     @Nonnull
-    public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords,
-                                      @Nonnull Expression... arguments) {
+    public Expression resolveFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
+                                      @Nonnull final Expression... arguments) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format("Unsupported operator %s", functionName));
-        final var builtInFunction = functionCatalog.lookUpFunction(functionName);
+        final var builtInFunction = functionCatalog.lookUpFunction(functionName, arguments);
         List<Expression> argumentList = new ArrayList<>();
         argumentList.addAll(List.of(arguments));
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
         }
         final List<? extends Typed> valueArgs = argumentList.stream().map(Expression::getUnderlying)
-                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalogImpl.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
     }
 
-    public boolean isUdfFunction(@Nonnull String functionName) {
-        return functionCatalog.lookUpFunction(functionName).getClass().equals(JavaCallFunction.class);
+    public boolean isUdfFunction(@Nonnull final String functionName) {
+        return functionCatalog.isUdfFunction(functionName);
     }
 
     public boolean containsReferencesTo(@Nonnull final ParseTree parseTree,

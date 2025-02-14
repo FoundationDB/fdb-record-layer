@@ -20,10 +20,15 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -32,11 +37,23 @@ import java.util.concurrent.Executor;
  * the test execution.
  */
 public class MockedLuceneIndexMaintainer extends LuceneIndexMaintainer {
+    final InjectedFailureRepository injectedFailures;
+
     public MockedLuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull final Executor executor, final InjectedFailureRepository injectedFailures) {
         super(state, executor);
+        this.injectedFailures = injectedFailures;
         // Setting failures has to be done here rather than via a constructor param since createDirectoryManager is called
         // from the super constructor before we can set local state
         ((MockedFDBDirectoryManager)getDirectoryManager()).setInjectedFailures(injectedFailures);
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+        if (injectedFailures.hasFlag(InjectedFailureRepository.Flags.LUCENE_MAINTAINER_SKIP_INDEX_UPDATE)) {
+            return AsyncUtil.DONE;
+        }
+        return super.update(oldRecord, newRecord);
     }
 
     @Nonnull

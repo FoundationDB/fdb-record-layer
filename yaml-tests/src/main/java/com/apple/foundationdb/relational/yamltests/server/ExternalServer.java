@@ -1,5 +1,5 @@
 /*
- * RunExternalServerExtension.java
+ * ExternalServer.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,87 +23,88 @@ package com.apple.foundationdb.relational.yamltests.server;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.extension.AfterAllCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 /**
- * Extension to run an external server, add as a field, annotated with {@link org.junit.jupiter.api.extension.RegisterExtension}.
- * <p>
- *     For example:
- *     <pre>{@code @RegisterExtension
- * static final RunExternalServerExtension = new RunExternalServerExtension();
- *     }</pre>
+ * Class to manage running an external server.
  */
-public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCallback {
+public class ExternalServer {
 
-    private static final Logger logger = LogManager.getLogger(RunExternalServerExtension.class);
+    private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     private static final boolean SAVE_SERVER_OUTPUT = false;
 
-    private static final int SERVER_PORT = 1111;
-    private final String jarName;
+    private final File serverJar;
+    private final int grpcPort;
+    private final int httpPort;
     private String version;
     private Process serverProcess;
 
     /**
-     * Create a new extension that will run latest released version of the server, as downloaded by gradle.
+     * Create a new instance that will run latest released version of the server, as downloaded by gradle.
+     * This assumes only one server exists in the download directory.
      */
-    public RunExternalServerExtension() {
-        this(null);
+    public ExternalServer(final int grpcPort, final int httpPort) {
+        this(null, grpcPort, httpPort);
     }
 
     /**
-     * Create a new extension that will run a specific jar.
-     * @param jarName the path to the jar to run
+     * Create a new instance that will run a specific jar.
+     *
+     * @param serverJar the path to the jar to run
      */
-    public RunExternalServerExtension(String jarName) {
-        this.jarName = jarName;
+    public ExternalServer(File serverJar, final int grpcPort, final int httpPort) {
+        this.serverJar = serverJar;
+        this.grpcPort = grpcPort;
+        this.httpPort = httpPort;
     }
 
     /**
      * Get the port to use when connecting.
+     *
      * @return the grpc port that the server is listening to
      */
     public int getPort() {
-        return SERVER_PORT;
+        return grpcPort;
     }
 
     /**
      * Get the version of the server.
+     *
      * @return the version of the server being run.
      */
     public String getVersion() {
         return version;
     }
 
-
-    @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
+    public void start() throws Exception {
         File jar;
-        if (jarName == null) {
-            final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-            final File[] externalServers = Objects.requireNonNull(externalDirectory.listFiles(file -> file.getName().endsWith(".jar")));
-            Assertions.assertEquals(1, externalServers.length);
-            jar = externalServers[0];
+        if (serverJar == null) {
+            final List<File> externalServers = getAvailableServers();
+            Assertions.assertEquals(1, externalServers.size());
+            jar = externalServers.get(0);
         } else {
-            jar = new File(jarName);
+            jar = serverJar;
         }
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
+        this.version = getVersion(jar);
         ProcessBuilder processBuilder = new ProcessBuilder("java",
-                "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n", jar.getAbsolutePath());
+                // TODO add support for debugging by adding, but need to take care with ports
+                // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
+                "-jar", jar.getAbsolutePath(),
+                "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
         ProcessBuilder.Redirect out = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerOut", ".log")) :
+                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerOut-" + grpcPort, ".log")) :
                                       ProcessBuilder.Redirect.DISCARD;
         ProcessBuilder.Redirect err = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerErr", ".log")) :
+                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerErr-" + grpcPort, ".log")) :
                                       ProcessBuilder.Redirect.DISCARD;
         processBuilder.redirectOutput(out);
         processBuilder.redirectError(err);
@@ -112,8 +113,18 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
             Assertions.fail("Failed to start the external server");
         }
 
-        this.version = getVersion(jar);
         logger.info("Started {} Version: {}", jar, version);
+    }
+
+    /**
+     * Get a list of available servers in the download folder.
+     *
+     * @return a list of jar {@link File}s available to run
+     */
+    public static List<File> getAvailableServers() {
+        final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
+        final File[] externalServers = Objects.requireNonNull(externalDirectory.listFiles(file -> file.getName().endsWith(".jar")));
+        return List.of(externalServers);
     }
 
     private static String getVersion(File jar) throws IOException {
@@ -129,17 +140,10 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         }
     }
 
-    @Override
-    public void afterAll(ExtensionContext context) throws Exception {
-        if ((serverProcess != null) && serverProcess.isAlive()) {
-            serverProcess.destroy();
-        }
-    }
-
     private boolean startServer(ProcessBuilder processBuilder) throws IOException, InterruptedException {
         try {
             serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and  running
+            // TODO: There should be a better way to figure out that the server is fully up and running
             Thread.sleep(3000);
             if (!serverProcess.isAlive()) {
                 throw new Exception("Failed to start server once - retrying");
@@ -148,10 +152,17 @@ public class RunExternalServerExtension implements BeforeAllCallback, AfterAllCa
         } catch (Exception ex) {
             // Try once more
             serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and  running
+            // TODO: There should be a better way to figure out that the server is fully up and running
             Thread.sleep(3000);
         }
 
         return serverProcess.isAlive();
     }
+
+    public void stop() {
+        if ((serverProcess != null) && serverProcess.isAlive()) {
+            serverProcess.destroy();
+        }
+    }
+
 }

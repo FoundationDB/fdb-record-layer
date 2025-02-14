@@ -26,6 +26,7 @@ setup:
     - query: insert into lb values (1, true), (2, false), (3, null);
 ---
 test_block:
+  name: boolean-tests
   tests:
     -
       - query: select lb.* from lb where B = true

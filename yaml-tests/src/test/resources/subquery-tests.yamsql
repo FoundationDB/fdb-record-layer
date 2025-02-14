@@ -35,6 +35,7 @@ setup:
     - query: INSERT INTO B VALUES (1, 10, 100), (2, 20, 200), (3, 30, 300)
 ---
 test_block:
+  name: subquery-tests
   tests:
     -
       # non correlated subquery, resolving alias should be fine.
