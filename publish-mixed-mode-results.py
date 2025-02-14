@@ -24,7 +24,18 @@
 # ./gradlew mixedModeTest
 
 import argparse
+import subprocess
 import sys
+
+def run(command):
+    try:
+        process = subprocess.run(command, check=True, capture_output=True, text=True)
+        return process.stdout
+    except subprocess.CalledProcessError as e:
+        print("Failed: " + str(e.cmd))
+        print(e.stdout)
+        print(e.stderr)
+        exit(e.returncode)
 
 def get_results(results_path):
     results = {}
@@ -68,6 +79,10 @@ def update_release_notes_file(markdown, version, filename):
                      + [markdown]
                      + lines[i+1:])
 
+def commit_updates(filename, version):
+    subprocess.run(['git', 'commit', '-m', "Recording " + version + "mixed mode test results in release notes", filename],
+                           check=True)
+
 def main(argv):
     '''Process the output of a mixedModeTest run and convert it into a short markdown'''
     parser = argparse.ArgumentParser()
@@ -75,6 +90,7 @@ def main(argv):
     parser.add_argument('--release-notes', help='If provided, the results will be injected into this file')
     parser.add_argument('--header-size', help='Markdown header level (e.g. # or ##)', default='####')
     parser.add_argument('--run-link', help='A link to the test run that generated the results')
+    parser.add_argument('--commit', action='store_true', default=False, help='Commit the updates to the release notes')
     parser.add_argument('version', help='Version of the server that was tested')
     args = parser.parse_args(argv)
 
@@ -87,6 +103,8 @@ def main(argv):
         new_content = update_release_notes_file(markdown, args.version, args.release_notes)
         with open(args.release_notes, 'w') as fout:
             fout.write(new_content)
+        if args.commit:
+            commit_updates(args.release_notes, args.version)
         print(f'Updated {args.release_notes} with test results for {args.version}')
 
 if __name__ == '__main__':
