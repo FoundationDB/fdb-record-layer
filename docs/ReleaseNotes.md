@@ -51,6 +51,8 @@ e** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/iss
 * **Feature** Allow scrubbing of indexes in READABLE_UNIQUE_PENDING state [(Issue #3135)](https://github.com/FoundationDB/fdb-record-layer/issues/3135)
 * **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
 
+<!-- MIXED_MODE_RESULTS 4.1.6.0 PLACEHOLDER -->
+
 ### 4.1.4.0
 
 * **Bug fix** Ungrouped GROUP BY queries result in infinite continuations when maxRows is 1 [(Issue #3093)](https://github.com/FoundationDB/fdb-record-layer/issues/3093)
