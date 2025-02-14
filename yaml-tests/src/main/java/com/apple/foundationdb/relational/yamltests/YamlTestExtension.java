@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -109,14 +108,19 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     @SuppressWarnings("PMD.UnnecessaryLocalBeforeReturn") // It complains about the local variable `e` being returned
     public void afterAll(final ExtensionContext context) throws Exception {
         final Optional<Exception> exception =
-                Streams.stream(Iterables.concat(testConfigs, maintainConfigs)).map(config -> {
-                    try {
-                        config.afterAll();
-                        return null;
-                    } catch (Exception e) {
-                        return e;
-                    }
-                }).filter(Objects::nonNull).findFirst();
+                Stream.concat(
+                        // if beforeAll fails in certain places, or isn't run, testConfigs and/or maintainConfigs could
+                        // be null
+                        Objects.requireNonNullElse(testConfigs, List.<YamlTestConfig>of()).stream(),
+                        Objects.requireNonNullElse(maintainConfigs, List.<YamlTestConfig>of()).stream())
+                        .map(config -> {
+                            try {
+                                config.afterAll();
+                                return null;
+                            } catch (Exception e) {
+                                return e;
+                            }
+                        }).filter(Objects::nonNull).findFirst();
         for (ExternalServer server : servers) {
             try {
                 server.stop();
