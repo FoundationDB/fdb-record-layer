@@ -520,6 +520,11 @@ public final class YamlExecutionContext {
         public <T> T getOrDefault(ContextOption<T> prop, T defaultValue) {
             return (T)map.getOrDefault(prop, defaultValue);
         }
+
+        @Override
+        public String toString() {
+            return map.toString();
+        }
     }
 
     public static class ContextOption<T> {
@@ -544,6 +549,11 @@ public final class YamlExecutionContext {
         @Override
         public int hashCode() {
             return Objects.hashCode(name);
+        }
+
+        @Override
+        public String toString() {
+            return name;
         }
     }
 }
