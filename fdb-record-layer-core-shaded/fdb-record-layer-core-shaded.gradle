@@ -32,6 +32,10 @@ shadowJar {
     setArchiveClassifier(null)
     relocate 'com.google', 'com.apple.foundationdb.record.shaded.com.google'
     dependencies {
+        // Exclude transitive information from the guava dependency to avoid
+        // confusing tooling inspecting the jar
+        exclude "META-INF/maven/**"
+
         include(dependency(coreProject))
         include(dependency(':fdb-extensions'))
         include(dependency('com.google.guava:guava'))
@@ -52,6 +56,8 @@ task shadedSourcesJar(type: Jar) {
     archiveClassifier = "sources"
     from project(coreProject).sourceSets.main.allSource
     from project(':fdb-extensions').sourceSets.main.allSource
+    dependsOn(project(coreProject).tasks.generateProto)
+    dependsOn(project(coreProject).tasks.compileJava)
 }
 
 task shadedJavadocJar(type: Jar) {
@@ -79,11 +85,11 @@ def addDependencies(projectObj, dependenciesNode) {
     }
 }
 
+ext.publishLibrary = false
+
 apply from: rootProject.file('gradle/publishing.gradle')
 
 publishing {
-    publications.remove(publishing.publications.library)
-
     publications {
         shadow(MavenPublication) { publication ->
             from project.shadow.component(publication)
@@ -111,8 +117,15 @@ publishing {
             artifact tasks.shadedSourcesJar
             artifact tasks.shadedJavadocJar
         }
+
     }
     artifactoryPublish {
         publications (publishing.publications.shadow)
+    }
+}
+
+if (Boolean.parseBoolean(centralPublish)) {
+    signing {
+        sign publishing.publications.shadow
     }
 }

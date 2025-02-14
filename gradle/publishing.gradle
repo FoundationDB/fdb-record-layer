@@ -19,6 +19,7 @@
  */
 
 apply plugin: 'com.jfrog.artifactory'
+apply plugin: 'signing'
 
 // Add various details to the pom file to allow for publishing
 def addPublishingInfo(publication) {
@@ -47,46 +48,84 @@ def addPublishingInfo(publication) {
     }
 }
 
+if (ext.publishLibrary) {
+    publishing {
+        publications {
+            library(MavenPublication) { publication ->
+                from components.java
+
+                // Test fixtures appear to be placing their dependencies in the wrong scope
+                // for maven compilation, which means that their dependencies wind up in the
+                // final project's pom.xml.
+                // See: https://github.com/gradle/gradle/issues/14936
+                // Until this is fixed, skip these configurations to avoid polluting the list of dependencies
+                configurations.each { config ->
+                    if (config.name == 'testFixturesApiElements' || config.name == 'testFixturesRuntimeElements') {
+                        components.java.withVariantsFromConfiguration(config) {
+                            skip()
+                        }
+                    }
+                }
+
+                artifact tasks.sourcesJar
+                artifact tasks.javadocJar
+                artifact tasks.testJar
+                addPublishingInfo(publication)
+            }
+        }
+    }
+    artifactoryPublish {
+        // As a safeguard, only actually publish to artifactory if -PpublishBuild=true is passed to gradle
+        // Note: skip is documented, but onlyIf seems to also be required to make this work for some reason
+        // See: https://gist.github.com/DALDEI/40925568cef57e16e8a7
+        def publishBuild = Boolean.parseBoolean(publishBuild)
+        skip = !publishBuild
+        onlyIf {
+            publishBuild
+        }
+        publications(publishing.publications.library)
+    }
+    createDistribution.configure {
+        afterEvaluate {
+            dependsOn generatePomFileForLibraryPublication
+            from tasks.jar, tasks.sourcesJar, tasks.javadocJar, tasks.testJar, tasks.generatePomFileForLibraryPublication
+            rename { filename ->
+                GenerateMavenPom pomTask = tasks.generatePomFileForLibraryPublication
+                Jar jarTask = tasks.jar
+                if (filename == pomTask.destination.name) {
+                    jarTask.archiveName.replace "jar", "pom"
+                } else {
+                    filename
+                }
+            }
+        }
+    }
+    if (Boolean.parseBoolean(centralPublish)) {
+        signing {
+            sign publishing.publications.library
+        }
+    }
+}
+
 ext {
     // Make the "addPublishingInfo" method visible from outside this plugin
     addPublishingInfo = this.&addPublishingInfo
 }
 
 publishing {
-    publications {
-        library(MavenPublication) { publication ->
-            from components.java
-
-            // Test fixtures appear to be placing their dependencies in the wrong scope
-            // for maven compilation, which means that their dependencies wind up in the
-            // final project's pom.xml.
-            // See: https://github.com/gradle/gradle/issues/14936
-            // Until this is fixed, skip these configurations to avoid polluting the list of dependencies
-            configurations.each { config ->
-                if (config.name == 'testFixturesApiElements' || config.name == 'testFixturesRuntimeElements') {
-                    components.java.withVariantsFromConfiguration(config) {
-                        skip()
+    if (Boolean.parseBoolean(publishBuild)) {
+        repositories {
+            if (Boolean.parseBoolean(githubPublish)) {
+                maven {
+                    name = "GitHubPackages"
+                    url = "https://maven.pkg.github.com/FoundationDB/fdb-record-layer"
+                    credentials {
+                        username = System.getenv("GITHUB_ACTOR")
+                        password = System.getenv("GITHUB_TOKEN")
                     }
                 }
             }
-
-            artifact tasks.sourcesJar
-            artifact tasks.javadocJar
-            artifact tasks.testJar
-            addPublishingInfo(publication)
         }
-    }
-
-    artifactoryPublish {
-        // As a safeguard, only actually publish to artifactory if -PpublishBuild=true is passed to gradle
-        // Note: skip is documented, but onlyIf seems to also be required to make this work for some reason
-        // See: https://gist.github.com/DALDEI/40925568cef57e16e8a7
-        def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-        skip = !publishBuild
-        onlyIf {
-            publishBuild
-        }
-        publications(publishing.publications.library)
     }
 }
 
@@ -107,22 +146,6 @@ if (System.getenv('ARTIFACTORY_USER') != null && System.getenv('ARTIFACTORY_KEY'
                 publishArtifacts = publishBuild
                 publishBuildInfo = publishBuild
                 publishIvy = false
-            }
-        }
-    }
-}
-
-createDistribution.configure {
-    afterEvaluate {
-        dependsOn generatePomFileForLibraryPublication
-        from tasks.jar, tasks.sourcesJar, tasks.javadocJar, tasks.testJar, tasks.generatePomFileForLibraryPublication
-        rename { filename ->
-            GenerateMavenPom pomTask = tasks.generatePomFileForLibraryPublication
-            Jar jarTask = tasks.jar
-            if (filename == pomTask.destination.name) {
-                jarTask.archiveName.replace "jar", "pom"
-            } else {
-                filename
             }
         }
     }
