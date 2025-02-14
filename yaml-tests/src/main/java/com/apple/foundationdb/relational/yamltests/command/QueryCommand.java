@@ -77,7 +77,7 @@ public final class QueryCommand extends Command {
     }
 
     @Nonnull
-    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull final Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
         final var lineNumber = Matchers.notNull(linedObject, "query").getLineNumber();
@@ -90,7 +90,7 @@ public final class QueryCommand extends Command {
             final var queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
-                    queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, executionContext)).collect(Collectors.toList());
+                    queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, blockName, executionContext)).collect(Collectors.toList());
 
             Assert.thatUnchecked(configs.stream().skip(1)
                     .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
@@ -155,7 +155,7 @@ public final class QueryCommand extends Command {
         enableCascadesDebugger();
         boolean queryIsRunning = false;
         Continuation continuation = null;
-        int maxRows = 0;
+        Integer maxRows = null;
         boolean exhausted = false;
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
@@ -167,13 +167,13 @@ public final class QueryCommand extends Command {
                 // Ignore debugger configuration, always set the debugger for plan hashes. Executing the plan hash
                 // can result in the explain plan being put into the plan cache, so running without the debugger
                 // can pollute cache and thus interfere with the explain's results
-                int finalMaxRows = maxRows;
+                Integer finalMaxRows = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
-                int finalMaxRows1 = maxRows;
+                Integer finalMaxRows1 = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
             } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
                 // Do nothing for noop execution.

@@ -1,5 +1,5 @@
 /*
- * MultiServerJDBCYamlTests.java
+ * MultiServerConfig.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,59 +18,41 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
+package com.apple.foundationdb.relational.yamltests.configs;
+
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-import com.apple.foundationdb.relational.yamltests.server.RunExternalServerExtension;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
 /**
- * A test runner to launch the YAML tests with multiple servers.
- * The tests will run against two servers: One JDBC embedded and the other launched from a jar, that represents another version
- * of the system. The tests that will run will leverage connections pointing at both servers and will direct requests at
- * either server according to the selection policy.
+ * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
  */
-public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrationTests {
+public class MultiServerConfig extends JDBCInProcessConfig {
 
-    @RegisterExtension
-    static RunExternalServerExtension externalServer = new RunExternalServerExtension();
-
+    private final ExternalServer externalServer;
     private final int initialConnection;
 
-    protected MultiServerJDBCYamlTests(int initialConnection) {
+    public MultiServerConfig(final int initialConnection, ExternalServer externalServer) {
+        super();
         this.initialConnection = initialConnection;
-    }
-
-    /**
-     * Concrete implementation of the test class that uses embedded server as the initial connection.
-     */
-    @Nested
-    public static class MultiServerInitialConnectionEmbeddedTests extends MultiServerJDBCYamlTests {
-        public MultiServerInitialConnectionEmbeddedTests() {
-            super(0);
-        }
-    }
-
-    /**
-     * Concrete implementation of the test class that uses external server as the initial connection.
-     */
-    @Nested
-    public static class MultiServerInitialConnectionExternalTests extends MultiServerJDBCYamlTests {
-        public MultiServerInitialConnectionExternalTests() {
-            super(1);
-        }
+        this.externalServer = externalServer;
     }
 
     @Override
-    YamlRunner.YamlConnectionFactory createConnectionFactory() {
+    public void beforeAll() throws Exception {
+        super.beforeAll();
+    }
+
+    @Override
+    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
@@ -81,9 +63,9 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
     YamlRunner.YamlConnectionFactory createExternalServerConnection() {
         return new YamlRunner.YamlConnectionFactory() {
             @Override
-            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+            public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
-                return DriverManager.getConnection(uriStr).unwrap(RelationalConnection.class);
+                return DriverManager.getConnection(uriStr);
             }
 
             @Override
@@ -91,5 +73,14 @@ public abstract class MultiServerJDBCYamlTests extends JDBCInProcessYamlIntegrat
                 return Set.of(externalServer.getVersion());
             }
         };
+    }
+
+    @Override
+    public String toString() {
+        if (initialConnection == 0) {
+            return "MultiServer (Embedded then " + externalServer.getVersion() + ")";
+        } else {
+            return "MultiServer (" + externalServer.getVersion() + " then Embedded)";
+        }
     }
 }

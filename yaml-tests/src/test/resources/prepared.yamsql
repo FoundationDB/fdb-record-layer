@@ -18,6 +18,9 @@
 # limitations under the License.
 
 ---
+options:
+    supported_version: !current_version
+---
 schema_template:
     create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
 ---
@@ -36,6 +39,7 @@ setup:
                (19, 20.01, false, 1853, [21, 22, 23], 'luke cage')
 ---
 test_block:
+  name: prepared-tests
   tests:
     -
       # with random range parameter

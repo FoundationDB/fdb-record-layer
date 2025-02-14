@@ -43,6 +43,7 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,7 +73,7 @@ public final class YamlRunner {
          * @return A new {@link RelationalConnection} for the given path appropriate for this test class
          * @throws SQLException if we cannot connect
          */
-        RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+        Connection getNewConnection(@Nonnull URI connectPath) throws SQLException;
 
         /**
          * The versions that the connection has, other than the current code.
@@ -97,37 +98,44 @@ public final class YamlRunner {
         }
     }
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
+                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
         this.resourcePath = resourcePath;
-        this.executionContext = new YamlExecutionContext(resourcePath, factory, correctExplain);
+        this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
     }
 
     public void run() throws Exception {
-        LoaderOptions loaderOptions = new LoaderOptions();
-        loaderOptions.setAllowDuplicateKeys(true);
-        DumperOptions dumperOptions = new DumperOptions();
-        final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
+        try {
+            LoaderOptions loaderOptions = new LoaderOptions();
+            loaderOptions.setAllowDuplicateKeys(true);
+            DumperOptions dumperOptions = new DumperOptions();
+            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
 
-        final var testBlocks = new ArrayList<TestBlock>();
-        int blockCount = 0;
-        try (var inputStream = getInputStream(resourcePath)) {
-            for (var doc : yaml.loadAll(inputStream)) {
-                final var block = Block.parse(doc, executionContext, blockCount);
-                logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
-                block.execute();
-                if (block instanceof TestBlock) {
-                    testBlocks.add((TestBlock) block);
+            final var testBlocks = new ArrayList<TestBlock>();
+            int blockNumber = 0;
+            try (var inputStream = getInputStream(resourcePath)) {
+                for (var doc : yaml.loadAll(inputStream)) {
+                    final var block = Block.parse(doc, blockNumber, executionContext);
+                    logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
+                    block.execute();
+                    if (block instanceof TestBlock) {
+                        testBlocks.add((TestBlock)block);
+                    }
+                    blockNumber++;
                 }
-                blockCount++;
             }
-        }
-        for (var block : executionContext.getFinalizeBlocks()) {
-            logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
-            block.execute();
-        }
+            for (var block : executionContext.getFinalizeBlocks()) {
+                logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
+                block.execute();
+            }
 
-        evaluateTestBlockResults(testBlocks);
-        replaceTestFileIfRequired();
+            evaluateTestBlockResults(testBlocks);
+            replaceTestFileIfRequired();
+            replaceMetricsFileIfRequired();
+        } catch (RelationalException | IOException e) {
+            logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
+            throw e;
+        }
     }
 
     private void evaluateTestBlockResults(List<TestBlock> testBlocks) {
@@ -184,5 +192,13 @@ public final class YamlRunner {
             logger.error("⚠️ Source file {} could not be replaced with corrected file.", resourcePath);
             Assertions.fail(e);
         }
+    }
+
+    private void replaceMetricsFileIfRequired() throws RelationalException {
+        if (!executionContext.isDirtyMetrics()) {
+            return;
+        }
+        executionContext.saveMetricsAsBinaryProto();
+        executionContext.saveMetricsAsYaml();
     }
 }

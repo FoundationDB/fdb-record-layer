@@ -36,9 +36,9 @@ plugins {
     alias(libs.plugins.protobuf)
     alias(libs.plugins.versions)
     alias(libs.plugins.spotbugs)
+    alias(libs.plugins.nexus)
     alias(libs.plugins.artifactory)
     alias(libs.plugins.download)
-    alias(libs.plugins.sonarqube)
 }
 
 ext {
@@ -49,7 +49,6 @@ ext {
 defaultTasks 'build'
 
 apply from: 'gradle/root.gradle'
-apply from: 'gradle/sonar.gradle'
 
 def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
 
@@ -207,6 +206,7 @@ subprojects {
     ext {
         coreProjectName = "fdb-record-layer-core"
         shadedProjectName = "fdb-record-layer-core-shaded"
+        publishLibrary = true
     }
 
     artifacts {
@@ -298,6 +298,28 @@ subprojects {
                     }
                 }
             }
+        }
+    }
+}
+
+// Configure publishing for maven central. This is done in the top-level build.gradle, and then
+// all of the subprojects configure the artifacts they want published by applying
+// ${rootDir}/gradle/publishing.gradle in the project gradle. By default, we publish a library
+// from each package, but this can be configured by adjusting the publishLibrary variable
+if (Boolean.parseBoolean(centralPublish)) {
+    nexusPublishing {
+        repositories {
+            sonatype {
+                username = System.getenv("MAVEN_USER")
+                password = System.getenv("MAVEN_PASSWORD")
+            }
+        }
+    }
+    signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null && signingPassword != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
         }
     }
 }

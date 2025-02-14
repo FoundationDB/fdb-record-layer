@@ -355,6 +355,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             assertTrue(recordStore.isIndexReadableUniquePending(indexName));
             context.commit();
         }
+        scrubAndValidate(List.of(index));
         // now try resolving it, and marking readable with another build
         try (FDBRecordContext context = openContext()) {
             Set<Tuple> indexEntries = new HashSet<>(recordStore.scanUniquenessViolations(index)
@@ -384,6 +385,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndex(true);
         }
+        scrubAndValidate(List.of(index));
         assertReadable(index);
     }
 
@@ -439,6 +441,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             if (allowUniquePending) {
                 indexBuilder.buildIndex();
+                scrubAndValidate(indexes);
             } else {
                 buildIndexAssertThrowUniquenessViolation(indexBuilder);
             }
@@ -500,6 +503,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndex(true);
         }
+        scrubAndValidate(List.of(index));
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.isIndexReadable(index.getName()));
             assertEquals(0, (int)recordStore.scanUniquenessViolations(indexes.get(0)).getCount().join());
@@ -530,6 +534,9 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndex();
         }
+
+        // scrub index, assert valid
+        scrubAndValidate(indexes);
 
         // verify that unique pending state is unchanged
         try (FDBRecordContext context = openContext()) {
@@ -573,7 +580,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        // assert readable state
+        // assert validity and readable state
+        scrubAndValidate(indexes);
         assertReadable(indexes);
     }
 
@@ -600,6 +608,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndex();
         }
+        scrubAndValidate(indexes);
 
         // verify that unique pending state is unchanged
         try (FDBRecordContext context = openContext()) {
@@ -651,6 +660,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // assert readable state
+        scrubAndValidate(indexes);
         try (FDBRecordContext context = openContext()) {
             for (Index index: indexes) {
                 assertTrue(recordStore.isIndexReadable(index));
@@ -753,6 +763,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             indexBuilder.buildIndex(true);
         }
 
+        // assert both source and target indexes are valid and scrub-able
+        scrubAndValidate(indexes);
         // assert target index state is readable
         assertReadable(tgtIndex);
     }
