@@ -43,7 +43,7 @@ runs:
     # Create and push the tag
     - name: Create tag
       shell: bash
-      run: git tag -m "Release ${{ steps.get_version_outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
+      run: git tag -m "Release ${{ steps.get_version.outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
     - name: Push tag
       shell: bash
       run: git push origin "${{ steps.get_version.outputs.version }}"
