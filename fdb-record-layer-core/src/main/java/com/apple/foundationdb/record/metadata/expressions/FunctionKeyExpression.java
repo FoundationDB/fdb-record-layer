@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -232,7 +232,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      *   implementation, or the arguments provided are not suitable for the function.
      */
     @Nonnull
-    public static FunctionKeyExpression fromProto(RecordMetaDataProto.Function function) throws DeserializationException {
+    public static FunctionKeyExpression fromProto(RecordKeyExpressionProto.Function function) throws DeserializationException {
         try {
             return create(function.getName(), KeyExpression.fromProto(function.getArguments()));
         } catch (RecordCoreException e) {
@@ -242,8 +242,8 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public final RecordMetaDataProto.Function toProto() throws SerializationException {
-        RecordMetaDataProto.Function.Builder builder = RecordMetaDataProto.Function.newBuilder()
+    public final RecordKeyExpressionProto.Function toProto() throws SerializationException {
+        RecordKeyExpressionProto.Function.Builder builder = RecordKeyExpressionProto.Function.newBuilder()
                 .setName(getName());
         builder.setArguments(getArguments().toKeyExpression());
         return builder.build();
@@ -251,8 +251,8 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public final RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setFunction(toProto()).build();
+    public final RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setFunction(toProto()).build();
     }
 
     @Nonnull
