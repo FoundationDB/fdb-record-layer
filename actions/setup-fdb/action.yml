@@ -9,15 +9,28 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Download FDB Client
+    - name: Set FDB Filenames
+      id: fdb_filenames
       shell: bash
-      run: wget -nv https://github.com/apple/foundationdb/releases/download/${{ inputs.fdb_version }}/foundationdb-clients_${{ inputs.fdb_version }}-1_amd64.deb
-    - name: Download FDB Server
+      run: |
+        echo "client_deb=foundationdb-clients_${{ inputs.fdb_version }}-1_amd64.deb" >> "${GITHUB_OUTPUT}"
+        echo "server_deb=foundationdb-server_${{ inputs.fdb_version }}-1_amd64.deb" >> "${GITHUB_OUTPUT}"
+    - name: Check FDB Binaries Cache
+      id: cache_fdb
+      uses: actions/cache@v3
+      with:
+        path: ~/.fdb-cache
+        key: ${{ runner.os }}-fdb-debs-${{ inputs.fdb_version }}
+    - name: Download FDB Binaries
+      if: steps.cache_fdb.outputs.cache-hit != 'true'
       shell: bash
-      run: wget -nv https://github.com/apple/foundationdb/releases/download/${{ inputs.fdb_version }}/foundationdb-server_${{ inputs.fdb_version }}-1_amd64.deb
+      run: |
+        mkdir -p ~/.fdb-cache
+        wget -O ~/.fdb-cache/${{ steps.fdb_filenames.outputs.client_deb }} -nv https://github.com/apple/foundationdb/releases/download/${{ inputs.fdb_version }}/${{ steps.fdb_filenames.outputs.client_deb }}
+        wget -O ~/.fdb-cache/${{ steps.fdb_filenames.outputs.server_deb }} -nv https://github.com/apple/foundationdb/releases/download/${{ inputs.fdb_version }}/${{ steps.fdb_filenames.outputs.server_deb }}
     - name: Install FDB Server
       shell: bash
-      run: sudo dpkg -i foundationdb-clients_${{ inputs.fdb_version }}-1_amd64.deb foundationdb-server_${{ inputs.fdb_version }}-1_amd64.deb
+      run: sudo dpkg -i ~/.fdb-cache/${{ steps.fdb_filenames.outputs.client_deb }} ~/.fdb-cache/${{ steps.fdb_filenames.outputs.server_deb }}
     - name: Fix FDB Network Addresses
       shell: bash
       run: sudo sed -i -e "s/public_address = auto:\$ID/public_address = 127.0.0.1:\$ID/g" -e "s/listen_address = public/listen_address = 0.0.0.0:\$ID/g" /etc/foundationdb/foundationdb.conf
