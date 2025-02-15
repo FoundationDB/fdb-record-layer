@@ -43,6 +43,9 @@ Our API stability annotations have been updated to reflect greater API instabili
 // end next release
 -->
 
+### 4.0.559.6
+
+
 ### 4.0.559.4
 
 * **Bug fix** Streaming aggregations to communicate whether to create a default on empty value via continuations which prepares a later fix for infinite continuations [(Issue #3093)](https://github.com/FoundationDB/fdb-record-layer/issues/3093)
