@@ -74,6 +74,7 @@ import java.sql.Struct;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -272,7 +273,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     private void checkSchemaExists(@Nonnull String schema) throws SQLException {
         runIsolatedInTransactionIfPossible(() -> {
             if (!this.backingCatalog.doesSchemaExist(getTransaction(), getRecordLayerDatabase().getURI(), schema)) {
-                throw new RelationalException(String.format("Schema %s does not exist in %s", schema, getPath()), ErrorCode.UNDEFINED_SCHEMA);
+                throw new RelationalException(String.format(Locale.ROOT, "Schema %s does not exist in %s", schema, getPath()), ErrorCode.UNDEFINED_SCHEMA);
             }
             return null;
         });
