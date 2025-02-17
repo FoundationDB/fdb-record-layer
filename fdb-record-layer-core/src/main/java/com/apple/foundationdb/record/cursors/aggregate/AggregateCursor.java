@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -71,7 +72,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         if (previousResult != null && !previousResult.hasNext()) {
             // we are done
-            return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
+            return CompletableFuture.completedFuture(new RecordCursorResult<>(RecordCursorEndContinuation.END,
+                    previousResult.getNoNextReason()));
+            // return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
         }
 
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
