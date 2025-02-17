@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 /**
  * Constructs a new instance of {@link ExactTokenAnalyzer}.
@@ -59,7 +58,7 @@ public class ExactTokenAnalyzerFactory implements LuceneAnalyzerFactory  {
         return new AnalyzerChooser() {
             @Nonnull
             @Override
-            public LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull List<String> ignored) {
+            public LuceneAnalyzerWrapper chooseAnalyzer() {
                 return new LuceneAnalyzerWrapper(UNIQUE_NAME, new ExactTokenAnalyzer());
             }
         };
@@ -71,7 +70,7 @@ public class ExactTokenAnalyzerFactory implements LuceneAnalyzerFactory  {
         return new AnalyzerChooser() {
             @Nonnull
             @Override
-            public LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull List<String> ignored) {
+            public LuceneAnalyzerWrapper chooseAnalyzer() {
                 return new LuceneAnalyzerWrapper(UNIQUE_NAME, new ExactTokenAnalyzer());
             }
         };
