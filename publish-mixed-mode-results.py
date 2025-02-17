@@ -63,7 +63,7 @@ def emoji(result_word):
 def generate_markdown(version, results, header_size):
     sorted_keys = sorted(results.keys(), key=lambda raw: [int(part) for part in raw.split('.')])
 
-    return header_size + " Mixed Mode Tested against \n" + \
+    return header_size + " Mixed Mode Test Results\n\nMixed mode testing run against the following previous versions:\n" + \
         ', '.join([emoji(results[version]) + '`' + version + '`' for version in sorted_keys])
 
 def update_release_notes_file(markdown, version, filename):

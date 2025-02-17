@@ -110,13 +110,13 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
         File resolution = configuration.resolve()[0]
         Matcher versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
         if (versionMatch.size() != 0) {
-            System.out.println("Rejecting old external server: " + resolution.getName())
+            println("Rejecting old external server: " + resolution.getName())
             def version = versionMatch[0][1]
             // check that the version is new, to more obviously catch potential infinite loops
             assert rejectedVersions.add(version)
             return resolveOtherServer(rejectedVersions)
         }
-        System.out.println("Downloaded old external server: " + resolution.getName())
+        println("Downloaded old external server: " + resolution.getName())
         return resolution
     }
 }
@@ -152,7 +152,7 @@ ext.resolveManyServers = { ->
         rejectedVersions.add(attributes.version)
         selectedServers.add(serverFile)
     }
-    System.out.println("Found ${selectedServers.size()} to test against")
+    println("Found ${selectedServers.size()} to test against")
     return selectedServers
 }
 
