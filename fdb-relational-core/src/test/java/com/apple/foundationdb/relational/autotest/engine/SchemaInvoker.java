@@ -34,6 +34,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 class SchemaInvoker {
@@ -82,7 +83,7 @@ class SchemaInvoker {
                     throw new ClassCastException();
                 }
             } catch (ClassCastException cce) {
-                String message = String.format("Method [%s] must return a Stream<SchemaDescription>,Collection<SchemaDescription>, or SchemaDescription", method.getName());
+                String message = String.format(Locale.ROOT, "Method [%s] must return a Stream<SchemaDescription>,Collection<SchemaDescription>, or SchemaDescription", method.getName());
                 throw new JUnitException(message, cce);
             }
         }
@@ -123,9 +124,9 @@ class SchemaInvoker {
                     throw new ClassCastException();
                 }
             } catch (IllegalAccessException e) {
-                throw new JUnitException(String.format("Field [%s] must be public", field.getName()), e);
+                throw new JUnitException(String.format(Locale.ROOT, "Field [%s] must be public", field.getName()), e);
             } catch (ClassCastException cce) {
-                String message = String.format("Field [%s] must be a Stream<SchemaDescription>,Collection<SchemaDescription>, or SchemaDescription", field.getName());
+                String message = String.format(Locale.ROOT, "Field [%s] must be a Stream<SchemaDescription>,Collection<SchemaDescription>, or SchemaDescription", field.getName());
                 throw new JUnitException(message, cce);
             }
         }

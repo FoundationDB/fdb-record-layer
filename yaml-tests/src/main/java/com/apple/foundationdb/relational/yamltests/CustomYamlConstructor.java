@@ -37,6 +37,7 @@ import org.yaml.snakeyaml.nodes.Tag;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -142,7 +143,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         @Override
         public Object construct(Node node) {
             if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked(String.format("The value of the long (!l) tag must be a scalar, however '%s' is found!", node));
+                Assert.failUnchecked(String.format(Locale.ROOT, "The value of the long (!l) tag must be a scalar, however '%s' is found!", node));
             }
             return Long.valueOf(((ScalarNode) node).getValue());
         }
@@ -152,7 +153,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         @Override
         public Object construct(Node node) {
             if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked(String.format("The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
+                Assert.failUnchecked(String.format(Locale.ROOT, "The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
             }
             return new CustomTag.StringContains(((ScalarNode) node).getValue());
         }
