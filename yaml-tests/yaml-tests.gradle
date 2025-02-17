@@ -1,3 +1,6 @@
+import java.util.jar.JarFile
+import java.util.regex.Matcher
+
 /*
  * yaml-tests.gradle
  *
@@ -104,18 +107,53 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
                 })
         def configuration = configurations.getByName(configurationName, { })
 
-        def resolution = configuration.resolve()[0]
-        def versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
+        File resolution = configuration.resolve()[0]
+        Matcher versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
         if (versionMatch.size() != 0) {
-            System.out.println("Rejecting old external server: " + resolution.getName())
+            println("Rejecting old external server: " + resolution.getName())
             def version = versionMatch[0][1]
             // check that the version is new, to more obviously catch potential infinite loops
             assert rejectedVersions.add(version)
             return resolveOtherServer(rejectedVersions)
         }
-        System.out.println("Downloaded old external server: " + resolution.getName())
+        println("Downloaded old external server: " + resolution.getName())
         return resolution
     }
+}
+
+static def getAttributesFromJar(File file) {
+    try (JarFile jarFile = new JarFile(file)) {
+        java.util.jar.Manifest manifest = jarFile.getManifest()
+        java.util.jar.Attributes mainAttributes = manifest.getMainAttributes()
+        String version = mainAttributes.getValue("Specification-Version")
+        // It looks like `Build-Date` is not currently being included, if we had that we could guarantee the last
+        // x weeks of builds. There may need to be some ways to handle the fact that built date may not be consistent
+        // with the ordering of the versions
+        if (version != null) {
+            return [version: version]
+        } else {
+            throw new RuntimeException("Server does not specify a version in the manifest: " + file.getAbsolutePath())
+        }
+    }
+}
+
+ext.resolveManyServers = { ->
+    Set<File> selectedServers = new HashSet<>();
+    Set<String> rejectedVersions = new HashSet<>();
+    while (selectedServers.size() < 50) {
+        def serverFile = resolveOtherServer(rejectedVersions)
+        def attributes = getAttributesFromJar(serverFile)
+        // 4.0.559.0 is the first version that introduced the server, so we won't be able to find anything
+        // older than that. Eventually we can remove this check because we'll be long enough away in terms of versions
+        // and times.
+        if (attributes.version == "4.0.559.0") {
+            break
+        }
+        rejectedVersions.add(attributes.version)
+        selectedServers.add(serverFile)
+    }
+    println("Found ${selectedServers.size()} to test against")
+    return selectedServers
 }
 
 task cleanExternalServerDirectory(type: Delete) {
@@ -129,6 +167,19 @@ task serverJars(type: Copy) {
     from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
         include("*-SNAPSHOT-all.jar")
     }
+}
+
+task downloadManyExternalServers(type: Copy) {
+    dependsOn "cleanExternalServerDirectory"
+    from resolveManyServers()
+    into project.layout.buildDirectory.dir('externalServer')
+}
+
+mixedModeTest {
+    dependsOn("downloadManyExternalServers")
+    systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
+    // this is specified in testing.gradle, but it looks like it needs to be repeated here.
+    ignoreFailures = true
 }
 
 test {
