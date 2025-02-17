@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -325,7 +326,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         if (plan.getComplexity() > configuration.getComplexityThreshold()) {
-            throw new RecordQueryPlanComplexityException(plan);
+            throw new RecordQueryPlanComplexityException(plan)
+                    .addLogInfo(LogMessageKeys.COMPLEXITY, plan.getComplexity())
+                    .addLogInfo(LogMessageKeys.MAX_COMPLEXITY, configuration.getComplexityThreshold());
         }
 
         if (logger.isTraceEnabled()) {
@@ -1178,7 +1181,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             // after this call.
             final RecordQueryPlan intersectionPlan = RecordQueryIntersectionPlan.from(includedPlans, comparisonKey);
             if (intersectionPlan.getComplexity() > configuration.getComplexityThreshold()) {
-                throw new RecordQueryPlanComplexityException(intersectionPlan);
+                throw new RecordQueryPlanComplexityException(intersectionPlan)
+                        .addLogInfo(LogMessageKeys.COMPLEXITY, intersectionPlan.getComplexity())
+                        .addLogInfo(LogMessageKeys.MAX_COMPLEXITY, configuration.getComplexityThreshold());
             }
             return new ScoredPlan(intersectionPlan, nonSargables, Collections.emptyList(),
                     computeSargedComparisons(intersectionPlan), plan1.score, plan1.createsDuplicates,
@@ -1927,7 +1932,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         boolean showComparisonKey = !comparisonKey.equals(planContext.commonPrimaryKey);
         final RecordQueryPlan unionPlan = RecordQueryUnionPlan.from(childPlans, comparisonKey, showComparisonKey);
         if (unionPlan.getComplexity() > configuration.getComplexityThreshold()) {
-            throw new RecordQueryPlanComplexityException(unionPlan);
+            throw new RecordQueryPlanComplexityException(unionPlan)
+                    .addLogInfo(LogMessageKeys.COMPLEXITY, unionPlan.getComplexity())
+                    .addLogInfo(LogMessageKeys.MAX_COMPLEXITY, configuration.getComplexityThreshold());
         }
 
         // If we don't change this when shouldAttemptFailedInJoinAsOr() is true, then we _always_ pick the union plan,
@@ -1952,7 +1959,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
         final RecordQueryUnorderedUnionPlan unionPlan = RecordQueryUnorderedUnionPlan.from(childPlans);
         if (unionPlan.getComplexity() > configuration.getComplexityThreshold()) {
-            throw new RecordQueryPlanComplexityException(unionPlan);
+            throw new RecordQueryPlanComplexityException(unionPlan)
+                    .addLogInfo(LogMessageKeys.COMPLEXITY, unionPlan.getComplexity())
+                    .addLogInfo(LogMessageKeys.MAX_COMPLEXITY, configuration.getComplexityThreshold());
         }
         return new ScoredPlan(unionPlan, Collections.emptyList(), Collections.emptyList(), Collections.emptySet(),
                 1, true, false, false, includedRankComparisons);
