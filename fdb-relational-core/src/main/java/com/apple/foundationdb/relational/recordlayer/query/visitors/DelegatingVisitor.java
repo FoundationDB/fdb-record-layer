@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -397,8 +398,9 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitSubqueryTableItem(ctx);
     }
 
+    @Nonnull
     @Override
-    public Object visitInlineTableItem(final RelationalParser.InlineTableItemContext ctx) {
+    public LogicalOperator visitInlineTableItem(final RelationalParser.InlineTableItemContext ctx) {
         return getDelegate().visitInlineTableItem(ctx);
     }
 
@@ -414,10 +416,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitIndexHintType(ctx);
     }
 
+    @Nonnull
     @Override
-    public Object visitTableAlias(final RelationalParser.TableAliasContext ctx) {
-        return getDelegate().visitTableAlias(ctx);
+    public Table visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
+        return getDelegate().visitInlineTableDefinition(ctx);
     }
+
 
     @Nonnull
     @Override

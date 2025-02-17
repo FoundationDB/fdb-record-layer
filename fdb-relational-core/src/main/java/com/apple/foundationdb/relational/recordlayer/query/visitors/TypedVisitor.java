@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -274,8 +275,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext ctx);
 
+    @Nonnull
     @Override
-    Object visitInlineTableItem(final RelationalParser.InlineTableItemContext ctx);
+    LogicalOperator visitInlineTableItem(final RelationalParser.InlineTableItemContext ctx);
 
     @Nonnull
     @Override
@@ -285,8 +287,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx);
 
+    @Nonnull
     @Override
-    Object visitTableAlias(RelationalParser.TableAliasContext ctx);
+    Table visitInlineTableDefinition(RelationalParser.InlineTableDefinitionContext ctx);
 
     @Nonnull
     @Override

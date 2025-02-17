@@ -327,6 +327,20 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public LogicalOperator visitInlineTableItem(@Nonnull RelationalParser.InlineTableItemContext inlineTableItemContext) {
+        final ImmutableList.Builder<Expression> tableRow = ImmutableList.builder();
+        for (final var tupleContext : inlineTableItemContext.recordConstructorForInlineTable()) {
+            tableRow.add(visitRecordConstructorForInlineTable(tupleContext));
+        }
+        final var arguments = Expressions.of(tableRow.build()).asList().toArray(new Expression[0]);
+        final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
+        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(explodeExpression));
+        return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
+    }
+
+    @Nonnull
+    @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext indexHintContext) {
         // currently only support USE INDEX '(' uidList ')' syntax
         Assert.isNullUnchecked(indexHintContext.IGNORE(), "index hint 'ignore' semantics not supported");

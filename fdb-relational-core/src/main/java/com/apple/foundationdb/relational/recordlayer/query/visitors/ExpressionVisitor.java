@@ -36,8 +36,12 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
@@ -158,6 +162,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var descending = ParseHelpers.isDescending(orderByExpressionContext);
         final var nullsLast = ParseHelpers.isNullsLast(orderByExpressionContext, descending);
         return OrderByExpression.of(expression, descending, nullsLast);
+    }
+
+    @Nonnull
+    @Override
+    public Table visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
+        final var tableId = visitTableName(ctx.tableName());
+        final var columnIds = visitUidList(ctx.uidList());
+        final var tableBuilder = RecordLayerTable.newBuilder(false).setName(tableId.getName());
+        for (int i = 0; i < columnIds.size(); i++) {
+            final var column = RecordLayerColumn.newBuilder()
+                    .setName(columnIds.get(i).getName())
+                    .setIndex(i)
+                    .setDataType(DataType.UnknownType.instance())
+                    .build();
+            tableBuilder.addColumn(column);
+        }
+        return tableBuilder.build();
     }
 
     @Nonnull
@@ -640,7 +661,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expression visitRecordConstructorForInlineTable(@Nonnull final RelationalParser.RecordConstructorForInlineTableContext ctx) {
+    public Expression visitRecordConstructorForInlineTable(@Nonnull RelationalParser.RecordConstructorForInlineTableContext ctx) {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
     }

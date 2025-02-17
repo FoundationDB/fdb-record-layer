@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -559,6 +560,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
+    public LogicalOperator visitInlineTableItem(@Nonnull RelationalParser.InlineTableItemContext ctx) {
+        return queryVisitor.visitInlineTableItem(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx) {
         return queryVisitor.visitIndexHint(ctx);
     }
@@ -567,6 +574,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx) {
         return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Table visitInlineTableDefinition(final RelationalParser.InlineTableDefinitionContext ctx) {
+        return expressionVisitor.visitInlineTableDefinition(ctx);
     }
 
     @Nonnull
@@ -1113,6 +1126,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
         return expressionVisitor.visitRecordConstructorForInsert(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitRecordConstructorForInlineTable(final RelationalParser.RecordConstructorForInlineTableContext ctx) {
+        return expressionVisitor.visitRecordConstructorForInlineTable(ctx);
     }
 
     @Nonnull

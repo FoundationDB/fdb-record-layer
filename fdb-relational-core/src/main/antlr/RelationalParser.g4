@@ -282,9 +282,9 @@ tableSource // done
     ;
 
 tableSourceItem // done
-    : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?    #atomTableItem // done
-    | query AS? alias=uid                                          #subqueryTableItem // done
-    | VALUES recordConstructorForInlineTable tableAlias?           #inlineTableItem
+    : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?                                             #atomTableItem // done
+    | query AS? alias=uid                                                                                   #subqueryTableItem // done
+    | VALUES recordConstructorForInlineTable (',' recordConstructorForInlineTable )* inlineTableDefinition? #inlineTableItem
     ;
 
 indexHint
@@ -297,7 +297,7 @@ indexHintType
     : JOIN | ORDER BY | GROUP BY
     ;
 
-tableAlias
+inlineTableDefinition
     : AS? tableName '(' uidList ')'
     ;
 
@@ -743,7 +743,7 @@ recordConstructorForInlineTable
     ;
 
 recordConstructor
-    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
+    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithName /* this can be removed */ | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
     ;
 
 ofTypeClause
