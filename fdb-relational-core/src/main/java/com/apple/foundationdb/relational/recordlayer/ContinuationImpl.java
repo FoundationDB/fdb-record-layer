@@ -35,6 +35,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Locale;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
@@ -198,7 +199,7 @@ import com.apple.foundationdb.annotation.API;
         } else if (other.atEnd()) {
             return END;
         } else {
-            String message = String.format("programming error, extra logic required for copy-constructing from %s", other.getClass());
+            String message = String.format(Locale.ROOT, "programming error, extra logic required for copy-constructing from %s", other.getClass());
             assert false : message;
             throw new RelationalException(message, ErrorCode.INTERNAL_ERROR); // -ea safety net.
         }

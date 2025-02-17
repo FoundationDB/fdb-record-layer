@@ -60,6 +60,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -122,7 +123,7 @@ public class IndexTest {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
                 getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).build()).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
-        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format("expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
+        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT, "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -719,7 +720,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMax(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT %s(col2) FROM T1 group by col1", index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT %s(col2) FROM T1 group by col1", index);
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
@@ -732,7 +733,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMaxWithGroupingOrdering(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, %s(col2) FROM T1 group by col1 order by col1", index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, %s(col2) FROM T1 group by col1 order by col1", index);
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
@@ -745,7 +746,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMaxWithGroupingOrderingIncludingMax(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, %s(col2) FROM T1 group by col1 order by col1, %s(col2)", index, index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, %s(col2) FROM T1 group by col1 order by col1, %s(col2)", index, index);
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
@@ -758,7 +759,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMaxWithPermutedOrdering(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, col2, %s(col4), col3", index, index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, col2, %s(col4), col3", index, index);
         indexIs(stmt,
                 field("COL4").groupBy(concatenateFields("COL1", "COL2", "COL3")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
@@ -771,7 +772,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMaxWithGroupingColumnsMissingInOrdering(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, %s(col4), col3", index, index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, %s(col4), col3", index, index);
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, attempt to create a covering aggregate index");
     }
 
@@ -780,7 +781,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMaxWithMultipleAggregatesInOrdering(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, %s(col4), %s(col4), col3", index, index, index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, %s(col4), %s(col4), col3", index, index, index);
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, aggregate can appear only once in ordering clause");
     }
 
@@ -789,7 +790,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMaxWithFinalGroupingColumnsMissingInOrdering(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, col2, %s(col4)", index, index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, col2, %s(col4)", index, index);
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, attempt to create a covering aggregate index");
     }
 
@@ -798,7 +799,7 @@ public class IndexTest {
     void createAggregateIndexOnMinMaxWithGroupingColumnsMissingInResultColumn(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, col2, %s(col4), col3", index, index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, col2, %s(col4), col3", index, index);
         shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
     }
 
@@ -807,7 +808,7 @@ public class IndexTest {
     void createAggregateIndexWithGroupingColumnMissingInResults(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col2, %s(col4) FROM T1 group by col1, col2, col3", index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col2, %s(col4) FROM T1 group by col1, col2, col3", index);
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Grouping value absent from aggregate result value");
     }
 
@@ -816,7 +817,7 @@ public class IndexTest {
     void createAggregateIndexWithGroupingColumnsNotMatchingResultOrder(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col3, col2, %s(col4) FROM T1 group by col1, col2, col3", index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col3, col2, %s(col4) FROM T1 group by col1, col2, col3", index);
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Aggregate result value does not align with grouping value");
     }
 
@@ -825,7 +826,7 @@ public class IndexTest {
     void createAggregateIndexWithExtraResultColumnsNotInGrouping(String index) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
-                String.format("CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2", index);
+                String.format(Locale.ROOT, "CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2", index);
         shouldFailWith(stmt, ErrorCode.GROUPING_ERROR, "Invalid reference to non-grouping expression T1.COL3");
     }
 

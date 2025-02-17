@@ -21,8 +21,9 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The relational component now specifies `Locale.ROOT` in all usages of `String.format` which may change number formatting if the default locale does not align [(Issue #3121)](https://github.com/FoundationDB/fdb-record-layer/issues/3121)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Insert statement does not fully validate the column names with supplied values [(Issue #3069)](https://github.com/FoundationDB/fdb-record-layer/issues/3069)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -30,11 +31,11 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add enum column support to relational server [(Issue #3073)](https://github.com/FoundationDB/fdb-record-layer/issues/3073)
-* **Feature** Allow scrubbing of indexes in READABLE_UNIQUE_PENDING state [(Issue #3135)](https://github.com/FoundationDB/fdb-record-layer/issues/3135)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** FRL now respects PLAN_CACHE_*_MAX_ENTRIES options [(Issue #3155)](https://github.com/FoundationDB/fdb-record-layer/issues/3155)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+e** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -42,6 +43,14 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 
 // end next release
 -->
+
+### 4.1.6.0
+
+* **Bug fix** Plan hashes for queries involving recursive CTEs are now stable across JVM invocations [(Issue #3139)](https://github.com/FoundationDB/fdb-record-layer/issues/3139)
+* **Bug fix** Insert statement does not fully validate the column names with supplied values [(Issue #3069)](https://github.com/FoundationDB/fdb-record-layer/issues/3069)
+* **Feature** Add enum column support to relational server [(Issue #3073)](https://github.com/FoundationDB/fdb-record-layer/issues/3073)
+* **Feature** Allow scrubbing of indexes in READABLE_UNIQUE_PENDING state [(Issue #3135)](https://github.com/FoundationDB/fdb-record-layer/issues/3135)
+* **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
 
 ### 4.1.4.0
 

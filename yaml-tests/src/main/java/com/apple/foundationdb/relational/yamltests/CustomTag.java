@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import javax.annotation.Nonnull;
+import java.util.Locale;
 
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class CustomTag {
@@ -57,10 +58,10 @@ public abstract class CustomTag {
                 if (otherStr.contains(value)) {
                     return Matchers.ResultSetMatchResult.success();
                 } else {
-                    return Matchers.ResultSetMatchResult.fail(String.format("String mismatch at row: %d cellRef: %s%n The string '%s' does not contain '%s'", rowNumber, cellRef, otherStr, value));
+                    return Matchers.ResultSetMatchResult.fail(String.format(Locale.ROOT, "String mismatch at row: %d cellRef: %s%n The string '%s' does not contain '%s'", rowNumber, cellRef, otherStr, value));
                 }
             } else {
-                return Matchers.ResultSetMatchResult.fail(String.format("expected to match against a %s value, however we got %s which is %s", String.class.getSimpleName(), other, other.getClass().getSimpleName()));
+                return Matchers.ResultSetMatchResult.fail(String.format(Locale.ROOT, "expected to match against a %s value, however we got %s which is %s", String.class.getSimpleName(), other, other.getClass().getSimpleName()));
             }
         }
 

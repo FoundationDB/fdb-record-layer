@@ -52,6 +52,7 @@ import java.sql.Statement;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 
 class JDBCRelationalStatement implements RelationalStatement {
@@ -124,7 +125,7 @@ class JDBCRelationalStatement implements RelationalStatement {
         if (execute(sql, parameters)) {
             return currentResultSet;
         } else {
-            throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
         }
     }
 
@@ -143,7 +144,7 @@ class JDBCRelationalStatement implements RelationalStatement {
      */
     int executeUpdate(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
         if (execute(sql, parameters)) {
-            throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
         }
         return this.updateCount;
     }
