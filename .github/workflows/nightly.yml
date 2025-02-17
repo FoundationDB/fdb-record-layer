@@ -6,6 +6,7 @@ on:
 
 jobs:
   gradle:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
@@ -39,23 +40,4 @@ jobs:
           test-reports/fdb-relational-jdbc/
           test-reports/fdb-relational-server/
           test-reports/yaml-tests/
-    - name: Test Summary
-      if: always()
-      uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86
-      with:
-        paths: |
-          fdb-java-annotations/.out/test-results/**/TEST-*.xml
-          fdb-extensions/.out/test-results/**/TEST-*.xml
-          fdb-record-layer-core/.out/test-results/**/TEST-*.xml
-          fdb-record-layer-icu/.out/test-results/**/TEST-*.xml
-          fdb-record-layer-spatial/.out/test-results/**/TEST-*.xml
-          fdb-record-layer-lucene/.out/test-results/**/TEST-*.xml
-          fdb-record-layer-jmh/.out/test-results/**/TEST-*.xml
-          examples/.out/test-results/**/TEST-*.xml
-          fdb-relational-api/.out/test-results/**/TEST-*.xml
-          fdb-relational-core/.out/test-results/**/TEST-*.xml
-          fdb-relational-cli/.out/test-results/**/TEST-*.xml
-          fdb-relational-grpc/.out/test-results/**/TEST-*.xml
-          fdb-relational-jdbc/.out/test-results/**/TEST-*.xml
-          fdb-relational-server/.out/test-results/**/TEST-*.xml
-          yaml-tests/.out/test-results/**/TEST-*.xml
+

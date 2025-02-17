@@ -154,7 +154,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @ParameterizedTest
@@ -190,7 +190,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @ParameterizedTest
@@ -224,7 +224,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -272,7 +272,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @ParameterizedTest
@@ -419,7 +419,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @ParameterizedTest
@@ -470,7 +470,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         // 3. Verify all readable and valid
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -569,7 +569,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -611,7 +611,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(numRecords + numRecordsOther, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords + numRecordsOther, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        assertAllValidated(Arrays.asList(indexMyA, indexMyB, indexOtherA, indexOtherB));
+        scrubAndValidate(Arrays.asList(indexMyA, indexMyB, indexOtherA, indexOtherB));
     }
 
     @Test
@@ -827,7 +827,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         // validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -879,7 +879,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
 
         // validate
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     void snooze(int millis) {

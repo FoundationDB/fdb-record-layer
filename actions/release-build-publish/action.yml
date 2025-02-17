@@ -1,5 +1,13 @@
 name: Build and publish release
 
+inputs:
+  gpg_private_key:
+    description: 'GPG key for artifact signing'
+    required: true
+  gpg_passphrase:
+    description: 'GPG passphrase for artifact signing'
+    required: true
+
 runs:
   using: "composite"
   steps:
@@ -15,7 +23,10 @@ runs:
     - name: Publish Artifacts
       uses: ./actions/run-gradle
       with:
-        gradle_command: publish -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+        gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+      env:
+        ORG_GRADLE_PROJECT_signingKey: ${{ inputs.gpg_private_key }}
+        ORG_GRADLE_PROJECT_signingPassword: ${{ inputs.gpg_passphrase }}
 
     # Post release: Update various files which reference version
     - name: Update release notes
@@ -32,7 +43,7 @@ runs:
     # Create and push the tag
     - name: Create tag
       shell: bash
-      run: git tag -m "Release ${{ steps.get_version_outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
+      run: git tag -m "Release ${{ steps.get_version.outputs.version }}" -f "${{ steps.get_version.outputs.version }}"
     - name: Push tag
       shell: bash
       run: git push origin "${{ steps.get_version.outputs.version }}"
@@ -42,7 +53,7 @@ runs:
       run: git push origin
     - name: Create Merge PR if conflict
       if: failure() && steps.push_updates.conclusion == 'failure'
-      uses: peter-evans/create-pull-request@v7
+      uses: peter-evans/create-pull-request@bb88e27d3f9cc69c8bc689eba126096c6fe3dded
       id: pr_on_conflict
       with:
         branch: release-build

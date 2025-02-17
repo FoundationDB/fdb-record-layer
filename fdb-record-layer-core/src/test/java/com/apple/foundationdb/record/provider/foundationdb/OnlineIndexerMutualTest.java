@@ -121,7 +121,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -162,7 +162,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             }
         });
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
         assertTrue(count.get() > 1);
     }
 
@@ -220,7 +220,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         }
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     int oneThreadIndexing(List<Index> indexes, FDBStoreTimer callerTimer, List<Tuple> boundaries) {
@@ -326,7 +326,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -363,7 +363,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -404,7 +404,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     OnlineIndexer.IndexingPolicy.Builder mutualTakeOverIndexingPolicy(boolean explicit, boolean toMutual) {
@@ -456,7 +456,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @ParameterizedTest
@@ -525,7 +525,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -640,7 +640,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -774,7 +774,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
 
         // happy indexes assertion
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
         assertReadable(indexes);
     }
 
@@ -833,7 +833,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // happy indexes assertion
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -860,7 +860,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         IntStream.rangeClosed(0, 8).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
 
         disableAll(indexes);
         // Duplicate entry, causing empty fragments
@@ -872,7 +872,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         IntStream.rangeClosed(0, 3).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
 
         // pad with nulls, causing more empty fragments
         disableAll(indexes);
@@ -883,7 +883,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         IntStream.rangeClosed(0, 18).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -933,7 +933,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         IntStream.rangeClosed(0, 8).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
 
         disableAll(indexes);
         // Duplicate entry, causing empty fragments
@@ -945,7 +945,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         IntStream.rangeClosed(0, 3).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
 
         // pad with nulls, causing more empty fragments
         disableAll(indexes);
@@ -956,7 +956,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         IntStream.rangeClosed(0, 18).parallel().forEach(ignore ->
                 oneThreadIndexing(indexes, timer, boundariesList));
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -1363,7 +1363,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 indexBuilder.buildIndex(true);
             }
         });
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -1456,7 +1456,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     private boolean allStampsAreEmpty(FDBRecordStoreTestBase.RecordMetaDataHook hook, List<Index> indexes) {
@@ -1569,7 +1569,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -1653,7 +1653,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test
@@ -1769,7 +1769,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
         // Validate
         assertReadable(indexes);
-        assertAllValidated(indexes);
+        scrubAndValidate(indexes);
     }
 
     @Test

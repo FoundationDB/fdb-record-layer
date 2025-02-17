@@ -73,7 +73,7 @@ public abstract class Command {
     }
 
     @Nonnull
-    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var command = Matchers.notNull(Matchers.firstEntry(Matchers.arrayList(object, "command").get(0), "command"), "command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(command.getKey(), () -> "Invalid command key-value pair: " + command);
         final var lineNumber = linedObject.getLineNumber();
@@ -86,7 +86,7 @@ public abstract class Command {
                 case COMMAND_SET_SCHEMA_STATE:
                     return getSetSchemaStateCommand(lineNumber, executionContext, (String) value);
                 case COMMAND_QUERY:
-                    return QueryCommand.parse(object, executionContext);
+                    return QueryCommand.parse(object, blockName, executionContext);
                 default:
                     Assert.failUnchecked(String.format(Locale.ROOT, "Could not find command '%s'", key));
                     return null;

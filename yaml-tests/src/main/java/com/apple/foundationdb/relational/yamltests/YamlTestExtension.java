@@ -20,13 +20,20 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.yamltests.configs.CorrectExplains;
+import com.apple.foundationdb.relational.yamltests.configs.CorrectExplainsAndMetrics;
+import com.apple.foundationdb.relational.yamltests.configs.CorrectMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ForceContinuations;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
+import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -40,9 +47,12 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.File;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -51,22 +61,45 @@ import java.util.stream.Stream;
 public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
     private List<YamlTestConfig> testConfigs;
+    private List<YamlTestConfig> maintainConfigs;
+    private List<ExternalServer> servers;
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig());
+            maintainConfigs = List.of();
         } else {
-            testConfigs = List.of(
-                    new EmbeddedConfig(),
-                    new JDBCInProcessConfig(),
-                    new MultiServerConfig(0, 1111, 1112),
-                    new ForceContinuations(new MultiServerConfig(0, 1113, 1114)),
-                    new MultiServerConfig(1, 1115, 1116),
-                    new ForceContinuations(new MultiServerConfig(1, 1117, 1118))
+            AtomicInteger serverPort = new AtomicInteger(1111);
+            List<File> jars = ExternalServer.getAvailableServers();
+            // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
+            // we don't have access to the artifacts.
+            // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
+            // not a likely scenario.
+            Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
+            servers = jars.stream().map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement())).collect(Collectors.toList());
+            for (ExternalServer server : servers) {
+                server.start();
+            }
+            testConfigs = Stream.concat(
+                    // The configs for local testing (single server)
+                    Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig()),
+                    // The configs for multi-server testing (4 configs for each server available)
+                    servers.stream().flatMap(server ->
+                            Stream.of(new MultiServerConfig(0, server),
+                                    new ForceContinuations(new MultiServerConfig(0, server)),
+                                    new MultiServerConfig(1, server),
+                                    new ForceContinuations(new MultiServerConfig(1, server)))
+                    )).collect(Collectors.toList());
+
+            maintainConfigs = List.of(
+                    new CorrectExplains(new EmbeddedConfig()),
+                    new CorrectMetrics(new EmbeddedConfig()),
+                    new CorrectExplainsAndMetrics(new EmbeddedConfig()),
+                    new ShowPlanOnDiff(new EmbeddedConfig())
             );
         }
-        for (final YamlTestConfig testConfig : testConfigs) {
+        for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();
         }
     }
@@ -74,14 +107,29 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     @Override
     @SuppressWarnings("PMD.UnnecessaryLocalBeforeReturn") // It complains about the local variable `e` being returned
     public void afterAll(final ExtensionContext context) throws Exception {
-        final Optional<Exception> exception = testConfigs.stream().map(config -> {
+        final Optional<Exception> exception =
+                Stream.concat(
+                        // if beforeAll fails in certain places, or isn't run, testConfigs and/or maintainConfigs could
+                        // be null
+                        Objects.requireNonNullElse(testConfigs, List.<YamlTestConfig>of()).stream(),
+                        Objects.requireNonNullElse(maintainConfigs, List.<YamlTestConfig>of()).stream())
+                        .map(config -> {
+                            try {
+                                config.afterAll();
+                                return null;
+                            } catch (Exception e) {
+                                return e;
+                            }
+                        }).filter(Objects::nonNull).findFirst();
+        for (ExternalServer server : servers) {
             try {
-                config.afterAll();
-                return null;
-            } catch (Exception e) {
-                return e;
+                server.stop();
+            } catch (Exception ex) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+                }
             }
-        }).filter(Objects::nonNull).findFirst();
+        }
         if (exception.isPresent()) {
             throw exception.get();
         }
@@ -94,10 +142,35 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(final ExtensionContext context) {
-        // excluded tests are still included as configs so that they show up in the test run as skipped, rather than
-        // just not being there. This may waste some resources if all the tests being run exclude a config that has
-        // expensive @BeforeAll.
-        return testConfigs.stream().map(config -> new Context(config, context.getRequiredTestMethod().getAnnotation(ExcludeYamlTestConfig.class)));
+        final var testClass = context.getRequiredTestClass();
+        if (testClass.getAnnotation(MaintainYamlTestConfig.class) != null) {
+            final var annotation = testClass.getAnnotation(MaintainYamlTestConfig.class);
+            return provideInvocationContextsForMaintenance(annotation);
+        }
+        final var testMethod = context.getRequiredTestMethod();
+        if (testMethod.getAnnotation(ExcludeYamlTestConfig.class) != null) {
+            // excluded tests are still included as configs so that they show up in the test run as skipped, rather than
+            // just not being there. This may waste some resources if all the tests being run exclude a config that has
+            // expensive @BeforeAll.
+            final var annotation = testMethod.getAnnotation(ExcludeYamlTestConfig.class);
+            return testConfigs
+                    .stream()
+                    .map(config -> new Context(config, annotation.reason(), annotation.value()));
+        } else if (testMethod.getAnnotation(MaintainYamlTestConfig.class) != null) {
+            final var annotation =
+                    testMethod.getAnnotation(MaintainYamlTestConfig.class);
+            return provideInvocationContextsForMaintenance(annotation);
+        }
+        return testConfigs
+                .stream()
+                .map(config -> new Context(config, "", null));
+    }
+
+    private Stream<TestTemplateInvocationContext> provideInvocationContextsForMaintenance(@Nonnull final MaintainYamlTestConfig annotation) {
+        return maintainConfigs
+                .stream()
+                .map(config -> new Context(config, "maintenance not needed",
+                        Objects.requireNonNull(annotation.value())));
     }
 
     /**
@@ -110,14 +183,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         @Nonnull
         private final String excludedReason;
         @Nullable
-        private final YamlTestConfigExclusions exclusion;
+        private final YamlTestConfigFilters configFilters;
 
-        public Context(@Nonnull final YamlTestConfig config, @Nullable final ExcludeYamlTestConfig excludedConfigs) {
+        public Context(@Nonnull final YamlTestConfig config, @Nonnull final String excludedReason,
+                       @Nullable final YamlTestConfigFilters configFilters) {
             this.config = config;
-            this.exclusion = excludedConfigs == null ? null : excludedConfigs.value();
-            this.excludedReason = excludedConfigs == null ? "" : excludedConfigs.reason();
+            this.excludedReason = excludedReason;
+            this.configFilters = configFilters;
         }
-
 
         @Override
         public String getDisplayName(int invocationIndex) {
@@ -126,7 +199,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
         @Override
         public List<Extension> getAdditionalExtensions() {
-            return List.of(new ClassParameterResolver(config, exclusion, excludedReason));
+            return List.of(new ClassParameterResolver(config, configFilters, excludedReason));
         }
     }
 
@@ -138,15 +211,15 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         @Nonnull
         private final YamlTestConfig config;
         @Nullable
-        private final YamlTestConfigExclusions exclusion;
+        private final YamlTestConfigFilters filters;
         @Nullable
         private final String excludedReason;
 
         public ClassParameterResolver(@Nonnull final YamlTestConfig config,
-                                      @Nullable final YamlTestConfigExclusions exclusion,
+                                      @Nullable final YamlTestConfigFilters filters,
                                       @Nullable final String excludedReason) {
             this.config = config;
-            this.exclusion = exclusion;
+            this.filters = filters;
             this.excludedReason = excludedReason;
         }
 
@@ -160,15 +233,11 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             return new YamlTest.Runner() {
                 @Override
                 public void runYamsql(final String fileName) throws Exception {
-                    runYamsql(fileName, false);
-                }
-
-                @Override
-                public void runYamsql(final String fileName, final boolean correctExplain) throws Exception {
-                    if (exclusion != null) {
-                        Assumptions.assumeFalse(exclusion.check(config), excludedReason);
+                    if (filters != null) {
+                        Assumptions.assumeTrue(filters.filter(config), excludedReason);
                     }
-                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(), correctExplain, config.getRunnerOptions());
+                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(),
+                            config.getRunnerOptions());
                     try {
                         yamlRunner.run();
                     } catch (Exception e) {

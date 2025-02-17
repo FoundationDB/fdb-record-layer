@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import javax.annotation.Nonnull;
@@ -29,7 +30,6 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -44,6 +44,7 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
+                .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
                 .build();
         frl = new FRL(options);
     }
@@ -72,8 +73,8 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
-    public @Nonnull Map<String, Object> getRunnerOptions() {
-        return Map.of();
+    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+        return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
     }
 
     @Override

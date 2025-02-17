@@ -36,6 +36,7 @@ setup:
                (3, 20, (6, 60))
 ---
 test_block:
+  name: select-star-tests
   tests:
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);

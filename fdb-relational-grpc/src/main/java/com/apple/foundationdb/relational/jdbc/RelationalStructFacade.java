@@ -311,7 +311,7 @@ class RelationalStructFacade implements RelationalStruct {
 
     private Column getColumnInternal(int oneBasedColumn) {
         Column c = this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn));
-        wasNull = c.hasNull() || c.getKindCase().equals(Column.KindCase.KIND_NOT_SET);
+        wasNull = c.hasNullType() || c.getKindCase().equals(Column.KindCase.KIND_NOT_SET);
         return c;
     }
 

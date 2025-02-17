@@ -95,6 +95,10 @@ public enum IndexState {
         return this.equals(READABLE) || this.equals(READABLE_UNIQUE_PENDING);
     }
 
+    public boolean isWriteOnly() {
+        return this.equals(WRITE_ONLY);
+    }
+
     public static IndexState fromCode(@Nonnull Object code) {
         for (IndexState state : IndexState.values()) {
             if (state.code().equals(code)) {

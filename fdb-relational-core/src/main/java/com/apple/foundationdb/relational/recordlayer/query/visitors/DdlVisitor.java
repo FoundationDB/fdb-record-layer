@@ -119,6 +119,11 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var columnId = visitUid(ctx.colName);
         final var isRepeated = ctx.ARRAY() != null;
         final var isNullable = ctx.columnConstraint() != null ? (Boolean) ctx.columnConstraint().accept(this) : true;
+        // TODO: We currently do not support NOT NULL for any type other than ARRAY. This is because there is no way to
+        //       specify not "nullability" at the RecordMetaData level. For ARRAY, specifying that is actually possible
+        //       by means of NullableArrayWrapper. In essence, we don't actually need a wrapper per se for non-array types,
+        //       but a way to represent it in RecordMetadata.
+        Assert.thatUnchecked(isRepeated || isNullable, ErrorCode.UNSUPPORTED_OPERATION, "NOT NULL is only allowed for ARRAY column type");
         containsNullableArray = containsNullableArray || (isRepeated && isNullable);
         final var columnTypeId = ctx.columnType().customType != null ? visitUid(ctx.columnType().customType) : Identifier.of(ctx.columnType().getText());
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();

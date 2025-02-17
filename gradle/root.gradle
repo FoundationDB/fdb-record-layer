@@ -69,3 +69,39 @@ task checksumsVerify {
         }
     }
 }
+
+apply plugin: 'jacoco'
+
+tasks.register('codeCoverageReport', JacocoReport) {
+    executionData fileTree(project.rootDir).include('**/.out/jacoco/*.exec')
+
+    def coverageSubprojects = subprojects.findAll { sp ->
+        sp.name != 'examples' &&
+            sp.name != 'fdb-record-layer-core-shaded' &&
+            sp.name != 'fdb-record-layer-jmh'
+    }
+
+    // Not much consistency in naming these.
+    def exclusions = [
+        "**/*Proto.class", "**/*Proto\$*.class",
+        "**/planprotos/*", "**/eventprotos/*",
+        "**/generated/*", "**/grpc/v1/**/*"
+    ]
+
+    def compiledFiles = coverageSubprojects.collect { sp ->
+        new File(sp.buildDir, "libs/${sp.name}-${sp.version}.jar")
+    }.findAll { jf -> jf.exists() }
+    classDirectories.setFrom(compiledFiles.collect { jf ->
+        zipTree(jf).matching {
+            exclude exclusions
+        }
+    })
+
+    // These can come from source tree.
+    sourceDirectories.setFrom(files(coverageSubprojects.sourceSets.main.allSource.srcDirs))
+
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}

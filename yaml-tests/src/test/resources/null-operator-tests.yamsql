@@ -40,6 +40,7 @@ setup:
         (13, 20, 13)
 ---
 test_block:
+  name: null-operator-tests
   tests:
     -
       - query: select * from (select * from (select * from T1) as x where ID is null) as y;

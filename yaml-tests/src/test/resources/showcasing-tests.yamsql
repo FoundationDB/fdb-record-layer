@@ -66,6 +66,11 @@ setup:
     - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
 ---
 test_block:
+  # This is a unique name for this test_block within this file. It is used to match up queries against their metrics.
+  # This attribute is optional and therefore can be omitted. If omitted, the name of the block is chosen to be
+  # "unnamed-<block_number>". If a name is given, it should be self-explanatory, unique, and in the shape of an
+  # identifier.
+  name: showcasing-tests
   # This defines the test block which contains actual test.
   #
   # Omitting `connect` since we want to connect to location indexed at `1`, which is default.

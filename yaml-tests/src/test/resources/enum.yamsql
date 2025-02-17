@@ -16,7 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
+options:
+    supported_version: 4.1.6.0
 ---
 schema_template:
     CREATE TYPE AS ENUM MOOD ( 'JOYFUL', 'HAPPY', 'RELAXED', 'INDIFFERENT', 'CONFUSED', 'SAD', 'ANXIOUS', 'ANGRY' )
@@ -44,6 +46,7 @@ setup:
                  (15, 'bob')
 ---
 test_block:
+  name: enum-tests
   tests:
     -
       - query: SELECT * From TABLE_A where "mood" = 'CONFUSED'

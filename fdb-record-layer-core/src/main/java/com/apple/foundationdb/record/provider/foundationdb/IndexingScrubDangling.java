@@ -27,7 +27,6 @@ import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -145,7 +144,7 @@ public class IndexingScrubDangling extends IndexingBase {
         // scrubbing only readable, VALUE, idempotence indexes (at least for now)
         validateOrThrowEx(maintainer.isIdempotent(), "scrubbed index is not idempotent");
         validateOrThrowEx(IndexTypes.VALUE.equals(index.getType()) || scrubbingPolicy.ignoreIndexTypeCheck(), "scrubbed index is not a VALUE index");
-        validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
+        validateOrThrowEx(store.getIndexState(index).isScannable(), "scrubbed index is not readable");
 
         final ScanProperties scanProperties = scanPropertiesWithLimits(true);
         final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbingIndex(store, index);

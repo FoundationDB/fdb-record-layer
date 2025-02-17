@@ -55,6 +55,7 @@ setup:
                (8, (327, 8), ((5, 15), (10, 140)))
 ---
 test_block:
+  name: group-by-tests
   tests:
     -
       - query: select max(q.s) from nested group by r.v.z having r.v.z > 120

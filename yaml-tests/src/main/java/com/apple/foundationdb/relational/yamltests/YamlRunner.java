@@ -48,7 +48,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -100,9 +99,10 @@ public final class YamlRunner {
         }
     }
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain, @Nonnull final Map<String, Object> additionalOptions) throws RelationalException {
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
+                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
         this.resourcePath = resourcePath;
-        this.executionContext = new YamlExecutionContext(resourcePath, factory, correctExplain, additionalOptions);
+        this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
     }
 
     public void run() throws Exception {
@@ -113,16 +113,16 @@ public final class YamlRunner {
             final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
 
             final var testBlocks = new ArrayList<TestBlock>();
-            int blockCount = 0;
+            int blockNumber = 0;
             try (var inputStream = getInputStream(resourcePath)) {
                 for (var doc : yaml.loadAll(inputStream)) {
-                    final var block = Block.parse(doc, executionContext, blockCount);
+                    final var block = Block.parse(doc, blockNumber, executionContext);
                     logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
                     block.execute();
                     if (block instanceof TestBlock) {
                         testBlocks.add((TestBlock)block);
                     }
-                    blockCount++;
+                    blockNumber++;
                 }
             }
             for (var block : executionContext.getFinalizeBlocks()) {
@@ -132,6 +132,7 @@ public final class YamlRunner {
 
             evaluateTestBlockResults(testBlocks);
             replaceTestFileIfRequired();
+            replaceMetricsFileIfRequired();
         } catch (RelationalException | IOException e) {
             logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
             throw e;
@@ -192,5 +193,13 @@ public final class YamlRunner {
             logger.error("⚠️ Source file {} could not be replaced with corrected file.", resourcePath);
             Assertions.fail(e);
         }
+    }
+
+    private void replaceMetricsFileIfRequired() throws RelationalException {
+        if (!executionContext.isDirtyMetrics()) {
+            return;
+        }
+        executionContext.saveMetricsAsBinaryProto();
+        executionContext.saveMetricsAsYaml();
     }
 }

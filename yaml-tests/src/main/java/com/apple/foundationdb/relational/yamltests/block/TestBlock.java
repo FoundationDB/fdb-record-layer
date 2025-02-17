@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 import com.apple.foundationdb.relational.yamltests.command.SkippedCommand;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
+import com.google.common.base.Verify;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -83,6 +84,7 @@ public final class TestBlock extends ConnectedBlock {
     static final String TEST_BLOCK_TESTS = "tests";
     static final String TEST_BLOCK_OPTIONS = "options";
     static final String TEST_BLOCK_PRESET = "preset";
+    static final String TEST_BLOCK_NAME = "name";
     static final String PRESET_SINGLE_REPETITION_ORDERED = "single_repetition_ordered";
     static final String PRESET_SINGLE_REPETITION_RANDOMIZED = "single_repetition_randomized";
     static final String PRESET_SINGLE_REPETITION_PARALLELIZED = "single_repetition_parallelized";
@@ -148,6 +150,8 @@ public final class TestBlock extends ConnectedBlock {
         PREPARED
     }
 
+    @Nonnull
+    final String blockName;
     @Nonnull
     private final List<Consumer<RelationalConnection>> executableTestsWithCacheCheck;
     @Nonnull
@@ -308,7 +312,8 @@ public final class TestBlock extends ConnectedBlock {
         }
     }
 
-    public static Block parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+    public static Block parse(int blockNumber, int lineNumber, @Nonnull Object document,
+                              @Nonnull YamlExecutionContext executionContext) {
         try {
             // Since `options` is also a top-level block, the `CustomYamlConstructor` will add the line numbers,
             // changing it from a `String` to a `LinedObject` so that we know the line numbers when logging an error,
@@ -329,6 +334,9 @@ public final class TestBlock extends ConnectedBlock {
             }
             // execution context carries the highest priority, try setting options per that if it has some options to override.
             options.setWithExecutionContext(executionContext);
+
+            final String blockName = testsMap.containsKey(TEST_BLOCK_NAME)
+                                     ? Matchers.string(testsMap.get(TEST_BLOCK_NAME)) : "unnamed-" + blockNumber;
             final var testsObject = Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber);
             if (options.rawSupportedVersion != null) {
                 final SupportedVersionCheck check = SupportedVersionCheck.parse(options.rawSupportedVersion, executionContext);
@@ -343,7 +351,7 @@ public final class TestBlock extends ConnectedBlock {
             final var tests = Matchers.arrayList(testsObject, "tests");
             for (var testObject : tests) {
                 final var test = Matchers.arrayList(testObject, "test");
-                final var resolvedCommand = Objects.requireNonNull(Command.parse(test, executionContext));
+                final var resolvedCommand = Objects.requireNonNull(Command.parse(test, blockName, executionContext));
                 if (resolvedCommand instanceof SkippedCommand) {
                     ((SkippedCommand)resolvedCommand).log();
                     continue;
@@ -364,17 +372,19 @@ public final class TestBlock extends ConnectedBlock {
                 Collections.shuffle(executableTestsWithCacheCheck, randomGenerator);
             }
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
-            return new TestBlock(lineNumber, queryCommands, executables, executableTestsWithCacheCheck,
+            return new TestBlock(lineNumber, blockName, queryCommands, executables, executableTestsWithCacheCheck,
                     executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext);
         } catch (Throwable e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the test block at " + lineNumber, TEST_BLOCK, lineNumber);
         }
     }
 
-    private TestBlock(int lineNumber, @Nonnull List<QueryCommand> queryCommands, @Nonnull List<Consumer<RelationalConnection>> executables,
+    private TestBlock(int lineNumber, @Nonnull String blockName, @Nonnull List<QueryCommand> queryCommands,
+                      @Nonnull List<Consumer<RelationalConnection>> executables,
                       @Nonnull List<Consumer<RelationalConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
                       @Nonnull TestBlockOptions options, @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executables, connectionURI, executionContext);
+        this.blockName = blockName;
         this.queryCommands = queryCommands;
         this.options = options;
         this.executableTestsWithCacheCheck = executableTestsWithCacheCheck;
@@ -437,6 +447,7 @@ public final class TestBlock extends ConnectedBlock {
         }
         // Iterate through the futures to catch any uncaught errors/exceptions from the submitted tasks.
         for (var future : futures) {
+            Verify.verify(!future.isCancelled());
             future.get();
         }
     }
