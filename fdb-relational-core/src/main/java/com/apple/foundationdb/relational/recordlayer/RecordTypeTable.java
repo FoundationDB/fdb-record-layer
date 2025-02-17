@@ -58,6 +58,7 @@ import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -251,12 +252,12 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                                 builder.setField(fd, fd.getEnumType().findValueByName(enumValue));
                             }
                         } else {
-                            Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format("Cannot interpret value in Column type OTHER for column <%s>",
+                            Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format(Locale.ROOT, "Cannot interpret value in Column type OTHER for column <%s>",
                                     columnName)));
                         }
                         break;
                     default:
-                        Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format("Unexpected Column type <%s> for column <%s>",
+                        Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format(Locale.ROOT, "Unexpected Column type <%s> for column <%s>",
                                 structMetaData.getColumnType(i), columnName)));
                         break;
                 }
@@ -351,14 +352,14 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
             final Integer tableMetaDataVersion = recordType.getSinceVersion();
             final int metaDataVersion = metaData.getVersion();
             if (tableMetaDataVersion == null) {
-                final String errMsg = String.format("table <%s> is not available, creation version is missing from metadata(version <%s>)",
+                final String errMsg = String.format(Locale.ROOT, "table <%s> is not available, creation version is missing from metadata(version <%s>)",
                         recordType.getName(), metaDataVersion);
                 throw new RelationalException(errMsg, ErrorCode.INCORRECT_METADATA_TABLE_VERSION)
                         .addContext("metadataVersion", metaDataVersion)
                         .addContext("recordType", recordType.getName());
             }
             if (requiredVersion != -1 && requiredVersion < tableMetaDataVersion) {
-                final String errMsg = String.format("table <%s> is not available, creation version is invalid for metadata(version <%s>); Required creation version <%s>",
+                final String errMsg = String.format(Locale.ROOT, "table <%s> is not available, creation version is invalid for metadata(version <%s>); Required creation version <%s>",
                         recordType.getName(), metaDataVersion, requiredVersion);
                 throw new RelationalException(errMsg, ErrorCode.INCORRECT_METADATA_TABLE_VERSION)
                         .addContext("metadataVersion", metaDataVersion)

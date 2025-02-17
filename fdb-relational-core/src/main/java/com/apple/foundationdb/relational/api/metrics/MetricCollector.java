@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Supplier;
 
 import javax.annotation.Nonnull;
+import java.util.Locale;
 
 /**
  * MetricCollector provides a utility API to register events and counts while performing operations in the Relational
@@ -65,7 +66,7 @@ public interface MetricCollector {
      * @throws RelationalException in case the requested event is not held in the collector.
      * */
     default double getAverageTimeMicrosForEvent(@Nonnull RelationalMetric.RelationalEvent event) throws RelationalException {
-        throw new RelationalException(String.format("Requested event metric: %s is not in the collector", event.title()), ErrorCode.INTERNAL_ERROR);
+        throw new RelationalException(String.format(Locale.ROOT, "Requested event metric: %s is not in the collector", event.title()), ErrorCode.INTERNAL_ERROR);
     }
 
     /**
@@ -76,7 +77,7 @@ public interface MetricCollector {
      * @throws RelationalException in case the requested count is not held in the collector.
      * */
     default long getCountsForCounter(@Nonnull RelationalMetric.RelationalCount count) throws RelationalException {
-        throw new RelationalException(String.format("Requested count metric: %s is not in the collector", count.title()), ErrorCode.INTERNAL_ERROR);
+        throw new RelationalException(String.format(Locale.ROOT, "Requested count metric: %s is not in the collector", count.title()), ErrorCode.INTERNAL_ERROR);
     }
 
     /**

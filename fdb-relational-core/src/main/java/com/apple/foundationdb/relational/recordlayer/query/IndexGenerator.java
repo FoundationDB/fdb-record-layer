@@ -168,7 +168,7 @@ public final class IndexGenerator {
 
         final var unsupportedAggregates = simplifiedValues.stream().filter(sv -> sv instanceof StreamableAggregateValue && !(sv instanceof IndexableAggregateValue)).collect(toList());
         Assert.thatUnchecked(unsupportedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
-                () -> String.format("Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
+                () -> String.format(Locale.ROOT, "Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
 
         Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue || sv instanceof ArithmeticValue));
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
@@ -629,7 +629,7 @@ public final class IndexGenerator {
         }
         final var conjunction = predicates.size() == 1 ? predicates.get(0) : AndPredicate.and(predicates);
         final var result = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(conjunction, false).orElse(conjunction);
-        Assert.thatUnchecked(IndexPredicate.isSupported(result), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format("Unsupported predicate '%s'", result))    ;
+        Assert.thatUnchecked(IndexPredicate.isSupported(result), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "Unsupported predicate '%s'", result))    ;
         if (IndexPredicateExpansion.dnfPredicateToRanges(result).isEmpty()) {
             return conjunction;
         }
@@ -755,7 +755,7 @@ public final class IndexGenerator {
                 .collect(toList());
         Assert.thatUnchecked(expressionRefs.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
         final var recordTypes = expressionRefs.get(0).getRecordTypes();
-        Assert.thatUnchecked(recordTypes.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, () -> String.format("Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
+        Assert.thatUnchecked(recordTypes.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
         return recordTypes.stream().findFirst().orElseThrow();
     }
 
