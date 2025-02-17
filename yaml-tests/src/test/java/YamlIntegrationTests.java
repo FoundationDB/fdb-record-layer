@@ -302,4 +302,9 @@ public class YamlIntegrationTests {
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }
+
+    @TestTemplate
+    public void tableFunctionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("table-functions.yamsql");
+    }
 }
