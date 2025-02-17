@@ -174,12 +174,12 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public RelationalStatement createStatement() throws SQLException {
-            return getNextConnection(true, "createStatement").createStatement();
+            return getCurrentConnection(true, "createStatement").createStatement();
         }
 
         @Override
         public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
-            return getNextConnection(true, "prepareStatement").prepareStatement(sql);
+            return getCurrentConnection(true, "prepareStatement").prepareStatement(sql);
         }
 
         @Override
@@ -195,7 +195,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public boolean getAutoCommit() throws SQLException {
-            return getNextConnection(false, "getAutoCommit").getAutoCommit();
+            return getCurrentConnection(false, "getAutoCommit").getAutoCommit();
         }
 
         @Override
@@ -218,12 +218,12 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public boolean isClosed() throws SQLException {
-            return getNextConnection(false, "isClosed").isClosed();
+            return getCurrentConnection(false, "isClosed").isClosed();
         }
 
         @Override
         public DatabaseMetaData getMetaData() throws SQLException {
-            return getNextConnection(false, "getMetaData").getMetaData();
+            return getCurrentConnection(false, "getMetaData").getMetaData();
         }
 
         @Override
@@ -236,17 +236,17 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public int getTransactionIsolation() throws SQLException {
-            return getNextConnection(false, "getTransactionIsolation").getTransactionIsolation();
+            return getCurrentConnection(false, "getTransactionIsolation").getTransactionIsolation();
         }
 
         @Override
         public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-            return getNextConnection(true, "createArrayOf").createArrayOf(typeName, elements);
+            return getCurrentConnection(true, "createArrayOf").createArrayOf(typeName, elements);
         }
 
         @Override
         public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-            return getNextConnection(true, "createStruct").createStruct(typeName, attributes);
+            return getCurrentConnection(true, "createStruct").createStruct(typeName, attributes);
         }
 
         @Override
@@ -259,13 +259,13 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public String getSchema() throws SQLException {
-            return getNextConnection(false, "getSchema").getSchema();
+            return getCurrentConnection(false, "getSchema").getSchema();
         }
 
         @Nonnull
         @Override
         public Options getOptions() {
-            return getNextConnection(false, "getOptions").getOptions();
+            return getCurrentConnection(false, "getOptions").getOptions();
         }
 
         @Override
@@ -278,19 +278,19 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public URI getPath() {
-            return getNextConnection(false, "getPath").getPath();
+            return getCurrentConnection(false, "getPath").getPath();
         }
 
         /**
-         * Get the next connection to send requests to.
+         * Get the connection to send requests to.
          * This method conditionally advances the connection selector. This is done for ease of testing, where some
-         * commands that just return information will not advance the selector. This leads to better predictability
+         * commands that just return information will not advance the selector, leading to better predictability
          * of the command routing.
          * @param advance whether to advance the connection selector
          * @param op the name of the operation (for logging)
          * @return the underlying connection to use
          */
-        private RelationalConnection getNextConnection(boolean advance, String op) {
+        private RelationalConnection getCurrentConnection(boolean advance, String op) {
             switch (connectionSelectionPolicy) {
                 case DEFAULT:
                     if (logger.isInfoEnabled()) {
