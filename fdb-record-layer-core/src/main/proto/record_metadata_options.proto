@@ -23,6 +23,7 @@ package com.apple.foundationdb.record;
 option java_outer_classname = "RecordMetaDataOptionsProto";
 
 import "google/protobuf/descriptor.proto";
+import "record_key_expression.proto";
 import "record_metadata.proto";
 
 message SchemaOptions {
@@ -43,7 +44,7 @@ message RecordTypeOptions {
   }
   optional Usage usage = 1 [default = UNSET];
   optional int32 since_version = 2; // This record_type is introduced on this metadata version
-  optional Value record_type_key = 3;
+  optional com.apple.foundationdb.record.expressions.Value record_type_key = 3;
 }
 
 extend google.protobuf.MessageOptions {
