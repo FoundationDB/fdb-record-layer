@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * User defined functions that are serialized in MetaData
+ * User defined functions that are serialized in MetaData.
  */
 public abstract class UserDefinedFunction extends CatalogedFunction implements PlanSerializable {
 
