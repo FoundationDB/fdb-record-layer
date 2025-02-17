@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -401,7 +402,9 @@ public class CascadesPlanner implements QueryPlanner {
         while (!taskStack.isEmpty()) {
             try {
                 if (isTaskTotalCountExceeded(configuration, taskCount)) {
-                    throw new RecordQueryPlanComplexityException("Maximum number of tasks (" + configuration.getMaxTotalTaskCount() + ") was exceeded");
+                    throw new RecordQueryPlanComplexityException("Maximum number of tasks was exceeded")
+                            .addLogInfo(LogMessageKeys.MAX_TASK_COUNT, configuration.getMaxTotalTaskCount())
+                            .addLogInfo(LogMessageKeys.TASK_COUNT, taskCount);
                 }
                 taskCount++;
 
@@ -429,7 +432,9 @@ public class CascadesPlanner implements QueryPlanner {
 
                     maxQueueSize = Math.max(maxQueueSize, taskStack.size());
                     if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
-                        throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
+                        throw new RecordQueryPlanComplexityException("Maximum task queue size was exceeded")
+                                .addLogInfo(LogMessageKeys.MAX_TASK_QUEUE_SIZE, configuration.getMaxTaskQueueSize())
+                                .addLogInfo(LogMessageKeys.TASK_QUEUE_SIZE, taskStack.size());
                     }
                 } finally {
                     Debugger.withDebugger(debugger -> debugger.onEvent(
@@ -878,8 +883,12 @@ public class CascadesPlanner implements QueryPlanner {
                     .bindMatches(getConfiguration(), initialBindings, getBindable())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, taskStack, bindings, evaluationContext))
                     .forEach(ruleCall -> {
-                        if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {
-                            throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call for " + rule + " of " + configuration.getMaxNumMatchesPerRuleCall() + " has been exceeded.");
+                        int ruleMatchesCount = numMatches.incrementAndGet();
+                        if (isMaxNumMatchesPerRuleCallExceeded(configuration, ruleMatchesCount)) {
+                            throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call has been exceeded")
+                                    .addLogInfo(LogMessageKeys.RULE, ruleCall)
+                                    .addLogInfo(LogMessageKeys.RULE_MATCHES_COUNT, ruleMatchesCount)
+                                    .addLogInfo(LogMessageKeys.MAX_RULE_MATCHES_COUNT, configuration.getMaxNumMatchesPerRuleCall());
                         }
                         // we notify the debugger (if installed) that the transform task is succeeding and
                         // about begin and end of the rule call event
