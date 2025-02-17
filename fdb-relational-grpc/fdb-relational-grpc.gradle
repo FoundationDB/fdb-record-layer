@@ -40,15 +40,6 @@ protobuf {
     }
 }
 
-sourceSets {
-    main {
-        java {
-            // Add these two dirs to the default src/main/java.
-            srcDir("${projectDir}/protogen/main/grpc")
-        }
-    }
-}
-
 dependencies {
     // Have grpc depend on fdb-relational-api. Anyone that uses grpc will also use api.
     // Having grpc depend on api makes it so we can add utility here shared by
