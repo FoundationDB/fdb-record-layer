@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -69,6 +70,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig());
             maintainConfigs = List.of();
+            servers = ImmutableList.of();
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);
             List<File> jars = ExternalServer.getAvailableServers();
