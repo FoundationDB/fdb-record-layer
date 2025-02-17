@@ -174,12 +174,12 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public RelationalStatement createStatement() throws SQLException {
-            return getNextConnection("createStatement").createStatement();
+            return getCurrentConnection(true, "createStatement").createStatement();
         }
 
         @Override
         public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
-            return getNextConnection("prepareStatement").prepareStatement(sql);
+            return getCurrentConnection(true, "prepareStatement").prepareStatement(sql);
         }
 
         @Override
@@ -195,7 +195,7 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public boolean getAutoCommit() throws SQLException {
-            return getNextConnection("getAutoCommit").getAutoCommit();
+            return getCurrentConnection(false, "getAutoCommit").getAutoCommit();
         }
 
         @Override
@@ -218,32 +218,35 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public boolean isClosed() throws SQLException {
-            return getNextConnection("isClosed").isClosed();
+            return getCurrentConnection(false, "isClosed").isClosed();
         }
 
         @Override
         public DatabaseMetaData getMetaData() throws SQLException {
-            return getNextConnection("getMetaData").getMetaData();
+            return getCurrentConnection(false, "getMetaData").getMetaData();
         }
 
         @Override
         public void setTransactionIsolation(int level) throws SQLException {
-            getNextConnection("setTransactionIsolation").setTransactionIsolation(level);
+            logger.info("Sending operation {} to all connections", "setTransactionIsolation");
+            for (RelationalConnection connection : relationalConnections) {
+                connection.setTransactionIsolation(level);
+            }
         }
 
         @Override
         public int getTransactionIsolation() throws SQLException {
-            return getNextConnection("getTransactionIsolation").getTransactionIsolation();
+            return getCurrentConnection(false, "getTransactionIsolation").getTransactionIsolation();
         }
 
         @Override
         public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-            return getNextConnection("createArrayOf").createArrayOf(typeName, elements);
+            return getCurrentConnection(true, "createArrayOf").createArrayOf(typeName, elements);
         }
 
         @Override
         public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-            return getNextConnection("createStruct").createStruct(typeName, attributes);
+            return getCurrentConnection(true, "createStruct").createStruct(typeName, attributes);
         }
 
         @Override
@@ -256,13 +259,13 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public String getSchema() throws SQLException {
-            return getNextConnection("getSchema").getSchema();
+            return getCurrentConnection(false, "getSchema").getSchema();
         }
 
         @Nonnull
         @Override
         public Options getOptions() {
-            return getNextConnection("getOptions").getOptions();
+            return getCurrentConnection(false, "getOptions").getOptions();
         }
 
         @Override
@@ -275,10 +278,19 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
 
         @Override
         public URI getPath() {
-            return getNextConnection("getPath").getPath();
+            return getCurrentConnection(false, "getPath").getPath();
         }
 
-        private RelationalConnection getNextConnection(String op) {
+        /**
+         * Get the connection to send requests to.
+         * This method conditionally advances the connection selector. This is done for ease of testing, where some
+         * commands that just return information will not advance the selector, leading to better predictability
+         * of the command routing.
+         * @param advance whether to advance the connection selector
+         * @param op the name of the operation (for logging)
+         * @return the underlying connection to use
+         */
+        private RelationalConnection getCurrentConnection(boolean advance, String op) {
             switch (connectionSelectionPolicy) {
                 case DEFAULT:
                     if (logger.isInfoEnabled()) {
@@ -290,7 +302,9 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
                     if (logger.isInfoEnabled()) {
                         logger.info("Sending operation {} to connection {}", op, currentConnectionSelector);
                     }
-                    currentConnectionSelector = (currentConnectionSelector + 1) % relationalConnections.size();
+                    if (advance) {
+                        currentConnectionSelector = (currentConnectionSelector + 1) % relationalConnections.size();
+                    }
                     return result;
                 default:
                     throw new IllegalStateException("Unsupported selection policy " + connectionSelectionPolicy);
