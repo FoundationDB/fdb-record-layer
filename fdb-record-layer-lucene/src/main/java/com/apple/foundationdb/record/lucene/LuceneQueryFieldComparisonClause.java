@@ -279,7 +279,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                     try {
                         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
                         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
-                        final QueryParser parser = new QueryParser(field, analyzerSelector.provideQueryAnalyzer((String) comparand).getAnalyzer());
+                        final QueryParser parser = new QueryParser(field, analyzerSelector.provideQueryAnalyzer().getAnalyzer());
                         return toBoundQuery(parser.parse("\"" + comparand + "\""));
                     } catch (Exception ex) {
                         throw new RecordCoreArgumentException("Unable to parse phrase for query", ex);

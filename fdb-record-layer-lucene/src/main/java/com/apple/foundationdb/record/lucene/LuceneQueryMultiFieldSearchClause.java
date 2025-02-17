@@ -72,7 +72,7 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
         final QueryParser parser = parserFactory.createMultiFieldQueryParser(fieldNames,
-                analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
+                analyzerSelector.provideQueryAnalyzer().getAnalyzer(), pointsConfigMap);
         try {
             return toBoundQuery(parser.parse(searchString));
         } catch (final Exception ioe) {
