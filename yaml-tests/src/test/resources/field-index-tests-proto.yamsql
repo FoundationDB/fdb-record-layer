@@ -48,6 +48,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/FIELD_INDEX_PROTO_YAML?schema=TEST"
+  name: field-index-tests-proto
   tests:
     -
       - query: select * from (select * from (select * from "MyTable") as x where ID = 5) as y;

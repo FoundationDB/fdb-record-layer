@@ -32,11 +32,15 @@ schema_template:
     create index t3_i2 as select col2 from t3
 ---
 test_block:
+  name: agg-empty-table-tests
   tests:
     -
       - query: select count(*) from T1;
+      - supported_version: 4.1.4.0
       - explain: "SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - maxRows: 1
       - result: [{0}]
+      - result: []
     -
       - query: select count(*) from T1 where col1 = 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
@@ -185,8 +189,11 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T1;
+      - supported_version: 4.1.4.0
       - explain: "SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - maxRows: 1
       - result: [{!null _}]
+      - result: []
     -
       - query: select sum(col1) from T1 where col1 = 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
@@ -297,6 +304,7 @@ test_block:
       - count: 3
 ---
 test_block:
+  name: agg-empty-table-tests-after-modifications
   tests:
     -
       - query: select count(*) from T1;

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -29,12 +28,13 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
@@ -55,6 +55,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -114,8 +115,11 @@ public class FRL implements AutoCloseable {
                     ddlFactory,
                     RelationalPlanCache.newRelationalCacheBuilder()
                             .setTtl(options.getOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS))
+                            .setSize(options.getOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES))
                             .setSecondaryTtl(options.getOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS))
+                            .setSecondarySize(options.getOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES))
                             .setTertiaryTtl(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS))
+                            .setTertiarySize(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES))
                             .build()));
 
             DriverManager.registerDriver(this.driver);
@@ -230,10 +234,13 @@ public class FRL implements AutoCloseable {
                 relationalPreparedStatement.setString(index, parameter.getParameter().getString());
                 break;
             case Types.BIGINT:
-                relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
+                relationalPreparedStatement.setLong(index, parameter.getParameter().getLong());
                 break;
             case Types.INTEGER:
                 relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
+                break;
+            case Types.FLOAT:
+                relationalPreparedStatement.setFloat(index, parameter.getParameter().getFloat());
                 break;
             case Types.DOUBLE:
                 relationalPreparedStatement.setDouble(index, parameter.getParameter().getDouble());
@@ -243,6 +250,16 @@ public class FRL implements AutoCloseable {
                 break;
             case Types.BINARY:
                 relationalPreparedStatement.setBytes(index, parameter.getParameter().getBinary().toByteArray());
+                break;
+            case Types.NULL:
+                relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
+                break;
+            case Types.ARRAY:
+                final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
+                final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
+                        SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),
+                        TypeConversion.fromArray(arrayProto));
+                relationalPreparedStatement.setArray(index, relationalArray);
                 break;
             default:
                 throw new SQLException("Unsupported type " + type);

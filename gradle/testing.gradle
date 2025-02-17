@@ -23,11 +23,6 @@ apply plugin: 'jacoco'
 jacoco {
     toolVersion = libs.versions.jacoco.get()
 }
-jacocoTestReport {
-    reports {
-        xml.required = true
-    }
-}
 
 test {
     useJUnitPlatform {
@@ -51,6 +46,13 @@ task performanceTest(type: Test) {
     useJUnitPlatform {
         includeTags 'Performance'
         enableAssertions = false
+    }
+}
+
+task quickTest(type: Test) {
+    systemProperties["tests.runQuick"] = true
+    useJUnitPlatform {
+        excludeTags 'WipesFDB'
     }
 }
 
@@ -147,6 +149,24 @@ tasks.withType(Test) { theTask ->
         events 'failed'
         exceptionFormat = 'full'
     }
+    // This creates two reports to be picked up by the gradle actions (see actions/gradle-test/action.yml)
+    // We initialize the files here, to be filled out by test listeners below
+    // summary has a summary of all the test tasks we ran, and the success/skipped/failure counts & duration
+    // failures includes any failures that happened, with the stack trace
+    def markdownReports = new File("$rootDir/.out/reports/")
+    def summary = new File(markdownReports, "test-summary.md")
+    def failures = new File(markdownReports, "test-failures.md")
+    doFirst {
+        // This may have issues with running tasks concurrently
+        if (!markdownReports.exists()) {
+            markdownReports.mkdirs()
+        }
+        if (!summary.exists()) {
+            summary.append("|Test run|❌|⚠️|✅|time|\n")
+            summary.append("|-|-|-|-|-|\n")
+        }
+    }
+
     beforeTest { descriptor -> 
         println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
     } 
@@ -154,30 +174,28 @@ tasks.withType(Test) { theTask ->
         def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
         println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
         println()
+        if (result.resultType == TestResult.ResultType.FAILURE) {
+            failures.append(
+                "<details>\n" +
+                    "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
+                    "(${duration}ms)\n\n" + // blank line is required for ``` to work
+                    "```\n${result.getException().asString()}\n```\n" +
+                "</details>\n")
+        }
+    }
+    afterSuite { descriptor, result ->
+        // Very few subprojects acutally have destructive tests, so strip those out of the summary.
+        // We leave the ones that have nothing under test, because that would be suspicious if a subproject had
+        // no tests
+        if (descriptor.parent == null && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)) {
+            def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
+            def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
+            summary.append(
+                "|${description}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
+        }
     }
     reports {
         junitXml.outputPerTestCase = true
-    }
-    // Don't gather coverage for performance tests
-    if (theTask.name != 'performanceTest') {
-        if (theTask.name != 'test') { // jacocoTestReport gets created automatically
-            task "jacoco${theTask.name.capitalize()}Report"(type: JacocoReport) {
-                executionData theTask
-                sourceDirectories.from = project.files(project.sourceSets.test.allSource.srcDirs)
-                classDirectories.from = project.sourceSets.test.output
-                def htmlReportDir = project.reporting.file("jacoco/${theTask.name}/html")
-                def xmlReportFile = project.reporting.file("jacoco/${theTask.name}/jacoco.xml")
-                reports {
-                    xml.required = true
-                    html.destination = htmlReportDir
-                    xml.destination = xmlReportFile
-                }
-                doLast {
-                    println("See jacoco report at: file://${htmlReportDir.toURI().path}index.html")
-                }
-            }
-        }
-        theTask.finalizedBy("jacoco${theTask.name.capitalize()}Report")
     }
 }
 

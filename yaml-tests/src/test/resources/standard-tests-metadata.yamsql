@@ -48,6 +48,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/STANDARD_METADATA_YAML?schema=TEST"
+  name: standard-tests-metadata
   tests:
     -
       - query: select * from (select * from (select * from T1) as x where ID = 5) as y;

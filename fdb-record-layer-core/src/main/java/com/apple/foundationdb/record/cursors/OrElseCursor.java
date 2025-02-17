@@ -177,7 +177,7 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     private static class Continuation implements RecordCursorContinuation {
         private final RecordCursorProto.OrElseContinuation.State state;
         @Nonnull
-        private RecordCursorContinuation innerOrOtherContinuation;
+        private final RecordCursorContinuation innerOrOtherContinuation;
 
         public Continuation(@Nonnull RecordCursorProto.OrElseContinuation.State state, @Nonnull RecordCursorContinuation innerOrOtherContinuation) {
             this.state = state;

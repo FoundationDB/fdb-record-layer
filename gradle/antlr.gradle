@@ -41,3 +41,12 @@ generateGrammarSource.doLast {
         into dest
     }
 }
+
+task cleanUpTokenFiles(type: Delete) {
+    final tokenFilesDir = layout.projectDirectory.dir('src/main/antlr')
+    delete fileTree(tokenFilesDir) { include '*.tokens' }
+}
+
+clean {
+    dependsOn "cleanUpTokenFiles"
+}

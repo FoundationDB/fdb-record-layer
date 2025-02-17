@@ -150,16 +150,18 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final var type = getInnerTypeDescriptor(context);
+        final var childExecuteProperties = executeProperties.clearSkipAndLimit();
         final var recursiveStateManager = new RecursiveStateManagerImpl(
                 (initialContinuation, evaluationContext) -> getInitialStatePlan().executePlan(store, evaluationContext,
-                        initialContinuation == null ? null : initialContinuation.toByteArray(), executeProperties),
+                        initialContinuation == null ? null : initialContinuation.toByteArray(), childExecuteProperties),
                 (recursiveContinuation, evaluationContext) -> getRecursiveStatePlan().executePlan(store, evaluationContext,
-                        recursiveContinuation == null ? null : recursiveContinuation.toByteArray(), executeProperties),
+                        recursiveContinuation == null ? null : recursiveContinuation.toByteArray(), childExecuteProperties),
                 context,
                 tempTableScanAlias,
                 tempTableInsertAlias,
                 proto -> TempTable.from(proto, type), store.getContext().getTempTableFactory(), continuation);
-        return new RecursiveUnionCursor<>(recursiveStateManager, store.getExecutor());
+        return new RecursiveUnionCursor<>(recursiveStateManager, store.getExecutor())
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Nullable
@@ -289,7 +291,7 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
     @Override
     public int planHash(@Nonnull final PlanHashMode hashMode) {
-        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, initialStateQuantifier, recursiveStateQuantifier);
+        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, getChildren());
     }
 
     @Nonnull

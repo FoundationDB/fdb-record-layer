@@ -54,6 +54,7 @@ setup:
         VALUES (10, 10, 20.0f)
 ---
 test_block:
+  name: union-tests
   tests:
     -
       - query: select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*) as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x

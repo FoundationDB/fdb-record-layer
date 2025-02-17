@@ -36,9 +36,9 @@ plugins {
     alias(libs.plugins.protobuf)
     alias(libs.plugins.versions)
     alias(libs.plugins.spotbugs)
+    alias(libs.plugins.nexus)
     alias(libs.plugins.artifactory)
     alias(libs.plugins.download)
-    alias(libs.plugins.sonarqube)
 }
 
 ext {
@@ -49,7 +49,8 @@ ext {
 defaultTasks 'build'
 
 apply from: 'gradle/root.gradle'
-apply from: 'gradle/sonar.gradle'
+
+def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
 
 allprojects {
     apply plugin: 'base'
@@ -91,7 +92,6 @@ allprojects {
     }
 
     // Add -SNAPSHOT to version of non-release builds
-    def isReleaseBuild = Boolean.parseBoolean(getProperty('releaseBuild'))
     if (!isReleaseBuild) {
         def versionString = project.version.toString()
         if (!versionString.endsWith("-SNAPSHOT")) {
@@ -159,12 +159,10 @@ allprojects {
     }
 
     signing {
-        if (System.getenv("GPG_KEY_ID") != null) {
-            def signingKeyId = System.getenv('GPG_KEY_ID')
-            def signingKey = System.getenv('GPG_KEY')
-            def signingPassword = System.getenv('GPG_PASSPHRASE')
-            useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
-            sign configurations.archives
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null && signingPassword != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
         }
     }
 
@@ -206,6 +204,7 @@ subprojects {
     ext {
         coreProjectName = "fdb-record-layer-core"
         shadedProjectName = "fdb-record-layer-core-shaded"
+        publishLibrary = true
     }
 
     artifacts {
@@ -266,6 +265,54 @@ subprojects {
     }
 
     check.dependsOn quickCheck
+
+    // At the end of a release build, we want to update all the yamsql files to replace !current_version with the
+    // version being built
+    task updateYamsql(type: Task) {
+        mustRunAfter 'test'
+        mustRunAfter 'build'
+        doLast {
+            if (isReleaseBuild) {
+                // don't replace !current_version in the supported-version resources, as those are there to test
+                // supported_version, we want the !current_version to stick around
+                println("Replacing !current_version...")
+                sourceSets["test"].resources.srcDirs.stream().flatMap( resourceDir ->
+                    fileTree(dir: resourceDir).matching {
+                        include '**/*.yamsql'
+                        exclude '/supported-version/*'
+                    }.stream()
+                ).forEach { yamsql ->
+                    def original = yamsql.text
+                    def updated = original.replaceAll("(?<!\")!current_version(?!\")", project.version)
+                    if (!original.equals(updated)) {
+                        println("Replacing !current_version in " + yamsql)
+                        // Replace !current_version in all yamsql, unless it is surrounded by ", allowing it to be used in
+                        // comments, without issue, e.g. in showcasing-tests
+                        yamsql.write(updated)
+                        exec {
+                            workingDir '.'
+                            commandLine 'git', 'add', yamsql
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Configure publishing for maven central. This is done in the top-level build.gradle, and then
+// all of the subprojects configure the artifacts they want published by applying
+// ${rootDir}/gradle/publishing.gradle in the project gradle. By default, we publish a library
+// from each package, but this can be configured by adjusting the publishLibrary variable
+if (Boolean.parseBoolean(centralPublish)) {
+    nexusPublishing {
+        repositories {
+            sonatype {
+                username = System.getenv("MAVEN_USER")
+                password = System.getenv("MAVEN_PASSWORD")
+            }
+        }
+    }
 }
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version

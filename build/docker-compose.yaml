@@ -78,17 +78,6 @@ services:
     links:
       - fdbserver
 
-  build-prb-sonarqube:
-    <<: *build-setup
-    command: /bin/bash -cl "./gradlew sonarqube"
-    environment:
-      - SKIP_FDB_TESTS=true
-      - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
-      - SONAR_KEY
-      - ghprbPullId
-      - ghprbSourceBranch
-      - ghprbTargetBranch
-
   shell:
     <<: *build-setup
     entrypoint: /bin/bash

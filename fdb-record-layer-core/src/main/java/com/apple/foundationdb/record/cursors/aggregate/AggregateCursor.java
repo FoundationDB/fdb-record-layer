@@ -50,6 +50,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // group aggregator to break incoming records into groups
     @Nonnull
     private final StreamGrouping<M> streamGrouping;
+    private final boolean isCreateDefaultOnEmpty;
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
@@ -57,9 +58,12 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
 
-    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final StreamGrouping<M> streamGrouping) {
+    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
+                           @Nonnull final StreamGrouping<M> streamGrouping,
+                           boolean isCreateDefaultOnEmpty) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
+        this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
     }
 
     @Nonnull
@@ -73,7 +77,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                if (!isNoRecords() || streamGrouping.isResultOnEmpty()) {
+                if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
                     streamGrouping.finalizeGroup();
                 }
                 return false;
@@ -86,7 +90,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }), getExecutor()).thenApply(vignore -> {
             if (isNoRecords()) {
                 // Edge case where there are no records at all
-                if (streamGrouping.isResultOnEmpty()) {
+                if (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty()) {
                     return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
                 } else {
                     return RecordCursorResult.exhausted();
