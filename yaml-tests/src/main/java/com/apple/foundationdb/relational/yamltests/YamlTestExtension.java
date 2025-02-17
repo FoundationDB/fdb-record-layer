@@ -121,12 +121,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                                 return e;
                             }
                         }).filter(Objects::nonNull).findFirst();
-        for (ExternalServer server : servers) {
-            try {
-                server.stop();
-            } catch (Exception ex) {
-                if (logger.isWarnEnabled()) {
-                    logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+        if (servers != null) {
+            for (ExternalServer server : servers) {
+                try {
+                    server.stop();
+                } catch (Exception ex) {
+                    if (logger.isWarnEnabled()) {
+                        logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+                    }
                 }
             }
         }
