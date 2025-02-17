@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class UniqueIndexTests {
 
@@ -75,7 +76,7 @@ public class UniqueIndexTests {
             final var count = statement.executeInsert(tableName, toInsert);
             Assertions.assertEquals(count, toInsert.size());
         } catch (Exception e) {
-            Assertions.fail(String.format("Unexpected exception while inserting records to table %s: %s", tableName, e.getMessage()));
+            Assertions.fail(String.format(Locale.ROOT, "Unexpected exception while inserting records to table %s: %s", tableName, e.getMessage()));
         }
     }
 
@@ -88,7 +89,7 @@ public class UniqueIndexTests {
             Assertions.assertTrue(e.getMessage().contains("Duplicate entry for unique index"));
             foundError = true;
         } catch (Exception e) {
-            Assertions.fail(String.format("Unexpected exception while inserting records to table %s: %s", tableName, e.getMessage()));
+            Assertions.fail(String.format(Locale.ROOT, "Unexpected exception while inserting records to table %s: %s", tableName, e.getMessage()));
         }
         if (!foundError) {
             Assertions.fail("Non unique record inserted without an error.");

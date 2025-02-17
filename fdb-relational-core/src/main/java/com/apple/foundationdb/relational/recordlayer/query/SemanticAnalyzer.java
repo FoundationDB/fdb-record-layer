@@ -140,7 +140,7 @@ public class SemanticAnalyzer {
             final var logicalOperators = currentFragment.get().getLogicalOperators();
             final var matches = logicalOperators.stream().filter(logicalOperator -> logicalOperator.getName().isPresent() &&
                     logicalOperator.getName().get().equals(identifier)).collect(ImmutableList.toImmutableList());
-            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS, () -> String.format("found '%s' more than once", identifier.getName()));
+            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS, () -> String.format(Locale.ROOT, "found '%s' more than once", identifier.getName()));
             if (!matches.isEmpty()) {
                 return Optional.of(matches.get(0));
             }
@@ -171,15 +171,15 @@ public class SemanticAnalyzer {
 
     @Nonnull
     public Table getTable(@Nonnull Identifier tableIdentifier) {
-        Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format("Unknown table %s", tableIdentifier));
+        Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format(Locale.ROOT, "Unknown table %s", tableIdentifier));
         if (tableIdentifier.isQualified()) {
             final var qualifier = tableIdentifier.getQualifier().get(0);
-            Assert.thatUnchecked(metadataCatalog.getName().equals(qualifier), ErrorCode.UNDEFINED_DATABASE, () -> String.format("Unknown schema template %s", qualifier));
+            Assert.thatUnchecked(metadataCatalog.getName().equals(qualifier), ErrorCode.UNDEFINED_DATABASE, () -> String.format(Locale.ROOT, "Unknown schema template %s", qualifier));
         }
         final var tableName = tableIdentifier.getName();
         try {
             final var tableMaybe = metadataCatalog.findTableByName(tableName);
-            Assert.thatUnchecked(tableMaybe.isPresent(), ErrorCode.UNDEFINED_TABLE, () -> String.format("Unknown table %s", tableName));
+            Assert.thatUnchecked(tableMaybe.isPresent(), ErrorCode.UNDEFINED_TABLE, () -> String.format(Locale.ROOT, "Unknown table %s", tableName));
             return tableMaybe.get();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
@@ -197,10 +197,10 @@ public class SemanticAnalyzer {
         }
         final var nonIndexAccessHints = requestedIndexes.stream().filter(accessHint -> !(accessHint instanceof IndexAccessHint))
                 .map(Object::getClass).map(Class::toString).collect(ImmutableSet.toImmutableSet());
-        Assert.thatUnchecked(nonIndexAccessHints.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index hint(s) %s", String.join(",", nonIndexAccessHints)));
+        Assert.thatUnchecked(nonIndexAccessHints.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format(Locale.ROOT, "Unknown index hint(s) %s", String.join(",", nonIndexAccessHints)));
         final var tableIndexes = table.getIndexes().stream().map(Metadata::getName).collect(ImmutableSet.toImmutableSet());
         final var unrecognizedIndexes = Sets.difference(requestedIndexes.stream().map(IndexAccessHint.class::cast).map(IndexAccessHint::getIndexName).collect(ImmutableSet.toImmutableSet()), tableIndexes);
-        Assert.thatUnchecked(unrecognizedIndexes.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index(es) %s", String.join(",", unrecognizedIndexes)));
+        Assert.thatUnchecked(unrecognizedIndexes.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format(Locale.ROOT, "Unknown index(es) %s", String.join(",", unrecognizedIndexes)));
     }
 
     public void validateOrderByColumns(@Nonnull Iterable<OrderByExpression> orderBys) {
@@ -214,7 +214,7 @@ public class SemanticAnalyzer {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
         Assert.thatUnchecked(duplicates.isEmpty(), ErrorCode.COLUMN_ALREADY_EXISTS,
-                () -> String.format("Order by column %s is duplicated in the order by clause",
+                () -> String.format(Locale.ROOT, "Order by column %s is duplicated in the order by clause",
                         duplicates.stream().map(Identifier::toString).collect(Collectors.joining(","))));
     }
 
@@ -230,7 +230,7 @@ public class SemanticAnalyzer {
     @Nonnull
     public Expression resolveCorrelatedIdentifier(@Nonnull Identifier identifier,
                                                   @Nonnull LogicalOperators operators) {
-        Assert.thatUnchecked(identifier.isQualified(), ErrorCode.UNDEFINED_TABLE, () -> String.format("Unknown table %s", identifier));
+        Assert.thatUnchecked(identifier.isQualified(), ErrorCode.UNDEFINED_TABLE, () -> String.format(Locale.ROOT, "Unknown table %s", identifier));
         return resolveIdentifier(identifier, operators);
     }
 
@@ -268,7 +268,7 @@ public class SemanticAnalyzer {
         // TODO this is currently not supported as per parsing rules TODO (Expand nested struct fields)
         final var expression = resolveIdentifier(qualifier, forEachOperators);
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
-                () -> String.format("attempt to expand non-struct column %s", qualifier));
+                () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
         final var expressions = expandStructExpression(expression).nonEphemeral();
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
     }
@@ -291,7 +291,7 @@ public class SemanticAnalyzer {
                 return resolvedMaybe.get();
             }
         }
-        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format("Attempting to query non existing column '%s'", identifier));
+        Assert.failUnchecked(ErrorCode.UNDEFINED_COLUMN, String.format(Locale.ROOT, "Attempting to query non existing column '%s'", identifier));
         return null; // unreachable.
     }
 
@@ -299,12 +299,12 @@ public class SemanticAnalyzer {
     public Expression resolveIdentifier(@Nonnull Identifier identifier,
                                         @Nonnull LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
-        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
         if (attributes.isEmpty()) {
             attributes = lookup(identifier, operators, false);
         }
-        Assert.thatUnchecked(!attributes.isEmpty(), ErrorCode.UNDEFINED_COLUMN, () -> String.format("Unknown reference %s", identifier));
-        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(!attributes.isEmpty(), ErrorCode.UNDEFINED_COLUMN, () -> String.format(Locale.ROOT, "Unknown reference %s", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
         return attributes.get(0);
     }
 
@@ -312,14 +312,14 @@ public class SemanticAnalyzer {
     private Optional<Expression> resolveIdentifierMaybe(@Nonnull Identifier identifier,
                                                         @Nonnull LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
-        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
         if (attributes.isEmpty()) {
             attributes = lookup(identifier, operators, false);
         }
         if (attributes.isEmpty()) {
             return Optional.empty();
         }
-        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("Ambiguous reference '%s'", identifier));
+        Assert.thatUnchecked(attributes.size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference '%s'", identifier));
         return Optional.of(attributes.get(0));
     }
 
@@ -413,7 +413,7 @@ public class SemanticAnalyzer {
         }
         final var matchedAttributes = matchedAttributesBuilder.build();
         if (matchedAttributes.size() > 1) {
-            Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, String.format("Ambiguous alias %s", requestedAlias));
+            Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, String.format(Locale.ROOT, "Ambiguous alias %s", requestedAlias));
         }
         return matchedAttributes.isEmpty() ? Optional.empty() : Optional.of(matchedAttributes.get(0));
     }
@@ -520,7 +520,7 @@ public class SemanticAnalyzer {
     @Nonnull
     private static Expressions expandStructExpression(@Nonnull Expression expression) {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
-                () -> String.format("attempt to expand non-struct expression %s", expression));
+                () -> String.format(Locale.ROOT, "attempt to expand non-struct expression %s", expression));
         final ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
         final var underlying = expression.getUnderlying();
         final var type = Assert.castUnchecked(expression.getDataType(), DataType.StructType.class);
@@ -541,7 +541,7 @@ public class SemanticAnalyzer {
         for (final var inListItem : inListItems) {
             final var resultType = inListItem.getUnderlying().getResultType();
             Assert.thatUnchecked(resultType != Type.NULL, ErrorCode.WRONG_OBJECT_TYPE, "NULL values are not allowed in the IN list");
-            Assert.thatUnchecked(!resultType.isUnresolved(), ErrorCode.UNKNOWN_TYPE,  String.format("Type cannot be determined for element `%s` in the IN list", inListItem));
+            Assert.thatUnchecked(!resultType.isUnresolved(), ErrorCode.UNKNOWN_TYPE,  String.format(Locale.ROOT, "Type cannot be determined for element `%s` in the IN list", inListItem));
         }
     }
 
@@ -550,7 +550,7 @@ public class SemanticAnalyzer {
                 .filter(expression -> expression.getUnderlying() instanceof AggregateValue)
                 .filter(agg -> agg.getUnderlying().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
                 .collect(ImmutableSet.toImmutableSet());
-        Assert.thatUnchecked(nestedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format("unsupported nested aggregate(s) %s",
+        Assert.thatUnchecked(nestedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "unsupported nested aggregate(s) %s",
                 nestedAggregates.stream().map(ex -> ex.getUnderlying().toString()).collect(Collectors.joining(","))));
     }
 
@@ -668,17 +668,17 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>);
         final var value = ((LiteralValue<?>) underlying).getLiteralValue();
         Assert.notNullUnchecked(value, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
-                () -> String.format("limit value out of range [1, %s]", Integer.MAX_VALUE));
+                () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
         if (value.getClass() == Integer.class) {
             Assert.thatUnchecked(minInclusive <= ((Integer) value) && ((Integer) value) <= maxInclusive,
                     ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
-                    () -> String.format("limit value out of range [1, %s]", Integer.MAX_VALUE));
+                    () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
             return;
         }
         if (value.getClass() == Long.class) {
             Assert.thatUnchecked(minInclusive <= ((Long) value) && ((Long) value) <= maxInclusive,
                     ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
-                    () -> String.format("limit value out of range [1, %s]", Integer.MAX_VALUE));
+                    () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
             return;
         }
         Assert.failUnchecked("unexpected limit type " + value.getClass());
@@ -686,13 +686,13 @@ public class SemanticAnalyzer {
 
     public static void validateDatabaseUri(@Nonnull Identifier path) {
         Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
-                ErrorCode.INVALID_PATH, () -> String.format("invalid database path '%s'", path));
+                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", path));
     }
 
     public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
         final var expressions = logicalOperator.getOutput().expanded();
         Assert.thatUnchecked(expressions.size() == columnAliases.size(), ErrorCode.INVALID_COLUMN_REFERENCE,
-                () -> String.format("cte query has %d column(s), however %s aliases defined", expressions.size(), columnAliases.size()));
+                () -> String.format(Locale.ROOT, "cte query has %d column(s), however %d aliases defined", expressions.size(), columnAliases.size()));
     }
 
     @Nonnull
@@ -739,7 +739,7 @@ public class SemanticAnalyzer {
     public Expression resolveFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
                                       @Nonnull final Expression... arguments) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
-                () -> String.format("Unsupported operator %s", functionName));
+                () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookUpFunction(functionName, arguments);
         List<Expression> argumentList = new ArrayList<>();
         argumentList.addAll(List.of(arguments));
