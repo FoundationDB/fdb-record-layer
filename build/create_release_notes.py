@@ -24,6 +24,7 @@
 import argparse
 from collections import defaultdict
 import json
+import re
 import subprocess
 import sys
 
@@ -97,7 +98,7 @@ def format_notes(notes, label_config, old_version, new_version):
     grouping = defaultdict(list)
     for (category, line) in notes:
         grouping[category].append(line)
-    text = f"### {new_version}\n"
+    text = ''
     titles = [category['title'] for category in label_config['categories']]
     titles.append(label_config['catch_all'])
     for title in titles:
@@ -111,21 +112,69 @@ def format_notes(notes, label_config, old_version, new_version):
     text += f"\n\n<!-- MIXED_MODE_RESULTS {new_version} PLACEHOLDER -->\n"
     return text
 
-def replace_notes(new_notes, old_version, new_version, filename):
+def replace_note(lines, note):
+    print(f"Inserting note {note.old_version} -> {note.new_version}")
+    new_lines = []
+    added = False
+    for line in lines:
+        if not added and line == note.old_version_header():
+            new_lines.append(note.new_version_header())
+            new_lines.append(note.notes)
+            new_lines.append('')
+            new_lines.append(line)
+            added = True
+        elif not added and note.greater_than_minor_version(line):
+            new_lines.append(note.new_minor_version_header())
+            new_lines.append('')
+            new_lines.append(note.new_version_header())
+            new_lines.append(note.notes)
+            new_lines.append('')
+            new_lines.append(line)
+            added = True
+        else:
+            new_lines.append(line)
+    if not added:
+        raise Exception(f"Could not find note for {note.old_version} -> {note.new_version}")
+    return new_lines
+
+def replace_notes(notes, filename):
     with open(filename, 'r') as fin:
         lines = fin.read().split('\n')
-    i = 0
-    target = f"### {old_version}"
-    while i < len(lines) and not lines[i] == target:
-        i+= 1
-    if i == len(lines):
-        raise Exception('Could not find placeholder in release notes file')
+    for note in notes:
+        lines = replace_note(lines, note)
     with open(filename, 'w') as fout:
-        fout.write('\n'.join(lines[:i]
-                             + new_notes
-                             + [target]
-                             + lines[i+1:]))
-    print(f'Updated {filename} with new release notes from {old_version} to {new_version}')
+        fout.write('\n'.join(lines))
+    print(f'Updated {filename} with new release notes from {notes[0].old_version} to {notes[-1].new_version}')
+
+def get_minor_version(version):
+    return '.'.join(version.split('.')[:2])
+
+version_header = re.compile('^#+ (\d+(?:\.\d+)+)$') # match only major or minor versions
+class Note:
+    def __init__(self, old_version, new_version, notes):
+        self.old_version = old_version
+        self.new_version = new_version
+        self.new_version_split = [int(part) for part in self.new_version.split('.')]
+        self.notes = notes
+    def old_minor_version_header(self):
+        return f'## {get_minor_version(self.old_version)}'
+    def new_minor_version_header(self):
+        return f'## {get_minor_version(self.new_version)}'
+    def changes_minor_version(self):
+        return get_minor_version(self.old_version) != get_minor_version(self.new_version)
+    def old_version_header(self):
+        return f'### {self.old_version}'
+    def new_version_header(self):
+        return f'### {self.new_version}'
+    def greater_than_minor_version(self, header):
+        result = version_header.match(header)
+        if result:
+            version = [int(part) for part in result[1].split('.')]
+            for (s, h) in zip(self.new_version_split, version):
+                if s > h:
+                    print(f'"{header}" IS LESS THAN {self.new_version} ({self.old_version})')
+                    return True
+        return False
 
 def main(argv):
     '''Replace placeholder release notes with the final release notes for a version.'''
@@ -149,15 +198,15 @@ def main(argv):
         prs = get_prs(commits, args.pr_cache)
         prs = dedup_prs(prs)
         new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
-        release_notes.append(format_notes(new_notes, label_config, old_version, new_version))
+        release_notes.append(Note(old_version, new_version, format_notes(new_notes, label_config, old_version, new_version)))
         old_version = new_version
-    release_notes.reverse()
     print("\n\n------------------------------\n\n")
     if args.release_notes_md is None:
+        release_notes.reverse()
         for notes in release_notes:
-            print(notes)
+            print(notes[1])
     else:
-        replace_notes(release_notes, args.old_version, args.new_version[-1], args.release_notes_md)
+        replace_notes(release_notes, args.release_notes_md)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
