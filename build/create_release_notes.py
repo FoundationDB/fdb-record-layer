@@ -115,15 +115,15 @@ def replace_notes(new_notes, old_version, new_version, filename):
     with open(filename, 'r') as fin:
         lines = fin.read().split('\n')
     i = 0
-    target = "<!-- NEXT RELEASE NOTES PLACEHOLDER -->"
-    while i < len(lines) and not lines[i].startswith(target):
+    target = f"### {old_version}"
+    while i < len(lines) and not lines[i] == target:
         i+= 1
     if i == len(lines):
         raise Exception('Could not find placeholder in release notes file')
     with open(filename, 'w') as fout:
         fout.write('\n'.join(lines[:i]
-                             + [target]
                              + new_notes
+                             + [target]
                              + lines[i+1:]))
     print(f'Updated {filename} with new release notes from {old_version} to {new_version}')
 

@@ -7,8 +7,6 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.0 <!-- NEXT MINOR VERSION -->
 
-<!-- NEXT RELEASE NOTES PLACEHOLDER -->
-
 ### 4.0.559.0
 
 * **Feature** Add tests for Lucene "all-match" scan [(Issue #2991)](https://github.com/FoundationDB/fdb-record-layer/issues/2991)
