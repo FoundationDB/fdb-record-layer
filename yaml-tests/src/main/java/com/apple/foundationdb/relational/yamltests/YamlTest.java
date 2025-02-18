@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.lang.annotation.Retention;
@@ -43,6 +44,9 @@ import java.lang.annotation.RetentionPolicy;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @ExtendWith(YamlTestExtension.class)
+// Right now these are the only tests that have the capability to run in mixed mode, but if we create other tests, this
+// should be moved to a shared static location
+@Tag("MixedMode")
 public @interface YamlTest {
     /**
      * Simple interface to run a {@code .yamsql} file, based on the config.

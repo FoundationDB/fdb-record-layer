@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -212,15 +213,15 @@ public class ResultSetMetaDataAssert extends AbstractAssert<ResultSetMetaDataAss
                 String badColStr = "[" + badColumns.entrySet().stream().map(entry -> {
                     Map.Entry<String, String> val = entry.getValue();
                     if (val.getKey() == null) {
-                        return String.format("%d->{Extra Column: %s", entry.getKey(), val.getValue());
+                        return String.format(Locale.ROOT, "%d->{Extra Column: %s", entry.getKey(), val.getValue());
                     } else if (val.getValue() == null) {
-                        return String.format("%d->{Missing Column: %s", entry.getKey(), val.getKey());
+                        return String.format(Locale.ROOT, "%d->{Missing Column: %s", entry.getKey(), val.getKey());
                     } else {
-                        return String.format("%d->{Expected: %s, Actual: %s}", entry.getKey(), val.getKey(), val.getValue());
+                        return String.format(Locale.ROOT, "%d->{Expected: %s, Actual: %s}", entry.getKey(), val.getKey(), val.getValue());
                     }
                 }).collect(Collectors.joining(",")) + "]";
 
-                String msg = String.format("Incorrect MetaData columns!%n" +
+                String msg = String.format(Locale.ROOT, "Incorrect MetaData columns!%n" +
                         "Expected Columns: %n    %s%n" +
                         "MetaData Columns: %n    %s%n" +
                         "Invalid Columns: %n    %s",

@@ -38,6 +38,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -84,11 +85,11 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
         final var versions = backingStore.get(templateName);
         if (versions == null) {
-            throw new RelationalException(String.format("Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+            throw new RelationalException(String.format(Locale.ROOT, "Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
         final var template = versions.entrySet().stream().max(Comparator.comparingInt(Map.Entry::getKey));
         if (template.isEmpty()) {
-            throw new RelationalException(String.format("Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+            throw new RelationalException(String.format(Locale.ROOT, "Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
         return template.get().getValue();
     }
@@ -98,11 +99,11 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException {
         final var versions = backingStore.get(templateName);
         if (versions == null) {
-            throw new RelationalException(String.format("Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+            throw new RelationalException(String.format(Locale.ROOT, "Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
         final var template = versions.get(version);
         if (template == null) {
-            throw new RelationalException(String.format("Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+            throw new RelationalException(String.format(Locale.ROOT, "Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
         return template;
     }

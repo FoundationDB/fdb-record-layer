@@ -310,7 +310,7 @@ public class CaseSensitivityTest {
                                 database)
                         );
                         for (String schema : schemas) {
-                            statement.executeUpdate(String.format("CREATE SCHEMA \"%s/%s\" WITH TEMPLATE \"%s_template\"", database, schema, schema));
+                            statement.executeUpdate(String.format(Locale.ROOT, "CREATE SCHEMA \"%s/%s\" WITH TEMPLATE \"%s_template\"", database, schema, schema));
                         }
                     }
                     long value = 0;
@@ -337,7 +337,7 @@ public class CaseSensitivityTest {
                                 dbConn.setSchema(schema);
                                 for (String table : tables) {
                                     for (String column : columns) {
-                                        try (RelationalResultSet rs = statement.executeQuery(String.format("SELECT \"%s\" from \"%s\"", column, table))) {
+                                        try (RelationalResultSet rs = statement.executeQuery(String.format(Locale.ROOT, "SELECT \"%s\" from \"%s\"", column, table))) {
                                             ResultSetAssert.assertThat(rs).hasNextRow().hasColumn(column, value++);
                                         }
                                     }
@@ -350,10 +350,10 @@ public class CaseSensitivityTest {
                 // Cleanup
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String database : databases) {
-                        statement.executeUpdate(String.format("DROP DATABASE if exists \"%s\"", database));
+                        statement.executeUpdate(String.format(Locale.ROOT, "DROP DATABASE if exists \"%s\"", database));
                     }
                     for (String schema : schemas) {
-                        statement.executeUpdate(String.format("DROP SCHEMA TEMPLATE if exists \"%s_template\"", schema));
+                        statement.executeUpdate(String.format(Locale.ROOT, "DROP SCHEMA TEMPLATE if exists \"%s_template\"", schema));
                     }
                 }
             }

@@ -35,6 +35,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -61,7 +62,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     public String getFieldType(String fieldName) throws SQLException {
         final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByName(fieldName);
         if (field == null) {
-            throw new RelationalException(String.format("Field <%s> does not exist", fieldName), ErrorCode.INVALID_PARAMETER).toSqlException();
+            throw new RelationalException(String.format(Locale.ROOT, "Field <%s> does not exist", fieldName), ErrorCode.INVALID_PARAMETER).toSqlException();
         }
         return ProtobufDdlUtil.getTypeName(field);
     }
@@ -71,7 +72,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     public boolean isPrimitive(int fieldNumber) throws SQLException {
         final var field = typeDescriptor.getFields().get(fieldNumber - 1);
         if (field == null) {
-            throw new RelationalException(String.format("Field with number <%d> does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER).toSqlException();
+            throw new RelationalException(String.format(Locale.ROOT, "Field with number <%d> does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER).toSqlException();
         }
         return !field.isRepeated() && !field.getJavaType().equals(Descriptors.FieldDescriptor.JavaType.MESSAGE); // enum?
     }
@@ -81,7 +82,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         try {
             final Descriptors.FieldDescriptor field = typeDescriptor.findFieldByName(fieldName);
             if (field == null) {
-                throw new RelationalException(String.format("Field <%s> does not exist", fieldName), ErrorCode.INVALID_PARAMETER);
+                throw new RelationalException(String.format(Locale.ROOT, "Field <%s> does not exist", fieldName), ErrorCode.INVALID_PARAMETER);
             }
             return setFieldInternal(field, value);
         } catch (RelationalException e) {
@@ -95,7 +96,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         try {
             final Descriptors.FieldDescriptor field = typeDescriptor.getFields().get(fieldNumber - 1);
             if (field == null) {
-                throw new RelationalException(String.format("Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
+                throw new RelationalException(String.format(Locale.ROOT, "Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
             }
             return setFieldInternal(field, value);
         } catch (RelationalException e) {
@@ -130,7 +131,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         try {
             final Descriptors.FieldDescriptor field = typeDescriptor.getFields().get(fieldNumber - 1);
             if (field == null) {
-                throw new RelationalException(String.format("Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
+                throw new RelationalException(String.format(Locale.ROOT, "Field with number (%d) does not exist", fieldNumber), ErrorCode.INVALID_PARAMETER);
             }
             if (!field.isRepeated()) {
                 throw new RelationalException("Field with number <" + fieldNumber + "> is not repeated", ErrorCode.INVALID_PARAMETER);

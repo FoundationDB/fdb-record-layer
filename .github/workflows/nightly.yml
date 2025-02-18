@@ -6,6 +6,7 @@ on:
 
 jobs:
   gradle:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     steps:
     - name: Checkout sources

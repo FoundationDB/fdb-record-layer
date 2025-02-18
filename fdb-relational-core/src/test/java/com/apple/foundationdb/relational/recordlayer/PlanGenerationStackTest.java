@@ -162,7 +162,8 @@ public class PlanGenerationStackTest {
                     Arguments.of(75, "with recursive c as (select * from t, c) select * from c", "recursive CTE does not contain non-recursive term"),
                     Arguments.of(76, "with recursive c1 as (select * from restaurant union all select * from c1) select * From c1", null),
                     Arguments.of(77, "with recursive c as (with recursive c1 as (select * from restaurant union all select * from c1) select * From c1 union all select * from restaurant, c) select * from c", null),
-                    Arguments.of(78, "with recursive c as (with c as (select * from restaurant) select * from c union all select * from restaurant) select * from c union all select * from restaurant", "ambiguous nested recursive CTE name")
+                    Arguments.of(78, "with recursive c as (with c as (select * from restaurant) select * from c union all select * from restaurant) select * from c union all select * from restaurant", "ambiguous nested recursive CTE name"),
+                    Arguments.of(79, "with recursive c1(name) as (select * from restaurant union all select * from c1) select * From c", "cte query has 7 column(s), however 1 aliases defined")
             );
         }
     }

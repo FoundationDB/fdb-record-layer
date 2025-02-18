@@ -58,6 +58,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -188,7 +189,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
         Assert.thatUnchecked(functionContext.aggregator == null || functionContext.aggregator.getText().equals(functionContext.ALL().getText()),
-                ErrorCode.UNSUPPORTED_QUERY, () -> String.format("Unsupported aggregator %s", functionContext.aggregator.getText()));
+                ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Unsupported aggregator %s", functionContext.aggregator.getText()));
         final var functionName = functionContext.functionName.getText();
         Optional<Expression> argumentMaybe = Optional.empty();
         if (functionContext.starArg != null) {
@@ -216,7 +217,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var classNameExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
                 final var result = visitFunctionArg(argumentNodes.get(0));
                 Assert.thatUnchecked(result.getUnderlying() instanceof LiteralValue,
-                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect UDF '%s'",
+                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format(Locale.ROOT, "attempt to invoke java_call with incorrect UDF '%s'",
                                 result.getUnderlying()));
                 return result;
             });

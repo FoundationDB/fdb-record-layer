@@ -47,6 +47,7 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Locale;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
 
@@ -122,11 +123,11 @@ public abstract class QueryConfig {
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Check result failed in config at line " + getLineNumber(),
-                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         } catch (Throwable e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Failed to test config at line " + getLineNumber(),
-                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         }
     }
 
@@ -136,11 +137,11 @@ public abstract class QueryConfig {
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Check result failed in config at line " + getLineNumber(),
-                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         } catch (Throwable e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Failed to test config at line " + getLineNumber(),
-                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+                    String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         }
     }
 
@@ -148,7 +149,7 @@ public abstract class QueryConfig {
                                       @Nonnull String queryDescription) throws SQLException;
 
     void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
-        final var diffMessage = String.format("‼️ statement failed with the following error at line %s:%n" +
+        final var diffMessage = String.format(Locale.ROOT, "‼️ statement failed with the following error at line %s:%n" +
                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                 "%s%n" +
                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
@@ -248,7 +249,7 @@ public abstract class QueryConfig {
                             logger.debug("⭐️ Successfully replaced plan at line {}", getLineNumber());
                         }
                     } else {
-                        final var diffMessage = String.format("‼️ plan mismatch at line %d:%n" +
+                        final var diffMessage = String.format(Locale.ROOT, "‼️ plan mismatch at line %d:%n" +
                                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n%s" +
                                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                                 "↪ expected plan %s:%n%s%n" +
@@ -364,7 +365,7 @@ public abstract class QueryConfig {
                                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             getLineNumber(), actual));
                 } else {
-                    reportTestFailure(String.format("‼️ unexpected query result of type '%s' (expecting '%s') at line %d%n",
+                    reportTestFailure(String.format(Locale.ROOT, "‼️ unexpected query result of type '%s' (expecting '%s') at line %d%n",
                             actual.getClass().getSimpleName(),
                             ErrorCapturingResultSet.class.getSimpleName(),
                             getLineNumber()));
@@ -375,7 +376,7 @@ public abstract class QueryConfig {
             void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Checking error code resulted from executing '{}'", queryDescription);
                 if (!e.getSQLState().equals(getVal())) {
-                    reportTestFailure(String.format("‼️ expecting '%s' error code, got '%s' instead at line %d!",
+                    reportTestFailure(String.format(Locale.ROOT, "‼️ expecting '%s' error code, got '%s' instead at line %d!",
                             getVal(), e.getSQLState(), getLineNumber()), e);
                 } else {
                     logger.debug("✅ error codes '{}' match!", getVal());
@@ -391,7 +392,7 @@ public abstract class QueryConfig {
             void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
-                    reportTestFailure(String.format("‼️ Expected count value %d, but got %d at line %d",
+                    reportTestFailure(String.format(Locale.ROOT, "‼️ Expected count value %d, but got %d at line %d",
                             (Integer) getVal(), (Integer) actual, getLineNumber()));
                 } else {
                     logger.debug("✅ Results match!");

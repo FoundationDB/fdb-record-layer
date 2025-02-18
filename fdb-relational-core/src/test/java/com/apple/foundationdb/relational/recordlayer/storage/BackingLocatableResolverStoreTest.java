@@ -71,6 +71,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -374,7 +375,7 @@ public class BackingLocatableResolverStoreTest {
         // Pre-allocate a mapping from values to longs. This represents something like copying data from one locatable resolver to another
         Map<String, Long> mappings = LongStream.range(1, 20)
                 .boxed()
-                .collect(Collectors.toMap(v -> String.format("val_%d", v), Function.identity()));
+                .collect(Collectors.toMap(v -> String.format(Locale.ROOT, "val_%d", v), Function.identity()));
         RelationalDatabase db = createScopedInterningDatabase();
 
         try (RelationalConnection connection = db.connect(null)) {
@@ -455,7 +456,7 @@ public class BackingLocatableResolverStoreTest {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
                 for (int i = 0; i < count; i++) {
-                    String name = String.format("val_%02d", i);
+                    String name = String.format(Locale.ROOT, "val_%02d", i);
                     byte[] metaData = metadataHook.apply(name);
                     RelationalStruct struct;
                     if (metaData != null) {

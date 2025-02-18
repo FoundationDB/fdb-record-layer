@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -307,7 +308,7 @@ public final class TestBlock extends ConnectedBlock {
 
         @Override
         public String toString() {
-            return String.format("mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s, statement_type: %s", mode, repetition, seed, checkCache, connectionLifecycle, statementType);
+            return String.format(Locale.ROOT, "mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s, statement_type: %s", mode, repetition, seed, checkCache, connectionLifecycle, statementType);
         }
     }
 
@@ -404,11 +405,11 @@ public final class TestBlock extends ConnectedBlock {
             // Check for the caught exceptions in each of the QueryCommands.
             queryCommands.stream().map(QueryCommand::getMaybeExecutionThrowable).filter(Objects::nonNull).findFirst().ifPresent(
                     e -> maybeFailureException = executionContext.wrapContext(e,
-                            () -> String.format("‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
+                            () -> String.format(Locale.ROOT, "‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
                             String.format(TEST_BLOCK + " [%s] ", options), getLineNumber()));
         } catch (Throwable e) {
             maybeFailureException = executionContext.wrapContext(e,
-                    () -> String.format("‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
+                    () -> String.format(Locale.ROOT, "‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
                     String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
         }
         executables.clear();

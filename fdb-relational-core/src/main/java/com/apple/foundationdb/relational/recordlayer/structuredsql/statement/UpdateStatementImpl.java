@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -595,7 +596,7 @@ public class UpdateStatementImpl implements UpdateStatement {
                                                     @Nonnull final ParseTreeInfoImpl parseTreeInfo,
                                                     @Nonnull final Map<String, List<String>> columnSynonyms) {
             Assert.thatUnchecked(parseTreeInfo.getQueryType().equals(ParseTreeInfo.QueryType.UPDATE),
-                    String.format("Expecting update statement, got '%s' statement", parseTreeInfo.getQueryType().name()));
+                    String.format(Locale.ROOT, "Expecting update statement, got '%s' statement", parseTreeInfo.getQueryType().name()));
             final var updateVisitor = new UpdateVisitor(relationalConnection, schemaTemplate, parseTreeInfo.getRootContext(), columnSynonyms);
             return updateVisitor.getUpdateBuilder();
         }

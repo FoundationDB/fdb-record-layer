@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
@@ -76,7 +77,7 @@ public class RecordMetadataDeserializer {
                     schemaTemplateBuilder.addAuxiliaryType((DataType.Named) DataTypeUtils.toRelationalType(recordLayerType));
                     break;
                 default:
-                    Assert.failUnchecked(String.format("Unexpected type '%s' found in union descriptor!", registeredType.getType()));
+                    Assert.failUnchecked(String.format(Locale.ROOT, "Unexpected type '%s' found in union descriptor!", registeredType.getType()));
                     break;
             }
         }

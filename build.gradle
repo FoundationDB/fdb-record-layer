@@ -159,12 +159,10 @@ allprojects {
     }
 
     signing {
-        if (System.getenv("GPG_KEY_ID") != null) {
-            def signingKeyId = System.getenv('GPG_KEY_ID')
-            def signingKey = System.getenv('GPG_KEY')
-            def signingPassword = System.getenv('GPG_PASSPHRASE')
-            useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
-            sign configurations.archives
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null && signingPassword != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
         }
     }
 
@@ -313,13 +311,6 @@ if (Boolean.parseBoolean(centralPublish)) {
                 username = System.getenv("MAVEN_USER")
                 password = System.getenv("MAVEN_PASSWORD")
             }
-        }
-    }
-    signing {
-        def signingKey = findProperty("signingKey")
-        def signingPassword = findProperty("signingPassword")
-        if (signingKey != null && signingPassword != null) {
-            useInMemoryPgpKeys(signingKey, signingPassword)
         }
     }
 }

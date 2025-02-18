@@ -30,6 +30,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
@@ -84,7 +85,7 @@ public abstract class ConnectedBlock implements Block {
             consumer.accept(connection.unwrap(RelationalConnection.class));
         } catch (SQLException sqle) {
             throw executionContext.wrapContext(sqle,
-                    () -> String.format("‼️ Error connecting to the database `%s` in block at line %d", connectionURI, lineNumber),
+                    () -> String.format(Locale.ROOT, "‼️ Error connecting to the database `%s` in block at line %d", connectionURI, lineNumber),
                     "connection [" + connectionURI + "]", getLineNumber());
         }
     }

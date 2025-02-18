@@ -34,6 +34,7 @@ import org.assertj.core.api.SoftAssertions;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Locale;
 
 @API(API.Status.EXPERIMENTAL)
 public class ArrayMetaDataAssert extends AbstractAssert<ArrayMetaDataAssert, ArrayMetaData> {
@@ -87,10 +88,10 @@ public class ArrayMetaDataAssert extends AbstractAssert<ArrayMetaDataAssert, Arr
     @Nonnull
     public ArrayMetaDataAssert hasComponent(@Nonnull String name, int sqlType) throws SQLException {
         if (!actual.getElementName().equalsIgnoreCase(name)) {
-            Assertions.fail(String.format("Expecting componentName %s, got %s", name, actual.getElementName()));
+            Assertions.fail(String.format(Locale.ROOT, "Expecting componentName %s, got %s", name, actual.getElementName()));
         }
         if (actual.getElementType() != sqlType) {
-            Assertions.fail(String.format("Expecting componentType %s, got %s for Array component %s", SqlTypeNamesSupport.getSqlTypeName(sqlType),
+            Assertions.fail(String.format(Locale.ROOT, "Expecting componentType %s, got %s for Array component %s", SqlTypeNamesSupport.getSqlTypeName(sqlType),
                     SqlTypeNamesSupport.getSqlTypeName(actual.getElementType()), actual.getElementName()));
         }
         return this;
@@ -98,10 +99,10 @@ public class ArrayMetaDataAssert extends AbstractAssert<ArrayMetaDataAssert, Arr
 
     public ResultSetMetaDataAssert hasStructMetadata(@Nonnull String name) throws SQLException {
         if (actual.getElementType() != Types.STRUCT) {
-            Assertions.fail(String.format("Expecting componentType to be STRUCT, got %s", SqlTypeNamesSupport.getSqlTypeName(actual.getElementType())));
+            Assertions.fail(String.format(Locale.ROOT, "Expecting componentType to be STRUCT, got %s", SqlTypeNamesSupport.getSqlTypeName(actual.getElementType())));
         }
         if (!actual.getElementName().equalsIgnoreCase(name)) {
-            Assertions.fail(String.format("Expecting componentName %s, got %s", name, actual.getElementName()));
+            Assertions.fail(String.format(Locale.ROOT, "Expecting componentName %s, got %s", name, actual.getElementName()));
         }
         return new ResultSetMetaDataAssert(new StructResultSetMetaData(actual.getElementStructMetaData()));
     }

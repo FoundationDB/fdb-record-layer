@@ -46,6 +46,7 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -80,7 +81,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         if (execute(sql)) {
             return getResultSet();
         } else {
-            throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
         }
     }
 
@@ -88,7 +89,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     public int executeUpdate(String sql) throws SQLException {
         checkOpen();
         if (execute(sql)) {
-            throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
         }
         return currentRowCount;
     }

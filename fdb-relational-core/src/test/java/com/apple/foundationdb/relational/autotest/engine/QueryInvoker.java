@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 class QueryInvoker {
@@ -95,7 +96,7 @@ class QueryInvoker {
                     throw new ClassCastException();
                 }
             } catch (ClassCastException cce) {
-                String message = String.format("Method [%s] must return a Stream<ParameterizedQuery>,Collection<ParameterizedQuery>, or ParameterizedQuery", method.getName());
+                String message = String.format(Locale.ROOT, "Method [%s] must return a Stream<ParameterizedQuery>,Collection<ParameterizedQuery>, or ParameterizedQuery", method.getName());
                 throw new JUnitException(message, cce);
             }
             querySets.add(new QuerySet(queries, label));
@@ -126,10 +127,10 @@ class QueryInvoker {
                     throw new ClassCastException();
                 }
             } catch (IllegalAccessException e) {
-                throw new JUnitException(String.format("Field [%s] must be public", field.getName()), e);
+                throw new JUnitException(String.format(Locale.ROOT, "Field [%s] must be public", field.getName()), e);
             } catch (ClassCastException cce) {
 
-                String message = String.format("Field [%s] must be a Stream<ParameterizedQuery>,Collection<ParameterizedQuery>, or ParameterizedQuery", field.getName());
+                String message = String.format(Locale.ROOT, "Field [%s] must be a Stream<ParameterizedQuery>,Collection<ParameterizedQuery>, or ParameterizedQuery", field.getName());
                 throw new JUnitException(message, cce);
             }
             querySets.add(new QuerySet(queries, label));

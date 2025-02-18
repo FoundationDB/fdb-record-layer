@@ -1,3 +1,5 @@
+import java.util.regex.Matcher
+
 /*
  * testing.gradle
  *
@@ -56,9 +58,58 @@ task quickTest(type: Test) {
     }
 }
 
+def getMixedModeVersion(descriptor) {
+    while (descriptor != null) {
+        // don't display this or any of the parents. Let's assume that nobody ever
+        // sets the display name in code to start with "Gradle Test Executor".
+        // it appears to be suffixed with a number, but I didn't investigate why
+        if (descriptor.displayName.startsWith("Gradle Test Executor")) {
+            break
+        }
+
+        Matcher versionMatch = descriptor.displayName =~ /^MultiServer \((?:((?:\d+\.)+\d+) then Embedded|Embedded then ((?:\d+\.)+\d+))\)/
+        if (versionMatch.size() != 0) {
+            def version = versionMatch[0][1]
+            if (version == null) {
+                version = versionMatch[0][2]
+            }
+            return version
+        }
+        descriptor = descriptor.parent
+    }
+    return null
+}
+
+task mixedModeTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'MixedMode'
+    }
+
+    ignoreFailures = true
+
+    // Skip non-MultiServer yaml tests
+    systemProperties['tests.mixedModeOnly'] = 'true'
+
+    def markdownReports = new File("$rootDir/.out/reports/")
+    def mixedModeResults = new File(markdownReports, "mixed-mode-results.log")
+    doFirst {
+        // This may have issues with running tasks concurrently
+        if (!markdownReports.exists()) {
+            markdownReports.mkdirs()
+        }
+    }
+    afterTest { descriptor, result ->
+        def version = getMixedModeVersion(descriptor)
+        if (version == null) {
+            throw new RuntimeException("Could not find version " + getFullDisplayName(descriptor))
+        } else {
+            mixedModeResults.append("${result.resultType} ${version}\n")
+        }
+    }
+}
+
 def getFullDisplayName(descriptor) {
-    def fullName = ""
-    fullName = descriptor.displayName
+    def fullName = descriptor.displayName
     descriptor = descriptor.parent
     while (descriptor != null) {
         // don't display this or any of the parents. Let's assume that nobody ever
@@ -89,8 +140,9 @@ def configureTestTask = { propertyPrefix, task ->
                    propertyPrefix + '.forkEvery']
     System.properties.each { prop ->
         def prefix = "${propertyPrefix}.sysProp."
-        if (!prop.key.startsWith(prefix.toString()))
-            return;
+        if (!prop.key.startsWith(prefix.toString())) {
+            return
+        };
         def setkey = prop.key.substring(prefix.length())
         task.systemProperties[setkey] = prop.value
         logger.debug "Set system property ${setkey} = ${prop.value} on ${propertyPrefix}"

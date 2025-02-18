@@ -36,6 +36,7 @@ import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -83,7 +84,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
 
     @Override
     public void visit(@Nonnull Metadata metadata) {
-        Assert.failUnchecked(String.format("unexpected call on %s", metadata.getClass().getName()));
+        Assert.failUnchecked(String.format(Locale.ROOT, "unexpected call on %s", metadata.getClass().getName()));
     }
 
     @Override

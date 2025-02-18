@@ -47,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings({"PMD.AvoidCatchingThrowable"})
@@ -87,7 +88,7 @@ public abstract class Command {
                 case COMMAND_QUERY:
                     return QueryCommand.parse(object, blockName, executionContext);
                 default:
-                    Assert.failUnchecked(String.format("Could not find command '%s'", key));
+                    Assert.failUnchecked(String.format(Locale.ROOT, "Could not find command '%s'", key));
                     return null;
             }
         } catch (Exception e) {

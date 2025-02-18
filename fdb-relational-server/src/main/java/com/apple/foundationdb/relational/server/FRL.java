@@ -115,8 +115,11 @@ public class FRL implements AutoCloseable {
                     ddlFactory,
                     RelationalPlanCache.newRelationalCacheBuilder()
                             .setTtl(options.getOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS))
+                            .setSize(options.getOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES))
                             .setSecondaryTtl(options.getOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS))
+                            .setSecondarySize(options.getOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES))
                             .setTertiaryTtl(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS))
+                            .setTertiarySize(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES))
                             .build()));
 
             DriverManager.registerDriver(this.driver);

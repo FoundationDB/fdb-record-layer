@@ -44,6 +44,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -257,7 +258,7 @@ public final class QueryInterpreter {
                 }
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> String.format("‼️ Error initializing query executor for query %s at line %d", query, lineNumber), "query", lineNumber);
+            throw executionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at line %d", query, lineNumber), "query", lineNumber);
         }
     }
 

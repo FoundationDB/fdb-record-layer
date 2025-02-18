@@ -26,12 +26,14 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.Locale;
+
 public class ParserTests {
 
     @ParameterizedTest
     @ValueSource(strings = {"__foo", "2foo", "#foo", ".foo", "__"})
     public void invalidIdentifierTest(String id) {
-        final var query = String.format("SELECT * from %s", id);
+        final var query = String.format(Locale.ROOT, "SELECT * from %s", id);
         RelationalAssertions.assertThrows(() -> QueryParser.parse(query))
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }

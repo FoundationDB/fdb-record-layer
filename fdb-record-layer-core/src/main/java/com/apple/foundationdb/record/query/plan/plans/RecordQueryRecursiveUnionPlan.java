@@ -291,7 +291,7 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
     @Override
     public int planHash(@Nonnull final PlanHashMode hashMode) {
-        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, initialStateQuantifier, recursiveStateQuantifier);
+        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, getChildren());
     }
 
     @Nonnull

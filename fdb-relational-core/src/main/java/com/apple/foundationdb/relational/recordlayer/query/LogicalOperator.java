@@ -65,6 +65,7 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -184,7 +185,7 @@ public class LogicalOperator {
             return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
         } else {
             final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, currentPlanFragment.getLogicalOperatorsIncludingOuter());
-            Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format("Can not hint indexes with correlated field access %s", identifier));
+            Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Can not hint indexes with correlated field access %s", identifier));
             return generateCorrelatedFieldAccess(correlatedField, alias);
         }
     }
@@ -257,7 +258,7 @@ public class LogicalOperator {
                                                                  @Nonnull Optional<Identifier> alias) {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
                 ErrorCode.INVALID_COLUMN_REFERENCE,
-                () -> String.format("join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
+                () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
         final var explode = new ExplodeExpression(expression.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.of(explode));
         final var outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
@@ -346,7 +347,7 @@ public class LogicalOperator {
         for (final var expression : outputExpressions.expanded().concat(havingPredicate.map(Expressions::ofSingle).orElseGet(Expressions::empty))) {
             Assert.thatUnchecked(SemanticAnalyzer.isComposableFrom(expression.dereferenced(literals).getSingleItem(), validSubExpressions, aliasMap, outerCorrelations),
                     ErrorCode.GROUPING_ERROR,
-                    () -> String.format("Invalid reference to non-grouping expression %s", expression));
+                    () -> String.format(Locale.ROOT, "Invalid reference to non-grouping expression %s", expression));
         }
 
         final var aggregateValue = RecordConstructorValue.ofUnnamed((List<Value>) Assert.castUnchecked(aggregates.underlying(), List.class));
