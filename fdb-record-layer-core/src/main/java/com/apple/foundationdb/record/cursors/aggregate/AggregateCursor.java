@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
