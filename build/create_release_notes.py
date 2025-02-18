@@ -124,13 +124,18 @@ def main(argv):
         label_config = json.load(fin)
 
     old_version = args.old_version
+    release_notes = []
     for new_version in args.new_version:
         commits = get_commits(old_version, new_version)
         prs = get_prs(commits, args.pr_cache)
         prs = dedup_prs(prs)
         new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
-        print(format_notes(new_notes, label_config, old_version, new_version))
+        release_notes.append(format_notes(new_notes, label_config, old_version, new_version))
         old_version = new_version
+    release_notes.reverse()
+    print("\n\n------------------------------\n\n")
+    for notes in release_notes:
+        print(notes)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
