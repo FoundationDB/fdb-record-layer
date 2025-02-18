@@ -73,14 +73,14 @@ def dedup_prs(prs):
                     dedupped.append((pr, commit))
     return dedupped
 
-def get_category(pr, label_config):
+def get_category(pr, label_config, commit):
     main_label = None
     label_names = [label['name'] for label in pr['labels']]
     for category in label_config['categories']:
         for label in category['labels']:
             if label in label_names:
                 return category['title']
-    print("No label: " + pr['html_url'] + " " + str(label_names))
+    print(f"No label: {pr['html_url']} {str(label_names)} {str(commit)}")
     return label_config['catch_all']
 
 def generate_note(prs, commit, label_config):
@@ -89,7 +89,7 @@ def generate_note(prs, commit, label_config):
     if len(prs) > 1:
         print("Too many PRs?")
     pr = prs[0]
-    category = get_category(pr, label_config)
+    category = get_category(pr, label_config, commit)
     text = '* ' + pr['title'] + " by @" + pr['user']['login'] + ' in ' + pr['html_url']
     return (category, text)
 
