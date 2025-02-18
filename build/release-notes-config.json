@@ -11,6 +11,7 @@
    {"title": "Dependency Updates",
     "labels": ["dependencies"]},
    {"title": "Build/Test/Documentation Improvements",
+    "collapsed": true,
     "labels": [
       "build improvement",
       "documentation",

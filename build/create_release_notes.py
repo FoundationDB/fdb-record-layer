@@ -99,13 +99,21 @@ def format_notes(notes, label_config, old_version, new_version):
     for (category, line) in notes:
         grouping[category].append(line)
     text = ''
-    titles = [category['title'] for category in label_config['categories']]
-    titles.append(label_config['catch_all'])
-    for title in titles:
+    categories = label_config['categories'] + [{"title": label_config['catch_all']}]
+    for category in categories:
+        title = category['title']
         if title in grouping:
-            text += f"#### {title}\n"
-            for note in grouping[title]:
+            notes = grouping[title]
+            put_in_summary = category.get('collapsed', False)
+            header = f"#### {title}"
+            if put_in_summary:
+                text += f"\n<details>\n<summary>\n\n{header} (click to expand)\n\n</summary>\n\n"
+            else:
+                text += f'{header}\n'
+            for note in notes:
                 text += f"{note}\n"
+            if put_in_summary:
+                text += '\n</details>\n'
         else:
             print("Nothing for " + title)
     text += f"\n\n**Full Changelog**: https://github.com/FoundationDB/fdb-record-layer/compare/{old_version}...{new_version}"
