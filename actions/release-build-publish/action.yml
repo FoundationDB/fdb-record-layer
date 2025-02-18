@@ -51,9 +51,11 @@ runs:
       id: push_updates
       shell: bash
       run: git push origin
+      # Continue the build (including downstream steps). If the push fails, we'll create a PR
+      continue-on-error: true
     - name: Create Merge PR if conflict
-      if: failure() && steps.push_updates.conclusion == 'failure'
-      uses: peter-evans/create-pull-request@bb88e27d3f9cc69c8bc689eba126096c6fe3dded
+      if: success() && steps.push_updates.outcome == 'failure'
+      uses: peter-evans/create-pull-request@v7
       id: pr_on_conflict
       with:
         branch: release-build
