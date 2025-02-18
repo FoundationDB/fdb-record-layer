@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+
+#
+# create_release_notes.py
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+
+import argparse
+from collections import defaultdict
+import json
+import subprocess
+import sys
+
+def run(command):
+    try:
+        process = subprocess.run(command, check=True, capture_output=True, text=True)
+        return process.stdout
+    except subprocess.CalledProcessError as e:
+        print("Failed: " + str(e.cmd))
+        print(e.stdout)
+        print(e.stderr)
+        exit(e.returncode)
+
+def get_commits(old_version, new_version):
+    raw_log = run(['git', 'log', '--pretty=%H %s', old_version + "..." + new_version])
+    return [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
+
+def get_pr(commit_hash):
+    raw_info = run(['gh', 'api', f'/repos/FoundationDB/fdb-record-layer/commits/{commit_hash}/pulls'])
+    return json.loads(raw_info)
+
+def get_prs(commits):
+    return [(get_pr(commit[0]), commit) for commit in commits]
+
+def dedup_prs(prs):
+    found = set()
+    dedupped = []
+    for pr, commit in prs:
+        if pr is None or len(pr) == 0:
+            print("No PR: " + str(commit))
+        else:
+            if len(pr) != 1:
+                print("Too many PRs " + str(pr) + " " + str(commit))
+            else:
+                if not pr[0]['url'] in found:
+                    found.add(pr[0]['url'])
+                    dedupped.append((pr, commit))
+    return dedupped
+
+def get_category(pr, label_config):
+    main_label = None
+    label_names = [label['name'] for label in pr['labels']]
+    for category in label_config['categories']:
+        for label in category['labels']:
+            if label in label_names:
+                return category['title']
+    print("No label: " + pr['html_url'] + " " + str(label_names))
+    return label_config['catch_all']
+
+def generate_note(prs, commit, label_config):
+    if len(prs) == 0:
+        return ("Direct Commit", commit[1])
+    if len(prs) > 1:
+        print("Too many PRs?")
+    pr = prs[0]
+    category = get_category(pr, label_config)
+    text = '* ' + pr['title'] + " by @" + pr['user']['login'] + ' in ' + pr['html_url']
+    return (category, text)
+
+def format_notes(notes, label_config, old_version, new_version):
+    grouping = defaultdict(list)
+    for (category, line) in notes:
+        grouping[category].append(line)
+    text = "## What's Changed\n"
+    for category in label_config['categories']:
+        title = category['title']
+        if title in grouping:
+            text += f"### {title}\n"
+            for note in grouping[title]:
+                text += f"{note}\n"
+        else:
+            print("Nothing for " + title)
+    text += f"\n\n**Full Changelog**: https://github.com/FoundationDB/fdb-record-layer/compare/{old_version}...{new_version}\n"
+    return text
+
+def main(argv):
+    '''Replace placeholder release notes with the final release notes for a version.'''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cache-json', help='dump prs to json')
+    parser.add_argument('--json-cache', help='json dump of prs')
+    parser.add_argument('--config', required=True, help="path to json configuration for release notes")
+    parser.add_argument('filename', help='Path to release notes document to update')
+    parser.add_argument('old_version', help='Old version to use when generating release notes')
+    parser.add_argument('new_version', help='New version to use when generating release notes')
+    args = parser.parse_args(argv)
+
+    with open(args.config, 'r') as fin:
+        label_config = json.load(fin)
+
+    prs = None
+    if args.json_cache is None:
+        commits = get_commits(args.old_version, args.new_version)
+        for commit in commits:
+            print(commit)
+        prs = get_prs(commits)
+        for pr in prs:
+            print(pr)
+        if args.cache_json is not None:
+            with open(args.cache_json, 'w') as f:
+                json.dump(prs, f)
+    else:
+        with open(args.json_cache, 'r') as f:
+            prs = json.load(f)
+    prs = dedup_prs(prs)
+    new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
+    print(format_notes(new_notes, label_config, args.old_version, args.new_version))
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
