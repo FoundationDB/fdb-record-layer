@@ -7,9 +7,6 @@ changelog:
     - title: New Features
       labels:
         - enhancement
-    - title: Documentation improvements
-      labels:
-        - documentation
     - title: Bug Fixes
       labels:
         - "bug fix"
@@ -19,6 +16,11 @@ changelog:
     - title: Dependency Updates
       labels:
         - dependencies
+    - title: Build/Test/Documentation Improvements
+      labels:
+        - "build improvement"
+        - "documentation"
+        - "testing improvement"
     - title: Other Changes
       labels:
         - "*"
