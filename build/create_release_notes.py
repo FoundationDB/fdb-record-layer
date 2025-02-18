@@ -41,12 +41,22 @@ def get_commits(old_version, new_version):
     raw_log = run(['git', 'log', '--pretty=%H %s', old_version + "..." + new_version])
     return [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
 
-def get_pr(commit_hash):
+def get_pr(commit_hash, pr_cache):
+    if (pr_cache is not None):
+        try:
+            with open(pr_cache + "/" + commit_hash + ".json", 'r') as fin:
+                return json.load(fin)
+        except:
+            pass
     raw_info = run(['gh', 'api', f'/repos/FoundationDB/fdb-record-layer/commits/{commit_hash}/pulls'])
-    return json.loads(raw_info)
+    info = json.loads(raw_info)
+    if (pr_cache is not None):
+        with open(pr_cache + "/" + commit_hash + ".json", 'w') as fout:
+            json.dump(info, fout)
+    return info
 
-def get_prs(commits):
-    return [(get_pr(commit[0]), commit) for commit in commits]
+def get_prs(commits, pr_cache):
+    return [(get_pr(commit[0], pr_cache), commit) for commit in commits]
 
 def dedup_prs(prs):
     found = set()
@@ -87,7 +97,7 @@ def format_notes(notes, label_config, old_version, new_version):
     grouping = defaultdict(list)
     for (category, line) in notes:
         grouping[category].append(line)
-    text = "## What's Changed\n"
+    text = f"## {new_version}\n"
     for category in label_config['categories']:
         title = category['title']
         if title in grouping:
@@ -102,34 +112,25 @@ def format_notes(notes, label_config, old_version, new_version):
 def main(argv):
     '''Replace placeholder release notes with the final release notes for a version.'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cache-json', help='dump prs to json')
-    parser.add_argument('--json-cache', help='json dump of prs')
+    parser.add_argument('--pr-cache', help='dump associated prs to json, or read from them')
     parser.add_argument('--config', required=True, help="path to json configuration for release notes")
-    parser.add_argument('filename', help='Path to release notes document to update')
     parser.add_argument('old_version', help='Old version to use when generating release notes')
-    parser.add_argument('new_version', help='New version to use when generating release notes')
+    parser.add_argument('new_version', nargs='+', 
+                        help='New version to use when generating release notes.\n' + 
+                        'If multiple values are provided, release notes will be generated for all versions')
     args = parser.parse_args(argv)
 
     with open(args.config, 'r') as fin:
         label_config = json.load(fin)
 
-    prs = None
-    if args.json_cache is None:
-        commits = get_commits(args.old_version, args.new_version)
-        for commit in commits:
-            print(commit)
-        prs = get_prs(commits)
-        for pr in prs:
-            print(pr)
-        if args.cache_json is not None:
-            with open(args.cache_json, 'w') as f:
-                json.dump(prs, f)
-    else:
-        with open(args.json_cache, 'r') as f:
-            prs = json.load(f)
-    prs = dedup_prs(prs)
-    new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
-    print(format_notes(new_notes, label_config, args.old_version, args.new_version))
+    old_version = args.old_version
+    for new_version in args.new_version:
+        commits = get_commits(old_version, new_version)
+        prs = get_prs(commits, args.pr_cache)
+        prs = dedup_prs(prs)
+        new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
+        print(format_notes(new_notes, label_config, old_version, new_version))
+        old_version = new_version
 
 if __name__ == '__main__':
     main(sys.argv[1:])
