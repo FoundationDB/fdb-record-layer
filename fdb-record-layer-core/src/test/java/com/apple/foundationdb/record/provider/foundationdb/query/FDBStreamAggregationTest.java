@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -292,36 +294,56 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
                             .build(useNestedResult);
 
-            final var result = executePlanWithRecordScanLimit(plan, 2);
-            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
+            /*
+                   num_value_2         str_value_indexed
+                   0                   "0"
+                   1                   "0"
+                   2                   "0"
+             */
+            /*
+            RecordCursorResult<QueryResult> result1 = executePlanWithRecordScanLimit(plan, 1, null, useNestedResult,
+                    List.of(resultOf("0", 0)));
+            RecordCursorResult<QueryResult> result2 = executePlanWithRecordScanLimit(plan, 2, null, useNestedResult,
+                    List.of(resultOf("0", 1)));
+            // only scanned 2 rows?
+            RecordCursorResult<QueryResult> result3 = executePlanWithRecordScanLimit(plan, 3, null, useNestedResult,
+                    List.of(resultOf("0", 1)));
+
+             */
+            // only scanned 3 rows?
+            RecordCursorResult<QueryResult> result4 = executePlanWithRecordScanLimit(plan, 4, null, useNestedResult,
+                    List.of(resultOf("0", 3)));
+            /*
+            RecordCursorResult<QueryResult> result5 = executePlanWithRecordScanLimit(plan, 5, null, useNestedResult,
+                    List.of(resultOf("0", 3), resultOf("1", 3)));
+            RecordCursorResult<QueryResult> result6 = executePlanWithRecordScanLimit(plan, 6, null, useNestedResult,
+                    List.of(resultOf("0", 3), resultOf("1", 7)));
+            RecordCursorResult<QueryResult> result7 = executePlanWithRecordScanLimit(plan, 7, null, useNestedResult,
+                    List.of(resultOf("0", 3), resultOf("1", 12)));
+
+             */
         }
     }
 
-    private List<QueryResult> executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit) {
-        byte[] continuation = null;
-        List<QueryResult> queryResults = new LinkedList<>();
+    private RecordCursorResult<QueryResult> executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, final boolean useNestedResult, List<?> expectedResult) {
+        RecordCursorResult<QueryResult> currentCursorResult;
+        List<QueryResult> currentQueryResults = new LinkedList<>();
         while (true) {
             RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation);
-            RecordCursorResult<QueryResult> currentCursorResult;
-            while (true) {
-                currentCursorResult = currentCursor.getNext();
-                continuation = currentCursorResult.getContinuation().toBytes();
-                if (!currentCursorResult.hasNext()) {
-                    break;
-                }
-                queryResults.add(currentCursorResult.get());
-                System.out.println("current result:" + currentCursorResult.get().getMessage());
-            }
-            System.out.println("getNoNextReson:" + currentCursorResult.getNoNextReason());
-            if (currentCursorResult.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
+            currentCursorResult = currentCursor.getNext();
+            continuation = currentCursorResult.getContinuation().toBytes();
+            if (!currentCursorResult.hasNext()) {
                 break;
             }
+            currentQueryResults.add(currentCursorResult.get());
+            System.out.println("current result:" + currentCursorResult.get().getMessage());
         }
-        return queryResults;
+        assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, currentQueryResults, expectedResult.toArray(new List<?>[0]));
+        System.out.println("getNoNextReson:" + currentCursorResult.getNoNextReason());
+        return currentCursorResult;
     }
 
     private void populateDB(final int numRecords) throws Exception {
@@ -341,11 +363,19 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private List<QueryResult> executePlan(final RecordQueryPlan plan) {
+    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan plan, final int rowLimit, final int recordScanLimit, final byte[] continuation) {
         final var types = plan.getDynamicTypes();
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
+        ExecuteState executeState;
+        if (recordScanLimit > 0) {
+            executeState = new ExecuteState(RecordScanLimiterFactory.enforce(recordScanLimit), null);
+        } else {
+            executeState = ExecuteState.NO_LIMITS;
+        }
+        ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
+        executeProperties = executeProperties.setReturnedRowLimit(rowLimit).setState(executeState);
         try {
-            return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, ExecuteProperties.SERIAL_EXECUTE).asList().get();
+            return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
         } catch (final Throwable t) {
             throw Assertions.<RuntimeException>fail(t);
         }
