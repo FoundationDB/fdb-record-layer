@@ -53,15 +53,15 @@ jobs:
         with:
           path: docs/sphinx/.out/html/
 
-    deploy_docs:
-      needs: gradle
-      permissions:
-        pages: write
-        id-token: write
-      environment:
-        name: github-pages
-        url: ${{ steps.doc_upload.outputs.page_url }}
-      runs-on: ubuntu-latest
-      steps:
-        - name: Deploy Documentation
-          uses: actions/deploy-pages@v4
+  deploy_docs:
+    runs-on: ubuntu-latest
+    needs: gradle
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.doc_upload.outputs.page_url }}
+    steps:
+      - name: Deploy Documentation
+        uses: actions/deploy-pages@v4
