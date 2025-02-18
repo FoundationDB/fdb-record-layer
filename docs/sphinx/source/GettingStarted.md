@@ -14,7 +14,7 @@ To keep the guide simple, we will not cover:
 * Modifying a schema
 * Using advanced [index](Overview.md#secondary-indexes) and [query](Overview.md#querying-for-records) functionality
 
-### Setup
+## Setup
 
 Install Java JDK for version 8 or above; for this demo we are using JDK `1.8.0_181`.
 
@@ -52,7 +52,7 @@ Now we should add the Record Layer as a dependency of our project. The Record La
 are published to Maven Central, so we can declare the dependency by adding the following to our
 project's `build.gradle` file:
 
-```gradle
+```groovy
 repositories {
     mavenCentral()
     maven {
@@ -64,11 +64,12 @@ dependencies {
     implementation 'org.foundationdb:fdb-record-layer-core-pb3:VERSION_NUMBER'
 }
 ```
+
 Replace `VERSION_NUMBER` with a recent version of the artifact from Maven Central (See
 [mvnrepository](https://mvnrepository.com/artifact/org.foundationdb/fdb-record-layer-core-pb3)
 for a listing of published versions).
 
-### ProtoBuf Configuration
+## Protobuf Configuration
 
 Our sample project will use [Protocol Buffers](https://developers.google.com/protocol-buffers/) (protobuf)
 to define our record meta-data. First, since we are using Gradle, let's include the
@@ -77,7 +78,7 @@ which will allow us to add protobuf compilation as a step in our build process.
 Add this to the top of your `build.gradle`, ahead of the above `repositories` and
 `dependencies` added above:
 
-```gradle
+```groovy
 plugins {
     id 'java'
     id 'com.google.protobuf' version "0.8.19"
@@ -88,7 +89,7 @@ include `id'java'`.
 
 Additionally, add the following:
 
-```gradle
+```groovy
 protobuf {
     generatedFilesBaseDir = "${projectDir}/src/main/generated"
     protoc {
@@ -119,7 +120,7 @@ One last step might be necessary to configure your IDE of choice to discover the
 offer auto-complete suggestions. The additional generated source directory can be added to the list of Java sources
 by adding the following to the project's `build.gradle` file:
 
-```gradle
+```groovy
 sourceSets {
     main {
         java {
@@ -180,7 +181,7 @@ Finally, the Record Layer requires we have a `UnionDescriptor` message which con
 record types to be stored in our record store (here only `Order`). We must either set the `usage = UNION`
 option for this message or we can omit the option and instead name the message `RecordTypeUnion`.
 
-### Creating an Application
+## Creating an Application
 
 Run `./gradlew generateProto` to see that the above configuration is correct.
 You should see the generated code put into `src/main/generated/main/java/RecordLayerDemoProto.java`.
@@ -411,7 +412,7 @@ flower {
 price: 34
 ```
 
-### Summary
+## Summary
 
 We've covered creating a very simple demo app from scratch using the FDB Record Layer.
 We downloaded and started up an FDB server, created a new Java project, brought in the Record Layer dependency,

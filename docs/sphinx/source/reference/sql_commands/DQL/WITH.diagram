@@ -1,0 +1,29 @@
+Diagram(
+    Stack(
+        Terminal('WITH'),
+            OneOrMore(
+                Sequence(
+                    NonTerminal('cteName'),
+                    Optional(
+                        Sequence(
+                            Terminal('('),
+                            OneOrMore(
+                                NonTerminal('columnAlias'),
+                                Terminal(','),
+                            ),
+                            Terminal(')'),
+                        ),
+                        'skip',
+                    ),
+                    Optional(
+                        Terminal('AS'),
+                    ),
+                    Terminal('('),
+                    NonTerminal('cteQuery'),
+                    Terminal(')'),
+                ),
+                Terminal(','),
+            ),
+        NonTerminal('query')
+    )
+)

@@ -1,0 +1,17 @@
+Diagram(
+    Stack(
+        Optional(Sequence(Terminal('WITH'), NonTerminal('withClause'))),
+        Sequence(Terminal('SELECT'), NonTerminal('selectClause')),
+        Optional(Sequence(Terminal('FROM'), NonTerminal('fromClause'))),
+        Optional(Sequence(Terminal('WHERE'), NonTerminal('whereClause'))),
+        Optional(
+            Sequence(
+                Terminal('GROUP BY'), NonTerminal('groupByClause'),
+                Optional( Sequence(Terminal('HAVING'), NonTerminal('havingClause')) ),
+            )
+        ),
+        Optional( Sequence(Terminal('ORDER BY'), NonTerminal('orderByClause')) ),
+        Optional( Sequence(Terminal('WITH'), Terminal('CONTINUATION'), NonTerminal('continuation')) )
+    ),
+)
+

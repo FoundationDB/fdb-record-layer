@@ -110,10 +110,10 @@ Classes and methods annotations using `@API` determine when they can be changed 
 
     using the starting version.
 
-* In `docs/ReleaseNotes.md`, move the template for release notes for the next release to be just above the release note for the starting version `a.b.c`.
+* In `docs/sphinx/source/ReleaseNotes.md`, move the template for release notes for the next release to be just above the release note for the starting version `a.b.c`.
 
 * Commit and push the new branch upstream.
 
 * Create patch fix pull requests against this new branch.
 
-* There may be conflicts in the `gradle.properties` and `docs/ReleaseNotes.md` files when the patch branch is merged into main. Be sure whenever merging that branch in that (1) the version on main is not accidentally changed and (2) the release notes file contains all release notes from both branches after the merge.
+* There may be conflicts in the `gradle.properties` and `docs/sphinx/source/ReleaseNotes.md` files when the patch branch is merged into main. Be sure whenever merging that branch in that (1) the version on main is not accidentally changed and (2) the release notes file contains all release notes from both branches after the merge.
