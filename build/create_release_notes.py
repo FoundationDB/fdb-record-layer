@@ -97,12 +97,12 @@ def format_notes(notes, label_config, old_version, new_version):
     grouping = defaultdict(list)
     for (category, line) in notes:
         grouping[category].append(line)
-    text = f"## {new_version}\n"
+    text = f"### {new_version}\n"
     titles = [category['title'] for category in label_config['categories']]
     titles.append(label_config['catch_all'])
     for title in titles:
         if title in grouping:
-            text += f"### {title}\n"
+            text += f"#### {title}\n"
             for note in grouping[title]:
                 text += f"{note}\n"
         else:
