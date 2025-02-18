@@ -114,8 +114,6 @@ def format_notes(notes, label_config, old_version, new_version):
                 text += f"{note}\n"
             if put_in_summary:
                 text += '\n</details>\n'
-        else:
-            print("Nothing for " + title)
     text += f"\n\n**Full Changelog**: https://github.com/FoundationDB/fdb-record-layer/compare/{old_version}...{new_version}"
     text += f"\n\n<!-- MIXED_MODE_RESULTS {new_version} PLACEHOLDER -->\n"
     return text
@@ -202,6 +200,7 @@ def main(argv):
     old_version = args.old_version
     release_notes = []
     for new_version in args.new_version:
+        print(f"Generating release notes for {new_version}")
         commits = get_commits(old_version, new_version)
         prs = get_prs(commits, args.pr_cache)
         prs = dedup_prs(prs)
