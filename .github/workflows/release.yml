@@ -17,6 +17,7 @@ jobs:
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
       - name: Setup Base Environment
+        id: setup-base
         uses: ./actions/setup-base-env
       - name: Setup FDB
         uses: ./actions/setup-fdb
@@ -43,6 +44,12 @@ jobs:
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
 
+      # Build documentation.
+      - name: Cache Python Environment
+        uses: actions/cache@v4
+        with:
+          path: docs/sphinx/.venv
+          key: ${{ runner.os }}-sphinx-python-${{ steps.setup-base.outputs.python-version }}-${{ hashFiles('docs/sphinx/requirements.txt') }}
       - name: Build Documentation Site
         uses: ./actions/run-gradle
         with:

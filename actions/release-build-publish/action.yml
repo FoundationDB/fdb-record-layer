@@ -64,3 +64,8 @@ runs:
         sign-commits: true
         body: |
           Updates from release for version ${{ steps.get_version.outputs.version }}. Conflicts during the build prevented automatic updating. Please resolve conflicts by checking out the current branch, merging, and then deleting this branch.
+
+    # Creating the PR can change the current branch. Explicitly check out the tag here for downstream builds
+    - name: Revert to tag
+      shell: bash
+      run: git checkout "${{ steps.get_version.outputs.version }}"
