@@ -177,6 +177,7 @@ public class StreamGrouping<M extends Message> {
                 .setBinding(aggregateAlias, accumulator.finish())
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
+
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulator(context.getTypeRepository());

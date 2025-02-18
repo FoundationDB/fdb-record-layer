@@ -82,7 +82,7 @@ public class RecordCursorResult<T> {
         this.noNextReason = null;
     }
 
-    public RecordCursorResult(@Nonnull final RecordCursorContinuation continuation, @Nonnull final RecordCursor.NoNextReason noNextReason) {
+    private RecordCursorResult(@Nonnull final RecordCursorContinuation continuation, @Nonnull final RecordCursor.NoNextReason noNextReason) {
         this.hasNext = false;
         this.nextValue = null;
         this.continuation = continuation;
