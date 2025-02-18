@@ -107,14 +107,32 @@ def format_notes(notes, label_config, old_version, new_version):
                 text += f"{note}\n"
         else:
             print("Nothing for " + title)
-    text += f"\n\n**Full Changelog**: https://github.com/FoundationDB/fdb-record-layer/compare/{old_version}...{new_version}\n"
+    text += f"\n\n**Full Changelog**: https://github.com/FoundationDB/fdb-record-layer/compare/{old_version}...{new_version}"
+    text += f"\n\n<!-- MIXED_MODE_RESULTS {new_version} PLACEHOLDER -->\n"
     return text
+
+def replace_notes(new_notes, old_version, new_version, filename):
+    with open(filename, 'r') as fin:
+        lines = fin.read().split('\n')
+    i = 0
+    target = "<!-- NEXT RELEASE NOTES PLACEHOLDER -->"
+    while i < len(lines) and not lines[i].startswith(target):
+        i+= 1
+    if i == len(lines):
+        raise Exception('Could not find placeholder in release notes file')
+    with open(filename, 'w') as fout:
+        fout.write('\n'.join(lines[:i]
+                             + [target]
+                             + new_notes
+                             + lines[i+1:]))
+    print(f'Updated {filename} with new release notes from {old_version} to {new_version}')
 
 def main(argv):
     '''Replace placeholder release notes with the final release notes for a version.'''
     parser = argparse.ArgumentParser()
     parser.add_argument('--pr-cache', help='dump associated prs to json, or read from them')
     parser.add_argument('--config', required=True, help="path to json configuration for release notes")
+    parser.add_argument('--release-notes-md', help="path to ReleaseNotes.md to update, will just print if not provided")
     parser.add_argument('old_version', help='Old version to use when generating release notes')
     parser.add_argument('new_version', nargs='+', 
                         help='New version to use when generating release notes.\n' + 
@@ -135,8 +153,11 @@ def main(argv):
         old_version = new_version
     release_notes.reverse()
     print("\n\n------------------------------\n\n")
-    for notes in release_notes:
-        print(notes)
+    if args.release_notes_md is None:
+        for notes in release_notes:
+            print(notes)
+    else:
+        replace_notes(release_notes, args.old_version, args.new_version[-1], args.release_notes_md)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
