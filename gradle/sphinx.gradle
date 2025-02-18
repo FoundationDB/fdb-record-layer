@@ -62,8 +62,7 @@ task generateRailroadDiagrams(type: Exec) {
     }
 
     dependsOn sphinxEnv
-    // commandLine "${venvDir}/bin/python", "${sphinxRoot}/generate_railroad_svg.py"
-    commandLine "echo", "foo"
+    commandLine "${venvDir}/bin/python", "${sphinxRoot}/generate_railroad_svg.py"
 }
 
 // To include the API Javadocs in the final build, we need to have a place for the sphinx build
