@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Assertions;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.jar.Attributes;
@@ -64,6 +65,25 @@ public class ExternalServer {
         this.serverJar = serverJar;
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
+    }
+
+    static {
+        final String serverPath = Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME));
+        // kill all existing processes
+        ProcessHandle.allProcesses().filter(process ->
+                process.info().arguments().map(arguments ->
+                                Arrays.stream(arguments).anyMatch(argument ->
+                                        argument.startsWith(serverPath)))
+                        .orElse(false) &&
+                        process.info().command().map(command ->
+                                        command.endsWith("/java"))
+                                .orElse(false))
+                .forEach(process -> {
+                    if (logger.isInfoEnabled()) {
+                        logger.info("Killing existing server: pid=" + process.pid() + " " + process.info());
+                    }
+                    process.destroy();
+                });
     }
 
     /**

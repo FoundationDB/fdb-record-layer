@@ -106,6 +106,7 @@ def get_new_contents(filename, new_version):
         + [template]
         + ['// end next release', '-->', '']
         + updated_next_release_notes
+        + ['', '<!-- MIXED_MODE_RESULTS ' + new_version + ' PLACEHOLDER -->', '']
         + lines[next_release_end+3:])
 
 

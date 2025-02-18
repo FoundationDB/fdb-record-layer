@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 class DataInvoker {
@@ -83,7 +84,7 @@ class DataInvoker {
                     throw new ClassCastException();
                 }
             } catch (ClassCastException cce) {
-                String message = String.format("Method [%s] must return a Stream<DataSet>,Collection<DataSet>, or DataSet", method.getName());
+                String message = String.format(Locale.ROOT, "Method [%s] must return a Stream<DataSet>,Collection<DataSet>, or DataSet", method.getName());
                 throw new JUnitException(message, cce);
             }
         }
@@ -111,9 +112,9 @@ class DataInvoker {
                     throw new ClassCastException();
                 }
             } catch (IllegalAccessException e) {
-                throw new JUnitException(String.format("Field [%s] must be public", field.getName()), e);
+                throw new JUnitException(String.format(Locale.ROOT, "Field [%s] must be public", field.getName()), e);
             } catch (ClassCastException cce) {
-                String message = String.format("Field [%s] must be a Stream<DataSet>,Collection<DataSet>, or DataSet", field.getName());
+                String message = String.format(Locale.ROOT, "Field [%s] must be a Stream<DataSet>,Collection<DataSet>, or DataSet", field.getName());
                 throw new JUnitException(message, cce);
             }
         }
