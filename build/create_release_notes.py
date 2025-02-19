@@ -39,7 +39,7 @@ def run(command):
         exit(e.returncode)
 
 def get_commits(old_version, new_version):
-    raw_log = run(['git', 'log', '--pretty=%H %s', old_version + "..." + new_version])
+    raw_log = run(['git', 'log', '--pretty=%H %s', old_version + ".." + new_version])
     return [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
 
 def get_pr(commit_hash, pr_cache):
