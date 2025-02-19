@@ -430,7 +430,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         return queryResults;
     }
 
-    private void assertResults(@Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer, @Nonnull final List<QueryResult> actual, @Nonnull final List<?>...expected){
+    private void assertResults(@Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer, @Nonnull final List<QueryResult> actual, @Nonnull final List<?>... expected) {
         Assertions.assertEquals(expected.length, actual.size());
         for (var i = 0; i < actual.size(); i++) {
             checkConsumer.accept(actual.get(i), expected[i]);
@@ -484,7 +484,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private List<?> resultOf(final Object...objects) {
+    private List<?> resultOf(final Object... objects) {
         return Arrays.asList(objects);
     }
 
