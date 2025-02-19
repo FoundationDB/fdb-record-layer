@@ -82,9 +82,9 @@ This will automatically create an association between the PR and the issue that
 it is addressing and, upon merging of the PR into the main code line, will 
 automatically mark the issue as resolved.
 
-PRs should have titles that clearly indicate what the change, we use these to
-generate release notes, so you can glance at [release notes](docs/ReleaseNotes.md)
-for inspiration.
+PRs should have titles that clearly indicate what the change is accomplishing,
+we use these to generate release notes, so you can glance at
+[release notes](docs/ReleaseNotes.md) for inspiration.
 
 They should also have one of the following labels:
 - breaking change: For any breaking change
