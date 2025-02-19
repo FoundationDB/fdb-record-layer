@@ -1,9 +1,9 @@
 #
-# standard-tests.yamsql
+# table-functions.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,32 +18,44 @@
 # limitations under the License.
 
 ---
-schema_template:
-    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-    create index i1 as select col1 from t1
----
-setup:
-  steps:
-    - query: INSERT INTO T1
-        VALUES (1, 10, 1),
-               (2, 10, 2),
-               (3, 10, 3),
-               (4, 10, 4),
-               (5, 10, 5),
-               (6, 20, 6),
-               (7, 20, 7),
-               (8, 20, 8),
-               (9, 20, 9),
-               (10, 20, 10),
-               (11, 20, 11),
-               (12, 20, 12),
-               (13, 20, 13)
----
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   name: table-functions
   tests:
     -
       - query: select * from values (1, 2.0, 'foo'), (10, 90.2, 'bar')
       - result: [{1, 2.0, 'foo'},
                  {10, 90.2, 'bar'}]
+    -
+      - query: select * from values (1, 2.0, 'foo'), (10, 90.2, 'bar') as A(B, C, D)
+      - result: [{B: 1, C: 2.0, D: 'foo'},
+                 {B: 10, C: 90.2, D: 'bar'}]
+    -
+      - query: select * from values (1, 2.0, [42, 43, 44]), (11, 3.0, [420, 430, 440])
+      - result: [{1, 2.0, [42, 43, 44]},
+                 {11, 3.0, [420, 430, 440]}]
+#    -
+#      - query: select * from values (1, 2.0, [42, 43, 44]), (11, 3.0, [420, 430, 440])  as A(B, C, W)
+#      - result: [{B: 1, C: 2.0, W: [42, 43, 44]},
+#                 {B: 11, C: 3.0, W: [420, 430, 440]}]
+    -
+      - query: select * from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
+      - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
+                 {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
+    -
+      - query: select B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
+      - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
+                 {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
+    -
+      - query: select A.B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
+      - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
+                 {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
+    -
+      - query: select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
+      - result: [{B: 1, Q: 2.0, X: 3},
+                 {B: 10, Q: 90.2, X: 5}]
+    -
+      - query: select * from (select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u
+      - result: [{B: 1, Q: 2.0, X: 3},
+                 {B: 10, Q: 90.2, X: 5}]
 ...

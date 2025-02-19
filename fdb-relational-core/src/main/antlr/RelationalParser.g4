@@ -298,7 +298,7 @@ indexHintType
     ;
 
 inlineTableDefinition
-    : AS? tableName '(' uidList ')'
+    : AS? tableName uidListWithNestingsInParens
     ;
 
 joinPart

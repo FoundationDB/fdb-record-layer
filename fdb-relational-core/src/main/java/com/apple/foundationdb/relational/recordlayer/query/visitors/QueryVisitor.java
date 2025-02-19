@@ -29,11 +29,13 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpre
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -48,6 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -328,15 +331,25 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitInlineTableItem(@Nonnull RelationalParser.InlineTableItemContext inlineTableItemContext) {
-        final ImmutableList.Builder<Expression> tableRow = ImmutableList.builder();
-        for (final var tupleContext : inlineTableItemContext.recordConstructorForInlineTable()) {
-            tableRow.add(visitRecordConstructorForInlineTable(tupleContext));
+        Table typeMaybe = null;
+        if (inlineTableItemContext.inlineTableDefinition() != null) {
+            typeMaybe = visitInlineTableDefinition(inlineTableItemContext.inlineTableDefinition());
+            final var stateBuilder = LogicalPlanFragment.State.newBuilder().withTargetType(((RecordLayerTable)typeMaybe).getType());
+            getDelegate().getCurrentPlanFragment().setState(stateBuilder.build());
         }
-        final var arguments = Expressions.of(tableRow.build()).asList().toArray(new Expression[0]);
+        final ImmutableList.Builder<Expression> rowExpressionBuilder = ImmutableList.builder();
+        for (final var inlineTableContext : inlineTableItemContext.recordConstructorForInlineTable()) {
+            final var rowExpression = visitRecordConstructorForInlineTable(inlineTableContext);
+            rowExpressionBuilder.add(rowExpression);
+        }
+        final var arguments = Expressions.of(rowExpressionBuilder.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
         final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.of(explodeExpression));
-        return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
+        final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
+        return typeMaybe == null
+               ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
+               : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getName()), output, resultingQuantifier);
     }
 
     @Nonnull
@@ -371,7 +384,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             final var stateBuilder = LogicalPlanFragment.State.newBuilder().withTargetType(targetType);
             if (ctx.columns != null) {
-                stateBuilder.withTargetTypeReorderings(visitUidListWithNestingsInParens(ctx.columns));
+                stateBuilder.withTargetTypeReorderings(toString(visitUidListWithNestingsInParens(ctx.columns)));
             }
             getDelegate().getCurrentPlanFragment().setState(stateBuilder.build());
             insertSource = Assert.castUnchecked(ctx.insertStatementValue().accept(this), LogicalOperator.class);
@@ -379,6 +392,15 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var resultingInsert = LogicalOperator.generateInsert(insertSource, tableType);
         getDelegate().popPlanFragment();
         return resultingInsert;
+    }
+
+    @Nonnull
+    private static StringTrieNode toString(@Nonnull CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
+        if (fieldAccessTrieNode.getChildrenMap() == null) {
+            return StringTrieNode.leafNode();
+        }
+        final var map = fieldAccessTrieNode.getChildrenMap().entrySet().stream().collect(ImmutableMap.toImmutableMap(pair -> pair.getKey().getName(), pair -> toString(pair.getValue())));
+        return new StringTrieNode(map);
     }
 
     @Nonnull

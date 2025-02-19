@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -35,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -625,15 +626,15 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    NonnullPair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx);
+    NonnullPair<FieldValue.ResolvedAccessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx);
 
     @Nonnull
     @Override
-    StringTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx);
+    CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx);
 
     @Nonnull
     @Override
-    StringTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx);
+    CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx);
 
     @Nonnull
     @Override

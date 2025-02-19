@@ -23,11 +23,13 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
@@ -44,6 +46,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
@@ -61,8 +64,11 @@ import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -169,17 +175,32 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Table visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
         final var tableId = visitTableName(ctx.tableName());
-        final var columnIds = visitUidList(ctx.uidList());
-        final var tableBuilder = RecordLayerTable.newBuilder(false).setName(tableId.getName());
-        for (int i = 0; i < columnIds.size(); i++) {
-            final var column = RecordLayerColumn.newBuilder()
-                    .setName(columnIds.get(i).getName())
-                    .setIndex(i)
-                    .setDataType(DataType.UnknownType.instance())
-                    .build();
-            tableBuilder.addColumn(column);
+        final var columnIdTrie = visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens());
+        int columnCount = Objects.requireNonNull(columnIdTrie.getThis().getChildrenMap()).size();
+        final var columnsList = new ArrayList<>(Collections.nCopies(columnCount, (RecordLayerColumn) null));
+        for (final var entry : columnIdTrie.getThis().getChildrenMap().entrySet()) {
+            final var column = toColumn(entry.getKey(), entry.getValue());
+            columnsList.set(column.getIndex(), column);
         }
+        final var tableBuilder = RecordLayerTable.newBuilder(false).setName(tableId.getName());
+        columnsList.forEach(tableBuilder::addColumn);
         return tableBuilder.build();
+    }
+
+    private static RecordLayerColumn toColumn(@Nonnull FieldValue.ResolvedAccessor field, @Nonnull CompatibleTypeEvolutionPredicate.FieldAccessTrieNode columnIdTrie) {
+        final var columnName = field.getName();
+        final var builder = RecordLayerColumn.newBuilder().setName(columnName).setIndex(field.getOrdinal());
+        if (columnIdTrie.getChildrenMap() == null) {
+            return builder.setDataType(DataTypeUtils.toRelationalType(field.getType())).build();
+        }
+        int columnCount = columnIdTrie.getChildrenMap().size();
+        final var fields = new ArrayList<>(Collections.nCopies(columnCount, (DataType.StructType.Field) null));
+        for (final var child : columnIdTrie.getChildrenMap().entrySet()) {
+            final var column = toColumn(child.getKey(), child.getValue());
+            fields.set(column.getIndex(), DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex()));
+        }
+        builder.setDataType(DataType.StructType.from(columnName, fields, true));
+        return builder.build();
     }
 
     @Nonnull
@@ -623,34 +644,37 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public StringTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
         return visitUidListWithNestings(ctx.uidListWithNestings());
     }
 
     @Nonnull
     @Override
-    public StringTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
         final var uidMap =
-                ctx.uidWithNestings()
-                        .stream()
-                        .map(this::visitUidWithNestings)
+                Streams.mapWithIndex(ctx.uidWithNestings().stream(), (uidWithNesting, index) -> visitUidWithNestingsWithFieldOrdinal(uidWithNesting, (int)index))
                         .collect(ImmutableMap.toImmutableMap(pair -> Assert.notNullUnchecked(pair).getLeft(),
                                 pair -> Assert.notNullUnchecked(pair).getRight(),
                                 (l, r) -> {
                                     throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column");
                                 }));
-        return new StringTrieNode(uidMap);
+        return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
+    }
+
+    @Nonnull
+    public NonnullPair<FieldValue.ResolvedAccessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitUidWithNestingsWithFieldOrdinal(@Nonnull RelationalParser.UidWithNestingsContext ctx, int fieldOrdinal) {
+        final var uid = visitUid(ctx.uid());
+        if (ctx.uidListWithNestingsInParens() == null) {
+            return NonnullPair.of(FieldValue.ResolvedAccessor.of(uid.getName(), fieldOrdinal, Type.any()), CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
+        } else {
+            return NonnullPair.of(FieldValue.ResolvedAccessor.of(uid.getName(), fieldOrdinal, Type.any()), visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens()));
+        }
     }
 
     @Nonnull
     @Override
-    public NonnullPair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
-        final var uid = visitUid(ctx.uid());
-        if (ctx.uidListWithNestingsInParens() == null) {
-            return NonnullPair.of(uid.getName(), StringTrieNode.leafNode());
-        } else {
-            return NonnullPair.of(uid.getName(), visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens()));
-        }
+    public NonnullPair<FieldValue.ResolvedAccessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
+        throw new RuntimeException("should never been called");
     }
 
     @Nonnull
@@ -762,7 +786,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (fieldType == null) {
             return expression;
         }
-        return coerceIfNecessary(expression, fieldType);
+        final var coercedExpression = coerceIfNecessary(expression, fieldType);
+        if (expression.getName().isPresent() && targetField.getFieldNameOptional().isPresent()) {
+            Assert.thatUnchecked(expression.getName().get().equals(Identifier.of(targetField.getFieldNameOptional().get())));
+        }
+        if (expression.getName().isEmpty() && targetField.getFieldNameOptional().isPresent()) {
+            return coercedExpression.withName(Identifier.of(targetField.getFieldName()));
+        }
+        return coercedExpression;
     }
 
     @Nonnull
@@ -804,7 +835,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     // column is declared but the value is not provided
                     Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
                 } else {
-                    // We do not yet support default values for any types, hence it makes to simply fail if the field type
+                    // We do not yet support default values for any types, hence it makes sense to simply fail if the field type
                     // expects non-null but no value is provided.
                     Assert.thatUnchecked(fieldType.isNullable(), ErrorCode.NOT_NULL_VIOLATION, "null value in column \"" + elementField.getFieldName() + "\" violates not-null constraint");
                     currentFieldColumns = Expression.fromUnderlying(new NullValue(fieldType));
