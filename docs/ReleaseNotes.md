@@ -23,6 +23,7 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix continuation bug in AggregateCursor when a group is finished [Issue #3172](https://github.com/FoundationDB/fdb-record-layer/issues/3172)
+* **Bug fix** Fix incorrect result in AggregateCursor when a scan is stopped in the middle of a group [Issue #3180](https://github.com/FoundationDB/fdb-record-layer/issues/3180)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
