@@ -29,6 +29,9 @@ import subprocess
 import sys
 
 def run(command):
+    ''' Run a command, returning its output
+    If the command fails, the output will be dumped, and an exception thrown
+    '''
     try:
         process = subprocess.run(command, check=True, capture_output=True, text=True)
         return process.stdout
@@ -36,13 +39,21 @@ def run(command):
         print("Failed: " + str(e.cmd))
         print(e.stdout)
         print(e.stderr)
-        exit(e.returncode)
+        raise Exception(f"Failed to run command ({e.returncode}): {e.cmd}")
 
 def get_commits(old_version, new_version):
+    '''Return a list of tuples for each commit between the two versions
+    The tuples will be (hash, commit subject)
+    '''
     raw_log = run(['git', 'log', '--pretty=%H %s', old_version + ".." + new_version])
     return [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
 
 def get_pr(commit_hash, pr_cache):
+    '''Get the PRs associated with the given commit hash.
+    pr_cache: A path to a directory to cache PR results, or None.
+    This will return the raw pr info from github associated with the commit,
+    parsed into python objects.
+    '''
     if (pr_cache is not None):
         try:
             with open(pr_cache + "/" + commit_hash + ".json", 'r') as fin:
@@ -57,9 +68,19 @@ def get_pr(commit_hash, pr_cache):
     return info
 
 def get_prs(commits, pr_cache):
+    ''' Return all the prs for the given commits, optionally using the cache.
+    pr_cache: A path to a directory to cache PR results or None.
+    Returns a list of tuple pairs, the first being the PR info, and the second
+    being the commit.
+    '''
     return [(get_pr(commit[0], pr_cache), commit) for commit in commits]
 
 def dedup_prs(prs):
+    ''' Remove any duplicate prs from the list based on urls.
+    The prs should be the output of get_prs.
+    Returns a list with the first pair that references a given
+    pr.
+    '''
     found = set()
     dedupped = []
     for pr, commit in prs:
@@ -75,6 +96,7 @@ def dedup_prs(prs):
     return dedupped
 
 def get_category(pr, label_config, commit):
+    ''' Get the appropriate category based on the labels in the given pr.'''
     main_label = None
     label_names = [label['name'] for label in pr['labels']]
     for category in label_config['categories']:
@@ -85,6 +107,8 @@ def get_category(pr, label_config, commit):
     return label_config['catch_all']
 
 def generate_note(prs, commit, label_config):
+    ''' Generate a release note for a single category, returning a pair of
+    the category for the note, and the text as markdown '''
     if len(prs) == 0:
         return ("Direct Commit", commit[1])
     if len(prs) > 1:
@@ -96,6 +120,7 @@ def generate_note(prs, commit, label_config):
     return (category, text)
 
 def format_notes(notes, label_config, old_version, new_version):
+    ''' Format a list of notes for the changes between the two given versions '''
     grouping = defaultdict(list)
     for (category, line) in notes:
         grouping[category].append(line)
@@ -121,6 +146,11 @@ def format_notes(notes, label_config, old_version, new_version):
     return text
 
 def replace_note(lines, note):
+    ''' Insert the given formatted release notes in to ReleaseNotes.md
+    at the appropriate location.
+    lines: The contents of ReleaseNotes.md split into lines
+    note: The release notes for a given version
+    Returns a new lits of lines, with the new notes inserted'''
     print(f"Inserting note {note.old_version} -> {note.new_version}")
     new_lines = []
     added = False
@@ -148,6 +178,7 @@ def replace_note(lines, note):
     return new_lines
 
 def replace_notes(notes, filename):
+    ''' Insert all the given notes into the given file '''
     with open(filename, 'r') as fin:
         lines = fin.read().split('\n')
     for note in notes:
@@ -157,6 +188,7 @@ def replace_notes(notes, filename):
     print(f'Updated {filename} with new release notes from {notes[0].old_version} to {notes[-1].new_version}')
 
 def commit_release_notes(filename, new_versions):
+    ''' Commit the updates to the release notes '''
     message = f"Updating release notes for {new_versions[-1]}"
     if len(new_versions) > 1:
         message += f"\n\nAlso including versions {' '.join(new_versions[:-1])}"
@@ -167,6 +199,7 @@ def get_minor_version(version):
 
 version_header = re.compile('^#+ (\d+(?:\.\d+)+)$') # match only major or minor versions
 class Note:
+    ''' The release notes for a single version bump '''
     def __init__(self, old_version, new_version, notes):
         self.old_version = old_version
         self.new_version = new_version
@@ -183,6 +216,8 @@ class Note:
     def new_version_header(self):
         return f'### {self.new_version}'
     def greater_than_minor_version(self, header):
+        ''' Check if the new version is greater than the version in the header.
+        This will also return false if the header is not a header for a version '''
         result = version_header.match(header)
         if result:
             version = [int(part) for part in result[1].split('.')]
@@ -197,9 +232,11 @@ class Note:
 def main(argv):
     '''Replace placeholder release notes with the final release notes for a version.'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--pr-cache', help='dump associated prs to json, or read from them')
+    parser.add_argument('--pr-cache', help='dump associated prs to json, or read from them (used in testing)')
     parser.add_argument('--config', required=True, help="path to json configuration for release notes")
-    parser.add_argument('--release-notes-md', help="path to ReleaseNotes.md to update, will just print if not provided")
+    parser.add_argument('--release-notes-md', 
+                        help="path to ReleaseNotes.md to update, will just print if not provided " +
+                        "(printing is only intended for testing)")
     parser.add_argument('--commit', action='store_true', default=False, help="Commit the updates to the release notes")
     parser.add_argument('old_version', help='Old version to use when generating release notes')
     parser.add_argument('new_version', nargs='+', 

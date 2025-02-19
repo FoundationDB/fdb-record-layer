@@ -29,15 +29,13 @@ runs:
       shell: bash
       run: |
         echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
-
-    # Create and push the tag
+    # We also want to push the tag, because that will be used for the next release's release notes
     - name: Create tag
       shell: bash
       run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
 
     # We want to do this before anything else, because if the later steps fail, we want to make sure that the full
-    # change log includes all changes. If a release fails, we should probably update the release notes manually after
-    # the fact, but this is less likely than the build or tests or publishing of the release failing.
+    # change log includes all changes, even if they reference a release that was never actually published.
     - name: Update release notes
       shell: bash
       run: |
@@ -47,7 +45,8 @@ runs:
         --commit
         ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
 
-    # push the changes to gradle.properties, the release notes, and the tag as one commit
+    # push the changes to gradle.properties, the release notes, and the tag as one operation, so if it fails,
+    # it will be as if the release never did anything
     - name: Push Version Update
       run: git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
 
@@ -64,15 +63,8 @@ runs:
         ORG_GRADLE_PROJECT_signingPassword: ${{ inputs.gpg_passphrase }}
 
     # Post release: Update various files which reference version
-    # Note: this depends on the new version being tagged
-    # There is a risk here, if we have a failed release, the file will be updated, and the tag created, and this will
-    # do the new one, we won't end up with all of the release notes. i.e.
-    # If we start at 4.1.4.0
-    # commit change1
-    # release 4.1.5.0 fails
-    # commit change2
-    # release 4.1.6.0 succeeds
-    # The second release will only contain change2, and we won't automatically include 
+    # Updating the yaml files has to be done after the tests complete, or it will mark tests as failing that aren't
+    # supported by the previous version.
     - name: Update YAML test file versions
       uses: ./actions/run-gradle
       with:
