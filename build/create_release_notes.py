@@ -110,7 +110,7 @@ def format_notes(notes, label_config, old_version, new_version):
             if put_in_summary:
                 text += f"\n<details>\n<summary>\n\n{header} (click to expand)\n\n</summary>\n\n"
             else:
-                text += f'{header}\n'
+                text += f'{header}\n\n'
             for note in notes:
                 text += f"{note}\n"
             if put_in_summary:
@@ -126,6 +126,7 @@ def replace_note(lines, note):
     for line in lines:
         if not added and line == note.old_version_header():
             new_lines.append(note.new_version_header())
+            new_lines.append('')
             new_lines.append(note.notes)
             new_lines.append('')
             new_lines.append(line)
@@ -134,6 +135,7 @@ def replace_note(lines, note):
             new_lines.append(note.new_minor_version_header())
             new_lines.append('')
             new_lines.append(note.new_version_header())
+            new_lines.append('')
             new_lines.append(note.notes)
             new_lines.append('')
             new_lines.append(line)
