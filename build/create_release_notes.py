@@ -156,6 +156,12 @@ def replace_notes(notes, filename):
         fout.write('\n'.join(lines))
     print(f'Updated {filename} with new release notes from {notes[0].old_version} to {notes[-1].new_version}')
 
+def commit_release_notes(filename, new_versions):
+    message = f"Updating release notes for {new_versions[-1]}"
+    if len(new_versions) > 1:
+        message += f"\n\nAlso including versions {' '.join(new_versions[:-1])}"
+    subprocess.run(['git', 'commit', '-m', message, filename], check=True)
+
 def get_minor_version(version):
     return '.'.join(version.split('.')[:2])
 
@@ -194,6 +200,7 @@ def main(argv):
     parser.add_argument('--pr-cache', help='dump associated prs to json, or read from them')
     parser.add_argument('--config', required=True, help="path to json configuration for release notes")
     parser.add_argument('--release-notes-md', help="path to ReleaseNotes.md to update, will just print if not provided")
+    parser.add_argument('--commit', action='store_true', default=False, help="Commit the updates to the release notes")
     parser.add_argument('old_version', help='Old version to use when generating release notes')
     parser.add_argument('new_version', nargs='+', 
                         help='New version to use when generating release notes.\n' + 
@@ -220,6 +227,8 @@ def main(argv):
             print(notes[1])
     else:
         replace_notes(release_notes, args.release_notes_md)
+        if args.commit:
+            commit_release_notes(args.release_notes_md, args.new_version)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
