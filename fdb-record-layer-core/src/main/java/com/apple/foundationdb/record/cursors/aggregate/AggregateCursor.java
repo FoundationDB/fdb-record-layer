@@ -22,12 +22,14 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -58,13 +60,19 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // Previous non-empty record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
+    // last row in last group, is null if the current group is the first group
+    @Nullable
+    private RecordCursorResult<QueryResult> lastInLastGroup;
+    byte[] continuation;
 
     public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
                            @Nonnull final StreamGrouping<M> streamGrouping,
-                           boolean isCreateDefaultOnEmpty) {
+                           boolean isCreateDefaultOnEmpty,
+                           byte[] continuation) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
         this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
+        this.continuation = continuation;
     }
 
     @Nonnull
@@ -74,37 +82,55 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             // we are done
             return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(previousResult.getContinuation(),
                     previousResult.getNoNextReason()));
-            // return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
         }
 
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
                 if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
+                    // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
                     streamGrouping.finalizeGroup();
                 }
                 return false;
             } else {
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
                 boolean groupBreak = streamGrouping.apply(queryResult);
-                if (!groupBreak) {
+                if (groupBreak) {
+                    lastInLastGroup = previousValidResult;
+                } else {
                     previousValidResult = innerResult;
                 }
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
-            if (isNoRecords()) {
-                // Edge case where there are no records at all
-                if (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty()) {
-                    return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
+            // either innerResult.hasNext() = false; or groupBreak = true
+            if (Verify.verifyNotNull(previousResult).hasNext()) {
+                // in this case groupBreak = true, return aggregated result and continuation
+                RecordCursorContinuation continuation = Verify.verifyNotNull(previousValidResult).getContinuation();
+                previousValidResult = previousResult;
+                return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
+            } else {
+                if (Verify.verifyNotNull(previousResult).getNoNextReason() == NoNextReason.SOURCE_EXHAUSTED) {
+                    if (previousValidResult == null) {
+                        return RecordCursorResult.exhausted();
+                    } else {
+                        RecordCursorContinuation continuation =previousValidResult.getContinuation();
+                        previousValidResult = previousResult;
+                        return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
+                    }
                 } else {
-                    return RecordCursorResult.exhausted();
+                    RecordCursorContinuation currentContinuation;
+                    // in the current scan, if current group is the first group, set the continuation to the start of the current scan
+                    // otherwise set the continuation to the last row in the last group
+                    if (lastInLastGroup == null) {
+                        currentContinuation = continuation == null ? RecordCursorStartContinuation.START : ByteArrayContinuation.fromNullable(continuation);
+                    } else {
+                        currentContinuation = lastInLastGroup.getContinuation();
+                    }
+                    previousValidResult = lastInLastGroup;
+                    return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
                 }
             }
-            // Use the last valid result for the continuation as we need non-terminal one here.
-            RecordCursorContinuation continuation = Verify.verifyNotNull(previousValidResult).getContinuation();
-            previousValidResult = previousResult;
-            return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
         });
     }
     

@@ -20,11 +20,15 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.ByteScanLimiterFactory;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -52,9 +56,13 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -62,6 +70,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 /**
  * Tests related to planning and executing queries with string collation.
@@ -219,6 +228,26 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
+    @MethodSource("provideArguments")
+    void aggregateOneGroupByThree(final boolean useNestedResult, final int rowLimit) {
+        // each group only has one row
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withGroupCriterion("num_value_3_indexed")
+                            .withGroupCriterion("str_value_indexed")
+                            .withGroupCriterion("num_value_unique")
+                            .build(useNestedResult);
+
+            final var result = executePlanWithRowLimit(plan, rowLimit);
+            assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 0, 0), resultOf(0, "0", 1, 1), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 4, 4), resultOf(2, "1", 5, 5));
+        }
+    }
+
+    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @BooleanSource
     void aggregateNoRecords(final boolean useNestedResult) {
         try (final var context = openContext()) {
@@ -285,9 +314,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest(name = "[{displayName}-{index}] {0}")
-    @BooleanSource
-    void test(final boolean useNestedResult) {
+    @Test
+    void aggregateHitScanLimitReached() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -295,55 +323,55 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(useNestedResult);
+                            .build(false);
 
-            /*
-                   num_value_2         str_value_indexed
-                   0                   "0"
-                   1                   "0"
-                   2                   "0"
-             */
-            /*
-            RecordCursorResult<QueryResult> result1 = executePlanWithRecordScanLimit(plan, 1, null, useNestedResult,
-                    List.of(resultOf("0", 0)));
-            RecordCursorResult<QueryResult> result2 = executePlanWithRecordScanLimit(plan, 2, null, useNestedResult,
-                    List.of(resultOf("0", 1)));
-            // only scanned 2 rows?
-            RecordCursorResult<QueryResult> result3 = executePlanWithRecordScanLimit(plan, 3, null, useNestedResult,
-                    List.of(resultOf("0", 1)));
-
-             */
-            // only scanned 3 rows?
-            RecordCursorResult<QueryResult> result4 = executePlanWithRecordScanLimit(plan, 4, null, useNestedResult,
-                    List.of(resultOf("0", 3)));
-            /*
-            RecordCursorResult<QueryResult> result5 = executePlanWithRecordScanLimit(plan, 5, null, useNestedResult,
-                    List.of(resultOf("0", 3), resultOf("1", 3)));
-            RecordCursorResult<QueryResult> result6 = executePlanWithRecordScanLimit(plan, 6, null, useNestedResult,
-                    List.of(resultOf("0", 3), resultOf("1", 7)));
-            RecordCursorResult<QueryResult> result7 = executePlanWithRecordScanLimit(plan, 7, null, useNestedResult,
-                    List.of(resultOf("0", 3), resultOf("1", 12)));
-
-             */
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            Assertions.assertEquals(RecordCursorStartContinuation.START, continuation1);
+            // recordScanLimit = 6: scans 4 rows, and the 5th scan hits SCAN_LIMIT_REACHED, we know that we've finished the 1st group, aggregated result is returned
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("0", 3));
+            // continue with recordScanLimit = 5, scans 3 rows and hits SCAN_LIMIT_REACHED
+            // again, we don't know that we've finished the 2nd group, nothing is returned, continuation is back to where the scan starts
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 5, continuation2.toBytes(), null);
+            Assertions.assertTrue(Arrays.equals(continuation2.toBytes(), continuation3.toBytes()));
+            // finish the 2nd group, aggregated result is returned, exhausted the source
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 6, continuation3.toBytes(), resultOf("1", 12));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation4);
         }
     }
 
-    private RecordCursorResult<QueryResult> executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, final boolean useNestedResult, List<?> expectedResult) {
+    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?> expectedResult) {
+        List<QueryResult> queryResults = new LinkedList<>();
+        RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation);
         RecordCursorResult<QueryResult> currentCursorResult;
-        List<QueryResult> currentQueryResults = new LinkedList<>();
+        RecordCursorContinuation cursorContinuation;
         while (true) {
-            RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation);
             currentCursorResult = currentCursor.getNext();
-            continuation = currentCursorResult.getContinuation().toBytes();
+            cursorContinuation = currentCursorResult.getContinuation();
             if (!currentCursorResult.hasNext()) {
                 break;
             }
-            currentQueryResults.add(currentCursorResult.get());
-            System.out.println("current result:" + currentCursorResult.get().getMessage());
+            queryResults.add(currentCursorResult.get());
         }
-        assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, currentQueryResults, expectedResult.toArray(new List<?>[0]));
-        System.out.println("getNoNextReson:" + currentCursorResult.getNoNextReason());
-        return currentCursorResult;
+        if (expectedResult == null) {
+            Assertions.assertTrue(queryResults.isEmpty());
+        } else {
+            assertResults(this::assertResultFlattened, queryResults, expectedResult);
+        }
+        return cursorContinuation;
+    }
+
+    private static Stream<Arguments> provideArguments() {
+        // (boolean, rowLimit)
+        // setting rowLimit = 0 is equivalent to no limit
+        List<Arguments> arguments = new LinkedList<>();
+        for (int i = 0; i <= 4; i++) {
+            arguments.add(Arguments.of(false, i));
+            arguments.add(Arguments.of(true, i));
+        }
+        return arguments.stream();
     }
 
     private void populateDB(final int numRecords) throws Exception {
@@ -356,6 +384,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                 recBuilder.setNumValue2(i);
                 recBuilder.setNumValue3Indexed(i / 2); // some field that changes every 2nd record
                 recBuilder.setStrValueIndexed(Integer.toString(i / 3)); // some field that changes every 3rd record
+                recBuilder.setNumValueUnique(i);
                 recordStore.saveRecord(recBuilder.build());
             }
             commit(context);
@@ -368,7 +397,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
         ExecuteState executeState;
         if (recordScanLimit > 0) {
-            executeState = new ExecuteState(RecordScanLimiterFactory.enforce(recordScanLimit), null);
+            executeState = new ExecuteState(RecordScanLimiterFactory.enforce(recordScanLimit), ByteScanLimiterFactory.tracking());
         } else {
             executeState = ExecuteState.NO_LIMITS;
         }
@@ -390,6 +419,40 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         } catch (final Throwable t) {
             throw Assertions.<RuntimeException>fail(t);
         }
+    }
+
+    @Nonnull
+    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan plan, final int rowLimit, final byte[] continuation) {
+        final var types = plan.getDynamicTypes();
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
+        ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
+        executeProperties = executeProperties.setReturnedRowLimit(rowLimit);
+        try {
+            return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
+        } catch (final Throwable t) {
+            throw Assertions.<RuntimeException>fail(t);
+        }
+    }
+
+    private List<QueryResult> executePlanWithRowLimit(final RecordQueryPlan plan, final int rowLimit) {
+        byte[] continuation = null;
+        List<QueryResult> queryResults = new LinkedList<>();
+        while (true) {
+            RecordCursor<QueryResult> currentCursor = executePlan(plan, rowLimit, continuation);
+            RecordCursorResult<QueryResult> currentCursorResult;
+            while (true) {
+                currentCursorResult = currentCursor.getNext();
+                continuation = currentCursorResult.getContinuation().toBytes();
+                if (!currentCursorResult.hasNext()) {
+                    break;
+                }
+                queryResults.add(currentCursorResult.get());
+            }
+            if (currentCursorResult.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
+                break;
+            }
+        }
+        return queryResults;
     }
 
     private void assertResults(@Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer, @Nonnull final List<QueryResult> actual, @Nonnull final List<?>... expected) {
