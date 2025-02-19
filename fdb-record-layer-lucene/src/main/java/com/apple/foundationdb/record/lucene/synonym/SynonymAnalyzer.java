@@ -129,7 +129,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         @Nonnull
         @Override
         public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
-            return t -> LuceneAnalyzerWrapper.getStandardAnalyzerWrapper();
+            return LuceneAnalyzerWrapper::getStandardAnalyzerWrapper;
         }
 
         @SuppressWarnings("deprecation")
@@ -138,7 +138,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         public AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
             final String name = Objects.requireNonNullElse(index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION),
                     EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
-            return t -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
+            return () -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
                     new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name));
         }
     }
@@ -169,7 +169,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
             final String name = Objects.requireNonNullElse(index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION),
                     EnglishSynonymMapConfig.AuthoritativeOnlyEnglishSynonymMapConfig.CONFIG_NAME);
-            return t -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
+            return () -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
                     new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, name));
         }
 

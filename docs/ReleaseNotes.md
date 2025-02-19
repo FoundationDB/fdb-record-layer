@@ -37,7 +37,7 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** AnalyzerChooser no longer takes the text when chosing an analyzer [(Issue #2993)](https://github.com/FoundationDB/fdb-record-layer/issues/2993)
 
 // end next release
 -->
