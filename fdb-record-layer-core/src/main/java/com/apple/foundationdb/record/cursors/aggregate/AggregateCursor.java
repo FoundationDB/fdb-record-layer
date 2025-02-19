@@ -25,7 +25,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -114,7 +113,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     if (previousValidResult == null) {
                         return RecordCursorResult.exhausted();
                     } else {
-                        RecordCursorContinuation continuation =previousValidResult.getContinuation();
+                        RecordCursorContinuation continuation = previousValidResult.getContinuation();
                         previousValidResult = previousResult;
                         return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
                     }
