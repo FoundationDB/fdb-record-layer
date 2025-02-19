@@ -71,7 +71,7 @@ importantly, it keeps the community open and communicative.
 
 ### Opening a Pull Request
 
-When opening a pull request (PR), please ensure that the title of the pull request
+When opening a pull request (PR), please ensure that the description of the pull request
 or the commit message indicates the issue that it is addressing (see 
 [Closing issues with keywords](https://help.github.com/articles/closing-issues-using-keywords/)).
 For example:
@@ -82,12 +82,22 @@ This will automatically create an association between the PR and the issue that
 it is addressing and, upon merging of the PR into the main code line, will 
 automatically mark the issue as resolved.
 
-If your pull request results in a user-visible change to the Record Layer, you should
-also update the [release notes](docs/ReleaseNotes.md). For most changes, it
-is sufficient to fill in one of the bullets in the "next release" section of that
-document. You should include a short description of the change as well as filling in
-the issue number. The "next release" section is commented out, so the change won't
-be visible in our documentation until the next time a release is cut.
+PRs should have titles that clearly indicate what the change, we use these to
+generate release notes, so you can glance at [release notes](docs/ReleaseNotes.md)
+for inspiration.
+
+They should also have one of the following labels:
+- breaking change: For any breaking change
+- enhancement: For any new feature or enhancement
+- bug fix: For bug fixes
+- performance: For performance improvements
+- dependencies: For updates to dependency versions
+- build improvement: For updates to our build system that shouldn't have user visible impacts
+- testing improvement: For new test coverage, or improvements to testing infrastructure
+- documentation: For improvements to our documentation
+
+[release-notes-config.json](build/release-notes-config.json) describes how labels are
+converted into categories in the release notes.
 
 ### Reporting issues
 
