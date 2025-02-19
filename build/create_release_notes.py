@@ -182,8 +182,10 @@ class Note:
             version = [int(part) for part in result[1].split('.')]
             for (s, h) in zip(self.new_version_split, version):
                 if s > h:
-                    print(f'"{header}" IS LESS THAN {self.new_version} ({self.old_version})')
+                    print(f'"{header}" IS LESS THAN {self.new_version} ({self.old_version}) because {s} > {h}')
                     return True
+                if s < h:
+                    return False
         return False
 
 def main(argv):
