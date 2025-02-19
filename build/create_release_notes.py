@@ -91,7 +91,8 @@ def generate_note(prs, commit, label_config):
         print("Too many PRs?")
     pr = prs[0]
     category = get_category(pr, label_config, commit)
-    text = '* ' + pr['title'] + " by @" + pr['user']['login'] + ' in ' + pr['html_url']
+    text = f'* {pr["title"]} by [@{pr["user"]["login"]}]({pr["user"]["html_url"]}) in ' + \
+        f'[PR #{pr["number"]}]({pr["html_url"]})'
     return (category, text)
 
 def format_notes(notes, label_config, old_version, new_version):
