@@ -85,22 +85,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void joinTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void subqueryTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("subquery-tests.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }
@@ -232,8 +226,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void union(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union.yamsql");
     }
