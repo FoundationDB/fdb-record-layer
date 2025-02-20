@@ -23,6 +23,10 @@ jobs:
         with:
           ref: ${{ inputs.branch }}
           ssh-key: ${{ secrets.DEPLOY_KEY }}
+          fetch-tags: true
+          # fetch all the history to make sure that we have the last release
+          # I tried fetching part of the history, but I just couldn't get it to work, and fetching all still takes like 5s
+          fetch-depth: 0
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
