@@ -132,11 +132,10 @@ def format_notes(notes, label_config, old_version, new_version):
             notes = grouping[title]
             put_in_summary = category.get('collapsed', False)
             # We use <h4> rather than #### because #### confuses sphinx
-            header = f"<h4> {title} </h4>"
             if put_in_summary:
-                text += f"\n<details>\n<summary>\n\n{header} (click to expand)\n\n</summary>\n\n"
+                text += f"\n<details>\n<summary>\n\n<h4> {title} (click to expand) </h4>\n\n</summary>\n\n"
             else:
-                text += f'{header}\n\n'
+                text += f'<h4> {title} </h4>\n\n'
             for note in notes:
                 text += f"{note}\n"
             if put_in_summary:
