@@ -17,9 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
-options:
-    supported_version: 4.1.6.0
----
 schema_template:
     CREATE TYPE AS ENUM MOOD ( 'JOYFUL', 'HAPPY', 'RELAXED', 'INDIFFERENT', 'CONFUSED', 'SAD', 'ANXIOUS', 'ANGRY' )
     CREATE TABLE TABLE_A ("id" BIGINT, "name" STRING, "mood" MOOD, PRIMARY KEY("id") )
