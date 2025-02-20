@@ -87,14 +87,14 @@ we use these to generate release notes, so you can glance at
 [release notes](docs/sphinx/source/ReleaseNotes.md) for inspiration.
 
 They should also have one of the following labels:
-- breaking change: For any breaking change
-- enhancement: For any new feature or enhancement
-- bug fix: For bug fixes
-- performance: For performance improvements
-- dependencies: For updates to dependency versions
-- build improvement: For updates to our build system that shouldn't have user visible impacts
-- testing improvement: For new test coverage, or improvements to testing infrastructure
-- documentation: For improvements to our documentation
+- `breaking change`: For any breaking change
+- `enhancement`: For any new feature or enhancement
+- `bug fix`: For bug fixes
+- `performance`: For performance improvements
+- `dependencies`: For updates to dependency versions
+- `build improvement`: For updates to our build system that shouldn't have user visible impacts
+- `testing improvement`: For new test coverage, or improvements to testing infrastructure
+- `documentation`: For improvements to our documentation
 
 [release-notes-config.json](build/release-notes-config.json) describes how labels are
 converted into categories in the release notes.
