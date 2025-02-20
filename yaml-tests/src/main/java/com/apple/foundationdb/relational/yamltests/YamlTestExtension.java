@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -82,9 +81,13 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             for (ExternalServer server : servers) {
                 server.start();
             }
+            final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
+            final Stream<YamlTestConfig> localTestingConfigs = mixedModeOnly ?
+                                                               Stream.of() :
+                                                               Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig());
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)
-                    Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig()),
+                    localTestingConfigs,
                     // The configs for multi-server testing (4 configs for each server available)
                     servers.stream().flatMap(server ->
                             Stream.of(new MultiServerConfig(0, server),
@@ -109,20 +112,27 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     @SuppressWarnings("PMD.UnnecessaryLocalBeforeReturn") // It complains about the local variable `e` being returned
     public void afterAll(final ExtensionContext context) throws Exception {
         final Optional<Exception> exception =
-                Streams.stream(Iterables.concat(testConfigs, maintainConfigs)).map(config -> {
-                    try {
-                        config.afterAll();
-                        return null;
-                    } catch (Exception e) {
-                        return e;
+                Stream.concat(
+                        // if beforeAll fails in certain places, or isn't run, testConfigs and/or maintainConfigs could
+                        // be null
+                        Objects.requireNonNullElse(testConfigs, List.<YamlTestConfig>of()).stream(),
+                        Objects.requireNonNullElse(maintainConfigs, List.<YamlTestConfig>of()).stream())
+                        .map(config -> {
+                            try {
+                                config.afterAll();
+                                return null;
+                            } catch (Exception e) {
+                                return e;
+                            }
+                        }).filter(Objects::nonNull).findFirst();
+        if (servers != null) {
+            for (ExternalServer server : servers) {
+                try {
+                    server.stop();
+                } catch (Exception ex) {
+                    if (logger.isWarnEnabled()) {
+                        logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
                     }
-                }).filter(Objects::nonNull).findFirst();
-        for (ExternalServer server : servers) {
-            try {
-                server.stop();
-            } catch (Exception ex) {
-                if (logger.isWarnEnabled()) {
-                    logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
                 }
             }
         }

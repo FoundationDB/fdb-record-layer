@@ -159,12 +159,10 @@ allprojects {
     }
 
     signing {
-        if (System.getenv("GPG_KEY_ID") != null) {
-            def signingKeyId = System.getenv('GPG_KEY_ID')
-            def signingKey = System.getenv('GPG_KEY')
-            def signingPassword = System.getenv('GPG_PASSPHRASE')
-            useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
-            sign configurations.archives
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null && signingPassword != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
         }
     }
 
@@ -242,8 +240,8 @@ subprojects {
                     linksOffline "https://developers.google.com/protocol-buffers/docs/reference/java/", "${packageListDir}/protobuf/"
 
                     // This is for dependent sub-projects so that their links to things in the Record Layer work
-                    linksOffline "https://static.javadoc.io/org.foundationdb/fdb-extensions/${project.version}/", "${packageListDir}/fdb-extensions/"
-                    linksOffline "https://static.javadoc.io/org.foundationdb/fdb-record-layer-core/${project.version}/", "${packageListDir}/fdb-record-layer-core/"
+                    linksOffline "https://foundationdb.github.io/fdb-record-layer/api/fdb-extensions/", "${packageListDir}/fdb-extensions/"
+                    linksOffline "https://foundationdb.github.io/fdb-record-layer/api/fdb-record-layer-core/", "${packageListDir}/fdb-record-layer-core/"
                 }
             }
             compileJava {
@@ -315,13 +313,6 @@ if (Boolean.parseBoolean(centralPublish)) {
             }
         }
     }
-    signing {
-        def signingKey = findProperty("signingKey")
-        def signingPassword = findProperty("signingPassword")
-        if (signingKey != null && signingPassword != null) {
-            useInMemoryPgpKeys(signingKey, signingPassword)
-        }
-    }
 }
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
@@ -341,6 +332,8 @@ clean.doLast {
         delete p.tasks.createDistribution.destinationDir
     }
 }
+
+apply from: 'gradle/sphinx.gradle'
 
 if (!JavaVersion.current().isJava8Compatible()) {
     throw new Exception("Java 8 is required to build fdb-record-layer")

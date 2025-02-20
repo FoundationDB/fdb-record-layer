@@ -49,6 +49,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -244,7 +245,7 @@ public final class YamlExecutionContext {
                 return URI.create("jdbc:embed:/__SYS?schema=CATALOG");
             }
             Assert.thatUnchecked(idx <= connectionURIs.size(), ErrorCode.INTERNAL_ERROR,
-                    () -> String.format("Requested connection URI at index %d, but only have %d available connection URIs.", idx, connectionURIs.size()));
+                    () -> String.format(Locale.ROOT, "Requested connection URI at index %d, but only have %d available connection URIs.", idx, connectionURIs.size()));
             return URI.create(connectionURIs.get(idx - 1));
         } else {
             return URI.create(Matchers.string(connectObject));
@@ -520,6 +521,11 @@ public final class YamlExecutionContext {
         public <T> T getOrDefault(ContextOption<T> prop, T defaultValue) {
             return (T)map.getOrDefault(prop, defaultValue);
         }
+
+        @Override
+        public String toString() {
+            return map.toString();
+        }
     }
 
     public static class ContextOption<T> {
@@ -544,6 +550,11 @@ public final class YamlExecutionContext {
         @Override
         public int hashCode() {
             return Objects.hashCode(name);
+        }
+
+        @Override
+        public String toString() {
+            return name;
         }
     }
 }

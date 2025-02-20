@@ -44,6 +44,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * This parses a given SQL statement and returns an abstract syntax tree.
@@ -94,7 +95,7 @@ public class QueryParser {
                                     boolean exact,
                                     BitSet ambigAlts,
                                     ATNConfigSet configs) {
-            ambiguityErrors.add(String.format("Ambiguity: %s, Exact: %b",
+            ambiguityErrors.add(String.format(Locale.ROOT, "Ambiguity: %s, Exact: %b",
                     recognizer.getInputStream().getText(Interval.of(startIndex, recognizer.getInputStream().size() - 1)), exact));
         }
     }

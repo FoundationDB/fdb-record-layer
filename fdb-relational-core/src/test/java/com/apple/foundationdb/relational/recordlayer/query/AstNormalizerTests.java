@@ -47,6 +47,7 @@ import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -238,7 +239,7 @@ public class AstNormalizerTests {
                 compareBindings(binding, expectedParameters);
             } else {
                 if (!expectedParameters.isEmpty()) {
-                    Assertions.fail(String.format("expected '%s' parameters, actual parameters is however empty", expectedParameters));
+                    Assertions.fail(String.format(Locale.ROOT, "expected '%s' parameters, actual parameters is however empty", expectedParameters));
                 }
             }
             if (expectedContinuation != null) {
@@ -278,7 +279,7 @@ public class AstNormalizerTests {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
                     PreparedParams.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
-            Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
+            Assertions.fail(String.format(Locale.ROOT, "expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
         }
