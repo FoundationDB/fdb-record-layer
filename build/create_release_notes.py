@@ -115,7 +115,7 @@ def generate_note(prs, commit, label_config):
         print("Too many PRs?")
     pr = prs[0]
     category = get_category(pr, label_config, commit)
-    text = f'* {pr["title"]} in ' + \
+    text = f'* {pr["title"]} - ' + \
         f'[PR #{pr["number"]}]({pr["html_url"]})'
     return (category, text)
 
