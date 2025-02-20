@@ -22,10 +22,8 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +33,6 @@ import java.util.Set;
  */
 public class SupportedVersionCheck {
     public static final String SUPPORTED_VERSION_OPTION = "supported_version";
-    public static final Set<String> OPTION_KEYS = ImmutableSet.of(SUPPORTED_VERSION_OPTION);
     public static SupportedVersionCheck SUPPORTED = new SupportedVersionCheck(true, "");
 
     private final boolean isSupported;
@@ -47,14 +44,14 @@ public class SupportedVersionCheck {
     }
 
     public static SupportedVersionCheck parseOptions(Map<?, ?> options, YamlExecutionContext executionContext) {
-        var builder = SupportedVersionCheck.newBuilder(executionContext);
-        for (Map.Entry<?, ?> entry : options.entrySet()) {
-            builder = builder.consumeLine(entry.getKey(), entry.getValue());
+        if (options.containsKey(SUPPORTED_VERSION_OPTION)) {
+            return SupportedVersionCheck.parse(options.get(SUPPORTED_VERSION_OPTION), executionContext);
+        } else {
+            return SupportedVersionCheck.supported();
         }
-        return builder.build();
     }
 
-    private static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
+    public static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
         if (rawVersion instanceof FileOptions.CurrentVersion) {
             executionContext.getConnectionFactory().getVersionsUnderTest();
             final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
@@ -87,47 +84,11 @@ public class SupportedVersionCheck {
         return message;
     }
 
-    public static Builder newBuilder(@Nonnull YamlExecutionContext executionContext) {
-        return new Builder(executionContext);
-    }
-
     public static SupportedVersionCheck supported() {
         return SUPPORTED;
     }
 
     public static SupportedVersionCheck unsupported(@Nonnull String message) {
         return new SupportedVersionCheck(false, message);
-    }
-
-    public static class Builder {
-        private final YamlExecutionContext executionContext;
-        @Nullable
-        private Object rawVersion;
-
-        private Builder(YamlExecutionContext executionContext) {
-            this.executionContext = executionContext;
-        }
-
-        @Nonnull
-        public Builder setRawVersion(final Object rawVersion) {
-            this.rawVersion = rawVersion;
-            return this;
-        }
-
-        @Nonnull
-        public Builder consumeLine(final Object key, final Object value) {
-            if (SUPPORTED_VERSION_OPTION.equals(key)) {
-                return setRawVersion(value);
-            }
-            return this;
-        }
-
-        @Nonnull
-        public SupportedVersionCheck build() {
-            if (rawVersion == null) {
-                return supported();
-            }
-            return parse(rawVersion, executionContext);
-        }
     }
 }

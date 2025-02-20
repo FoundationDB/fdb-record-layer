@@ -49,7 +49,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
@@ -77,6 +76,8 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
     public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
     public static final String QUERY_CONFIG_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
+    public static final String QUERY_CONFIG_INITIAL_VERSION_AT_LEAST = "initialVersionAtLeast";
+    public static final String QUERY_CONFIG_INITIAL_VERSION_LESS_THAN = "initialVersionLessThan";
     public static final String QUERY_CONFIG_NO_OP = "noOp";
 
     @Nullable private final Object value;
@@ -456,10 +457,10 @@ public abstract class QueryConfig {
     }
 
     @Nullable
-    public static QueryConfig getSupportedVersionConfig(final Map<?, ?> options, final int lineNumber, final YamlExecutionContext executionContext) {
-        final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(options, executionContext);
+    public static QueryConfig getSupportedVersionConfig(Object rawVersion, final int lineNumber, final YamlExecutionContext executionContext) {
+        final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
         if (!check.isSupported()) {
-            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, options, lineNumber, executionContext, check.getMessage());
+            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, lineNumber, executionContext, check.getMessage());
         }
         return null;
     }
@@ -486,9 +487,7 @@ public abstract class QueryConfig {
     @Nonnull
     public static List<QueryConfig> parseConfigs(String blockName, @Nonnull List<?> objects, @Nonnull YamlExecutionContext executionContext) {
         List<QueryConfig> configs = new ArrayList<>();
-        SupportedVersionCheck.Builder versionCheckBuilder = SupportedVersionCheck.newBuilder(executionContext);
 
-        int versionCheckLine = -1;
         for (Object object : objects) {
             final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
             final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
@@ -496,27 +495,19 @@ public abstract class QueryConfig {
             try {
                 final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
                 final var value = Matchers.notNull(configEntry, "query configuration").getValue();
-                if (SupportedVersionCheck.OPTION_KEYS.contains(key)) {
-                    versionCheckBuilder = versionCheckBuilder.consumeLine(key, value);
-                    versionCheckLine = lineNumber;
-                } else {
-                    configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
-                }
+                configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
             } catch (Exception e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
             }
-        }
-
-        final SupportedVersionCheck check = versionCheckBuilder.build();
-        if (!check.isSupported()) {
-            configs.add(new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, check, versionCheckLine, executionContext, check.getMessage()));
         }
 
         return configs;
     }
 
     private static QueryConfig parseConfig(String blockName, String key, Object value, int lineNumber, YamlExecutionContext executionContext) {
-        if (QUERY_CONFIG_COUNT.equals(key)) {
+        if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
+            return getSupportedVersionConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_COUNT.equals(key)) {
             return getCheckCountConfig(value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_ERROR.equals(key)) {
             return getCheckErrorConfig(value, lineNumber, executionContext);
