@@ -41,7 +41,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -190,7 +189,7 @@ public final class TestBlock extends ConnectedBlock {
         private boolean checkCache = true;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         private StatementType statementType = StatementType.BOTH;
-        private final Map<String, Object> supportedVersionOptions = new HashMap<>();
+        private Object supportedVersion = null;
 
         private void verifyPreset(@Nonnull String preset) {
             switch (preset) {
@@ -246,10 +245,10 @@ public final class TestBlock extends ConnectedBlock {
                         break;
                 }
             }
-            for (String option : SupportedVersionCheck.OPTION_KEYS) {
-                Object optionValue = optionsMap.get(option);
+            if (optionsMap.containsKey(SupportedVersionCheck.SUPPORTED_VERSION_OPTION)) {
+                Object optionValue = optionsMap.get(SupportedVersionCheck.SUPPORTED_VERSION_OPTION);
                 if (optionValue != null) {
-                    supportedVersionOptions.put(option, optionValue);
+                    supportedVersion = optionValue;
                 }
             }
             setOptionConnectionLifecycle(optionsMap);
@@ -341,8 +340,8 @@ public final class TestBlock extends ConnectedBlock {
             final String blockName = testsMap.containsKey(TEST_BLOCK_NAME)
                                      ? Matchers.string(testsMap.get(TEST_BLOCK_NAME)) : "unnamed-" + blockNumber;
             final var testsObject = Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber);
-            if (!options.supportedVersionOptions.isEmpty()) {
-                final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(options.supportedVersionOptions, executionContext);
+            if (options.supportedVersion != null) {
+                final SupportedVersionCheck check = SupportedVersionCheck.parse(options.supportedVersion, executionContext);
                 if (!check.isSupported()) {
                     return new SkipBlock(lineNumber, check.getMessage());
                 }
