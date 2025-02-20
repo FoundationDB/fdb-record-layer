@@ -19,21 +19,20 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Plan hashes for queries involving recursive CTEs are now stable across JVM invocations [(Issue #3139)](https://github.com/FoundationDB/fdb-record-layer/issues/3139)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Insert statement does not fully validate the column names with supplied values [(Issue #3069)](https://github.com/FoundationDB/fdb-record-layer/issues/3069)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix continuation bug in AggregateCursor when a group is finished [Issue #3172](https://github.com/FoundationDB/fdb-record-layer/issues/3172)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add enum column support to relational server [(Issue #3073)](https://github.com/FoundationDB/fdb-record-layer/issues/3073)
-* **Feature** Allow scrubbing of indexes in READABLE_UNIQUE_PENDING state [(Issue #3135)](https://github.com/FoundationDB/fdb-record-layer/issues/3135)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -42,6 +41,30 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 
 // end next release
 -->
+
+### 4.1.8.0
+
+* **Bug fix** The relational component now specifies `Locale.ROOT` in all usages of `String.format` which may change number formatting if the default locale does not align [(Issue #3121)](https://github.com/FoundationDB/fdb-record-layer/issues/3121)
+* **Feature** FRL now respects PLAN_CACHE_*_MAX_ENTRIES options [(Issue #3155)](https://github.com/FoundationDB/fdb-record-layer/issues/3155)
+
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.559.1`, ✅`4.0.559.2`, ❌`4.0.559.3`, ❌`4.0.559.4`, ❌`4.0.559.6`, ❌`4.0.561.0`, ❌`4.0.562.0`, ✅`4.0.564.0`, ✅`4.0.565.0`, ✅`4.0.566.0`, ✅`4.0.567.0`, ✅`4.0.568.0`, ✅`4.0.569.0`, ✅`4.0.570.0`, ✅`4.0.571.0`, ✅`4.0.572.0`, ✅`4.0.573.0`, ✅`4.0.574.0`, ✅`4.0.575.0`, ✅`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/13411580367)
+
+### 4.1.6.0
+
+* **Bug fix** Plan hashes for queries involving recursive CTEs are now stable across JVM invocations [(Issue #3139)](https://github.com/FoundationDB/fdb-record-layer/issues/3139)
+* **Bug fix** Insert statement does not fully validate the column names with supplied values [(Issue #3069)](https://github.com/FoundationDB/fdb-record-layer/issues/3069)
+* **Feature** Add enum column support to relational server [(Issue #3073)](https://github.com/FoundationDB/fdb-record-layer/issues/3073)
+* **Feature** Allow scrubbing of indexes in READABLE_UNIQUE_PENDING state [(Issue #3135)](https://github.com/FoundationDB/fdb-record-layer/issues/3135)
+* **Feature** Support Lucene index scrubbing [(Issue #3008)](https://github.com/FoundationDB/fdb-record-layer/issues/3008)
+
+<!-- MIXED_MODE_RESULTS 4.1.6.0 PLACEHOLDER -->
 
 ### 4.1.4.0
 
@@ -109,7 +132,7 @@ The Apache Commons library has been removed as a dependency. There were a few lo
 
 ### Breaking Changes
 
-Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior]()) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
+Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior](Overview.md#indexing-and-querying-of-missing--null-values)) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
 
 Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType` were changed in response to [Issue #2512](https://github.com/FoundationDB/fdb-record-layer/issues/2512). It was identified that extraneous synthetic records were being produced when one of the children was empty. This did not match the semantics of `FanOut` expressions, and so the unnesting calculation was changed. This means that any index on an existing `UnnestedRecordType` requires rebuilding to clear out any such entries from older indexes.
 
@@ -2145,7 +2168,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 ### Breaking Changes
 
-The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
+The Guava version has been updated to version 27. Users of the [shaded variants](Versioning.md#variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
 
 ### 2.7.79.0
 

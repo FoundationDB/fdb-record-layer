@@ -84,7 +84,10 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             } else {
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
                 boolean groupBreak = streamGrouping.apply(queryResult);
-                previousValidResult = innerResult;
+                if (!groupBreak) {
+                    // previousValidResult is the last row before group break, it sets the continuation
+                    previousValidResult = innerResult;
+                }
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
@@ -98,6 +101,29 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             }
             // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = Verify.verifyNotNull(previousValidResult).getContinuation();
+            /*
+            * Update the previousValidResult to the next continuation even though it hasn't been returned. This is to return the correct continuation when there are single-element groups.
+            * Below is an example that shows how continuation(previousValidResult) moves:
+            * Initial: previousResult = null, previousValidResult = null
+            row0      groupKey0      groupBreak = False         previousValidResult = row0  previousResult = row0
+            row1      groupKey0      groupBreak = False         previousValidResult = row1  previousResult = row1
+            row2      groupKey1      groupBreak = True          previousValidResult = row1  previousResult = row2
+            * returns result (groupKey0, continuation = row1), and set previousValidResult = row2
+            *
+            * Now there are 2 scenarios, 1) the current iteration continues; 2) the current iteration stops
+            * In scenario 1, the iteration continues, it gets to row3:
+            row3      groupKey2      groupBreak = True          previousValidResult = row2  previousResult = row3
+            * returns result (groupKey1, continuation = row2), and set previousValidResult = row3
+            *
+            * In scenario 2, a new iteration starts from row2 (because the last returned continuation = row1), and set initial previousResult = null, previousValidResult = null:
+            row2      groupKey1      groupBreak = False         previousValidResult = row2  previousResult = row2
+            * (Note that because a new iteration starts, groupBreak = False for row2.)
+            row3      groupKey2      groupBreak = True          previousValidResult = row2  previousResult = row3
+            * returns result (groupKey1, continuation = row2), and set previousValidResult = row3
+            *
+            * Both scenarios returns the correct result, and continuation are both set to row3 in the end, row2 is scanned twice if a new iteration starts.
+             */
+            previousValidResult = previousResult;
             return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
         });
     }

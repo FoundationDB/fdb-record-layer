@@ -1,0 +1,4 @@
+Diagram(
+    Terminal('WHERE'),
+    NonTerminal('booleanExpression')
+)

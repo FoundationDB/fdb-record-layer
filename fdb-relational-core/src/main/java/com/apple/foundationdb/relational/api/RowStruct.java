@@ -36,6 +36,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Locale;
 
 /**
  * Implementation of {@link RelationalStruct} that is backed by a {@link Row}.
@@ -107,7 +108,7 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             return 0;
         }
         if (!(o instanceof Number)) {
-            throw new SQLException(String.format("Cannot convert %s to Integer", o.getClass().toString()), ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "Cannot convert %s to Integer", o.getClass().toString()), ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).intValue();
@@ -125,7 +126,7 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             return 0L;
         }
         if (!(o instanceof Number)) {
-            throw new SQLException(String.format("Cannot convert %s to Long", o.getClass().toString()), ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+            throw new SQLException(String.format(Locale.ROOT, "Cannot convert %s to Long", o.getClass().toString()), ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
         return ((Number) o).longValue();

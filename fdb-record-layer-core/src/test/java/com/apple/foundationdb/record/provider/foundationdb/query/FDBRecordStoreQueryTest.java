@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsTupleFieldsProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
@@ -104,6 +106,11 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -897,11 +904,28 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Exercise the default code path for checking the complexity limit. There are special code paths that
+     * check the limit for unions, unordered unions, and intersections, so they have their own methods.
+     *
+     * @throws Exception from setting up the planner
+     */
     @Test
-    void queryComplexityLimit() throws Exception {
-        RecordMetaDataHook hook = complexQuerySetupHook();
-        complexQuerySetup(hook);
+    void queryComplexityLimitsForInUnion() throws Exception {
+        List<Integer> values = IntStream.range(0, RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD + 10)
+                .boxed()
+                .collect(Collectors.toList());
 
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_3_indexed").in(values))
+                .setSort(field("rec_no"))
+                .build();
+        queryComplexityLimit(query);
+    }
+
+    @Test
+    void queryOrderedUnionComplexityLimit() throws Exception {
         List<QueryComponent> clauses = Lists.newArrayList(Query.field("num_value_unique").greaterThanOrEquals(-1));
 
         for (int i = 0; i < RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD + 10; i++) {
@@ -912,8 +936,65 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.or(clauses))
                 .build();
+        queryComplexityLimit(query);
+    }
 
-        assertThrows(RecordQueryPlanComplexityException.class, () -> planQuery(query));
+    @Test
+    void queryUnorderedUnionComplexityLimit() throws Exception {
+        List<QueryComponent> clauses = List.of(
+                Query.field("str_value_indexed").startsWith("blah"),
+                Query.field("num_value_3_indexed").greaterThan(4),
+                Query.field("num_value_unique").lessThanOrEquals(10)
+        );
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(clauses))
+                .build();
+        queryComplexityLimit(query, 3);
+    }
+
+    @Test
+    void queryIntersectionComplexityLimit() throws Exception {
+        List<QueryComponent> clauses = Lists.newArrayList(
+                Query.field("str_value_indexed").equalsValue("even"),
+                Query.field("num_value_3_indexed").equalsValue(1),
+                Query.field("num_value_unique").equalsValue(2)
+        );
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(clauses))
+                .build();
+        queryComplexityLimit(query, 3);
+    }
+
+    private void queryComplexityLimit(RecordQuery query) throws Exception {
+        queryComplexityLimit(query, RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD);
+    }
+
+    private void queryComplexityLimit(RecordQuery query, int complexityLimit) throws Exception {
+        complexQuerySetup(complexQuerySetupHook());
+        planner.setConfiguration(planner.getConfiguration().asBuilder()
+                .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
+                .setAttemptFailedInJoinAsUnionMaxSize(1000)
+                .setComplexityThreshold(complexityLimit)
+                .setDeferFetchAfterInJoinAndInUnion(true)
+                .setDeferFetchAfterUnionAndIntersection(true)
+                .setOmitPrimaryKeyInOrderingKeyForInUnion(true)
+                .setOmitPrimaryKeyInUnionOrderingKey(true)
+                .build());
+
+        RecordQueryPlanComplexityException err = assertThrows(RecordQueryPlanComplexityException.class, () -> planQuery(query));
+        assertThat(err.getLogInfo(), hasKey(LogMessageKeys.PLAN.toString()));
+        Object plan = err.getLogInfo().get(LogMessageKeys.PLAN.toString());
+        assertThat(plan, instanceOf(String.class));
+        assertThat("Expected plan \"" + plan + "\" to be under size threshold", ((String) plan).length(), lessThanOrEqualTo(1003));
+
+        assertThat(err.getLogInfo(), hasEntry(LogMessageKeys.MAX_COMPLEXITY.toString(), complexityLimit));
+        assertThat(err.getLogInfo(), hasKey(LogMessageKeys.COMPLEXITY.toString()));
+        Object complexity = err.getLogInfo().get(LogMessageKeys.COMPLEXITY.toString());
+        assertThat(complexity, instanceOf(Number.class));
+        assertThat(((Number) complexity).intValue(), greaterThan(complexityLimit));
     }
 
     @Test

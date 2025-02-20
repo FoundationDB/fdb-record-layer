@@ -1,0 +1,22 @@
+Diagram(
+    Stack(
+        Sequence(
+            Terminal('CREATE'),
+            Terminal('TYPE'),
+            Terminal('AS'),
+            Terminal('STRUCT'),
+            NonTerminal('structName'),
+        ),
+        Sequence(
+            Terminal('('),
+            OneOrMore(
+                Sequence(
+                    NonTerminal('columnName'),
+                    NonTerminal('columnType'),
+                ),
+                Terminal(',')
+            ),
+            Terminal(')')
+        )
+    )
+)
