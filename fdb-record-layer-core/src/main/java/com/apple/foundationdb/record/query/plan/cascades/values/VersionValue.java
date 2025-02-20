@@ -150,7 +150,7 @@ public class VersionValue extends AbstractValue {
     @Override
     public PVersionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         if (childValue instanceof QuantifiedRecordValue) {
-            // Deprecated. This value previously required that the child by a QuantifiedRecordValue and only
+            // Deprecated. This value previously required that the child be a QuantifiedRecordValue and only
             // contained the alias. To preserve cross-version compatibility with versions older than 4.0.561.0,
             // send messages without the full value.
             // Note: it's tempting to also include the full value in the `child` field, but doing so can
