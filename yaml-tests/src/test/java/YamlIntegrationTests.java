@@ -150,8 +150,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void aggregateIndexTestsCountEmpty(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-index-tests-count-empty.yamsql");
     }
@@ -172,8 +170,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void primaryKey(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("primary-key-tests.yamsql");
     }
@@ -292,8 +288,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "maxRows ignored (https://github.com/FoundationDB/fdb-record-layer/issues/3100)")
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
     }
