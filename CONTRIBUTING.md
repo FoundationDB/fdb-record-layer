@@ -84,7 +84,7 @@ automatically mark the issue as resolved.
 
 PRs should have titles that clearly indicate what the change is accomplishing,
 we use these to generate release notes, so you can glance at
-[release notes](docs/ReleaseNotes.md) for inspiration.
+[release notes](docs/sphinx/source/ReleaseNotes.md) for inspiration.
 
 They should also have one of the following labels:
 - breaking change: For any breaking change
