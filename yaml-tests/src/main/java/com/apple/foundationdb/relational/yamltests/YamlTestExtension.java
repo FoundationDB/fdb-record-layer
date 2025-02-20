@@ -81,9 +81,13 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             for (ExternalServer server : servers) {
                 server.start();
             }
+            final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
+            final Stream<YamlTestConfig> localTestingConfigs = mixedModeOnly ?
+                                                               Stream.of() :
+                                                               Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig());
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)
-                    Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig()),
+                    localTestingConfigs,
                     // The configs for multi-server testing (4 configs for each server available)
                     servers.stream().flatMap(server ->
                             Stream.of(new MultiServerConfig(0, server),
@@ -121,12 +125,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                                 return e;
                             }
                         }).filter(Objects::nonNull).findFirst();
-        for (ExternalServer server : servers) {
-            try {
-                server.stop();
-            } catch (Exception ex) {
-                if (logger.isWarnEnabled()) {
-                    logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+        if (servers != null) {
+            for (ExternalServer server : servers) {
+                try {
+                    server.stop();
+                } catch (Exception ex) {
+                    if (logger.isWarnEnabled()) {
+                        logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+                    }
                 }
             }
         }

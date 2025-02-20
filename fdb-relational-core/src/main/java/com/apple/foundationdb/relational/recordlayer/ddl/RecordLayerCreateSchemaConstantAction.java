@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProv
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.net.URI;
+import java.util.Locale;
 
 /**
  * Will eventually remove CreateSchemaConstantAction and replace it with this.
@@ -75,7 +76,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
          *
          */
         if (!catalog.doesDatabaseExist(txn, dbUri)) {
-            throw new RelationalException(String.format("Database %s does not exist", dbUri.getPath()), ErrorCode.UNDEFINED_DATABASE);
+            throw new RelationalException(String.format(Locale.ROOT, "Database %s does not exist", dbUri.getPath()), ErrorCode.UNDEFINED_DATABASE);
         }
         //verify that the schema doesn't already exist
         // This is a bit awkward--perhaps we should adjust the behavior of the StoreCatalog?

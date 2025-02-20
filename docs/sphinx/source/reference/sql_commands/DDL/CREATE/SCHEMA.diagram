@@ -1,0 +1,7 @@
+    Diagram(
+        Terminal('CREATE'),
+        Terminal('SCHEMA'),
+        NonTerminal('pathToSchema'),
+        Terminal('WITH'),
+        NonTerminal('schemaTemplateName')
+    )

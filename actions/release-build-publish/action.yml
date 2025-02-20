@@ -51,8 +51,12 @@ runs:
       id: push_updates
       shell: bash
       run: git push origin
+      # Continue the build (including downstream steps). If the push fails, we'll create a PR
+      continue-on-error: true
     - name: Create Merge PR if conflict
-      if: failure() && steps.push_updates.conclusion == 'failure'
+      # Only create the PR if we've otherwise been successful, but the push failed. Note that
+      # we're checking the .outcome of the push step, which is applied before continue-on-error.
+      if: success() && steps.push_updates.outcome == 'failure'
       uses: peter-evans/create-pull-request@bb88e27d3f9cc69c8bc689eba126096c6fe3dded
       id: pr_on_conflict
       with:
@@ -62,3 +66,8 @@ runs:
         sign-commits: true
         body: |
           Updates from release for version ${{ steps.get_version.outputs.version }}. Conflicts during the build prevented automatic updating. Please resolve conflicts by checking out the current branch, merging, and then deleting this branch.
+
+    # Creating the PR can change the current branch. Explicitly check out the tag here for downstream builds
+    - name: Revert to tag
+      shell: bash
+      run: git checkout "${{ steps.get_version.outputs.version }}"

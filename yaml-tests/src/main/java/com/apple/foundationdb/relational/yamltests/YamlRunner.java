@@ -47,6 +47,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -173,7 +174,7 @@ public final class YamlRunner {
     private static InputStream getInputStream(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
-        Assert.notNull(inputStream, String.format("could not find '%s' in resources bundle", resourcePath));
+        Assert.notNull(inputStream, String.format(Locale.ROOT, "could not find '%s' in resources bundle", resourcePath));
         return inputStream;
     }
 
