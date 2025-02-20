@@ -41,12 +41,13 @@ def run(command):
         print(e.stderr)
         raise Exception(f"Failed to run command ({e.returncode}): {e.cmd}")
 
-def get_commits(old_version, new_version):
+def get_commits(old_version, new_version, skip_commits):
     '''Return a list of tuples for each commit between the two versions
     The tuples will be (hash, commit subject)
     '''
     raw_log = run(['git', 'log', '--pretty=%H %s', old_version + ".." + new_version])
-    return [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
+    commit_pairs = [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
+    return [commit for commit in commit_pairs if not commit[0] in skip_commits]
 
 def get_pr(commit_hash, pr_cache):
     '''Get the PRs associated with the given commit hash.
@@ -237,6 +238,9 @@ def main(argv):
                         help="path to ReleaseNotes.md to update, will just print if not provided " +
                         "(printing is only intended for testing)")
     parser.add_argument('--commit', action='store_true', default=False, help="Commit the updates to the release notes")
+    # The below option is necessary because during the release we will have changed the version, and committed
+    # that, but not pushed it
+    parser.add_argument('--skip-commit', action='append', help="If provided, skip this commit (can be repeated)")
     parser.add_argument('old_version', help='Old version to use when generating release notes')
     parser.add_argument('new_version', nargs='+', 
                         help='New version to use when generating release notes.\n' + 
@@ -250,7 +254,7 @@ def main(argv):
     release_notes = []
     for new_version in args.new_version:
         print(f"Generating release notes for {new_version}")
-        commits = get_commits(old_version, new_version)
+        commits = get_commits(old_version, new_version, args.skip_commit)
         prs = get_prs(commits, args.pr_cache)
         prs = dedup_prs(prs)
         new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
