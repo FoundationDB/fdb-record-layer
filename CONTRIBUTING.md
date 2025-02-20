@@ -96,8 +96,14 @@ They should also have one of the following labels:
 - `testing improvement`: For new test coverage, or improvements to testing infrastructure
 - `documentation`: For improvements to our documentation
 
+(Note: `build improvement`/`testing improvement`/`documentation` are combined in one
+grouping in the release notes, that is collapsed).
+
 [release-notes-config.json](build/release-notes-config.json) describes how labels are
 converted into categories in the release notes.
+If a PR has multiple labels it will appear in the first grouping as listed above /
+in [release-notes-config.json](build/release-notes-config.json) (i.e. if it is has
+`enhancement` and `dependencies` it will only appear under `enhancement`).
 
 ### Reporting issues
 
