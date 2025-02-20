@@ -7,6 +7,14 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.1
 
+### Features
+
+Builds and releases have been moved to a new CI system. This includes the resumption of publishing artifacts to the Maven Central repository and now also to GitHub packages. This should mostly be transparent to users, other than that they can remove the reference to our Artifactory repository from their build in favor of one of the new publishing locations.
+
+### Update Compatibility
+
+Users performing online updates are encouraged to update from [4.0.559.4](#405594). The continuations of some queries have changed in ways that may break if continued on other 4.0 builds. See: [Issue #3093](https://github.com/FoundationDB/fdb-record-layer/issues/3093), [PR #3092](https://github.com/FoundationDB/fdb-record-layer/pull/3092) fixing the issue, and [PR #3108](https://github.com/FoundationDB/fdb-record-layer/issues/3108) preparing 4.0.559.4 to accept newer continuations.
+
 ### 4.1.8.0
 
 <h4> New Features </h4>
@@ -348,7 +356,11 @@ Our API stability annotations have been updated to reflect greater API instabili
 
 <h4> New Features </h4>
 
-* 4.0.559 release branch and backport PRs #3030, #3033 and #3052 - [PR #3058](https://github.com/FoundationDB/fdb-record-layer/pull/3058)
+* 4.0.559 release branch and backport PRs #3030, #3033 and #3053 - [PR #3058](https://github.com/FoundationDB/fdb-record-layer/pull/3058)
+  * This includes 3 initial changes for the start of the 4.0.559 branch:
+    * Backport of: Add support for continuations to the relational server - [PR #3030](https://github.com/FoundationDB/fdb-record-layer/pull/3030)
+    * Backport of: Enable load schema in JDBC tests - [PR #3033](https://github.com/FoundationDB/fdb-record-layer/pull/3033)
+    * Backport of: Merge service descriptor files in fdb-relational-server's shadow-jar - [PR #3053](https://github.com/FoundationDB/fdb-record-layer/pull/3053)
 
 
 **[Full Changelog (4.0.559.0...4.0.559.1)](https://github.com/FoundationDB/fdb-record-layer/compare/4.0.559.0...4.0.559.1)**
