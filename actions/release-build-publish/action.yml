@@ -23,6 +23,7 @@ runs:
     # in published artifacts but an erroneous build, so it's safer to bump the version
     # at the beginning
     - name: Increment version
+      shell: bash
       run: python build/versionutils.py gradle.properties --increment --commit -u ${{ inputs.update_type }}
     - name: Get new version
       id: get_new_version
@@ -53,6 +54,7 @@ runs:
     # push the changes to gradle.properties, the release notes, and the tag as one operation, so if it fails,
     # it will be as if the release never did anything
     - name: Push Version Update
+      shell: bash
       run: git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
 
     - name: Run Gradle Test
