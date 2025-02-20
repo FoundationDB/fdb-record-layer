@@ -240,7 +240,8 @@ def main(argv):
     parser.add_argument('--commit', action='store_true', default=False, help="Commit the updates to the release notes")
     # The below option is necessary because during the release we will have changed the version, and committed
     # that, but not pushed it
-    parser.add_argument('--skip-commit', action='append', help="If provided, skip this commit (can be repeated)")
+    parser.add_argument('--skip-commit', action='append', default=[],
+                        help="If provided, skip this commit (can be repeated)")
     parser.add_argument('--repository', default='FoundationDB/fdb-record-layer', help="Repository")
     parser.add_argument('old_version', help='Old version to use when generating release notes')
     parser.add_argument('new_version', nargs='+', 
