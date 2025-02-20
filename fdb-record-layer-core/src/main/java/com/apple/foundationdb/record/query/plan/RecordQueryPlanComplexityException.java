@@ -21,26 +21,26 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Exception thrown when a query plan is more complex than the configured limit.
  */
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
-public class RecordQueryPlanComplexityException extends RuntimeException {
+public class RecordQueryPlanComplexityException extends RecordCoreException {
     public RecordQueryPlanComplexityException(@Nonnull String msg) {
         super(msg);
     }
 
-    public RecordQueryPlanComplexityException(@Nonnull String msg, @Nullable Throwable cause) {
-        super(msg, cause);
-    }
-
     public RecordQueryPlanComplexityException(RecordQueryPlan plan) {
-        this("AttemptedPlan: " + plan.toString());
+        this("Plan exceeds complexity threshold");
+        addLogInfo(LogMessageKeys.PLAN, ExplainPlanVisitor.toStringForExternalExplain(plan, ExplainLevel.ALL_DETAILS, 1_000));
     }
 }
