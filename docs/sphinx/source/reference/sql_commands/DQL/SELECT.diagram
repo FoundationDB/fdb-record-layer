@@ -1,0 +1,17 @@
+Diagram(
+    Terminal('SELECT'),
+    OneOrMore(
+        Sequence(
+            NonTerminal('selectExpression'),
+            Optional(
+                Sequence(
+                    Terminal('AS'),
+                    NonTerminal('label'),
+                ),
+                'skip'
+            ),
+        ),
+        Terminal(','),
+    ),
+    NonTerminal('...'),
+)

@@ -1,0 +1,143 @@
+/*
+ * sphinx.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+var sphinxRoot = "${rootDir}/docs/sphinx"
+var venvDir = "${sphinxRoot}/.venv"
+var sphinxBuildDir = "${sphinxRoot}/.out"
+
+var documented_subprojects = [
+        "fdb-java-annotations",
+        "fdb-extensions",
+        "fdb-record-layer-core",
+        "fdb-record-layer-icu",
+        "fdb-record-layer-lucene",
+        "fdb-record-layer-spatial",
+        "fdb-relational-api",
+        "fdb-relational-core",
+        "fdb-relational-cli",
+        "fdb-relational-grpc",
+        "fdb-relational-jdbc",
+]
+
+task sphinxEnv {
+    inputs.file("${sphinxRoot}/requirements.txt")
+    outputs.dir(venvDir)
+
+    doLast {
+        exec {
+            commandLine 'python3', '-m', 'venv', venvDir
+        }
+        exec {
+            commandLine "${venvDir}/bin/pip", 'install', '-r', "${sphinxRoot}/requirements.txt"
+        }
+    }
+}
+
+// Create svg files for railroad diagrams from specification files. These images are included
+// in the docs
+task generateRailroadDiagrams(type: Exec) {
+    inputs.file("${sphinxRoot}/generate_railroad_svg.py")
+    fileTree("${sphinxRoot}/source") {
+        include("**/*.diagram")
+    }.forEach {
+        inputs.file(it)
+        outputs.file(it.getPath() + ".svg")
+    }
+
+    dependsOn sphinxEnv
+    commandLine "${venvDir}/bin/python", "${sphinxRoot}/generate_railroad_svg.py"
+}
+
+// To include the API Javadocs in the final build, we need to have a place for the sphinx build
+// to link to. Create temporary placeholders for each one. Later, we will override the location
+// with the generated javadoc. Also, generates a table of contents so that we have all of the
+// subprojects listed
+task createSphinxApiPlaceholders {
+    var apiTemplatePath = "${sphinxRoot}/source/api/api.md.template"
+    inputs.file(apiTemplatePath)
+    var inputPath = "${sphinxRoot}/source/api/index.md.template"
+    inputs.file(inputPath)
+    var outputPath = "${sphinxRoot}/source/api/index.md"
+    outputs.file(outputPath)
+
+    String baseInput = new File(inputPath).getText('UTF-8')
+    String outputText = baseInput + "\n```{toctree}\n\n"
+
+    documented_subprojects.forEach {
+        outputText += "${it} <${it}/index>\n"
+        File placeholderDir = new File("${sphinxRoot}/source/api/${it}")
+        if (!placeholderDir.exists()) {
+            placeholderDir.mkdirs()
+        }
+        outputs.dir(placeholderDir)
+    }
+    outputText += "```\n"
+
+    doLast {
+        new File(outputPath).text = outputText
+        documented_subprojects.forEach {
+            File placeholderDir = new File("${sphinxRoot}/source/api/${it}")
+            File placeholderIndex = new File(placeholderDir.getPath() + "/index.md")
+
+            String placeholderText = "# ${it}\n\n" + new File(apiTemplatePath).text
+            placeholderIndex.text = placeholderText
+        }
+    }
+}
+
+// Build the sphinx documentation
+task sphinxDocs(type: Exec) {
+    inputs.dir(venvDir)
+    inputs.dir("${sphinxRoot}/source")
+    outputs.dir("${sphinxBuildDir}/html")
+
+    dependsOn sphinxEnv
+    dependsOn generateRailroadDiagrams
+    dependsOn createSphinxApiPlaceholders
+    commandLine "${venvDir}/bin/sphinx-build", '-M', 'html', "${sphinxRoot}/source", sphinxBuildDir
+}
+
+// Compile the final documentation site by copying the generated javadoc into the appropriate
+// location in the build
+task documentationSite(type: Copy) {
+    dependsOn(tasks.javadoc)
+    dependsOn(tasks.sphinxDocs)
+
+    into("${sphinxBuildDir}/html/api")
+    documented_subprojects.forEach { proj ->
+        from(project(":${proj}").javadoc) {
+            into("${proj}")
+        }
+    }
+}
+
+// Clean the sphinx build
+task sphinxClean(type: Delete) {
+    delete(sphinxBuildDir)
+    delete fileTree("${sphinxRoot}/source") {
+        include "**/*.diagram.svg"
+    }
+    file("${sphinxRoot}/source/api").listFiles().each {
+        if (!it.getPath().endsWith(".md.template")) {
+            delete(it)
+        }
+    }
+}
+clean.dependsOn(sphinxClean)

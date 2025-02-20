@@ -1,0 +1,6 @@
+    Diagram(
+        Terminal('DROP'),
+        Terminal('SCHEMA'),
+        Terminal('TEMPLATE'),
+        NonTerminal('schemaTemplateName')
+    )

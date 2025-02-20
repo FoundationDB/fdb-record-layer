@@ -83,7 +83,7 @@ it is addressing and, upon merging of the PR into the main code line, will
 automatically mark the issue as resolved.
 
 If your pull request results in a user-visible change to the Record Layer, you should
-also update the [release notes](docs/ReleaseNotes.md). For most changes, it
+also update the [release notes](docs/sphinx/source/ReleaseNotes.md). For most changes, it
 is sufficient to fill in one of the bullets in the "next release" section of that
 document. You should include a short description of the change as well as filling in
 the issue number. The "next release" section is commented out, so the change won't
