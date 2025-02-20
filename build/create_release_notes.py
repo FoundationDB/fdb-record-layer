@@ -49,7 +49,7 @@ def get_commits(old_version, new_version, skip_commits):
     commit_pairs = [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
     return [commit for commit in commit_pairs if not commit[0] in skip_commits]
 
-def get_pr(commit_hash, pr_cache):
+def get_pr(commit_hash, pr_cache, repository):
     '''Get the PRs associated with the given commit hash.
     pr_cache: A path to a directory to cache PR results, or None.
     This will return the raw pr info from github associated with the commit,
@@ -61,20 +61,20 @@ def get_pr(commit_hash, pr_cache):
                 return json.load(fin)
         except:
             pass
-    raw_info = run(['gh', 'api', f'/repos/FoundationDB/fdb-record-layer/commits/{commit_hash}/pulls'])
+    raw_info = run(['gh', 'api', f'/repos/{repository}/commits/{commit_hash}/pulls'])
     info = json.loads(raw_info)
     if (pr_cache is not None):
         with open(pr_cache + "/" + commit_hash + ".json", 'w') as fout:
             json.dump(info, fout)
     return info
 
-def get_prs(commits, pr_cache):
+def get_prs(commits, pr_cache, repository):
     ''' Return all the prs for the given commits, optionally using the cache.
     pr_cache: A path to a directory to cache PR results or None.
     Returns a list of tuple pairs, the first being the PR info, and the second
     being the commit.
     '''
-    return [(get_pr(commit[0], pr_cache), commit) for commit in commits]
+    return [(get_pr(commit[0], pr_cache, repository), commit) for commit in commits]
 
 def dedup_prs(prs):
     ''' Remove any duplicate prs from the list based on urls.
@@ -120,7 +120,7 @@ def generate_note(prs, commit, label_config):
         f'[PR #{pr["number"]}]({pr["html_url"]})'
     return (category, text)
 
-def format_notes(notes, label_config, old_version, new_version):
+def format_notes(notes, label_config, old_version, new_version, repository):
     ''' Format a list of notes for the changes between the two given versions '''
     grouping = defaultdict(list)
     for (category, line) in notes:
@@ -141,7 +141,7 @@ def format_notes(notes, label_config, old_version, new_version):
                 text += f"{note}\n"
             if put_in_summary:
                 text += '\n</details>\n'
-    text += f"\n\n**[Full Changelog ({old_version}...{new_version})](https://github.com/FoundationDB/fdb-record-layer/compare/{old_version}...{new_version})**"
+    text += f"\n\n**[Full Changelog ({old_version}...{new_version})](https://github.com/{repository}/compare/{old_version}...{new_version})**"
     text += f"\n\n<!-- MIXED_MODE_RESULTS {new_version} PLACEHOLDER -->\n"
     return text
 
@@ -241,6 +241,7 @@ def main(argv):
     # The below option is necessary because during the release we will have changed the version, and committed
     # that, but not pushed it
     parser.add_argument('--skip-commit', action='append', help="If provided, skip this commit (can be repeated)")
+    parser.add_argument('--repository', default='FoundationDB/fdb-record-layer', help="Repository")
     parser.add_argument('old_version', help='Old version to use when generating release notes')
     parser.add_argument('new_version', nargs='+', 
                         help='New version to use when generating release notes.\n' + 
@@ -255,10 +256,10 @@ def main(argv):
     for new_version in args.new_version:
         print(f"Generating release notes for {new_version}")
         commits = get_commits(old_version, new_version, args.skip_commit)
-        prs = get_prs(commits, args.pr_cache)
+        prs = get_prs(commits, args.pr_cache, args.repository)
         prs = dedup_prs(prs)
         new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
-        release_notes.append(Note(old_version, new_version, format_notes(new_notes, label_config, old_version, new_version)))
+        release_notes.append(Note(old_version, new_version, format_notes(new_notes, label_config, old_version, new_version, args.repository)))
         old_version = new_version
     print("\n\n------------------------------\n\n")
     if args.release_notes_md is None:

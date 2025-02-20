@@ -44,6 +44,7 @@ runs:
         --config ./build/release-notes-config.json \
         --release-notes-md docs/sphinx/source/ReleaseNotes.md \
         --skip-commit $(git log -n 1 --format=%H HEAD) \
+        --repository ${{ github.repository }} \
         --commit \
         ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
     # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
