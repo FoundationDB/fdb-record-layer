@@ -41,7 +41,7 @@ runs:
       run: |
         python ./build/create_release_notes.py \
         --config ../fdb-record-layer/build/release-notes-config.json \
-        --release-notes-md docs/ReleaseNotes.md \
+        --release-notes-md docs/sphinx/source/ReleaseNotes.md \
         --commit
         ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
     # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
