@@ -297,6 +297,65 @@ Our API stability annotations have been updated to reflect greater API instabili
 <!-- MIXED_MODE_RESULTS 4.0.561.0 PLACEHOLDER -->
 
 
+### 4.0.559.6
+
+<h4> New Features </h4>
+
+* Backport prepared statement changes to the patch release - [PR #3157](https://github.com/FoundationDB/fdb-record-layer/pull/3157)
+
+
+**[Full Changelog (4.0.559.4...4.0.559.6)](https://github.com/FoundationDB/fdb-record-layer/compare/4.0.559.4...4.0.559.6)**
+
+<!-- MIXED_MODE_RESULTS 4.0.559.6 PLACEHOLDER -->
+
+
+### 4.0.559.4
+
+<h4> Bug Fixes </h4>
+
+* Prepare for up-level DEFAULTS_ON_EMPTY changes - [PR #3108](https://github.com/FoundationDB/fdb-record-layer/pull/3108)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation Improvements (click to expand) </h4>
+
+</summary>
+
+* Backport PRB workflow to 4.0.559 branch - [PR #3109](https://github.com/FoundationDB/fdb-record-layer/pull/3109)
+
+</details>
+
+
+**[Full Changelog (4.0.559.3...4.0.559.4)](https://github.com/FoundationDB/fdb-record-layer/compare/4.0.559.3...4.0.559.4)**
+
+<!-- MIXED_MODE_RESULTS 4.0.559.4 PLACEHOLDER -->
+
+
+### 4.0.559.3
+
+<h4> Bug Fixes </h4>
+
+* Break out a helper class from GenerateVisitor annotation processor (backport PR #3060) - [PR #3062](https://github.com/FoundationDB/fdb-record-layer/pull/3062)
+
+
+**[Full Changelog (4.0.559.1...4.0.559.3)](https://github.com/FoundationDB/fdb-record-layer/compare/4.0.559.1...4.0.559.3)**
+
+<!-- MIXED_MODE_RESULTS 4.0.559.3 PLACEHOLDER -->
+
+
+### 4.0.559.1
+
+<h4> New Features </h4>
+
+* 4.0.559 release branch and backport PRs #3030, #3033 and #3052 - [PR #3058](https://github.com/FoundationDB/fdb-record-layer/pull/3058)
+
+
+**[Full Changelog (4.0.559.0...4.0.559.1)](https://github.com/FoundationDB/fdb-record-layer/compare/4.0.559.0...4.0.559.1)**
+
+<!-- MIXED_MODE_RESULTS 4.0.559.1 PLACEHOLDER -->
+
+
 ### 4.0.559.0
 
 * **Feature** Add tests for Lucene "all-match" scan [(Issue #2991)](https://github.com/FoundationDB/fdb-record-layer/issues/2991)
