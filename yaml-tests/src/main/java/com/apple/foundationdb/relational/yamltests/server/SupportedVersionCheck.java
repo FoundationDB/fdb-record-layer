@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -52,28 +51,20 @@ public class SupportedVersionCheck {
     }
 
     public static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
-        if (rawVersion instanceof FileOptions.CurrentVersion) {
-            executionContext.getConnectionFactory().getVersionsUnderTest();
-            final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
-            // IntelliJ, at least, doesn't display the reason, so log it
-            if (versionsUnderTest.stream().anyMatch(v -> !v.equals(FileOptions.CurrentVersion.TEXT))) {
+        SemanticVersion supportedVersion = SemanticVersion.parseObject(rawVersion);
+        final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
+        final List<SemanticVersion> unsupportedVersions = supportedVersion.lesserVersions(versionsUnderTest);
+        if (!unsupportedVersions.isEmpty()) {
+            if (supportedVersion.equals(SemanticVersion.CURRENT_VERSION)) {
                 return SupportedVersionCheck.unsupported(
                         "Skipping test that only works against the current version, when we're running with these versions: " +
                                 versionsUnderTest);
-            }
-            return supported();
-        } else if (rawVersion instanceof String) {
-            final SemanticVersion supported = SemanticVersion.parse((String)rawVersion);
-            final List<SemanticVersion> unsupportedVersions = supported.lesserVersions(
-                    executionContext.getConnectionFactory().getVersionsUnderTest());
-            if (!unsupportedVersions.isEmpty()) {
-                return SupportedVersionCheck.unsupported("Skipping test that only works against " + supported +
+            } else {
+                return SupportedVersionCheck.unsupported("Skipping test that only works against " + supportedVersion +
                         " and later, but we are running with these older versions: " + unsupportedVersions);
             }
-            return supported();
-        } else {
-            throw new RuntimeException("Unsupported supported_version: " + rawVersion);
         }
+        return supported();
     }
 
     public boolean isSupported() {
