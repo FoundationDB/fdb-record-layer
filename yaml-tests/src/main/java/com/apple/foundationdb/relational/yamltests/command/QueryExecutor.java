@@ -102,9 +102,15 @@ public class QueryExecutor {
     public Continuation execute(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
                                 @Nonnull QueryConfig config, boolean checkCache, @Nullable Integer maxRows) throws RelationalException {
         final var currentQuery = config.decorateQuery(query);
-        if (continuation == null || continuation.atBeginning()) {
+        if (continuation == null) {
+            // no continuation - start the query execution from the beginning
             return executeQuery(connection, config, currentQuery, checkCache, maxRows);
+        } else if (continuation.atBeginning()) {
+            // Continuation cannot be at beginning if it was returned from a query
+            reportTestFailure("Received continuation shouldn't be at beginning");
+            return null;
         } else {
+            // Have a continuation - continue
             return executeContinuation(connection, continuation, config, maxRows);
         }
     }
@@ -238,6 +244,9 @@ public class QueryExecutor {
             // Have continuations - keep running the query
             Continuation continuation = resultSet.getContinuation();
             while (!continuation.atEnd()) {
+                if (continuation.atBeginning()) {
+                    reportTestFailure("Received continuation shouldn't be at beginning");
+                }
                 try (var s2 = prepareContinuationStatement(connection, continuation, FORCED_MAX_ROWS)) {
                     resultSet = (RelationalResultSet)executeStatement(s2, null);
                     final boolean hasNext = resultSet.next(); // Initialize result set value retrieval. Has only one row.
@@ -245,7 +254,7 @@ public class QueryExecutor {
                     if (!continuation.atEnd()) {
                         results.add(resultSet);
                     } else {
-                        // We assume that the last result is empty because of the maxWors:1
+                        // We assume that the last result is empty because of the maxRows:1
                         Assertions.assertFalse(hasNext);
                     }
                 }

@@ -1,0 +1,4 @@
+Diagram(
+    Terminal('EXPLAIN'),
+    NonTerminal('query')
+)

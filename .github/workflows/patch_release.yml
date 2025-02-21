@@ -23,28 +23,25 @@ jobs:
         with:
           ref: ${{ inputs.branch }}
           ssh-key: ${{ secrets.DEPLOY_KEY }}
+          fetch-tags: true
+          # fetch all the history to make sure that we have the last release
+          # I tried fetching part of the history, but I just couldn't get it to work, and fetching all still takes like 5s
+          fetch-depth: 0
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
         uses: ./actions/setup-fdb
-
-      # Push a version bump back to main. There are failure scenarios that can result
-      # in published artifacts but an erroneous build, so it's safer to bump the version
-      # at the beginning
       - name: Configure Git
         run: |
           git config --global user.name 'FoundationDB CI'
           git config --global user.email 'foundationdb_ci@apple.com'
-      - name: Increment Version
-        run: python build/versionutils.py gradle.properties -u PATCH --increment --commit
-      - name: Push Version Update
-        run: git push
 
       - name: Build and publish release
         uses: ./actions/release-build-publish
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          update_type: PATCH
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
