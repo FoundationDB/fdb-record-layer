@@ -48,7 +48,7 @@ public class SimpleYamlConnection implements YamlConnection {
     }
 
     @Override
-    public boolean supportsCacheCheck() {
+    public boolean supportsMetricCollector() {
         return underlying instanceof EmbeddedRelationalConnection;
     }
 

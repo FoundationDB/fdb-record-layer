@@ -197,7 +197,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         }
 
         @Override
-        public boolean supportsCacheCheck() {
+        public boolean supportsMetricCollector() {
             return false;
         }
 

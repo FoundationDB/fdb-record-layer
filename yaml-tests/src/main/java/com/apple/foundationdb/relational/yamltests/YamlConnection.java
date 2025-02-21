@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
@@ -32,20 +33,57 @@ import java.util.List;
  * A wrapper around {@link java.sql.Connection} to support yaml tests.
  */
 public interface YamlConnection extends AutoCloseable {
+    /**
+     * String for representing the current version of the code.
+     */
     String CURRENT_VERSION = "!currentVersion";
 
+    /**
+     * Close this connection.
+     * @throws SQLException if there was an issue closing the underlying connection(s).
+     */
     @Override
     void close() throws SQLException;
 
-    boolean supportsCacheCheck();
-
+    /**
+     * Creates a statement (see {@link RelationalConnection#createStatement()}).
+     * @return a new statement
+     * @throws SQLException if something goes wrong
+     */
     RelationalStatement createStatement() throws SQLException;
 
+    /**
+     * Creates a prepared statement (see {@link RelationalConnection#prepareStatement(String)}).
+     * @param sql the query
+     * @return a new prepared statement
+     * @throws SQLException if something goes wrong
+     */
     RelationalPreparedStatement prepareStatement(String sql) throws SQLException;
 
+    /**
+     * Returns true if this connection supports getting the metrics collector.
+     * @return true if it is possible to get the metrics collector
+     */
+    boolean supportsMetricCollector();
+
+    /**
+     * Return the underlying metrics collector if possible.
+     * @return the underlying metrics collector
+     */
     MetricCollector getMetricCollector();
 
+    /**
+     * Try to get the underlying embedded relational connection in support of a few specific setup methods.
+     * @return the underlying embedded connection, or {@code null} if one is not (easily) available.
+     */
     EmbeddedRelationalConnection tryGetEmbedded();
 
+    /**
+     * Return the ordered list of versions that this will test against.
+     * <p>
+     *     This does not reset as {@link #createStatement}/{@link #prepareStatement}, etc. are called.
+     * </p>
+     * @return the ordered list of versions
+     */
     List<String> getVersions();
 }
