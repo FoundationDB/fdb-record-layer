@@ -82,8 +82,8 @@ This will automatically create an association between the PR and the issue that
 it is addressing and, upon merging of the PR into the main code line, will 
 automatically mark the issue as resolved.
 
-PRs should have titles that clearly indicate what the change is accomplishing,
-we use these to generate release notes, so you can glance at
+PRs should have titles that clearly indicate what the change is accomplishing
+as we use these to generate release notes. You can glance at
 [release notes](docs/sphinx/source/ReleaseNotes.md) for inspiration.
 
 They should also have one of the following labels:
@@ -101,9 +101,9 @@ grouping in the release notes, that is collapsed).
 
 [release-notes-config.json](build/release-notes-config.json) describes how labels are
 converted into categories in the release notes.
-If a PR has multiple labels it will appear in the first grouping as listed above /
-in [release-notes-config.json](build/release-notes-config.json) (i.e. if it is has
-`enhancement` and `dependencies` it will only appear under `enhancement`).
+If a PR has multiple labels, it will appear in the first grouping as listed above /
+in [release-notes-config.json](build/release-notes-config.json) (i.e., if it is has
+`enhancement` and `dependencies`, it will only appear under `enhancement`).
 
 ### Reporting issues
 

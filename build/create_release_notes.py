@@ -197,7 +197,7 @@ def commit_release_notes(filename, new_versions):
 def get_minor_version(version):
     return '.'.join(version.split('.')[:2])
 
-version_header = re.compile(r'^#+ (\d+(?:\.\d+)+)$') # match only major or minor versions
+version_header = re.compile(r'^#+ (\d+(?:\.\d+)+)$') # match all version headers, including major or minor headers
 class Note:
     ''' The release notes for a single version bump '''
     def __init__(self, old_version, new_version, notes):
