@@ -24,14 +24,13 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -130,9 +129,9 @@ public final class QueryCommand extends Command {
                 "SkipConfig should not have gotten into QueryCommand " + lineNumber);
     }
 
-    public void execute(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
+    public void execute(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
         try {
-            if (!(connection instanceof EmbeddedRelationalConnection) && checkCache) {
+            if (!connection.supportsCacheCheck() && checkCache) {
                 logger.debug("⚠️ Not possible to check for cache hit with non-EmbeddedRelationalConnection!");
             } else {
                 executeInternal(connection, checkCache, executor);
@@ -147,11 +146,11 @@ public final class QueryCommand extends Command {
     }
 
     @Override
-    void executeInternal(@Nonnull final RelationalConnection connection) throws SQLException, RelationalException {
+    void executeInternal(@Nonnull final YamlConnection connection) throws SQLException, RelationalException {
         executeInternal(connection, false, instantiateExecutor(null, false));
     }
 
-    private void executeInternal(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
+    private void executeInternal(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
             throws SQLException, RelationalException {
         enableCascadesDebugger();
         boolean queryIsRunning = false;

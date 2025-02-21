@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOper
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
@@ -96,7 +97,7 @@ public abstract class Command {
         }
     }
 
-    public final void execute(@Nonnull final RelationalConnection connection) {
+    public final void execute(@Nonnull final YamlConnection connection) {
         try {
             executeInternal(connection);
         } catch (Throwable e) {
@@ -104,7 +105,7 @@ public abstract class Command {
         }
     }
 
-    abstract void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException;
+    abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
     private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection, @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws SQLException, RelationalException {
         StoreCatalog backingCatalog = connection.getBackingCatalog();
@@ -145,15 +146,15 @@ public abstract class Command {
     private static Command getLoadSchemaTemplateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
-            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Loading template '{}'", value);
                 // current connection should be __SYS/catalog
                 // save schema template
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
                 };
-                if (connection instanceof EmbeddedRelationalConnection) {
-                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection, RecordLayerConfig.getDefault(), applyState);
+                if (connection.getUnderlying() instanceof EmbeddedRelationalConnection) {
+                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection.getUnderlying(), RecordLayerConfig.getDefault(), applyState);
                 } else {
                     Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState);
                 }
@@ -164,7 +165,7 @@ public abstract class Command {
     private static Command getSetSchemaStateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
-            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Setting schema state '{}'", value);
                 SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(value);
                 RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
@@ -175,8 +176,8 @@ public abstract class Command {
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     factory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(txn);
                 };
-                if (connection instanceof EmbeddedRelationalConnection) {
-                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection, rlConfig, applyState);
+                if (connection.getUnderlying() instanceof EmbeddedRelationalConnection) {
+                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection.getUnderlying(), rlConfig, applyState);
                 } else {
                     Command.applyMetadataOperationDirectly(rlConfig, applyState);
                 }

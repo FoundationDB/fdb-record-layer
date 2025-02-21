@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
@@ -56,9 +56,9 @@ public abstract class ConnectedBlock implements Block {
     @Nonnull
     private final URI connectionURI;
     @Nonnull
-    final List<Consumer<RelationalConnection>> executables;
+    final List<Consumer<YamlConnection>> executables;
 
-    ConnectedBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
+    ConnectedBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
         this.lineNumber = lineNumber;
         this.executables = executables;
         this.connectionURI = connectionURI;
@@ -70,7 +70,7 @@ public abstract class ConnectedBlock implements Block {
         return lineNumber;
     }
 
-    protected final void executeExecutables(@Nonnull Collection<Consumer<RelationalConnection>> list) {
+    protected final void executeExecutables(@Nonnull Collection<Consumer<YamlConnection>> list) {
         connectToDatabaseAndExecute(connection -> list.forEach(t -> t.accept(connection)));
     }
 
@@ -79,11 +79,11 @@ public abstract class ConnectedBlock implements Block {
      *
      * @param consumer operations to be performed on the database using the established connection.
      */
-    void connectToDatabaseAndExecute(Consumer<RelationalConnection> consumer) {
+    void connectToDatabaseAndExecute(Consumer<YamlConnection> consumer) {
         logger.debug("🚠 Connecting to database: `{}`", connectionURI);
         try (var connection = executionContext.getConnectionFactory().getNewConnection(connectionURI)) {
             logger.debug("✅ Connected to database: `{}`", connectionURI);
-            consumer.accept(connection.unwrap(RelationalConnection.class));
+            consumer.accept(connection);
         } catch (SQLException sqle) {
             throw executionContext.wrapContext(sqle,
                     () -> String.format(Locale.ROOT, "‼️ Error connecting to the database `%s` in block at line %d", connectionURI, lineNumber),

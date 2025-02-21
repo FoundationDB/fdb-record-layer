@@ -93,8 +93,8 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     }
 
     @Override
-    public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return new MultiServerRelationalConnection(connectionSelectionPolicy, getNextConnectionNumber(), defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
+    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+        return null; //new MultiServerRelationalConnection(connectionSelectionPolicy, getNextConnectionNumber(), defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
     }
 
     @Override
@@ -112,7 +112,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     }
 
     @Nonnull
-    private List<Connection> alternateConnections(URI connectPath) {
+    private List<YamlConnection> alternateConnections(URI connectPath) {
         return alternateFactories.stream().map(factory -> {
             try {
                 return factory.getNewConnection(connectPath);

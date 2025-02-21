@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Set;
 
@@ -41,7 +40,7 @@ public interface YamlConnectionFactory {
      *
      * @throws SQLException if we cannot connect
      */
-    Connection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+    YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
 
     /**
      * The versions that the connection has, other than the current code.

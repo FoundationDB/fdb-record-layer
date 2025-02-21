@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
@@ -153,7 +154,7 @@ public final class TestBlock extends ConnectedBlock {
     @Nonnull
     final String blockName;
     @Nonnull
-    private final List<Consumer<RelationalConnection>> executableTestsWithCacheCheck;
+    private final List<Consumer<YamlConnection>> executableTestsWithCacheCheck;
     @Nonnull
     private final TestBlockOptions options;
     @Nonnull
@@ -345,8 +346,8 @@ public final class TestBlock extends ConnectedBlock {
                 }
             }
             var randomGenerator = new Random(options.seed);
-            final var executables = new ArrayList<Consumer<RelationalConnection>>();
-            final var executableTestsWithCacheCheck = new ArrayList<Consumer<RelationalConnection>>();
+            final var executables = new ArrayList<Consumer<YamlConnection>>();
+            final var executableTestsWithCacheCheck = new ArrayList<Consumer<YamlConnection>>();
             final var queryCommands = new ArrayList<QueryCommand>();
             final var tests = Matchers.arrayList(testsObject, "tests");
             for (var testObject : tests) {
@@ -380,8 +381,8 @@ public final class TestBlock extends ConnectedBlock {
     }
 
     private TestBlock(int lineNumber, @Nonnull String blockName, @Nonnull List<QueryCommand> queryCommands,
-                      @Nonnull List<Consumer<RelationalConnection>> executables,
-                      @Nonnull List<Consumer<RelationalConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
+                      @Nonnull List<Consumer<YamlConnection>> executables,
+                      @Nonnull List<Consumer<YamlConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
                       @Nonnull TestBlockOptions options, @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executables, connectionURI, executionContext);
         this.blockName = blockName;
@@ -421,7 +422,7 @@ public final class TestBlock extends ConnectedBlock {
         return maybeFailureException == null ? Optional.empty() : Optional.of(maybeFailureException);
     }
 
-    private void executeInNonParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) {
+    private void executeInNonParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) {
         if (options.connectionLifecycle == ConnectionLifecycle.BLOCK) {
             // resort to the default implementation of execute.
             executeExecutables(testsToExecute);
@@ -438,7 +439,7 @@ public final class TestBlock extends ConnectedBlock {
      * @throws InterruptedException thrown if the execution does not finish within a time-bound.
      * @throws ExecutionException thrown if any the executable tasks complete exceptionally.
      */
-    private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) throws InterruptedException, ExecutionException {
+    private void executeInParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) throws InterruptedException, ExecutionException {
         final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
         final var futures = testsToExecute.stream().map(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t)))).collect(Collectors.toList());
         executorService.shutdown();
@@ -475,7 +476,7 @@ public final class TestBlock extends ConnectedBlock {
     }
 
     @Nonnull
-    private static Consumer<RelationalConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
+    private static Consumer<YamlConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
                                                                        @Nonnull Random random, boolean runAsPreparedStatement) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> queryCommand.execute(connection, checkCache, executor);

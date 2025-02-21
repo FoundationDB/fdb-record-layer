@@ -21,6 +21,7 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,18 +47,19 @@ public class MultiServerConnectionFactoryTest {
                 dummyConnectionFactory("Primary"),
                 List.of(dummyConnectionFactory("Alternate")));
 
+        // TODO this file should not need to use getUnderlying, or directly reference MultiServerRelationalConnection
         MultiServerConnectionFactory.MultiServerRelationalConnection connection =
-                (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+                (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah")).getUnderlying();
         assertConnection(connection, "Primary");
         assertStatement(connection.prepareStatement("SQL"), "Primary");
         assertStatement(connection.prepareStatement("SQL"), "Primary");
 
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah")).getUnderlying();
         assertConnection(connection, "Primary");
         assertStatement(connection.prepareStatement("SQL"), "Primary");
         assertStatement(connection.prepareStatement("SQL"), "Primary");
 
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah")).getUnderlying();
         assertConnection(connection, "Primary");
         assertStatement(connection.prepareStatement("SQL"), "Primary");
         assertStatement(connection.prepareStatement("SQL"), "Primary");
@@ -81,7 +83,7 @@ public class MultiServerConnectionFactoryTest {
         // - connection current connection: initial connection
         // - statement: initial connection (2 statements)
         MultiServerConnectionFactory.MultiServerRelationalConnection connection =
-                (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+                (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah")).getUnderlying();
         assertConnection(connection, initialConnectionName);
         assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
         // next statement
@@ -91,7 +93,7 @@ public class MultiServerConnectionFactoryTest {
         // - Factory current connection: alternate connection
         // - connection current connection: alternate connection
         // - statement: alternate connection (2 statements)
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah")).getUnderlying();
         assertConnection(connection, otherConnectionName);
         assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
         // next statement
@@ -101,7 +103,7 @@ public class MultiServerConnectionFactoryTest {
         // - Factory current connection: initial connection
         // - connection current connection: initial connection
         // - statement: initial connection (1 statement)
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah")).getUnderlying();
         assertConnection(connection, initialConnectionName);
         // just one statement for this connection
         assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
@@ -110,7 +112,7 @@ public class MultiServerConnectionFactoryTest {
         // - Factory current connection: alternate connection
         // - connection current connection: alternate connection
         // - statement: alternate connection (3 statements)
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah")).getUnderlying();
         assertConnection(connection, otherConnectionName);
         assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
         // next statements
@@ -143,10 +145,10 @@ public class MultiServerConnectionFactoryTest {
     YamlConnectionFactory dummyConnectionFactory(@Nonnull String name) {
         return new YamlConnectionFactory() {
             @Override
-            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add query string to connection so we can tell where it came from
                 URI newPath = URI.create(connectPath + "?name=" + name);
-                return dummyConnection(newPath);
+                return new YamlConnection(dummyConnection(newPath));
             }
 
             @Override
