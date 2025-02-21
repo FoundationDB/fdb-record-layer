@@ -32,6 +32,7 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -64,7 +65,7 @@ public class EmbeddedConfig implements YamlTestConfig {
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new YamlConnection(DriverManager.getConnection(connectPath.toString()));
+                return new YamlConnection(DriverManager.getConnection(connectPath.toString()), YamlConnection.CURRENT_VERSION_ONLY);
             }
 
             @Override

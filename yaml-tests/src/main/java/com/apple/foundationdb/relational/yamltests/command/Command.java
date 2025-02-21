@@ -153,8 +153,9 @@ public abstract class Command {
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
                 };
-                if (connection.getUnderlying() instanceof EmbeddedRelationalConnection) {
-                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection.getUnderlying(), RecordLayerConfig.getDefault(), applyState);
+                final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
+                if (embedded != null) {
+                    Command.applyMetadataOperationEmbedded(embedded, RecordLayerConfig.getDefault(), applyState);
                 } else {
                     Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState);
                 }
@@ -176,8 +177,9 @@ public abstract class Command {
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     factory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(txn);
                 };
-                if (connection.getUnderlying() instanceof EmbeddedRelationalConnection) {
-                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection.getUnderlying(), rlConfig, applyState);
+                final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
+                if (embedded != null) {
+                    Command.applyMetadataOperationEmbedded(embedded, rlConfig, applyState);
                 } else {
                     Command.applyMetadataOperationDirectly(rlConfig, applyState);
                 }

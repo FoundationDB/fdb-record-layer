@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -43,7 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class SupportedVersionTest {
 
-    private static EmbeddedConfig config = new EmbeddedConfig();
+    private static final String VERSION = "3.0.18.0";
+    private static final EmbeddedConfig config = new EmbeddedConfig();
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -63,12 +65,12 @@ public class SupportedVersionTest {
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new YamlConnection(DriverManager.getConnection(connectPath.toString()));
+                return new YamlConnection(DriverManager.getConnection(connectPath.toString()), List.of(VERSION));
             }
 
             @Override
             public Set<String> getVersionsUnderTest() {
-                return Set.of("3.0.18.0");
+                return Set.of(VERSION);
             }
         };
     }

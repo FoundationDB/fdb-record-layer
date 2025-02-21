@@ -156,7 +156,7 @@ public class QueryExecutor {
             } else {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.prepareStatement(currentQuery)) {
-                    setParametersInPreparedStatement(s, connection);
+                    setParametersInPreparedStatement(s);
                     final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, null, checkCache, maxRows);
                     config.checkResult(currentQuery, queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
@@ -202,7 +202,7 @@ public class QueryExecutor {
             s.setMaxRows(maxRows);
         }
         if (parameters != null) {
-            setParametersInPreparedStatement(s, connection);
+            setParametersInPreparedStatement(s);
         }
         // set continuation
         s.setBytes(1, continuation.serialize());
@@ -272,10 +272,10 @@ public class QueryExecutor {
         return execResult ? s.getResultSet() : s.getUpdateCount();
     }
 
-    private void setParametersInPreparedStatement(@Nonnull RelationalPreparedStatement s, @Nonnull YamlConnection connection) throws SQLException {
+    private void setParametersInPreparedStatement(@Nonnull RelationalPreparedStatement statement) throws SQLException {
         int counter = 1;
         for (var parameter : Objects.requireNonNull(parameters)) {
-            s.setObject(counter++, parameter.getSqlObject(connection.getUnderlying()));
+            statement.setObject(counter++, parameter.getSqlObject(statement.getConnection()));
         }
     }
 

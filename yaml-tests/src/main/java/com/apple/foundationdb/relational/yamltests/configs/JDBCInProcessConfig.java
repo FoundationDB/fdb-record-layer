@@ -71,7 +71,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
                 URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
                 String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
                 LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                return new YamlConnection(DriverManager.getConnection(uriStr));
+                return new YamlConnection(DriverManager.getConnection(uriStr), YamlConnection.CURRENT_VERSION_ONLY);
             }
 
             @Override

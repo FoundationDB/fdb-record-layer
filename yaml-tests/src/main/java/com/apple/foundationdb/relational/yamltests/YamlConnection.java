@@ -34,10 +34,13 @@ import java.util.List;
  * A wrapper around {@link java.sql.Connection} to support yaml tests.
  */
 public class YamlConnection implements AutoCloseable {
-    RelationalConnection underlying;
+    public static final List<String> CURRENT_VERSION_ONLY = List.of("!currentVersion");
+    private final RelationalConnection underlying;
+    private final List<String> versions;
 
-    public YamlConnection(final Connection connection) throws SQLException {
+    public YamlConnection(final Connection connection, final List<String> versions) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
+        this.versions = versions;
     }
 
     @Override
@@ -57,12 +60,19 @@ public class YamlConnection implements AutoCloseable {
         return underlying.prepareStatement(sql);
     }
 
-    public RelationalConnection getUnderlying() {
-        return underlying;
-    }
-
     public MetricCollector getMetricCollector() {
         return ((EmbeddedRelationalConnection) underlying).getMetricCollector();
     }
-    //
+
+    public EmbeddedRelationalConnection tryGetEmbedded() {
+        if (underlying instanceof EmbeddedRelationalConnection) {
+            return (EmbeddedRelationalConnection)underlying;
+        } else {
+            return null;
+        }
+    }
+
+    public List<String> getVersions() {
+        return versions;
+    }
 }

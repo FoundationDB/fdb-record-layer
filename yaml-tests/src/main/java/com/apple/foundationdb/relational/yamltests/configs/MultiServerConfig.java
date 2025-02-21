@@ -66,7 +66,7 @@ public class MultiServerConfig extends JDBCInProcessConfig {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
-                return new YamlConnection(DriverManager.getConnection(uriStr));
+                return new YamlConnection(DriverManager.getConnection(uriStr), List.of(externalServer.getVersion()));
             }
 
             @Override
