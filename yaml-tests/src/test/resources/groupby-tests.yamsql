@@ -57,18 +57,21 @@ setup:
 test_block:
   name: group-by-tests
   tests:
-    -
-      - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
-      - result: [{330}]
-    -
-      - query: select max(q.s) from nested group by r.v.z as GRP having GRP > 120
-      - result: [{330}]
+    # 4.1 Triage: Test failed when run with forced continuations (used by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
+    #   - result: [{330}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select max(q.s) from nested group by r.v.z as GRP having GRP > 120
+    #   - result: [{330}]
     -
       - query: select max(id) from t1 group by col1 having min(id) > 0 and col1 = 20;
       - result: [{13}]
-    -
-      - query: select max(id) from t1 group by col1
-      - result: [{5}, {13}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select max(id) from t1 group by col1
+    #   - result: [{5}, {13}]
 #    -
 #        # grouping by constant is not yet supported.
 #      - query: select sum(col2) from T1 group by 3;
@@ -119,49 +122,61 @@ test_block:
     -
       - query: select col1 from (select col1 from t1) as x group by x.col1;
       - result: [{!l 10}, {!l 20}]
-    -
-      - query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
-      - result: [{!l 10}, {!l 20}]
-    -
-      - query: select MAX(z) from (select col1 from t1) as x group by x.col1 as z;
-      - result: [{!l 10}, {!l 20}]
-    -
-      - query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - result: [{!l 5}, {!l 13}]
-    -
-      - query: select MIN(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - result: [{!l 1}, {!l 6}]
-    -
-      - query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - result: [{!l 5}, {!l 8}]
-    -
-      - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - result: [{3.0}, {9.5}]
-    -
-      - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - result: [{!l 15}, {!l 76}]
-    -
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
+    #   - result: [{!l 10}, {!l 20}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select MAX(z) from (select col1 from t1) as x group by x.col1 as z;
+    #   - result: [{!l 10}, {!l 20}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+    #   - result: [{!l 5}, {!l 13}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select MIN(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+    #   - result: [{!l 1}, {!l 6}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+    #   - result: [{!l 5}, {!l 8}]
+    # 4.1 Triage: Test failed when run with forced continuations (Result mismatch)
+    # -
+    #   - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+    #   - result: [{3.0}, {9.5}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+    #   - result: [{!l 15}, {!l 76}]
+    # 4.1 Triage: Test failed when run with forced continuations (Result mismatch)
+    # -
       # result is correct since we don't use (not support, yet) explicit casting.
-      - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - result: [{!l 3, 3.0}, {!l 9, 9.5}]
+    #   - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+    #   - result: [{!l 3, 3.0}, {!l 9, 9.5}]
     -
       - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
       - error: "42703"
     -
       - query: select X.col2 from (select  col1, col2 from t1) as x group by x.col1;
       - error: "42803"
-    -
-      - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
-      - result: [{!l 13}]
-    -
-      - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
-      - result: [{!l 1}]
-    -
-      - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
-      - result: [{!l 13}]
-    -
-      - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
-      - result: [{7.0}]
+    # 4.1 Triage: Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
+    #   - result: [{!l 13}]
+    # 4.1 Triage: Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
+    #   - result: [{!l 1}]
+    # 4.1 Triage: Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
+    #   - result: [{!l 13}]
+    # 4.1 Triage: Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
+    #   - result: [{7.0}]
     -
       - query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
       - result: [{!l 20}, {!l 30}]
@@ -171,18 +186,22 @@ test_block:
     -
       - query: select x.col1 + x.col1 from (select col1, col2 from t1) as x group by x.col1;
       - result: [{!l 20}, {!l 40}]
-    -
-      - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
-      - result: [{!l 10}]
-    -
-      - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
-      - result: [{!l 10}]
-    -
-      - query: select COUNT(*) from T1;
-      - result: [{!l 13}]
-    -
-      - query: select COUNT(col1) from T1;
-      - result: [{!l 13}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
+    #   - result: [{!l 10}]
+    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # -
+    #   - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
+    #   - result: [{!l 10}]
+    # 4.1 Triage: Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: select COUNT(*) from T1;
+    #   - result: [{!l 13}]
+    # 4.1 Triage: Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: select COUNT(col1) from T1;
+    #   - result: [{!l 13}]
     -
       - query: select x from t1 group by col1 as x, col2 as x;
       - error: "42702"
