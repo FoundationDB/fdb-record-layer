@@ -44,8 +44,13 @@ Users performing online updates are encouraged to update from [4.0.559.4](#40559
 
 **[Full Changelog (4.1.6.0...4.1.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.6.0...4.1.8.0)**
 
-<!-- MIXED_MODE_RESULTS 4.1.8.0 PLACEHOLDER -->
+#### Mixed Mode Test Results
 
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.559.1`, ✅`4.0.559.2`, ❌`4.0.559.3`, ❌`4.0.559.4`, ❌`4.0.559.6`, ❌`4.0.561.0`, ❌`4.0.562.0`, ✅`4.0.564.0`, ✅`4.0.565.0`, ✅`4.0.566.0`, ✅`4.0.567.0`, ✅`4.0.568.0`, ✅`4.0.569.0`, ✅`4.0.570.0`, ✅`4.0.571.0`, ✅`4.0.572.0`, ✅`4.0.573.0`, ✅`4.0.574.0`, ✅`4.0.575.0`, ✅`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/13411580367)
 
 ### 4.1.6.0
 
