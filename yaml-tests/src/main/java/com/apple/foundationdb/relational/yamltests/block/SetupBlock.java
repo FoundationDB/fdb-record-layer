@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;

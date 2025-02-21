@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -31,7 +32,6 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
@@ -71,7 +71,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
                 URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
                 String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
                 LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                return new YamlConnection(DriverManager.getConnection(uriStr), YamlConnection.CURRENT_VERSION_ONLY);
+                return new SimpleYamlConnection(DriverManager.getConnection(uriStr), YamlConnection.CURRENT_VERSION);
             }
 
             @Override

@@ -22,17 +22,15 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -65,7 +63,7 @@ public class EmbeddedConfig implements YamlTestConfig {
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new YamlConnection(DriverManager.getConnection(connectPath.toString()), YamlConnection.CURRENT_VERSION_ONLY);
+                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), YamlConnection.CURRENT_VERSION);
             }
 
             @Override

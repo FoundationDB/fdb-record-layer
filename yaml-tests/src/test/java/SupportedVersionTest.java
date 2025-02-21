@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -33,7 +33,6 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -65,7 +64,7 @@ public class SupportedVersionTest {
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new YamlConnection(DriverManager.getConnection(connectPath.toString()), List.of(VERSION));
+                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION);
             }
 
             @Override

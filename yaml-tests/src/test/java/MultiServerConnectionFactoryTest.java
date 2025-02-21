@@ -21,6 +21,7 @@
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import org.junit.jupiter.api.Test;
@@ -150,7 +151,7 @@ public class MultiServerConnectionFactoryTest {
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add query string to connection so we can tell where it came from
                 URI newPath = URI.create(connectPath + "?version=" + version);
-                return new YamlConnection(dummyConnection(newPath), List.of(version));
+                return new SimpleYamlConnection(dummyConnection(newPath), version);
             }
 
             @Override

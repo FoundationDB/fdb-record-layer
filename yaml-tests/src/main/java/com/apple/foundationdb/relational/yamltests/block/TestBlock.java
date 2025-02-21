@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
@@ -477,7 +476,7 @@ public final class TestBlock extends ConnectedBlock {
 
     @Nonnull
     private static Consumer<YamlConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                                       @Nonnull Random random, boolean runAsPreparedStatement) {
+                                                                 @Nonnull Random random, boolean runAsPreparedStatement) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> queryCommand.execute(connection, checkCache, executor);
     }

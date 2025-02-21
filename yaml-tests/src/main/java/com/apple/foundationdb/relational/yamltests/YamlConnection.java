@@ -20,59 +20,32 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 
 /**
  * A wrapper around {@link java.sql.Connection} to support yaml tests.
  */
-public class YamlConnection implements AutoCloseable {
-    public static final List<String> CURRENT_VERSION_ONLY = List.of("!currentVersion");
-    private final RelationalConnection underlying;
-    private final List<String> versions;
-
-    public YamlConnection(final Connection connection, final List<String> versions) throws SQLException {
-        underlying = connection.unwrap(RelationalConnection.class);
-        this.versions = versions;
-    }
+public interface YamlConnection extends AutoCloseable {
+    String CURRENT_VERSION = "!currentVersion";
 
     @Override
-    public void close() throws SQLException {
-        underlying.close();
-    }
+    void close() throws SQLException;
 
-    public boolean supportsCacheCheck() {
-        return underlying instanceof EmbeddedRelationalConnection;
-    }
+    boolean supportsCacheCheck();
 
-    public RelationalStatement createStatement() throws SQLException {
-        return underlying.createStatement();
-    }
+    RelationalStatement createStatement() throws SQLException;
 
-    public RelationalPreparedStatement prepareStatement(final String sql) throws SQLException {
-        return underlying.prepareStatement(sql);
-    }
+    RelationalPreparedStatement prepareStatement(String sql) throws SQLException;
 
-    public MetricCollector getMetricCollector() {
-        return ((EmbeddedRelationalConnection) underlying).getMetricCollector();
-    }
+    MetricCollector getMetricCollector();
 
-    public EmbeddedRelationalConnection tryGetEmbedded() {
-        if (underlying instanceof EmbeddedRelationalConnection) {
-            return (EmbeddedRelationalConnection)underlying;
-        } else {
-            return null;
-        }
-    }
+    EmbeddedRelationalConnection tryGetEmbedded();
 
-    public List<String> getVersions() {
-        return versions;
-    }
+    List<String> getVersions();
 }

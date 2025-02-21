@@ -21,13 +21,13 @@
 package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
@@ -66,7 +66,7 @@ public class MultiServerConfig extends JDBCInProcessConfig {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
-                return new YamlConnection(DriverManager.getConnection(uriStr), List.of(externalServer.getVersion()));
+                return new SimpleYamlConnection(DriverManager.getConnection(uriStr), externalServer.getVersion());
             }
 
             @Override
