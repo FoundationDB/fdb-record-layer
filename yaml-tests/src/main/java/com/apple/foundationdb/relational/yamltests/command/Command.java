@@ -144,6 +144,7 @@ public abstract class Command {
         }
     }
 
+    @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
     private static Command getLoadSchemaTemplateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
@@ -164,6 +165,7 @@ public abstract class Command {
         };
     }
 
+    @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
     private static Command getSetSchemaStateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
