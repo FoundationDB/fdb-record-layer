@@ -260,7 +260,8 @@ public class QueryExecutor {
                         Assertions.assertFalse(hasNext);
                     }
                 }
-                if (++count > MAX_CONTINUATIONS_ALLOWED) {
+                count = count + 1; // PMD failure for ++
+                if (count > MAX_CONTINUATIONS_ALLOWED) {
                     reportTestFailure("Too many continuations for query. Test aborted.");
                 }
             }
