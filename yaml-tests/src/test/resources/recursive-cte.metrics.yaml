@@ -7,9 +7,9 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1586
-    task_total_time_ms: 221
+    task_total_time_ms: 218
     transform_count: 403
-    transform_time_ms: 124
+    transform_time_ms: 125
     transform_yield_count: 90
     insert_time_ms: 16
     insert_new_count: 190
@@ -22,11 +22,11 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1586
-    task_total_time_ms: 54
+    task_total_time_ms: 56
     transform_count: 403
-    transform_time_ms: 20
+    transform_time_ms: 19
     transform_yield_count: 90
-    insert_time_ms: 6
+    insert_time_ms: 5
     insert_new_count: 190
     insert_reused_count: 11
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -43,11 +43,11 @@ recursive-cte-tests:
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2407
-    task_total_time_ms: 72
+    task_total_time_ms: 67
     transform_count: 615
-    transform_time_ms: 34
+    transform_time_ms: 21
     transform_yield_count: 128
-    insert_time_ms: 6
+    insert_time_ms: 15
     insert_new_count: 298
     insert_reused_count: 16
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
@@ -58,9 +58,9 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1586
-    task_total_time_ms: 221
+    task_total_time_ms: 218
     transform_count: 403
-    transform_time_ms: 124
+    transform_time_ms: 125
     transform_yield_count: 90
     insert_time_ms: 16
     insert_new_count: 190
@@ -79,10 +79,10 @@ recursive-cte-tests:
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2407
-    task_total_time_ms: 72
+    task_total_time_ms: 67
     transform_count: 615
-    transform_time_ms: 34
+    transform_time_ms: 21
     transform_yield_count: 128
-    insert_time_ms: 6
+    insert_time_ms: 15
     insert_new_count: 298
     insert_reused_count: 16

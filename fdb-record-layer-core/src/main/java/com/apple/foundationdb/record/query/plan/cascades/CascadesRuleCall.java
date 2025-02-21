@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -39,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -278,15 +280,24 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 commonReferencingExpressions.retainAll(referencingExpressionsIterator.next());
             }
 
-            for (final var commonReferencingExpression : commonReferencingExpressions) {
-                if (Reference.isMemoizedExpression(commonReferencingExpression, expression)) {
-                    Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
-                    final var reference = expressionToReferenceMap.get(commonReferencingExpression);
-                    Verify.verifyNotNull(reference);
-                    Verify.verify(reference != this.root);
-                    return reference;
+            for (Iterator<RelationalExpression> iterator = commonReferencingExpressions.iterator(); iterator.hasNext(); ) {
+                final var commonReferencingExpression = iterator.next();
+                if (!Reference.isMemoizedExpression(commonReferencingExpression, expression)) {
+                    iterator.remove();
                 }
             }
+
+            //Verify.verify(commonReferencingExpressions.size() <= 1);
+
+            if (!commonReferencingExpressions.isEmpty()) {
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
+                //final var reference = expressionToReferenceMap.get(Objects.requireNonNull(Iterables.getFirst(commonReferencingExpressions, null)));
+                final var reference = expressionToReferenceMap.get(Iterables.getOnlyElement(commonReferencingExpressions));
+                Verify.verifyNotNull(reference);
+                Verify.verify(reference != this.root);
+                return reference;
+            }
+
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));
             final var newRef = Reference.of(expression);
             traversal.addExpression(newRef, expression);

@@ -25,10 +25,10 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.graph.ElementOrder;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.MutableNetwork;
 import com.google.common.graph.NetworkBuilder;
@@ -176,11 +176,13 @@ public class Traversal {
                 NetworkBuilder.directed()
                         .allowsParallelEdges(true)
                         .allowsSelfLoops(true)
+                        .edgeOrder(ElementOrder.insertion())
+                        .nodeOrder(ElementOrder.insertion())
                         .build();
 
         final SetMultimap<RelationalExpression, Reference> containedInMap =
-                Multimaps.newSetMultimap(Maps.newIdentityHashMap(), Sets::newHashSet);
-        final Set<Reference> leafRefs = Sets.newHashSet();
+                Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
+        final Set<Reference> leafRefs = new LinkedIdentitySet<>();
         collectNetwork(network, containedInMap, leafRefs, rootRef);
 
         return new Traversal(rootRef, network, containedInMap, leafRefs);
