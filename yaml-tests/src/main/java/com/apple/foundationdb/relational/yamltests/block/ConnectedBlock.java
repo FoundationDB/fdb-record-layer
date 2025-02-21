@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,7 +39,7 @@ import java.util.function.Consumer;
  * <p>
  * Each block needs to be associated with a `connectionURI` which provides it with the address to the database to which
  * the block connects to for running its executables. The block does so through the
- * {@link com.apple.foundationdb.relational.yamltests.YamlRunner.YamlConnectionFactory}. A block is free to implement `how` and `when`
+ * {@link YamlConnectionFactory}. A block is free to implement `how` and `when`
  * it wants to use the factory to create a connection and also manages the lifecycle of the established connection.
  * </p>
  */

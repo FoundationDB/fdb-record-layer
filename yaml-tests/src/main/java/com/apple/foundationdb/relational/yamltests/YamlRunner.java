@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
@@ -40,16 +39,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner {
@@ -66,38 +61,6 @@ public final class YamlRunner {
 
     @Nonnull
     private final YamlExecutionContext executionContext;
-
-    public interface YamlConnectionFactory {
-        /**
-         * Convert a connection uri into an actual connection.
-         * @param connectPath the path to connect to
-         * @return A new {@link RelationalConnection} for the given path appropriate for this test class
-         * @throws SQLException if we cannot connect
-         */
-        Connection getNewConnection(@Nonnull URI connectPath) throws SQLException;
-
-        /**
-         * The versions that the connection has, other than the current code.
-         * <p>
-         *     If we are just testing against the current code, this will be empty, but otherwise it will include the
-         *     versions that we're testing. In the future we may want to support tests that don't run against the
-         *     current version, but that's not currently needed, so not supported.
-         * </p>
-         * @return A set of versions that we are testing against, or an empty set if just testing against the current
-         * version
-         */
-        Set<String> getVersionsUnderTest();
-
-        /**
-         * Whether the connection supports multiple servers.
-         * There are some changes to the behavior that are to be expected when running the tests in multi-server mode,
-         * this method allows the system to make that decision.
-         * @return TRUE if this connection factory can support multiple servers, false otherwise.
-         */
-        default boolean isMultiServer() {
-            return false;
-        }
-    }
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
                       @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {

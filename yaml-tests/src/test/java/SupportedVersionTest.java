@@ -19,6 +19,7 @@
  */
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
@@ -57,8 +58,8 @@ public class SupportedVersionTest {
         new YamlRunner(fileName, createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
     }
 
-    YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return new YamlRunner.YamlConnectionFactory() {
+    YamlConnectionFactory createConnectionFactory() {
+        return new YamlConnectionFactory() {
             @Override
             public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 return DriverManager.getConnection(connectPath.toString()).unwrap(RelationalConnection.class);

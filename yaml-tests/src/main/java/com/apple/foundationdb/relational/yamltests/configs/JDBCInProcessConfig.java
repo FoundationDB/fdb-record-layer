@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -62,8 +62,8 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     }
 
     @Override
-    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return new YamlRunner.YamlConnectionFactory() {
+    public YamlConnectionFactory createConnectionFactory() {
+        return new YamlConnectionFactory() {
             @Override
             public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add name of the in-process running server to the connectPath.

@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -58,8 +58,8 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
-    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return new YamlRunner.YamlConnectionFactory() {
+    public YamlConnectionFactory createConnectionFactory() {
+        return new YamlConnectionFactory() {
             @Override
             public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 return DriverManager.getConnection(connectPath.toString());

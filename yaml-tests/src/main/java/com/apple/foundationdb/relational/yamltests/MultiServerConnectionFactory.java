@@ -48,7 +48,7 @@ import java.util.stream.Stream;
  * running concurrently, and verify that the results (e.g. Continuations) are correctly handled through the entire
  * setup.
  */
-public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFactory {
+public class MultiServerConnectionFactory implements YamlConnectionFactory {
     // The fixed index of the default connection
     public static final int DEFAULT_CONNECTION = 0;
     private final Set<String> versionsUnderTest;
@@ -63,22 +63,22 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     @Nonnull
     private final ConnectionSelectionPolicy connectionSelectionPolicy;
     @Nonnull
-    private final YamlRunner.YamlConnectionFactory defaultFactory;
+    private final YamlConnectionFactory defaultFactory;
     @Nonnull
-    private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
+    private final List<YamlConnectionFactory> alternateFactories;
     private final int totalFactories;
     @Nonnull
     private final AtomicInteger currentConnectionSelector;
 
-    public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
+    public MultiServerConnectionFactory(@Nonnull final YamlConnectionFactory defaultFactory,
+                                        @Nonnull final List<YamlConnectionFactory> alternateFactories) {
         this(ConnectionSelectionPolicy.DEFAULT, 0, defaultFactory, alternateFactories);
     }
 
     public MultiServerConnectionFactory(@Nonnull final ConnectionSelectionPolicy connectionSelectionPolicy,
                                         final int initialConnection,
-                                        @Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
+                                        @Nonnull final YamlConnectionFactory defaultFactory,
+                                        @Nonnull final List<YamlConnectionFactory> alternateFactories) {
         this.connectionSelectionPolicy = connectionSelectionPolicy;
         this.defaultFactory = defaultFactory;
         this.alternateFactories = alternateFactories;
