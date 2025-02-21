@@ -83,7 +83,7 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_INITIAL_VERSION_LESS_THAN = "initialVersionLessThan";
     public static final String QUERY_CONFIG_NO_OP = "noOp";
 
-    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
+    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
 
     @Nullable private final Object value;
@@ -515,7 +515,10 @@ public abstract class QueryConfig {
                 }
                 requireResults = requireResults || RESULT_CONFIGS.contains(key);
                 if (areResultsForCurrentVersion) {
-                    configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
+                    QueryConfig config = parseConfig(blockName, key, value, lineNumber, executionContext);
+                    if (config != null && !QUERY_CONFIG_NO_OP.equals(config.getConfigName())) {
+                        configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
+                    }
                 }
             } catch (Exception e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
@@ -561,7 +564,11 @@ public abstract class QueryConfig {
                 return getNoOpConfig(lineNumber, executionContext);
             }
         } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
-            return getCheckPlanHashConfig(value, lineNumber, executionContext);
+            if (shouldExecuteExplain(executionContext)) {
+                return getCheckPlanHashConfig(value, lineNumber, executionContext);
+            } else {
+                return getNoOpConfig(lineNumber, executionContext);
+            }
         } else if (key.contains(QUERY_CONFIG_RESULT)) {
             return getCheckResultConfig(true, key, value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_UNORDERED_RESULT.equals(key)) {
