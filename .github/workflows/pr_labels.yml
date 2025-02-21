@@ -1,0 +1,34 @@
+name: Pull Request Labels
+
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled]
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+        with:
+          sparse-checkout: build/release-notes-config.json
+      - name: Check Labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Gather required labels from release notes configuration
+            const releaseNotesConfig = require('./build/release-notes-config.json');
+            var requiredLabels = new Set();
+            releaseNotesConfig.categories
+                .flatMap(category => category.labels)
+                .forEach(label => requiredLabels.add(label)); 
+            
+            // Check if the current PR has a label in the required set
+            const pr_labels = context.payload.pull_request.labels.map(l => l.name); 
+            if (!pr_labels.some(l => requiredLabels.has(l))) {
+              core.setFailed("PR is not labeled with any of the required labels: " + JSON.stringify(Array.from(requiredLabels)));
+            }

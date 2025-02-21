@@ -4,6 +4,7 @@
 *.jar
 *.war
 *.ear
+*.deb
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
@@ -43,6 +44,11 @@ atlassian-ide-plugin.xml
 .idea/jarRepositories.xml
 .idea/scala_settings.xml
 .idea/shelf
+
+# Built during documentation
+/docs/sphinx/.venv
+/docs/sphinx/source/api/**/index.md
+*.diagram.svg
 
 # VSCode specific files/directories
 .vscode

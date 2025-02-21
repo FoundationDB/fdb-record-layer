@@ -40,7 +40,7 @@ jobs:
       - name: Checkout Main
         run: git checkout main
       - name: Update release notes
-        run: python build/publish-mixed-mode-results.py ${{ inputs.tag }} --release-notes docs/ReleaseNotes.md --commit --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python build/publish-mixed-mode-results.py ${{ inputs.tag }} --release-notes docs/sphinx/source/ReleaseNotes.md --commit --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Push release notes update
         run: git push
 
