@@ -149,10 +149,23 @@ public class VersionValue extends AbstractValue {
     @Nonnull
     @Override
     public PVersionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PVersionValue.newBuilder()
-                .setBaseAlias(getChildQuantifiedRecordValue().getAlias().getId())  // deprecated
-                .setChild(childValue.toValueProto(serializationContext))
-                .build();
+        if (childValue instanceof QuantifiedRecordValue) {
+            // Deprecated. This value previously required that the child be a QuantifiedRecordValue and only
+            // contained the alias. To preserve cross-version compatibility with versions older than 4.0.561.0,
+            // send messages without the full value.
+            // Note: it's tempting to also include the full value in the `child` field, but doing so can
+            // lead to mixed-mode errors. If there are types or plans referenced in the child, those can
+            // be registered with the serializationContext, which means they may only be included
+            // by reference elsewhere in the serialized plan. Older versions of the deserialization
+            // logic don't know about the field, and so they will trip over any dangling references
+            return PVersionValue.newBuilder()
+                    .setBaseAlias(getChildQuantifiedRecordValue().getAlias().getId())
+                    .build();
+        } else {
+            return PVersionValue.newBuilder()
+                    .setChild(childValue.toValueProto(serializationContext))
+                    .build();
+        }
     }
 
     @Nonnull
