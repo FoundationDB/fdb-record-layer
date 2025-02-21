@@ -100,7 +100,9 @@ public abstract class Command {
         try {
             executeInternal(connection);
         } catch (Throwable e) {
-            throw executionContext.wrapContext(e, () -> "‼️ Error executing command at line " + getLineNumber(), "command", getLineNumber());
+            throw executionContext.wrapContext(e,
+                    () -> "‼️ Error executing command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
+                    "command", getLineNumber());
         }
     }
 

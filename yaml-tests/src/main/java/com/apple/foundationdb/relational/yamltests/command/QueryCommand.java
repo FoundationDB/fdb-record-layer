@@ -139,7 +139,7 @@ public final class QueryCommand extends Command {
         } catch (Throwable e) {
             if (maybeExecutionThrowable.get() == null) {
                 maybeExecutionThrowable.set(executionContext.wrapContext(e,
-                        () -> "‼️ Error executing query command at line " + getLineNumber(),
+                        () -> "‼️ Error executing query command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
                         String.format(Locale.ROOT, "query [%s] ", executor), getLineNumber()));
             }
         }
