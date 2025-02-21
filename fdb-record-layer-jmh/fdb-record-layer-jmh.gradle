@@ -23,16 +23,6 @@ plugins {
 }
 
 apply from: rootProject.file('gradle/proto.gradle')
-sourceSets {
-    jmh {
-        proto {
-            srcDir "src/jmh/proto"
-        }
-        java {
-            srcDir 'protogen/jmh/java'
-        }
-    }
-}
 
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
