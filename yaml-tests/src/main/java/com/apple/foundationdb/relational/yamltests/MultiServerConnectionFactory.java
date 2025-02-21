@@ -30,6 +30,7 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -173,16 +174,19 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
             return getCurrentConnection(true, "prepareStatement").prepareStatement(sql);
         }
 
+        @Nullable
         @Override
         public MetricCollector getMetricCollector() {
             throw new UnsupportedOperationException("MultiServer does not support getting the metric collector");
         }
 
+        @Nullable
         @Override
         public EmbeddedRelationalConnection tryGetEmbedded() {
             return null;
         }
 
+        @Nonnull
         @Override
         public List<String> getVersions() {
             return this.versions;

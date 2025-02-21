@@ -26,6 +26,8 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -34,10 +36,12 @@ import java.util.List;
  * A simple version of {@link YamlConnection} for interacting with a single {@link RelationalConnection}.
  */
 public class SimpleYamlConnection implements YamlConnection {
+    @Nonnull
     private final RelationalConnection underlying;
+    @Nonnull
     private final List<String> versions;
 
-    public SimpleYamlConnection(final Connection connection, final String version) throws SQLException {
+    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull String version) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
         this.versions = List.of(version);
     }
@@ -62,11 +66,13 @@ public class SimpleYamlConnection implements YamlConnection {
         return underlying.prepareStatement(sql);
     }
 
+    @Nullable
     @Override
     public MetricCollector getMetricCollector() {
         return ((EmbeddedRelationalConnection) underlying).getMetricCollector();
     }
 
+    @Nullable
     @Override
     public EmbeddedRelationalConnection tryGetEmbedded() {
         if (underlying instanceof EmbeddedRelationalConnection) {
@@ -76,6 +82,7 @@ public class SimpleYamlConnection implements YamlConnection {
         }
     }
 
+    @Nonnull
     @Override
     public List<String> getVersions() {
         return versions;

@@ -26,6 +26,8 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -68,14 +70,17 @@ public interface YamlConnection extends AutoCloseable {
 
     /**
      * Return the underlying metrics collector if possible.
+     *
      * @return the underlying metrics collector
      */
+    @Nullable
     MetricCollector getMetricCollector();
 
     /**
      * Try to get the underlying embedded relational connection in support of a few specific setup methods.
      * @return the underlying embedded connection, or {@code null} if one is not (easily) available.
      */
+    @Nullable
     EmbeddedRelationalConnection tryGetEmbedded();
 
     /**
@@ -85,5 +90,6 @@ public interface YamlConnection extends AutoCloseable {
      * </p>
      * @return the ordered list of versions
      */
+    @Nonnull
     List<String> getVersions();
 }
