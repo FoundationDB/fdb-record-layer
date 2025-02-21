@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -52,6 +53,8 @@ import java.util.stream.Collectors;
  * @see <a href="https://github.com/FoundationDB/fdb-record-layer/blob/main/docs/Versioning.md#semantic-versioning">Versioning</a>
  */
 public class SemanticVersion implements Comparable<SemanticVersion> {
+    public static final SemanticVersion CURRENT_VERSION = new SemanticVersion(ImmutableList.of(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE), ImmutableList.of());
+
     private static final String NUMBER_PATTERN = "(?:0|[1-9]\\d*)";
     private static final String ALPHANUMERIC_PATTERN = "\\d*[a-zA-Z-][0-9a-zA-Z-]";
     private static final String PRE_RELEASE_PART = "(?:" + NUMBER_PATTERN + "|" + ALPHANUMERIC_PATTERN + ")";
@@ -81,6 +84,17 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
         this.prerelease = prerelease;
     }
 
+    @Nonnull
+    public static SemanticVersion parseObject(@Nonnull Object object) {
+        if (object instanceof FileOptions.CurrentVersion) {
+            return CURRENT_VERSION;
+        } else if (object instanceof String) {
+            return parse((String) object);
+        } else {
+            throw new IllegalArgumentException("Unable to determine semantic version from object: " + object);
+        }
+    }
+
     /**
      * Parse a version string (e.g. {@code 4.0.559.0} or {@code 4.0.560.0-SNAPSHOT}.
      * @param versionString a version in string form
@@ -88,6 +102,9 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      */
     @Nonnull
     public static SemanticVersion parse(@Nonnull String versionString) {
+        if (versionString.equals(FileOptions.CurrentVersion.TEXT)) {
+            return SemanticVersion.CURRENT_VERSION;
+        }
         final Matcher matcher = VERSION_PATTERN.matcher(versionString);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Version is not valid: " + versionString);
@@ -147,7 +164,6 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
     @Nonnull
     public List<SemanticVersion> lesserVersions(@Nonnull Collection<String> rawVersions) {
         return rawVersions.stream()
-                .filter(version -> !version.equals(FileOptions.CurrentVersion.TEXT))
                 .map(SemanticVersion::parse)
                 .filter(other -> other.compareTo(this) < 0)
                 .collect(Collectors.toList());
