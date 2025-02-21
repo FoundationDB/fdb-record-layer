@@ -515,10 +515,7 @@ public abstract class QueryConfig {
                 }
                 requireResults = requireResults || RESULT_CONFIGS.contains(key);
                 if (areResultsForCurrentVersion) {
-                    QueryConfig config = parseConfig(blockName, key, value, lineNumber, executionContext);
-                    if (config != null && !QUERY_CONFIG_NO_OP.equals(config.getConfigName())) {
-                        configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
-                    }
+                    configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
                 }
             } catch (Exception e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
