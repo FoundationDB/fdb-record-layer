@@ -95,7 +95,7 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
                  'classifier': 'all'],
                 {
                     version {
-                        strictly '+'
+                        strictly '4.0.559.6'
                         if (rejectedVersions.size() > 0) {
                             reject rejectedVersions.toArray(new String[0])
                         }
@@ -139,6 +139,7 @@ static def getAttributesFromJar(File file) {
 
 ext.resolveManyServers = { ->
     Set<File> selectedServers = new HashSet<>();
+    return selectedServers
     Set<String> rejectedVersions = new HashSet<>();
     while (selectedServers.size() < 50) {
         def serverFile = resolveOtherServer(rejectedVersions)
