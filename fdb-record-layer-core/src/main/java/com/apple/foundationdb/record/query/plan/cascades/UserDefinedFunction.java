@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -32,7 +31,7 @@ import java.util.List;
 /**
  * User defined functions that are serialized in MetaData.
  */
-public abstract class UserDefinedFunction extends CatalogedFunction implements PlanSerializable {
+public abstract class UserDefinedFunction extends CatalogedFunction {
 
     public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
         super(functionName, parameterTypes, null);
@@ -48,6 +47,5 @@ public abstract class UserDefinedFunction extends CatalogedFunction implements P
     }
 
     @Nonnull
-    @Override
     public abstract RecordMetaDataProto.UserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
 }

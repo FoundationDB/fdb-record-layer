@@ -38,6 +38,8 @@ import java.util.stream.Collectors;
  * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
 public class MacroFunction extends UserDefinedFunction {
+    private static final long serialVersionUID = 1L;
+
     @Nonnull
     private final Value bodyValue;
     private final List<CorrelationIdentifier> parameterIdentifiers;
