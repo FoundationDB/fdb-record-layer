@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api.ddl;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -478,7 +479,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
                 final var actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
-                List<RecordMetaDataProto.KeyExpression> keys = null;
+                List<RecordKeyExpressionProto.KeyExpression> keys = null;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
                 } else if (actualKe.hasField()) {
@@ -523,14 +524,14 @@ public class DdlStatementParsingTest {
                 final Index index = info.getIndexes().stream().findFirst().get();
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
-                RecordMetaDataProto.KeyExpression actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
+                RecordKeyExpressionProto.KeyExpression actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
-                final RecordMetaDataProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
+                final RecordKeyExpressionProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
 
                 //This is a weird workaround for the problem fixed in https://github.com/FoundationDB/fdb-record-layer/pull/1585,
                 // once that's been merged and we get a release that contains it, we can replace this with a more
                 //natural api
-                final RecordMetaDataProto.KeyExpression innerKey = keyWithValue.getInnerKey();
+                final RecordKeyExpressionProto.KeyExpression innerKey = keyWithValue.getInnerKey();
                 int splitPoint = keyWithValue.getSplitPoint();
                 final ThenKeyExpression then = new ThenKeyExpression(innerKey.getThen());
                 KeyExpression keyExpr = then.getSubKey(0, splitPoint);
@@ -538,13 +539,13 @@ public class DdlStatementParsingTest {
 
                 Assertions.assertEquals(indexedColumns.size(), keyExpr.getColumnSize(), "Incorrect number of parsed columns!");
                 for (int i = 0; i < indexedColumns.size(); i++) {
-                    final RecordMetaDataProto.KeyExpression ke = keyExpr.getSubKey(i, i + 1).toKeyExpression();
+                    final RecordKeyExpressionProto.KeyExpression ke = keyExpr.getSubKey(i, i + 1).toKeyExpression();
                     Assertions.assertEquals(indexedColumns.get(i), ke.getField().getFieldName(), "Incorrect column at position " + i);
                 }
 
                 Assertions.assertEquals(unindexedColumns.size(), valueExpr.getColumnSize(), "Incorrect number of parsed columns!");
                 for (int i = 0; i < unindexedColumns.size(); i++) {
-                    final RecordMetaDataProto.KeyExpression ve = valueExpr.getSubKey(i, i + 1).toKeyExpression();
+                    final RecordKeyExpressionProto.KeyExpression ve = valueExpr.getSubKey(i, i + 1).toKeyExpression();
                     Assertions.assertEquals(unindexedColumns.get(i), ve.getField().getFieldName(), "Incorrect column at position " + i);
                 }
 
