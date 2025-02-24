@@ -131,7 +131,10 @@ public final class QueryCommand extends Command {
 
     public void execute(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
         try {
-            if (!connection.supportsMetricCollector() && checkCache) {
+            // checkCache implies that we are repeating the query to check that it hits the cache
+            // If the underlying connection does not support access to the metric collector, we won't be able to
+            // actually check whether the cache was used, so we can skip this execution entirely.
+            if (checkCache && !connection.supportsMetricCollector()) {
                 logger.debug("⚠️ Not possible to check for cache hit with non-EmbeddedRelationalConnection!");
             } else {
                 executeInternal(connection, checkCache, executor);
