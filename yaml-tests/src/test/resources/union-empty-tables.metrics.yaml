@@ -9,10 +9,10 @@ unnamed-1:
     task_count: 676
     task_total_time_ms: 25
     transform_count: 237
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 53
+    insert_time_ms: 1
+    insert_new_count: 55
     insert_reused_count: 3
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
@@ -23,9 +23,9 @@ unnamed-1:
         _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0
         AS S)
     task_count: 738
-    task_total_time_ms: 21
+    task_total_time_ms: 23
     transform_count: 252
-    transform_time_ms: 5
+    transform_time_ms: 10
     transform_yield_count: 44
     insert_time_ms: 1
     insert_new_count: 63

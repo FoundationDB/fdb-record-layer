@@ -46,12 +46,15 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTran
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTransformRuleCallEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTranslateCorrelationsEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -920,10 +923,28 @@ public interface Debugger {
      */
     class InsertIntoMemoEvent implements Event {
         @Nonnull
+        private final RelationalExpression expression;
+
+        @Nonnull
         private final Location location;
 
-        public InsertIntoMemoEvent(@Nonnull final Location location) {
+        @Nonnull
+        private final List<Reference> reusedExpressionReferences;
+
+        public InsertIntoMemoEvent(@Nonnull final RelationalExpression expression,
+                                   @Nonnull final Location location) {
+            this(expression, location, ImmutableList.of());
+        }
+
+        public InsertIntoMemoEvent(@Nonnull final RelationalExpression expression,
+                                   @Nonnull final Location location,
+                                   @Nonnull final Collection<Reference> reusedExpressionReferences) {
+            Debugger.registerExpression(expression);
+            this.expression = expression;
             this.location = location;
+            this.reusedExpressionReferences = ImmutableList.copyOf(reusedExpressionReferences);
+            // Call debugger hook to potentially register this new reference.
+            this.reusedExpressionReferences.forEach(Debugger::registerReference);
         }
 
         @Override
@@ -939,6 +960,16 @@ public interface Debugger {
         }
 
         @Nonnull
+        public RelationalExpression getExpression() {
+            return expression;
+        }
+
+        @Nonnull
+        public Collection<Reference> getReusedExpressionReferences() {
+            return reusedExpressionReferences;
+        }
+
+        @Nonnull
         @Override
         public Location getLocation() {
             return location;
@@ -949,6 +980,10 @@ public interface Debugger {
         public PInsertIntoMemoEvent toProto() {
             return PInsertIntoMemoEvent.newBuilder()
                     .setLocation(getLocation().name())
+                    .setExpression(Event.toExpressionProto(expression))
+                    .addAllReusedExpressionReferences(getReusedExpressionReferences().stream()
+                            .map(Event::toReferenceProto)
+                            .collect(ImmutableList.toImmutableList()))
                     .build();
         }
 

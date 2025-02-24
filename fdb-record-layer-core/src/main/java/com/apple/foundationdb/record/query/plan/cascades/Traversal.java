@@ -32,6 +32,7 @@ import com.google.common.graph.ElementOrder;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.MutableNetwork;
 import com.google.common.graph.NetworkBuilder;
+import com.google.common.graph.StableStandardMutableNetwork;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
@@ -172,13 +173,15 @@ public class Traversal {
      * @return a new traversal object
      */
     public static Traversal withRoot(final Reference rootRef) {
+        // This diverges from the standard construction of Guava network; it delegates the construction to a slightly
+        // modified version that guarantees a stable iteration order over the edges, which is required to guarantee a
+        // deterministic planning behavior.
         final MutableNetwork<Reference, ReferencePath> network =
-                NetworkBuilder.directed()
+                new StableStandardMutableNetwork<>(NetworkBuilder.directed()
                         .allowsParallelEdges(true)
                         .allowsSelfLoops(true)
                         .edgeOrder(ElementOrder.insertion())
-                        .nodeOrder(ElementOrder.insertion())
-                        .build();
+                        .nodeOrder(ElementOrder.insertion()));
 
         final SetMultimap<RelationalExpression, Reference> containedInMap =
                 Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
