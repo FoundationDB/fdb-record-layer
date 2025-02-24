@@ -48,6 +48,13 @@ message ContinuationProto {
   optional Reason reason = 6;
 }
 
+message PartialAggregationResult {
+  optional bytes cursor = 1;
+  optional PValue groupingKey = 2;
+  optional int64 scanned_rows = 3;
+  optional PQueryResult partial_result = 4; // for example, current avg value
+}
+
 message TypedQueryArgument {
   optional com.apple.foundationdb.record.planprotos.PType type = 1;
   optional int32 literals_table_index = 2; // index of the corresponding entry in the literals table for the statement
