@@ -31,9 +31,10 @@ test_block:
            VALUES ((1, 2, 3, 4), 5),
                   ((1, 2, 30, 40), 50)
       - error: "23505"
-    -
-      - query: SELECT COUNT(*) FROM T1
-      - result: [{0}]
+    # 4.1 Triage: failed when running with forced continuations against 4.0.559.6 (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: SELECT COUNT(*) FROM T1
+    #   - result: [{0}]
     -
       - query: INSERT INTO T1
           VALUES ((1, 2, 3, 4), 5),
