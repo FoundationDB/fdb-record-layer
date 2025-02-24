@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
@@ -38,7 +39,7 @@ public interface YamlTestConfig {
      * Creates the connection to the database.
      * @return a new connection factory
      */
-    YamlRunner.YamlConnectionFactory createConnectionFactory();
+    YamlConnectionFactory createConnectionFactory();
 
     /**
      * A list of options to be provided to {@link YamlRunner}.
