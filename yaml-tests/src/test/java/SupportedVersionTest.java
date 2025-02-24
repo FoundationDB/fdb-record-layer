@@ -70,10 +70,6 @@ public class SupportedVersionTest {
                 return Set.of(testVersion);
             }
 
-            @Override
-            public String getQueryInitialVersion() {
-                return testVersion;
-            }
         };
     }
 

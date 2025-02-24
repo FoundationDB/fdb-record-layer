@@ -91,8 +91,6 @@ public final class YamlRunner {
          */
         Set<String> getVersionsUnderTest();
 
-        String getQueryInitialVersion();
-
         /**
          * Whether the connection supports multiple servers.
          * There are some changes to the behavior that are to be expected when running the tests in multi-server mode,
