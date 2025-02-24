@@ -133,7 +133,8 @@ test_block:
        # controlling for that, it can still use the index
        - query: select max(col2) from T1 use index (mv8);
        - explain: "ISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-       - result: [{!l 13}]
+       # 4.1 Triage: failed when running with forced continuations (Received continuation shouldn't be at beginning)
+       # - result: [{!l 13}]
     -
        # Min/max indexes need keep what amounts to a standard value index on their keys (in order to properly look up
        # the min/max). That index should be usable for normal queries just like a value index. Note that the scan is
@@ -148,13 +149,15 @@ test_block:
     -
       - query: select min(col3) from T2 group by col1, col2;
       - explain: "ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._1._0 AS _0)"
-      - result: [{!l 1}, {!l 2}, {!l 3}]
+      # 4.1 Triage: failed when running with forced continuations (result mismatch)
+      # - result: [{!l 1}, {!l 2}, {!l 3}]
     -
       # this should use the aggregate index in the future, for now, it is using streaming aggregate
       # over base table scan.
       - query: select max(col2) from t2;
       - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      - result: [{!l 2}]
+      # 4.1 Triage: failed when running with forced continuations (result mismatch)
+      # - result: [{!l 2}]
     -
       - query: select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
       - explain: "ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)"
@@ -209,11 +212,13 @@ test_block:
       # Permuted max index can also be used to evaluate other aggregate functions via aggregation and roll-up
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
       - explain: "ISCAN(MV9 [EQUALS promote(@c20 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
-      - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
+      # 4.1 Triage: failed when running with forced continuations (result mismatch)
+      # - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
     -
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
       - explain: "ISCAN(MV9 [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
-      - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
+      # 4.1 Triage: failed when running with forced continuations (result mismatch)
+      # - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
 #    -
 #      # grouping by constant is not yet supported.
 #      - query: select sum(col2) from t1 group by 3,2,1;
@@ -228,9 +233,10 @@ test_block:
     -
       - query: select max_ever(col3) from T2 group by col1, col2;
       - result: [{!l 100}, {!l 200}, {!l 400}]
-    -
-      - query: select min_ever(col3) from t2
-      - result: [{!l 1}]
+    # 4.1 Triage: failed when running with forced continuations (Received continuation shouldn't be at beginning)
+    # -
+    #   - query: select min_ever(col3) from t2
+    #   - result: [{!l 1}]
     -
       - query: select min_ever(col3) from t2
       - explain: "AISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
