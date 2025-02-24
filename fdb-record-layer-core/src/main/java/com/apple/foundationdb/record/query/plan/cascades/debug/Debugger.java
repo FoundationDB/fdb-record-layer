@@ -931,13 +931,13 @@ public interface Debugger {
         @Nonnull
         private final List<Reference> reusedExpressionReferences;
 
-        public InsertIntoMemoEvent(@Nonnull final RelationalExpression expression,
-                                   @Nonnull final Location location) {
-            this(expression, location, ImmutableList.of());
+        public InsertIntoMemoEvent(@Nonnull final Location location,
+                                   @Nonnull final RelationalExpression expression) {
+            this(location, expression, ImmutableList.of());
         }
 
-        public InsertIntoMemoEvent(@Nonnull final RelationalExpression expression,
-                                   @Nonnull final Location location,
+        public InsertIntoMemoEvent(@Nonnull final Location location,
+                                   @Nonnull final RelationalExpression expression,
                                    @Nonnull final Collection<Reference> reusedExpressionReferences) {
             Debugger.registerExpression(expression);
             this.expression = expression;

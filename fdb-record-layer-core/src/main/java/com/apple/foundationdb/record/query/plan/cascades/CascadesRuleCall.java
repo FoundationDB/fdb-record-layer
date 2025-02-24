@@ -244,7 +244,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         if (expression.getQuantifiers().isEmpty()) {
             return memoizeLeafExpression(expression);
         }
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.BEGIN)));
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN, expression)));
         try {
             Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
 
@@ -289,7 +289,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
 
             if (!commonReferencingExpressions.isEmpty()) {
                 Debugger.withDebugger(debugger ->
-                        debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.REUSED,
+                        debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED, expression,
                                 commonReferencingExpressions.stream()
                                         .map(expressionToReferenceMap::get)
                                         .collect(ImmutableList.toImmutableList()))));
@@ -299,19 +299,19 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 return reference;
             }
 
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW)));
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW, expression)));
             final var newRef = Reference.of(expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.END)));
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END, expression)));
         }
     }
 
     @Nonnull
     @Override
     public Reference memoizeLeafExpression(@Nonnull final RelationalExpression expression) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.BEGIN)));
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN, expression)));
         try {
             Preconditions.checkArgument(!(expression instanceof RecordQueryPlan));
             Preconditions.checkArgument(expression.getQuantifiers().isEmpty());
@@ -321,17 +321,17 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
             for (final var leafRef : leafRefs) {
                 for (final var member : leafRef.getMembers()) {
                     if (Reference.isMemoizedExpression(expression, member)) {
-                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.REUSED)));
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED, expression)));
                         return leafRef;
                     }
                 }
             }
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW)));
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW, expression)));
             final var newRef = Reference.of(expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.END)));
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END, expression)));
         }
     }
 
@@ -366,7 +366,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
             Debugger.withDebugger(debugger -> expressions.forEach(
-                    expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.BEGIN))));
+                    expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN, expression))));
 
             //
             // Note that we cannot ever reuse a reference containing just plans unless we can somehow prove
@@ -380,19 +380,19 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 final Optional<Reference> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
                 if (memoizedRefMaybe.isPresent()) {
                     Debugger.withDebugger(debugger ->
-                            expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(plan, Debugger.Location.REUSED))));
+                            expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED, plan))));
                     return memoizedRefMaybe.get();
                 }
             }
 
             final var newRef = referenceCreator.apply(expressionSet);
             for (final var plan : expressionSet) {
-                Debugger.withDebugger(debugger -> expressions.forEach(expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.NEW))));
+                Debugger.withDebugger(debugger -> expressions.forEach(expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW, expression))));
                 traversal.addExpression(newRef, plan);
             }
             return newRef;
         } finally {
-            Debugger.withDebugger(debugger -> expressions.forEach(expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(expression, Debugger.Location.END))));
+            Debugger.withDebugger(debugger -> expressions.forEach(expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END, expression))));
         }
     }
 

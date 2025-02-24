@@ -185,18 +185,23 @@ public class Reference implements Correlated<Reference>, Typed {
      *         otherwise.
      */
     private boolean insert(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent( new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
+        Debugger.withDebugger(debugger -> debugger.onEvent( new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN, newValue)));
         try {
             final boolean containsInMemo = containsInMemo(newValue);
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
-
+            Debugger.withDebugger(debugger -> {
+                if (containsInMemo) {
+                    debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED, newValue, ImmutableList.of(this)));
+                } else {
+                    debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW, newValue));
+                }
+            });
             if (!containsInMemo) {
                 insertUnchecked(newValue, precomputedPropertiesMap);
                 return true;
             }
             return false;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END, newValue)));
         }
     }
 
