@@ -42,7 +42,7 @@ import static com.google.common.graph.GraphConstants.SELF_LOOPS_NOT_ALLOWED;
  * @param <N> Node parameter type
  * @param <E> Edge parameter type
  */
-@SuppressWarnings("UnstableApiUsage")
+@SuppressWarnings({"UnstableApiUsage", "PMD.TooManyStaticImports"})
 @ElementTypesAreNonnullByDefault
 public final class StableStandardMutableNetwork<N, E> implements MutableNetwork<N, E> {
     private final StandardMutableNetwork<N, E> standardMutableNetwork;
@@ -51,6 +51,7 @@ public final class StableStandardMutableNetwork<N, E> implements MutableNetwork<
         standardMutableNetwork = new StandardMutableNetwork<>(builder);
     }
 
+    @Override
     public boolean addNode(N node) {
         checkNotNull(node, "node");
         if (standardMutableNetwork.containsNode(node)) {
@@ -60,6 +61,7 @@ public final class StableStandardMutableNetwork<N, E> implements MutableNetwork<
         return true;
     }
 
+    @Override
     public boolean addEdge(N nodeU, N nodeV, E edge) {
         checkNotNull(nodeU, "nodeU");
         checkNotNull(nodeV, "nodeV");
@@ -116,124 +118,154 @@ public final class StableStandardMutableNetwork<N, E> implements MutableNetwork<
         return StableDirectedMultiNetworkConnections.of();
     }
 
+    @Override
     public Graph<N> asGraph() {
         return standardMutableNetwork.asGraph();
     }
 
+    @Override
     public int degree(N node) {
         return standardMutableNetwork.degree(node);
     }
 
+    @Override
     public int inDegree(N node) {
         return standardMutableNetwork.inDegree(node);
     }
 
+    @Override
     public int outDegree(N node) {
         return standardMutableNetwork.outDegree(node);
     }
 
+    @Override
     public Set<E> adjacentEdges(E edge) {
         return standardMutableNetwork.adjacentEdges(edge);
     }
 
+    @Override
     public Set<E> edgesConnecting(EndpointPair<N> endpoints) {
         return standardMutableNetwork.edgesConnecting(endpoints);
     }
 
+    @Override
     public Optional<E> edgeConnecting(N nodeU, N nodeV) {
         return standardMutableNetwork.edgeConnecting(nodeU, nodeV);
     }
 
+    @Override
     public Optional<E> edgeConnecting(EndpointPair<N> endpoints) {
         return standardMutableNetwork.edgeConnecting(endpoints);
     }
 
+    @Override
     @CheckForNull
     public E edgeConnectingOrNull(N nodeU, N nodeV) {
         return standardMutableNetwork.edgeConnectingOrNull(nodeU, nodeV);
     }
 
+    @Override
     @CheckForNull
     public E edgeConnectingOrNull(EndpointPair<N> endpoints) {
         return standardMutableNetwork.edgeConnectingOrNull(endpoints);
     }
 
+    @Override
     public boolean hasEdgeConnecting(N nodeU, N nodeV) {
         return standardMutableNetwork.hasEdgeConnecting(nodeU, nodeV);
     }
 
+    @Override
     public boolean hasEdgeConnecting(EndpointPair<N> endpoints) {
         return standardMutableNetwork.hasEdgeConnecting(endpoints);
     }
 
+    @Override
     public Set<N> nodes() {
         return standardMutableNetwork.nodes();
     }
 
+    @Override
     public Set<E> edges() {
         return standardMutableNetwork.edges();
     }
 
+    @Override
     public boolean isDirected() {
         return standardMutableNetwork.isDirected();
     }
 
+    @Override
     public boolean allowsParallelEdges() {
         return standardMutableNetwork.allowsParallelEdges();
     }
 
+    @Override
     public boolean allowsSelfLoops() {
         return standardMutableNetwork.allowsSelfLoops();
     }
 
+    @Override
     public ElementOrder<N> nodeOrder() {
         return standardMutableNetwork.nodeOrder();
     }
 
+    @Override
     public ElementOrder<E> edgeOrder() {
         return standardMutableNetwork.edgeOrder();
     }
 
+    @Override
     public Set<E> incidentEdges(N node) {
         return standardMutableNetwork.incidentEdges(node);
     }
 
+    @Override
     public EndpointPair<N> incidentNodes(E edge) {
         return standardMutableNetwork.incidentNodes(edge);
     }
 
+    @Override
     public Set<N> adjacentNodes(N node) {
         return standardMutableNetwork.adjacentNodes(node);
     }
 
+    @Override
     public Set<E> edgesConnecting(N nodeU, N nodeV) {
         return standardMutableNetwork.edgesConnecting(nodeU, nodeV);
     }
 
+    @Override
     public Set<E> inEdges(N node) {
         return standardMutableNetwork.inEdges(node);
     }
 
+    @Override
     public Set<E> outEdges(N node) {
         return standardMutableNetwork.outEdges(node);
     }
 
+    @Override
     public Set<N> predecessors(N node) {
         return standardMutableNetwork.predecessors(node);
     }
 
+    @Override
     public Set<N> successors(N node) {
         return standardMutableNetwork.successors(node);
     }
 
+    @Override
     public boolean addEdge(EndpointPair<N> endpoints, E edge) {
         return standardMutableNetwork.addEdge(endpoints, edge);
     }
 
+    @Override
     public boolean removeNode(N node) {
         return standardMutableNetwork.removeNode(node);
     }
 
+    @Override
     public boolean removeEdge(E edge) {
         return standardMutableNetwork.removeEdge(edge);
     }

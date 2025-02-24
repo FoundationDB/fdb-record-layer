@@ -46,10 +46,9 @@ import javax.annotation.CheckForNull;
 @ElementTypesAreNonnullByDefault
 final class StableDirectedMultiNetworkConnections<N, E> extends AbstractDirectedNetworkConnections<N, E> {
 
-    private StableDirectedMultiNetworkConnections(
-            Map<E, N> inEdges, Map<E, N> outEdges, int selfLoopCount) {
-        super(inEdges, outEdges, selfLoopCount);
-    }
+    @CheckForNull @LazyInit private transient Reference<Multiset<N>> predecessorsReference;
+
+    @CheckForNull @LazyInit private transient Reference<Multiset<N>> successorsReference;
 
     static <N, E> StableDirectedMultiNetworkConnections<N, E> of() {
         return new StableDirectedMultiNetworkConnections<>(
@@ -64,7 +63,10 @@ final class StableDirectedMultiNetworkConnections<N, E> extends AbstractDirected
                 ImmutableMap.copyOf(inEdges), ImmutableMap.copyOf(outEdges), selfLoopCount);
     }
 
-    @CheckForNull @LazyInit private transient Reference<Multiset<N>> predecessorsReference;
+    private StableDirectedMultiNetworkConnections(
+            Map<E, N> inEdges, Map<E, N> outEdges, int selfLoopCount) {
+        super(inEdges, outEdges, selfLoopCount);
+    }
 
     @Override
     public Set<N> predecessors() {
@@ -79,8 +81,6 @@ final class StableDirectedMultiNetworkConnections<N, E> extends AbstractDirected
         }
         return predecessors;
     }
-
-    @CheckForNull @LazyInit private transient Reference<Multiset<N>> successorsReference;
 
     @Override
     public Set<N> successors() {
