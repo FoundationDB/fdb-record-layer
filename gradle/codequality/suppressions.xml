@@ -14,4 +14,6 @@
         files=".*[\\/]org[\\/]apache[\\/]lucene[\\/]codecs[\\/]lucene84[\\/]LuceneOptimizedPostingsReader.java"/>
     <suppress checks=".*"
               files=".*[\\/]generated[\\/].*"/>
+    <suppress checks="Header"
+              files=".*[\\/]com[\\/]google[\\/]common[\\/]graph[\\/].*"/>
 </suppressions>
