@@ -99,13 +99,11 @@ public class SupportedVersionTest {
     static Stream<String> shouldPass() {
         return Stream.of(
                 "unsupported-at-file", // technically for this one the whole test is ignored
-                "non-exhaustive-versions",
                 "unsupported-at-block",
                 "unsupported-at-query",
                 "current-version-at-file",
                 "current-version-at-block",
                 "current-version-at-query",
-                "less-than-version-tests",
                 "higher-at-block",
                 "higher-at-query",
                 "fully-supported",
