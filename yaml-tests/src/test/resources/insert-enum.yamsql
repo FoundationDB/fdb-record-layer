@@ -17,9 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
-options:
-    supported_version: 4.1.6.0
----
 schema_template:
     CREATE TYPE AS ENUM "WHATEVER" ( 'OWNING', 'WEAK', 'VALIDATING' )
     CREATE TABLE "TableA" ("field1" "WHATEVER", "field2" BIGINT, PRIMARY KEY("field2") )

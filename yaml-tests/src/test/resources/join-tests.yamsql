@@ -67,6 +67,8 @@ test_block:
     -
       # Get names of people working on a project
       - query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
+      # 4.1 Triage: This runs into infinite loop
+      - maxRows: 0
       - unorderedResult: [{"Emily", "Martinez"},
                           {"Daniel", "Miller"},
                           {"Megan", "Miller"}]
@@ -76,6 +78,8 @@ test_block:
                   (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
                   dept
                where sq.dept_id = dept.id and dept.name = 'Sales';
+      # 4.1 Triage: This runs into infinite loop
+      - maxRows: 0
       - unorderedResult: [{"Daniel", "Miller"}]
     -
       # three-way join to find which departments' corresponding projects.

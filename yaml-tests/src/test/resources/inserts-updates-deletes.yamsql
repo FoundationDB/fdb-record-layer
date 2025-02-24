@@ -108,30 +108,24 @@ test_block:
     -
       # Case where not all values are provided of A. Still works, since the columns for which no values are provided can be nullable.
       - query: insert into A(A1, A2, A3) values (4);
-      - supported_version: 4.1.6.0
       - error: "42601"
     -
       # Case when the number of values is more than the number of columns specified.
       - query: insert into A(A1, A2, A3) values (5, 6, 7, 8, 9);
-      - supported_version: 4.1.6.0
       - error: "42601"
     -
       # Case when a nullable column's value is not provided
       - query: insert into A(A1, A3) values (6, 7);
-      - supported_version: 4.1.6.0
       - count: 1
     -
       # Case when a nullable column's value is not provided and column is the first one
       - query: insert into A(A2, A3) values (6, 7);
-      - supported_version: 4.1.6.0
       - count: 1
     -
       # Case when a nullable column's value is not provided and column is the last one
       - query: insert into A(A1, A2) values (7, 8);
-      - supported_version: 4.1.6.0
       - count: 1
     -
       - query: select * from A where A1 = 6
-      - supported_version: 4.1.6.0
       - result: [{ A1: 6, A2: !null , A3: 7 }]
 ...

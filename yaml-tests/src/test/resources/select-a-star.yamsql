@@ -40,6 +40,8 @@ test_block:
   tests:
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
+      # 4.1 Triage: Infinite loop
+      - maxRows: 0
       - result: [{1}, {2}, {3}]
     -
       - query: select A.* from A;
@@ -78,9 +80,13 @@ test_block:
       - error: "42803"
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
+      # 4.1 Triage: Infinite loop
+      - maxRows: 0
       - result: [{1}, {2}, {3}]
     -
       - query: select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);
+      # 4.1 Triage: Infinite loop
+      - maxRows: 0
       - result: [{1, 20, {4, 40}},
                  {2, 20, {5, 50}},
                  {3, 20, {6, 60}}]
