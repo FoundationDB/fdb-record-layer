@@ -570,7 +570,7 @@ public abstract class QueryConfig {
             } else {
                 return getNoOpConfig(lineNumber, executionContext);
             }
-        } else if (key.contains(QUERY_CONFIG_RESULT)) {
+        } else if (QUERY_CONFIG_RESULT.equals(key)) {
             return getCheckResultConfig(true, key, value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_UNORDERED_RESULT.equals(key)) {
             return getCheckResultConfig(false, key, value, lineNumber, executionContext);
