@@ -93,6 +93,10 @@ if (ext.publishLibrary) {
                 GenerateMavenPom pomTask = tasks.generatePomFileForLibraryPublication
                 Jar jarTask = tasks.jar
                 if (filename == pomTask.destination.name) {
+                    println("XTXT >>> ${filename}")
+                    println("XTXT >>> ${pomTask.destination.name}")
+                    println("XTXT >>> ${jarTask.archiveFileName}")
+                    println("XTXT >>> ${jarTask.archiveFileName.class}")
                     jarTask.archiveFileName.replace "jar", "pom"
                 } else {
                     filename
