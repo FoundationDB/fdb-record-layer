@@ -186,6 +186,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
+            reason = "Update statements fail with force continuations")
     public void updateDeleteReturning(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("update-delete-returning.yamsql");
     }
