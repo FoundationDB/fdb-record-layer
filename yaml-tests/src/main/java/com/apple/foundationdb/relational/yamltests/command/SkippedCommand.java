@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -50,7 +50,7 @@ public class SkippedCommand extends Command {
     }
 
     @Override
-    void executeInternal(@Nonnull final RelationalConnection connection) throws SQLException, RelationalException {
+    void executeInternal(@Nonnull final YamlConnection connection) throws SQLException, RelationalException {
         Assert.fail("Skipped commands should not be called");
     }
 
