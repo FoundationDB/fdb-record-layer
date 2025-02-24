@@ -469,7 +469,14 @@ public abstract class QueryConfig {
         if (!check.isSupported()) {
             return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, lineNumber, executionContext, check.getMessage());
         }
-        return getNoOpConfig(lineNumber, executionContext);
+        return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, lineNumber, executionContext) {
+            @Override
+            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
+                // Nothing to do, this query is supported
+                // SupportedVersion configs are not executed
+                Assertions.fail("Supported version configs are not meant to be executed.");
+            }
+        };
     }
 
     /**
