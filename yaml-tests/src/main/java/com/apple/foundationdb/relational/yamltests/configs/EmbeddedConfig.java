@@ -71,10 +71,6 @@ public class EmbeddedConfig implements YamlTestConfig {
                 return Set.of(CURRENT_VERSION);
             }
 
-            @Override
-            public String getQueryInitialVersion() {
-                return CURRENT_VERSION;
-            }
         };
     }
 

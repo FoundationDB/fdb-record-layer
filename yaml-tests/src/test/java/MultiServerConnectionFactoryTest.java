@@ -26,7 +26,7 @@ import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
@@ -40,16 +40,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MultiServerConnectionFactoryTest {
     @ParameterizedTest
-    @ValueSource(ints = {0, 1})
+    @CsvSource({"0", "1"})
     void testDefaultPolicy(int initialConnection) throws SQLException {
-        String version0 = "0.0.0.0";
-        String version1 = "1.1.1.1";
-        String defaultVersion = version0;
         MultiServerConnectionFactory classUnderTest = new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.DEFAULT,
                 initialConnection,
-                dummyConnectionFactory("Primary", version0),
-                List.of(dummyConnectionFactory("Alternate", version1)));
+                dummyConnectionFactory("Primary"),
+                List.of(dummyConnectionFactory("Alternate")));
 
         // It might make sense to just remove ConnectionSelectionPolicy.DEFAULT since it never uses any of the other
         // connections, you don't need the MultiServerConnectionFactory, or it might make sense to have it return
@@ -73,21 +70,17 @@ public class MultiServerConnectionFactoryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 1})
+    @CsvSource({"0", "1"})
     void testAlternatePolicy(int initialConnection) throws SQLException {
         final String[] path = new String[] { "Primary", "Alternate" };
         final String initialConnectionName = path[initialConnection];
         final String otherConnectionName = path[(initialConnection + 1) % 2];
-        final String version0 = "0.0.0.0";
-        final String version1 = "1.1.1.1";
-        String[] versions = {version0, version1};
 
         MultiServerConnectionFactory classUnderTest = new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                dummyConnectionFactory("Primary", version0),
-                List.of(dummyConnectionFactory("Alternate", version1)));
-        assertEquals(versions[initialConnection], classUnderTest.getQueryInitialVersion());
+                dummyConnectionFactory("Primary"),
+                List.of(dummyConnectionFactory("Alternate")));
 
         // First run:
         // - Factory current connection: initial connection
@@ -96,6 +89,8 @@ public class MultiServerConnectionFactoryTest {
         var connection = classUnderTest.getNewConnection(URI.create("Blah"));
         assertConnection(connection, List.of(initialConnectionName, otherConnectionName));
         assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
+        // next statement
+        assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
 
         // Second run:
         // - Factory current connection: alternate connection
@@ -123,7 +118,7 @@ public class MultiServerConnectionFactoryTest {
         connection = classUnderTest.getNewConnection(URI.create("Blah"));
         assertConnection(connection, List.of(otherConnectionName, initialConnectionName));
         assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
-        // just one statement for this connection
+        // next statements
         assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
         assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
     }
@@ -133,13 +128,13 @@ public class MultiServerConnectionFactoryTest {
         assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 -1,
-                dummyConnectionFactory("A", "0.0.0.0"),
-                List.of(dummyConnectionFactory("B", "1.1.1.1"))));
+                dummyConnectionFactory("A"),
+                List.of(dummyConnectionFactory("B"))));
         assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 7,
-                dummyConnectionFactory("A", "0.0.0.0"),
-                List.of(dummyConnectionFactory("B", "1.1.1.1"))));
+                dummyConnectionFactory("A"),
+                List.of(dummyConnectionFactory("B"))));
     }
 
     private void assertStatement(final RelationalPreparedStatement statement, final String query) throws SQLException {

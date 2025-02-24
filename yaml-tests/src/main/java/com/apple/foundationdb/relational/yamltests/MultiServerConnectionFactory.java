@@ -36,6 +36,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -64,7 +65,8 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     @Nonnull
     private final List<YamlConnectionFactory> alternateFactories;
     private final int totalFactories;
-    private final int initialConnection;
+    @Nonnull
+    private final AtomicInteger currentConnectionSelector;
 
     public MultiServerConnectionFactory(@Nonnull final ConnectionSelectionPolicy connectionSelectionPolicy,
                                         final int initialConnection,
@@ -80,7 +82,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         this.totalFactories = 1 + alternateFactories.size(); // one default and N alternates
         Assertions.assertTrue(initialConnection >= 0);
         Assertions.assertTrue(initialConnection < totalFactories, "Initial connections should be <= number of factories");
-        this.initialConnection = initialConnection;
+        this.currentConnectionSelector = new AtomicInteger(initialConnection);
     }
 
     @Override
@@ -99,16 +101,6 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     }
 
     @Override
-    public String getQueryInitialVersion() {
-        int nextConnection = getInitialConnectionNumber();
-        if (nextConnection == 0) {
-            return defaultFactory.getQueryInitialVersion();
-        } else {
-            return alternateFactories.get(nextConnection - 1).getQueryInitialVersion();
-        }
-    }
-
-    @Override
     public boolean isMultiServer() {
         return true;
     }
@@ -122,6 +114,24 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
                 throw new IllegalStateException("Failed to create a connection", e);
             }
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Increment and return the next connection's initialConnection number.
+     * This allows us to better distribute the connections positions as connections are created per query in the tests
+     * and thus connections with a single query should increment their position between connection creation or else they
+     * will always execute with the same initial connection.
+     * @return the next initial connection number to use
+     */
+    private int getNextConnectionNumber() {
+        switch (connectionSelectionPolicy) {
+            case DEFAULT:
+                return DEFAULT_CONNECTION;
+            case ALTERNATE:
+                return currentConnectionSelector.getAndUpdate(i -> (i + 1) % totalFactories);
+            default:
+                throw new IllegalArgumentException("Unknown policy");
+        }
     }
 
     /**

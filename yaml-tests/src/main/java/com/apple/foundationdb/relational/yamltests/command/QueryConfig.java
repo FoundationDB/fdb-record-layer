@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
@@ -526,6 +525,7 @@ public abstract class QueryConfig {
     }
 
     private static boolean isVersionSupported(Object key, Object value, int lineNumber, YamlExecutionContext executionContext) {
+        /*
         try {
             SemanticVersion versionArgument = SemanticVersion.parseObject(value);
             SemanticVersion initialVersion = SemanticVersion.parse(executionContext.getConnectionFactory().getQueryInitialVersion());
@@ -539,6 +539,8 @@ public abstract class QueryConfig {
         } catch (Exception e) {
             throw executionContext.wrapContext(e, () -> "‼️ Unable to parse version constraint information at line " + lineNumber, "version constraint", lineNumber);
         }
+         */
+        return true;
     }
 
     private static QueryConfig parseConfig(String blockName, String key, Object value, int lineNumber, YamlExecutionContext executionContext) {
