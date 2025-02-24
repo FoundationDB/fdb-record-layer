@@ -21,51 +21,50 @@
 package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 
+import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * Class to support the various places in a yaml file where you can have supported_version.
  */
 public class SupportedVersionCheck {
+    public static final String SUPPORTED_VERSION_OPTION = "supported_version";
+    public static SupportedVersionCheck SUPPORTED = new SupportedVersionCheck(true, "");
 
     private final boolean isSupported;
     private final String message;
 
-    private SupportedVersionCheck() {
-        isSupported = true;
-        message = "";
-    }
-
-    private SupportedVersionCheck(final String message) {
-        isSupported = false;
+    private SupportedVersionCheck(boolean isSupported, String message) {
+        this.isSupported = isSupported;
         this.message = message;
     }
 
+    public static SupportedVersionCheck parseOptions(Map<?, ?> options, YamlExecutionContext executionContext) {
+        if (options.containsKey(SUPPORTED_VERSION_OPTION)) {
+            return SupportedVersionCheck.parse(options.get(SUPPORTED_VERSION_OPTION), executionContext);
+        } else {
+            return SupportedVersionCheck.supported();
+        }
+    }
+
     public static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
-        if (rawVersion instanceof FileOptions.CurrentVersion) {
-            final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
-            // IntelliJ, at least, doesn't display the reason, so log it
-            if (!versionsUnderTest.isEmpty()) {
-                return new SupportedVersionCheck(
+        SemanticVersion supportedVersion = SemanticVersion.parseObject(rawVersion);
+        final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
+        final List<SemanticVersion> unsupportedVersions = supportedVersion.lesserVersions(versionsUnderTest);
+        if (!unsupportedVersions.isEmpty()) {
+            if (supportedVersion.equals(SemanticVersion.CURRENT_VERSION)) {
+                return SupportedVersionCheck.unsupported(
                         "Skipping test that only works against the current version, when we're running with these versions: " +
                                 versionsUnderTest);
-            }
-            return new SupportedVersionCheck();
-        } else if (rawVersion instanceof String) {
-            final SemanticVersion supported = SemanticVersion.parse((String)rawVersion);
-            final List<SemanticVersion> unsupportedVersions = supported.lesserVersions(
-                    executionContext.getConnectionFactory().getVersionsUnderTest());
-            if (!unsupportedVersions.isEmpty()) {
-                return new SupportedVersionCheck("Skipping test that only works against " + supported +
+            } else {
+                return SupportedVersionCheck.unsupported("Skipping test that only works against " + supportedVersion +
                         " and later, but we are running with these older versions: " + unsupportedVersions);
             }
-            return new SupportedVersionCheck();
-        } else {
-            throw new RuntimeException("Unsupported supported_version: " + rawVersion);
         }
+        return supported();
     }
 
     public boolean isSupported() {
@@ -74,5 +73,13 @@ public class SupportedVersionCheck {
 
     public String getMessage() {
         return message;
+    }
+
+    public static SupportedVersionCheck supported() {
+        return SUPPORTED;
+    }
+
+    public static SupportedVersionCheck unsupported(@Nonnull String message) {
+        return new SupportedVersionCheck(false, message);
     }
 }

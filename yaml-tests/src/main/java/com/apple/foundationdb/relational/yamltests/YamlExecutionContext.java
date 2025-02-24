@@ -76,7 +76,7 @@ public final class YamlExecutionContext {
     private final Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap;
     private boolean isDirtyMetrics;
     @Nonnull
-    private final YamlRunner.YamlConnectionFactory connectionFactory;
+    private final YamlConnectionFactory connectionFactory;
     @Nonnull
     private final List<Block> finalizeBlocks = new ArrayList<>();
     @SuppressWarnings("AbbreviationAsWordInName")
@@ -93,7 +93,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory,
+    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
                          @Nonnull final ContextOptions additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
@@ -117,7 +117,7 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    public YamlRunner.YamlConnectionFactory getConnectionFactory() {
+    public YamlConnectionFactory getConnectionFactory() {
         return connectionFactory;
     }
 

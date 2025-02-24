@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
@@ -104,7 +104,6 @@ public final class TestBlock extends ConnectedBlock {
     static final String OPTION_STATEMENT_TYPE = "statement_type";
     static final String OPTION_STATEMENT_TYPE_SIMPLE = "simple";
     static final String OPTION_STATEMENT_TYPE_PREPARED = "prepared";
-    static final String OPTION_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
 
     /**
      * Defines the way in which the tests are run.
@@ -153,7 +152,7 @@ public final class TestBlock extends ConnectedBlock {
     @Nonnull
     final String blockName;
     @Nonnull
-    private final List<Consumer<RelationalConnection>> executableTestsWithCacheCheck;
+    private final List<Consumer<YamlConnection>> executableTestsWithCacheCheck;
     @Nonnull
     private final TestBlockOptions options;
     @Nonnull
@@ -190,7 +189,7 @@ public final class TestBlock extends ConnectedBlock {
         private boolean checkCache = true;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         private StatementType statementType = StatementType.BOTH;
-        private Object rawSupportedVersion;
+        private Object supportedVersion = null;
 
         private void verifyPreset(@Nonnull String preset) {
             switch (preset) {
@@ -246,8 +245,11 @@ public final class TestBlock extends ConnectedBlock {
                         break;
                 }
             }
-            if (optionsMap.containsKey(OPTION_SUPPORTED_VERSION)) {
-                this.rawSupportedVersion = optionsMap.get(OPTION_SUPPORTED_VERSION);
+            if (optionsMap.containsKey(SupportedVersionCheck.SUPPORTED_VERSION_OPTION)) {
+                Object optionValue = optionsMap.get(SupportedVersionCheck.SUPPORTED_VERSION_OPTION);
+                if (optionValue != null) {
+                    supportedVersion = optionValue;
+                }
             }
             setOptionConnectionLifecycle(optionsMap);
         }
@@ -338,15 +340,15 @@ public final class TestBlock extends ConnectedBlock {
             final String blockName = testsMap.containsKey(TEST_BLOCK_NAME)
                                      ? Matchers.string(testsMap.get(TEST_BLOCK_NAME)) : "unnamed-" + blockNumber;
             final var testsObject = Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber);
-            if (options.rawSupportedVersion != null) {
-                final SupportedVersionCheck check = SupportedVersionCheck.parse(options.rawSupportedVersion, executionContext);
+            if (options.supportedVersion != null) {
+                final SupportedVersionCheck check = SupportedVersionCheck.parse(options.supportedVersion, executionContext);
                 if (!check.isSupported()) {
                     return new SkipBlock(lineNumber, check.getMessage());
                 }
             }
             var randomGenerator = new Random(options.seed);
-            final var executables = new ArrayList<Consumer<RelationalConnection>>();
-            final var executableTestsWithCacheCheck = new ArrayList<Consumer<RelationalConnection>>();
+            final var executables = new ArrayList<Consumer<YamlConnection>>();
+            final var executableTestsWithCacheCheck = new ArrayList<Consumer<YamlConnection>>();
             final var queryCommands = new ArrayList<QueryCommand>();
             final var tests = Matchers.arrayList(testsObject, "tests");
             for (var testObject : tests) {
@@ -380,8 +382,8 @@ public final class TestBlock extends ConnectedBlock {
     }
 
     private TestBlock(int lineNumber, @Nonnull String blockName, @Nonnull List<QueryCommand> queryCommands,
-                      @Nonnull List<Consumer<RelationalConnection>> executables,
-                      @Nonnull List<Consumer<RelationalConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
+                      @Nonnull List<Consumer<YamlConnection>> executables,
+                      @Nonnull List<Consumer<YamlConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
                       @Nonnull TestBlockOptions options, @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executables, connectionURI, executionContext);
         this.blockName = blockName;
@@ -421,7 +423,7 @@ public final class TestBlock extends ConnectedBlock {
         return maybeFailureException == null ? Optional.empty() : Optional.of(maybeFailureException);
     }
 
-    private void executeInNonParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) {
+    private void executeInNonParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) {
         if (options.connectionLifecycle == ConnectionLifecycle.BLOCK) {
             // resort to the default implementation of execute.
             executeExecutables(testsToExecute);
@@ -438,7 +440,7 @@ public final class TestBlock extends ConnectedBlock {
      * @throws InterruptedException thrown if the execution does not finish within a time-bound.
      * @throws ExecutionException thrown if any the executable tasks complete exceptionally.
      */
-    private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) throws InterruptedException, ExecutionException {
+    private void executeInParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) throws InterruptedException, ExecutionException {
         final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
         final var futures = testsToExecute.stream().map(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t)))).collect(Collectors.toList());
         executorService.shutdown();
@@ -475,8 +477,8 @@ public final class TestBlock extends ConnectedBlock {
     }
 
     @Nonnull
-    private static Consumer<RelationalConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                                       @Nonnull Random random, boolean runAsPreparedStatement) {
+    private static Consumer<YamlConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
+                                                                 @Nonnull Random random, boolean runAsPreparedStatement) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> queryCommand.execute(connection, checkCache, executor);
     }

@@ -33,6 +33,9 @@ test_block:
     -
       - query: select count(*) from t1
       - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
       - result: [{0}]
     -
       - query: select count(*) from t1 group by col2
@@ -41,6 +44,9 @@ test_block:
     -
       - query: select count(col1) from t1
       - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
       - result: [{0}]
     -
       - query: select count(col1) from t1 group by col2
