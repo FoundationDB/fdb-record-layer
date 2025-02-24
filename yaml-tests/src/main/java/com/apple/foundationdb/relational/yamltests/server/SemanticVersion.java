@@ -53,7 +53,9 @@ import java.util.stream.Collectors;
  * @see <a href="https://github.com/FoundationDB/fdb-record-layer/blob/main/docs/Versioning.md#semantic-versioning">Versioning</a>
  */
 public class SemanticVersion implements Comparable<SemanticVersion> {
-    public static final SemanticVersion CURRENT_VERSION = new SemanticVersion(ImmutableList.of(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE), ImmutableList.of());
+    public static final SemanticVersion CURRENT_VERSION = new SemanticVersion(ImmutableList.of(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, 0), ImmutableList.of());
+    public static final SemanticVersion MIN_VERSION = new SemanticVersion(ImmutableList.of(0, 0, 0, 0), ImmutableList.of());
+    public static final SemanticVersion MAX_VERSION = new SemanticVersion(ImmutableList.of(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE), ImmutableList.of());
 
     private static final String NUMBER_PATTERN = "(?:0|[1-9]\\d*)";
     private static final String ALPHANUMERIC_PATTERN = "\\d*[a-zA-Z-][0-9a-zA-Z-]";

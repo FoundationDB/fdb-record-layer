@@ -32,6 +32,10 @@ import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -42,6 +46,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -95,6 +100,24 @@ public final class QueryCommand extends Command {
             Assert.thatUnchecked(configs.stream().skip(1)
                     .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                     "supported_version must be the first config in a query (after the query itself)");
+
+            // Validate that the results check each version comprehensively by making sure the set of
+            // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
+            if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
+                // Creating an interval set including each covered range
+                RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
+                configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
+                        .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
+                        .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
+                // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
+                Set<Range<SemanticVersion>> uncovered = rangeSet.complement()
+                        .subRangeSet(Range.closedOpen(SemanticVersion.MIN_VERSION, SemanticVersion.MAX_VERSION))
+                        .asRanges();
+                if (!uncovered.isEmpty()) {
+                    IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
+                    throw executionContext.wrapContext(e, () -> "‼️ Non-comprehensive test case found at line " + lineNumber, "config", lineNumber);
+                }
+            }
 
             final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
                     .collect(Collectors.toList());
@@ -164,8 +187,8 @@ public final class QueryCommand extends Command {
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
-            if (queryConfig instanceof QueryConfig.VersionCheckConfig) {
-                shouldExecute = ((QueryConfig.VersionCheckConfig)queryConfig).shouldExecute(connection);
+            if (queryConfig instanceof QueryConfig.InitialVersionCheckConfig) {
+                shouldExecute = ((QueryConfig.InitialVersionCheckConfig)queryConfig).shouldExecute(connection);
                 continue;
             }
             if (!shouldExecute) {

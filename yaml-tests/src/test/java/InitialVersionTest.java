@@ -1,5 +1,5 @@
 /*
- * SupportedVersionTest.java
+ * InitialVersionTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -39,10 +39,9 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests that {@code supported_version} skip what they should and nothing else.
+ * Tests that tests based on the initial version flags skip what they should and nothing else.
  */
-public class SupportedVersionTest {
-
+public class InitialVersionTest {
     private static final String VERSION = "3.0.18.0";
     private static final EmbeddedConfig config = new EmbeddedConfig();
 
@@ -71,20 +70,22 @@ public class SupportedVersionTest {
             public Set<String> getVersionsUnderTest() {
                 return Set.of(VERSION);
             }
+
         };
     }
 
     static Stream<String> shouldFail() {
         return Stream.of(
-                "supported-at-file",
-                "supported-at-block",
-                "unsupported-at-block-only",
-                "supported-at-query",
-                "unspecified",
-                "lower-at-block",
-                "lower-at-query",
-                "late-query-supported-version",
-                "late-file-options"
+                "non-exhaustive-versions",
+                "explain-after-version",
+                "wrong-result-at-least",
+                "wrong-result-less-than",
+                "wrong-count-at-least",
+                "wrong-count-less-than",
+                "wrong-unordered-at-least",
+                "wrong-unordered-less-than",
+                "wrong-error-at-least",
+                "wrong-error-less-than"
         );
     }
 
@@ -92,30 +93,20 @@ public class SupportedVersionTest {
     @MethodSource("shouldFail")
     void shouldFail(String filename) {
         assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
-                doRun("supported-version/" + filename + ".yamsql"));
+                doRun("initial-version/" + filename + ".yamsql"));
     }
 
 
     static Stream<String> shouldPass() {
         return Stream.of(
-                "unsupported-at-file", // technically for this one the whole test is ignored
-                "non-exhaustive-versions",
-                "unsupported-at-block",
-                "unsupported-at-query",
-                "current-version-at-file",
-                "current-version-at-block",
-                "current-version-at-query",
                 "less-than-version-tests",
-                "higher-at-block",
-                "higher-at-query",
-                "fully-supported",
-                "query-with-multiple-configs"
+                "at-least-version-tests"
         );
     }
 
     @ParameterizedTest
     @MethodSource("shouldPass")
     void shouldPass(String filename) throws Exception {
-        doRun("supported-version/" + filename + ".yamsql");
+        doRun("initial-version/" + filename + ".yamsql");
     }
 }

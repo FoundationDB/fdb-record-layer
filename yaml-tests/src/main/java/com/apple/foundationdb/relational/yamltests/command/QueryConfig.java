@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
-import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -531,11 +530,11 @@ public abstract class QueryConfig {
         try {
             SemanticVersion versionArgument = SemanticVersion.parseObject(value);
             if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
-                return new QueryConfig.VersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, value, lineNumber, executionContext,
-                        connection -> connection.getInitialVersion().compareTo(versionArgument) >= 0);
+                return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, value, lineNumber, executionContext,
+                        versionArgument, SemanticVersion.MAX_VERSION);
             } else if (QUERY_CONFIG_INITIAL_VERSION_LESS_THAN.equals(key)) {
-                return new QueryConfig.VersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN, value, lineNumber, executionContext,
-                        connection -> connection.getInitialVersion().compareTo(versionArgument) < 0);
+                return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN, value, lineNumber, executionContext,
+                        SemanticVersion.MIN_VERSION, versionArgument);
             } else {
                 throw new IllegalArgumentException("Unknown version constraint " + key);
             }
@@ -601,22 +600,35 @@ public abstract class QueryConfig {
         }
     }
 
-    public static class VersionCheckConfig extends QueryConfig {
-        private final Predicate<YamlConnection> connectionPredicate;
+    public static class InitialVersionCheckConfig extends QueryConfig {
+        private final SemanticVersion minVersion;
+        private final SemanticVersion maxVersion;
 
-        public VersionCheckConfig(final String configName, final Object value, final int lineNumber, final YamlExecutionContext executionContext,
-                                  final Predicate<YamlConnection> connectionPredicate) {
+        public InitialVersionCheckConfig(final String configName, final Object value, final int lineNumber, final YamlExecutionContext executionContext,
+                                         SemanticVersion minVersion, SemanticVersion maxVersion) {
             super(configName, value, lineNumber, executionContext);
-            this.connectionPredicate = connectionPredicate;
+            this.minVersion = minVersion;
+            this.maxVersion = maxVersion;
         }
 
         public boolean shouldExecute(YamlConnection connection) {
-            return connectionPredicate.test(connection);
+            SemanticVersion initialVersion = connection.getInitialVersion();
+            return initialVersion.compareTo(minVersion) >= 0 && initialVersion.compareTo(maxVersion) < 0;
         }
 
         @Override
         void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
             Assertions.fail("Check version config should not be executed: Line: " + getLineNumber());
+        }
+
+        @Nonnull
+        public SemanticVersion getMinVersion() {
+            return minVersion;
+        }
+
+        @Nonnull
+        public SemanticVersion getMaxVersion() {
+            return maxVersion;
         }
     }
 
