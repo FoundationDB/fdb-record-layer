@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -68,7 +69,7 @@ public class EmbeddedConfig implements YamlTestConfig {
 
             @Override
             public Set<String> getVersionsUnderTest() {
-                return Set.of(CURRENT_VERSION);
+                return Set.of(FileOptions.CurrentVersion.TEXT);
             }
 
         };
