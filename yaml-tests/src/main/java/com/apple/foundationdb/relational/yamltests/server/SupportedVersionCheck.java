@@ -32,7 +32,7 @@ import java.util.Set;
  */
 public class SupportedVersionCheck {
     public static final String SUPPORTED_VERSION_OPTION = "supported_version";
-    public static SupportedVersionCheck SUPPORTED = new SupportedVersionCheck(true, "");
+    public static final SupportedVersionCheck SUPPORTED = new SupportedVersionCheck(true, "");
 
     private final boolean isSupported;
     private final String message;
