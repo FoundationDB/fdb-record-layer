@@ -25,6 +25,8 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,7 +40,7 @@ public interface YamlConnection extends AutoCloseable {
     /**
      * String for representing the current version of the code.
      */
-    String CURRENT_VERSION = "!currentVersion";
+    String CURRENT_VERSION = FileOptions.CurrentVersion.TEXT;
 
     /**
      * Close this connection.
@@ -91,5 +93,14 @@ public interface YamlConnection extends AutoCloseable {
      * @return the ordered list of versions
      */
     @Nonnull
-    List<String> getVersions();
+    List<SemanticVersion> getVersions();
+
+    /**
+     * Return the next version that will be tested. If the connection wraps more than one version,
+     * this will not update any state associated with load-balancing between the versions.
+     *
+     * @return the next version that the underlying version will support
+     */
+    @Nonnull
+    SemanticVersion getInitialVersion();
 }
