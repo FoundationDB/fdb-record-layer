@@ -18,7 +18,9 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
@@ -41,7 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class SupportedVersionTest {
 
-    private static EmbeddedConfig config = new EmbeddedConfig();
+    private static final String VERSION = "3.0.18.0";
+    private static final EmbeddedConfig config = new EmbeddedConfig();
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -57,16 +60,16 @@ public class SupportedVersionTest {
         new YamlRunner(fileName, createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
     }
 
-    YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return new YamlRunner.YamlConnectionFactory() {
+    YamlConnectionFactory createConnectionFactory() {
+        return new YamlConnectionFactory() {
             @Override
-            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return DriverManager.getConnection(connectPath.toString()).unwrap(RelationalConnection.class);
+            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION);
             }
 
             @Override
             public Set<String> getVersionsUnderTest() {
-                return Set.of("3.0.18.0");
+                return Set.of(VERSION);
             }
         };
     }

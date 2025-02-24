@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
@@ -117,30 +118,31 @@ public abstract class QueryConfig {
         return query;
     }
 
-    final void checkResult(@Nonnull String currentQuery, @Nonnull Object actual, @Nonnull String queryDescription) {
+    final void checkResult(@Nonnull String currentQuery, @Nonnull Object actual, @Nonnull String queryDescription,
+                           @Nonnull YamlConnection connection) {
         try {
             checkResultInternal(currentQuery, actual, queryDescription);
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
-                    () -> "‼️Check result failed in config at line " + getLineNumber(),
+                    () -> "‼️Check result failed in config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
                     String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         } catch (Throwable e) {
             throw executionContext.wrapContext(e,
-                    () -> "‼️Failed to test config at line " + getLineNumber(),
+                    () -> "‼️Failed to test config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
                     String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         }
     }
 
-    final void checkError(@Nonnull SQLException actual, @Nonnull String queryDescription) {
+    final void checkError(@Nonnull SQLException actual, @Nonnull String queryDescription, final YamlConnection connection) {
         try {
             checkErrorInternal(actual, queryDescription);
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
-                    () -> "‼️Check result failed in config at line " + getLineNumber(),
+                    () -> "‼️Check result failed in config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
                     String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         } catch (Throwable e) {
             throw executionContext.wrapContext(e,
-                    () -> "‼️Failed to test config at line " + getLineNumber(),
+                    () -> "‼️Failed to test config at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
                     String.format(Locale.ROOT, "config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         }
     }
