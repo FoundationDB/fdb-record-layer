@@ -156,6 +156,7 @@ public final class QueryCommand extends Command {
     private void executeInternal(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
             throws SQLException, RelationalException {
         enableCascadesDebugger();
+        boolean shouldExecute = true;
         boolean queryIsRunning = false;
         Continuation continuation = null;
         Integer maxRows = null;
@@ -163,6 +164,14 @@ public final class QueryCommand extends Command {
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
+            if (queryConfig instanceof QueryConfig.VersionCheckConfig) {
+                shouldExecute = ((QueryConfig.VersionCheckConfig)queryConfig).shouldExecute(connection);
+                continue;
+            }
+            if (!shouldExecute) {
+                continue;
+            }
+
             if (QueryConfig.QUERY_CONFIG_MAX_ROWS.equals(queryConfig.getConfigName())) {
                 maxRows = Integer.parseInt(queryConfig.getValueString());
             } else if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {

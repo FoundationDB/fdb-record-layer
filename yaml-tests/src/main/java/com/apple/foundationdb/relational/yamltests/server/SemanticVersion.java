@@ -127,6 +127,9 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
 
     @Override
     public String toString() {
+        if (this.equals(CURRENT_VERSION)) {
+            return FileOptions.CurrentVersion.TEXT;
+        }
         String version = versionNumbers.stream().map(Object::toString).collect(Collectors.joining("."));
         if (!prerelease.isEmpty()) {
             version = version + "-" + prerelease;
