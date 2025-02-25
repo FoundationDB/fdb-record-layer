@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
@@ -922,7 +923,7 @@ public interface Debugger {
      * structures of the planner.
      */
     class InsertIntoMemoEvent implements Event {
-        @Nonnull
+        @Nullable
         private final RelationalExpression expression;
 
         @Nonnull
@@ -931,15 +932,12 @@ public interface Debugger {
         @Nonnull
         private final List<Reference> reusedExpressionReferences;
 
-        public InsertIntoMemoEvent(@Nonnull final Location location,
-                                   @Nonnull final RelationalExpression expression) {
-            this(location, expression, ImmutableList.of());
-        }
-
-        public InsertIntoMemoEvent(@Nonnull final Location location,
-                                   @Nonnull final RelationalExpression expression,
-                                   @Nonnull final Collection<Reference> reusedExpressionReferences) {
-            Debugger.registerExpression(expression);
+        private InsertIntoMemoEvent(@Nonnull final Location location,
+                                    @Nullable final RelationalExpression expression,
+                                    @Nonnull final Collection<Reference> reusedExpressionReferences) {
+            if (expression != null) {
+                Debugger.registerExpression(expression);
+            }
             this.expression = expression;
             this.location = location;
             this.reusedExpressionReferences = ImmutableList.copyOf(reusedExpressionReferences);
@@ -959,7 +957,7 @@ public interface Debugger {
             return Shorthand.INSERT_INTO_MEMO;
         }
 
-        @Nonnull
+        @Nullable
         public RelationalExpression getExpression() {
             return expression;
         }
@@ -978,13 +976,15 @@ public interface Debugger {
         @Nonnull
         @Override
         public PInsertIntoMemoEvent toProto() {
-            return PInsertIntoMemoEvent.newBuilder()
+            final var builder = PInsertIntoMemoEvent.newBuilder()
                     .setLocation(getLocation().name())
-                    .setExpression(Event.toExpressionProto(expression))
                     .addAllReusedExpressionReferences(getReusedExpressionReferences().stream()
                             .map(Event::toReferenceProto)
-                            .collect(ImmutableList.toImmutableList()))
-                    .build();
+                            .collect(ImmutableList.toImmutableList()));
+            if (expression != null) {
+                builder.setExpression(Event.toExpressionProto(expression));
+            }
+            return builder.build();
         }
 
         @Nonnull
@@ -992,6 +992,32 @@ public interface Debugger {
         public PEvent.Builder toEventBuilder() {
             return PEvent.newBuilder()
                     .setInsertIntoMemoEvent(toProto());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent begin() {
+            return new InsertIntoMemoEvent(Location.BEGIN, null, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent end() {
+            return new InsertIntoMemoEvent(Location.END, null, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent newExp(@Nonnull final RelationalExpression expression) {
+            return new InsertIntoMemoEvent(Location.NEW, expression, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent reusedExp(@Nonnull final RelationalExpression expression) {
+            return new InsertIntoMemoEvent(Location.REUSED, expression, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent reusedExpWithReferences(@Nonnull final RelationalExpression expression,
+                                                                  @Nonnull final List<Reference> references) {
+            return new InsertIntoMemoEvent(Location.REUSED, expression, references);
         }
     }
 
