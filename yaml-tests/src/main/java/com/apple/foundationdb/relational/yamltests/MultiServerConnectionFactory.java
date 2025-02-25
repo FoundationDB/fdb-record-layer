@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -149,7 +149,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         @Nonnull
         private final List<YamlConnection> underlyingConnections;
         @Nonnull
-        private final List<SemanticVersion> versions;
+        private final List<CodeVersion> versions;
 
         public MultiServerConnection(@Nonnull ConnectionSelectionPolicy connectionSelectionPolicy,
                                      final int initialConnecion,
@@ -189,13 +189,13 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
 
         @Nonnull
         @Override
-        public List<SemanticVersion> getVersions() {
+        public List<CodeVersion> getVersions() {
             return this.versions;
         }
 
         @Nonnull
         @Override
-        public SemanticVersion getInitialVersion() {
+        public CodeVersion getInitialVersion() {
             return versions.get(0);
         }
 
@@ -235,16 +235,16 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
             throw new IllegalStateException("Unsupported selection policy " + connectionSelectionPolicy);
         }
 
-        private static List<SemanticVersion> createVersionsList(final int initialConnection,
+        private static List<CodeVersion> createVersionsList(final int initialConnection,
                                                                 final List<YamlConnection> relationalConnections) {
-            List<SemanticVersion> versions = new ArrayList<>();
+            List<CodeVersion> versions = new ArrayList<>();
             for (int i = initialConnection; i < relationalConnections.size(); i++) {
-                final List<SemanticVersion> underlying = relationalConnections.get(i).getVersions();
+                final List<CodeVersion> underlying = relationalConnections.get(i).getVersions();
                 Assert.thatUnchecked(underlying.size() == 1, "Part of multi server config has more than one version");
                 versions.add(underlying.get(0));
             }
             for (int i = 0; i < initialConnection; i++) {
-                final List<SemanticVersion> underlying = relationalConnections.get(i).getVersions();
+                final List<CodeVersion> underlying = relationalConnections.get(i).getVersions();
                 Assert.thatUnchecked(underlying.size() == 1, "Part of multi server config has more than one version");
                 versions.add(underlying.get(0));
             }

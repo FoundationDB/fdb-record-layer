@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -147,8 +147,8 @@ public class MultiServerConnectionFactoryTest {
     }
 
     private static void assertConnection(final YamlConnection connection, final String initialVersion, final List<String> expectedVersions) {
-        assertEquals(SemanticVersion.parse(initialVersion), connection.getInitialVersion());
-        assertEquals(expectedVersions.stream().map(SemanticVersion::parse).collect(Collectors.toList()),
+        assertEquals(CodeVersion.parse(initialVersion), connection.getInitialVersion());
+        assertEquals(expectedVersions.stream().map(CodeVersion::parse).collect(Collectors.toList()),
                 connection.getVersions());
     }
 

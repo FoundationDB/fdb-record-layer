@@ -97,7 +97,7 @@ class SemanticVersionTest {
             "3.2-SNAPSHOT, 3.2.0",
             "3.2-SNAPSHOT, 3.2.1"
     })
-    void incomparible(String rawVersionA, String rawVersionB) {
+    void incomparable(String rawVersionA, String rawVersionB) {
         final SemanticVersion versionA = SemanticVersion.parse(rawVersionA);
         final SemanticVersion versionB = SemanticVersion.parse(rawVersionB);
         Assertions.assertAll(
@@ -144,7 +144,7 @@ class SemanticVersionTest {
         final String versionString = "3.5.4.2";
         final List<String> lesserVersions = List.of("2.6.5.3", "3.4.5.3", "3.5.3.3", "3.5.4.1", "3.5.4.2-SNAPSHOT");
         final List<String> greaterVersions = List.of("4.4.3.1", "3.6.3.1", "3.5.5.1", "3.5.4.3", "3.5.4.3-SNAPSHOT");
-        final List<SemanticVersion> actualLesserVersions = SemanticVersion.parse(versionString).lesserVersions(
+        final List<CodeVersion> actualLesserVersions = CodeVersion.parse(versionString).lesserVersions(
                 Stream.concat(lesserVersions.stream(), Stream.concat(Stream.of(versionString), greaterVersions.stream()))
                         .collect(Collectors.toSet()));
         actualLesserVersions.sort(Comparator.naturalOrder());

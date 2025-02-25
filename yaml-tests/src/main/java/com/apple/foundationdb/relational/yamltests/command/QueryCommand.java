@@ -32,7 +32,8 @@ import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SpecialCodeVersion;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
@@ -105,13 +106,13 @@ public final class QueryCommand extends Command {
             // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
             if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
                 // Creating an interval set including each covered range
-                RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
+                RangeSet<CodeVersion> rangeSet = TreeRangeSet.create();
                 configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
                         .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
                         .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
                 // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
-                Set<Range<SemanticVersion>> uncovered = rangeSet.complement()
-                        .subRangeSet(Range.closedOpen(SemanticVersion.MIN_VERSION, SemanticVersion.MAX_VERSION))
+                Set<Range<CodeVersion>> uncovered = rangeSet.complement()
+                        .subRangeSet(Range.closedOpen(SpecialCodeVersion.min(), SpecialCodeVersion.max()))
                         .asRanges();
                 if (!uncovered.isEmpty()) {
                     IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);

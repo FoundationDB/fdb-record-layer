@@ -30,7 +30,8 @@ import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SpecialCodeVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
@@ -528,13 +529,13 @@ public abstract class QueryConfig {
 
     private static QueryConfig getVersionSupportedConfig(Object key, Object value, int lineNumber, YamlExecutionContext executionContext) {
         try {
-            SemanticVersion versionArgument = SemanticVersion.parseObject(value);
+            CodeVersion versionArgument = CodeVersion.parseObject(value);
             if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
                 return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, value, lineNumber, executionContext,
-                        versionArgument, SemanticVersion.MAX_VERSION);
+                        versionArgument, SpecialCodeVersion.max());
             } else if (QUERY_CONFIG_INITIAL_VERSION_LESS_THAN.equals(key)) {
                 return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN, value, lineNumber, executionContext,
-                        SemanticVersion.MIN_VERSION, versionArgument);
+                        SpecialCodeVersion.min(), versionArgument);
             } else {
                 throw new IllegalArgumentException("Unknown version constraint " + key);
             }
@@ -601,18 +602,18 @@ public abstract class QueryConfig {
     }
 
     public static class InitialVersionCheckConfig extends QueryConfig {
-        private final SemanticVersion minVersion;
-        private final SemanticVersion maxVersion;
+        private final CodeVersion minVersion;
+        private final CodeVersion maxVersion;
 
         public InitialVersionCheckConfig(final String configName, final Object value, final int lineNumber, final YamlExecutionContext executionContext,
-                                         SemanticVersion minVersion, SemanticVersion maxVersion) {
+                                         CodeVersion minVersion, CodeVersion maxVersion) {
             super(configName, value, lineNumber, executionContext);
             this.minVersion = minVersion;
             this.maxVersion = maxVersion;
         }
 
         public boolean shouldExecute(YamlConnection connection) {
-            SemanticVersion initialVersion = connection.getInitialVersion();
+            CodeVersion initialVersion = connection.getInitialVersion();
             return initialVersion.compareTo(minVersion) >= 0 && initialVersion.compareTo(maxVersion) < 0;
         }
 
@@ -622,12 +623,12 @@ public abstract class QueryConfig {
         }
 
         @Nonnull
-        public SemanticVersion getMinVersion() {
+        public CodeVersion getMinVersion() {
             return minVersion;
         }
 
         @Nonnull
-        public SemanticVersion getMaxVersion() {
+        public CodeVersion getMaxVersion() {
             return maxVersion;
         }
     }

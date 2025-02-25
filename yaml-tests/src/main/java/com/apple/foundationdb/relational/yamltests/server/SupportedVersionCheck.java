@@ -51,11 +51,11 @@ public class SupportedVersionCheck {
     }
 
     public static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
-        SemanticVersion supportedVersion = SemanticVersion.parseObject(rawVersion);
+        CodeVersion supportedVersion = CodeVersion.parseObject(rawVersion);
         final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
-        final List<SemanticVersion> unsupportedVersions = supportedVersion.lesserVersions(versionsUnderTest);
+        final List<CodeVersion> unsupportedVersions = supportedVersion.lesserVersions(versionsUnderTest);
         if (!unsupportedVersions.isEmpty()) {
-            if (supportedVersion.equals(SemanticVersion.CURRENT_VERSION)) {
+            if (SpecialCodeVersion.current().equals(supportedVersion)) {
                 return SupportedVersionCheck.unsupported(
                         "Skipping test that only works against the current version, when we're running with these versions: " +
                                 versionsUnderTest);
