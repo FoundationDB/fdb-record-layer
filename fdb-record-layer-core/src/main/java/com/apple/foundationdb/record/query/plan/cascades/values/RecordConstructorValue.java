@@ -174,10 +174,10 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
         if (fieldType.isUuid()) {
             Verify.verify(field instanceof UUID);
-            final var UuidObejct = (UUID) field;
+            final var uuidObject = (UUID) field;
             return TupleFieldsProto.UUID.newBuilder()
-                    .setMostSignificantBits(UuidObejct.getMostSignificantBits())
-                    .setLeastSignificantBits(UuidObejct.getLeastSignificantBits())
+                    .setMostSignificantBits(uuidObject.getMostSignificantBits())
+                    .setLeastSignificantBits(uuidObject.getLeastSignificantBits())
                     .build();
         }
 

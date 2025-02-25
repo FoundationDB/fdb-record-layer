@@ -805,7 +805,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return TypeCode.ENUM;
                 case MESSAGE:
                     Verify.verify(descriptor != null);
-                    if (descriptor.getName().equals(Uuid.MESSAGE_NAME)) {
+                    if (Uuid.MESSAGE_NAME.equals(descriptor.getName())) {
                         return TypeCode.UUID;
                     }
                     return TypeCode.RECORD;
