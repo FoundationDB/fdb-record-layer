@@ -38,6 +38,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Types;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -288,6 +289,20 @@ class RelationalResultSetFacade implements RelationalResultSet {
         RelationalStruct s = TypeConversion.getStruct(this.delegate, this.rowIndex, oneBasedColumn);
         wasNull = s == null;
         return s;
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    public UUID getUUID(String columnLabel) throws SQLException {
+        // Not implemented
+        throw new SQLException("Not implemented getUUID");
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    public UUID getUUID(int oneBasedColumn) throws SQLException {
+        // Not implemented
+        throw new SQLException("Not implemented getUUID");
     }
 
     @Override

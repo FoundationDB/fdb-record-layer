@@ -1178,7 +1178,7 @@ UNIX_TIMESTAMP:                      'UNIX_TIMESTAMP';
 UPDATEXML:                           'UPDATEXML';
 UPPER:                               'UPPER';
 UUID:                                'UUID';
-UUID_SHORT:                          'UUID_SHORT';
+//UUID_SHORT:                          'UUID_SHORT';
 VALIDATE_PASSWORD_STRENGTH:          'VALIDATE_PASSWORD_STRENGTH';
 VERSION:                             'VERSION';
 WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS:   'WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS';

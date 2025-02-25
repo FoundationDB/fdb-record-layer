@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.util.UUID;
 
 @ExcludeFromJacocoGeneratedReport //there's nothing to test, just exception translation
 @API(API.Status.EXPERIMENTAL)
@@ -231,6 +232,24 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     public RelationalArray getArray(String columnLabel) throws SQLException {
         try {
             return delegate.getArray(columnLabel);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
+    public UUID getUUID(final int oneBasedPosition) throws SQLException {
+        try {
+            return delegate.getUUID(oneBasedPosition);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
+    public UUID getUUID(final String fieldName) throws SQLException {
+        try {
+            return delegate.getUUID(fieldName);
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re).toSqlException();
         }

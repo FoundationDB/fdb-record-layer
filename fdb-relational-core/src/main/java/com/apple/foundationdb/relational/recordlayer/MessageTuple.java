@@ -21,11 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
-
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+
+import java.util.UUID;
 
 @API(API.Status.EXPERIMENTAL)
 public class MessageTuple extends AbstractRow {
@@ -50,6 +52,10 @@ public class MessageTuple extends AbstractRow {
             final var field = message.getField(message.getDescriptorForType().getFields().get(position));
             if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.ENUM) {
                 return ((Descriptors.EnumValueDescriptor) field).getName();
+            } else if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE && fieldDescriptor.getMessageType().getName().equals(Type.Uuid.MESSAGE_NAME)) {
+                final var dynamicMsg = (DynamicMessage) field;
+                return new UUID((Long) dynamicMsg.getField(dynamicMsg.getDescriptorForType().findFieldByName("most_significant_bits")),
+                        (Long) dynamicMsg.getField(dynamicMsg.getDescriptorForType().findFieldByName("least_significant_bits")));
             }
             return field;
         } else {

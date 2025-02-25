@@ -33,6 +33,7 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 
 
 class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
@@ -110,6 +111,13 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     @Override
     public void setBytes(int parameterIndex, byte[] bytes) throws SQLException {
         parameters.put(parameterIndex, ParameterHelper.ofBytes(bytes));
+    }
+
+    @Override
+    public void setUUID(int parameterIndex, final UUID x) throws SQLException {
+        parameters.put(parameterIndex,
+                Parameter.newBuilder().setJavaSqlTypesCode(Types.OTHER).setParameter(Column.newBuilder()
+                        .setString(x.toString()).build()).build());
     }
 
     @Override
@@ -192,6 +200,13 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
 
     @Override
     public void setObject(String parameterName, Object x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer " +
+                Thread.currentThread().getStackTrace()[1].getMethodName(),
+                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    public void setUUID(final String parameterName, final UUID x) throws SQLException {
         throw new SQLException("Not implemented in the relational layer " +
                 Thread.currentThread().getStackTrace()[1].getMethodName(),
                 ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.planprotos.PType.PAnyRecordType;
@@ -36,13 +37,14 @@ import com.apple.foundationdb.record.planprotos.PType.PPrimitiveType;
 import com.apple.foundationdb.record.planprotos.PType.PRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PRelationType;
 import com.apple.foundationdb.record.planprotos.PType.PTypeCode;
+import com.apple.foundationdb.record.planprotos.PType.PUuidType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.util.StringUtils;
@@ -167,6 +169,15 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     default boolean isEnum() {
         return getTypeCode().equals(TypeCode.ENUM);
+    }
+
+    /**
+     * Checks whether a {@link Type} is {@link Enum}.
+     *
+     * @return <code>true</code> if the {@link Type} is {@link Enum}, otherwise <code>false</code>.
+     */
+    default boolean isUuid() {
+        return false;
     }
 
     /**
@@ -377,27 +388,27 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                       @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                       @Nonnull FieldDescriptorProto.Label protoLabel,
                                       boolean isNullable) {
-        final var typeCode = TypeCode.fromProtobufType(protoType);
+        final var typeCode = TypeCode.fromProtobufInfo(descriptor, protoType);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
             return fromProtoTypeToArray(descriptor, protoType, typeCode, false);
-        } else {
-            if (typeCode.isPrimitive()) {
-                return primitiveType(typeCode, isNullable);
-            } else if (typeCode == TypeCode.ENUM) {
-                final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-                return Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
-            } else if (typeCode == TypeCode.RECORD) {
-                Objects.requireNonNull(descriptor);
-                final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-                if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
-                    // find TypeCode of array elements
-                    final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
-                    final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
-                    return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
-                } else {
-                    return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
-                }
+        } else if (typeCode.isPrimitive()) {
+            return primitiveType(typeCode, isNullable);
+        } else if (typeCode == TypeCode.UUID) {
+            return Uuid.getInstance(isNullable);
+        } else if (typeCode == TypeCode.ENUM) {
+            final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
+            return Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
+        } else if (typeCode == TypeCode.RECORD) {
+            Objects.requireNonNull(descriptor);
+            final var messageDescriptor = (Descriptors.Descriptor)descriptor;
+            if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
+                // find TypeCode of array elements
+                final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
+                final var elementTypeCode = TypeCode.fromProtobufInfo(elementField.getMessageType(), elementField.getType());
+                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
+            } else {
+                return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
             }
         }
 
@@ -411,7 +422,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return A {@link Array} object that corresponds to the protobuf {@link com.google.protobuf.Descriptors.Descriptor}.
      */
     @Nonnull
-    private static Array fromProtoTypeToArray(@Nullable Descriptors.GenericDescriptor descriptor, @Nonnull Descriptors.FieldDescriptor.Type protoType, @Nonnull TypeCode typeCode, boolean isNullable) {
+    private static Array fromProtoTypeToArray(@Nullable Descriptors.GenericDescriptor descriptor,
+                                              @Nonnull Descriptors.FieldDescriptor.Type protoType,
+                                              @Nonnull TypeCode typeCode, boolean isNullable) {
         if (typeCode.isPrimitive()) {
             final var primitiveType = primitiveType(typeCode, false);
             return new Array(isNullable, primitiveType);
@@ -504,7 +517,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 return t2EnumValues == null ? t1Enum.withNullability(isResultNullable) : null;
             }
             return t1EnumValues.equals(t2EnumValues) ? t1Enum.withNullability(isResultNullable) : null;
-        } else if ((t1.isPrimitive() || t1.isEnum()) && (t2.isPrimitive() || t2.isEnum())) {
+        } else if ((t1.isPrimitive() || t1.isEnum()) || t1.isUuid() && (t2.isPrimitive() || t2.isEnum() || t2.isUuid())) {
             if (t1.getTypeCode() == t2.getTypeCode()) {
                 return t1.withNullability(isResultNullable);
             }
@@ -613,6 +626,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         if (typeCode.isPrimitive()) {
             return Type.primitiveType(typeCode, false);
         }
+        if (typeCode == TypeCode.UUID) {
+            return Type.Uuid.getInstance(false);
+        }
         throw new RecordCoreException("Unable to convert value to Type")
                 .addLogInfo(LogMessageKeys.VALUE, object);
     }
@@ -663,6 +679,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         VERSION(FDBRecordVersion.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
         ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
+        UUID(java.util.UUID.class, null, false, false),
         ARRAY(List.class, null, false, false),
         RELATION(null, null, false, false),
         NONE(null, null, false, false);
@@ -769,32 +786,28 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * @return A corresponding {@link TypeCode} instance.
          */
         @Nonnull
-        public static TypeCode fromProtobufType(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
+        public static TypeCode fromProtobufInfo(@Nullable Descriptors.GenericDescriptor descriptor,
+                                                @Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
             switch (protobufType) {
                 case DOUBLE:
                     return TypeCode.DOUBLE;
                 case FLOAT:
                     return TypeCode.FLOAT;
                 case INT64:
-                case UINT64:
-                case FIXED64:
-                case SFIXED64:
-                case SINT64:
                     return TypeCode.LONG;
                 case INT32:
-                case FIXED32:
-                case UINT32:
-                case SFIXED32:
-                case SINT32:
                     return TypeCode.INT;
                 case BOOL:
                     return TypeCode.BOOLEAN;
                 case STRING:
                     return TypeCode.STRING;
-                case GROUP:
                 case ENUM:
                     return TypeCode.ENUM;
                 case MESSAGE:
+                    Verify.verify(descriptor != null);
+                    if (descriptor.getName().equals(Uuid.MESSAGE_NAME)) {
+                        return TypeCode.UUID;
+                    }
                     return TypeCode.RECORD;
                 case BYTES:
                     return TypeCode.BYTES;
@@ -839,6 +852,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return PTypeCode.RELATION;
                 case NONE:
                     return PTypeCode.NONE;
+                case UUID:
+                    return PTypeCode.UUID;
                 default:
                     throw new RecordCoreException("unable to find type code mapping. did you forgot to add it here?");
             }
@@ -876,6 +891,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return RECORD;
                 case ARRAY:
                     return ARRAY;
+                case UUID:
+                    return UUID;
                 case RELATION:
                     return RELATION;
                 case NONE:
@@ -2881,6 +2898,118 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             public Array fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                    @Nonnull final PArrayType arrayTypeProto) {
                 return Array.fromProto(serializationContext, arrayTypeProto);
+            }
+        }
+    }
+
+    class Uuid implements Type {
+
+        private static final Uuid NULL_INSTANCE = new Uuid(true);
+        private static final Uuid NON_NULL_INSTANCE = new Uuid(false);
+
+        public static final String MESSAGE_NAME = TupleFieldsProto.UUID.getDescriptor().getName();
+
+        final boolean isNullable;
+
+        public static Uuid getInstance(boolean nullable) {
+            if (nullable) {
+                return NULL_INSTANCE;
+            } else {
+                return NON_NULL_INSTANCE;
+            }
+        }
+
+        private Uuid(boolean isNullable) {
+            this.isNullable = isNullable;
+        }
+
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.UUID;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return isNullable;
+        }
+
+        @Nonnull
+        @Override
+        public Type withNullability(final boolean newIsNullable) {
+            if (newIsNullable) {
+                return NULL_INSTANCE;
+            } else {
+                return NON_NULL_INSTANCE;
+            }
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            return new ExplainTokens().addKeyword(getTypeCode().toString());
+        }
+
+        @Override
+        public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
+            if (typeRepositoryBuilder.getTypeByName(MESSAGE_NAME).isEmpty()) {
+                typeRepositoryBuilder.addMessageType(TupleFieldsProto.UUID.getDescriptor().toProto());
+                typeRepositoryBuilder.registerTypeToTypeNameMapping(this, MESSAGE_NAME);
+            }
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, @Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldNumber, @Nonnull final String fieldName, @Nonnull final Optional<String> typeNameOptional, @Nonnull final FieldDescriptorProto.Label label) {
+            FieldDescriptorProto.Builder builder = FieldDescriptorProto.newBuilder()
+                    .setNumber(fieldNumber)
+                    .setName(fieldName)
+                    .setLabel(label);
+            typeNameOptional.ifPresent(builder::setTypeName);
+            descriptorBuilder.addField(builder);
+        }
+
+        @Nonnull
+        @Override
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setUuidType(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public PUuidType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PUuidType.newBuilder()
+                    .setIsNullable(isNullable)
+                    .build();
+        }
+
+        @Override
+        public boolean isUuid() {
+            return true;
+        }
+
+        @Nonnull
+        public static Uuid fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PUuidType uuidTypeProto) {
+            Verify.verify(uuidTypeProto.hasIsNullable());
+            return Uuid.getInstance(uuidTypeProto.getIsNullable());
+        }
+
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PUuidType, Uuid> {
+            @Nonnull
+            @Override
+            public Class<PUuidType> getProtoMessageClass() {
+                return PUuidType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Uuid fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PUuidType uuidTypeProto) {
+                return Uuid.fromProto(serializationContext, uuidTypeProto);
             }
         }
     }

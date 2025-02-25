@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -35,12 +36,12 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -60,6 +61,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
@@ -168,6 +170,15 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
         if (fieldType.isPrimitive()) {
             return protoObjectForPrimitive(fieldType, field);
+        }
+
+        if (fieldType.isUuid()) {
+            Verify.verify(field instanceof UUID);
+            final var UuidObejct = (UUID) field;
+            return TupleFieldsProto.UUID.newBuilder()
+                    .setMostSignificantBits(UuidObejct.getMostSignificantBits())
+                    .setLeastSignificantBits(UuidObejct.getLeastSignificantBits())
+                    .build();
         }
 
         if (fieldType instanceof Type.Array) {

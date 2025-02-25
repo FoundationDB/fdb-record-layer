@@ -98,6 +98,7 @@ public final class SqlTypeSupport {
             case VERSION:
                 return Types.BINARY;
             case ENUM:
+            case UUID:
                 //TODO(bfines) should be string?
                 return Types.OTHER;
             case RECORD:
@@ -185,7 +186,7 @@ public final class SqlTypeSupport {
     @Nonnull
     private static FieldDescription fieldToDescription(@Nonnull Type.Record.Field field) throws RelationalException {
         final Type fieldType = field.getFieldType();
-        if (fieldType.isPrimitive() || fieldType instanceof Type.Enum) {
+        if (fieldType.isPrimitive() || fieldType instanceof Type.Enum || fieldType instanceof Type.Uuid) {
             return FieldDescription.primitive(field.getFieldName(),
                     SqlTypeSupport.recordTypeToSqlType(fieldType.getTypeCode()),
                     fieldType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls,

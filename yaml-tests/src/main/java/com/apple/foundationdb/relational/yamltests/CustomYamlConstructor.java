@@ -52,6 +52,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!ignore"), new ConstructIgnore());
         yamlConstructors.put(new Tag("!l"), new ConstructLong());
         yamlConstructors.put(new Tag("!sc"), new ConstructStringContains());
+        yamlConstructors.put(new Tag("!uuid"), new ConstructUuidField());
         yamlConstructors.put(new Tag("!null"), new ConstructNullPlaceholder());
         yamlConstructors.put(new Tag("!not_null"), new ConstructNotNull());
         yamlConstructors.put(new Tag("!current_version"), new ConstructCurrentVersion());
@@ -156,6 +157,16 @@ public class CustomYamlConstructor extends SafeConstructor {
                 Assert.failUnchecked(String.format(Locale.ROOT, "The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
             }
             return new CustomTag.StringContains(((ScalarNode) node).getValue());
+        }
+    }
+
+    private static class ConstructUuidField extends AbstractConstruct {
+        @Override
+        public Object construct(Node node) {
+            if (!(node instanceof ScalarNode)) {
+                Assert.failUnchecked(String.format("The value of uuid (!sc) tag must be a scalar, however '%s' is found!", node));
+            }
+            return new CustomTag.UuidField(((ScalarNode) node).getValue());
         }
     }
 

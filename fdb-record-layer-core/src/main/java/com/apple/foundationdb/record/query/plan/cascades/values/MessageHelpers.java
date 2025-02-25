@@ -413,6 +413,12 @@ public class MessageHelpers {
             return Verify.verifyNotNull(coercionFunction.apply(null, current));
         }
 
+        // Uuid
+        if (targetType.isUuid()) {
+            final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
+            return Verify.verifyNotNull(coercionFunction.apply(null, current));
+        }
+
         //
         // This is another leaf case: The target can be an Enum,
         if (targetType.isEnum()) {

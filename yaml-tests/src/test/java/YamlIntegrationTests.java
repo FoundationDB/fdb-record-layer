@@ -296,4 +296,10 @@ public class YamlIntegrationTests {
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }
+
+    @TestTemplate
+    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_USE_JDBC, reason = "JDBC does not support enums")
+    public void uuidTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid.yamsql");
+    }
 }
