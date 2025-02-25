@@ -224,6 +224,10 @@ public class QueryExecutor {
         }
     }
 
+    private boolean isForcedContinuationsEligible(final String queryString) {
+        return ((queryString == null) || queryString.trim().toLowerCase().startsWith("select"));
+    }
+
     private Object executeStatementWithForcedContinuations(final @Nonnull Statement s,
                                                            final @Nullable String queryString,
                                                            final @Nonnull YamlConnection connection) throws SQLException {
