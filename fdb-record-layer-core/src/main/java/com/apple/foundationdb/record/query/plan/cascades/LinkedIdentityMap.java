@@ -129,6 +129,11 @@ public class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
     }
 
     @Override
+    public V remove(final Object key) {
+        return map.remove(identity.wrap(key));
+    }
+
+    @Override
     public boolean equals(final Object o) {
         if (!(o instanceof LinkedIdentityMap)) {
             return false;

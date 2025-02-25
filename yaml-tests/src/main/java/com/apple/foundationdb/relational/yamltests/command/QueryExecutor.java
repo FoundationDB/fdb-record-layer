@@ -51,6 +51,7 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
 public class QueryExecutor {
     private static final Logger logger = LogManager.getLogger(QueryExecutor.class);
     private static final int FORCED_MAX_ROWS = 1; // The maxRows number to use when we are forcing it on the test
+    private static final int MAX_CONTINUATIONS_ALLOWED = 100;
 
     @Nonnull
     private final String query;
@@ -242,6 +243,7 @@ public class QueryExecutor {
             results.add(resultSet);
             // Have continuations - keep running the query
             Continuation continuation = resultSet.getContinuation();
+            int count = 0;
             while (!continuation.atEnd()) {
                 if (continuation.atBeginning()) {
                     reportTestFailure("Received continuation shouldn't be at beginning");
@@ -256,6 +258,10 @@ public class QueryExecutor {
                         // We assume that the last result is empty because of the maxRows:1
                         Assertions.assertFalse(hasNext);
                     }
+                }
+                count += 1; // PMD failure for ++
+                if (count > MAX_CONTINUATIONS_ALLOWED) {
+                    reportTestFailure("Too many continuations for query. Test aborted.");
                 }
             }
             // Use first metadata for the aggregated result set as they are all the same

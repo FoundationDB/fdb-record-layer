@@ -1679,7 +1679,7 @@ public class Comparisons {
         }
 
         public int computeHashCode() {
-            return Objects.hash(type, relatedByEquality());
+            return Objects.hash(type.name(), relatedByEquality());
         }
 
         private Set<String> relatedByEquality() {
@@ -2091,7 +2091,7 @@ public class Comparisons {
 
         @Override
         public int hashCode() {
-            return Objects.hash(type);
+            return Objects.hash(type.name());
         }
 
         @Override

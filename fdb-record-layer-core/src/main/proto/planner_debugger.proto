@@ -99,6 +99,8 @@ message PExecutingTaskEvent {
 
 message PInsertIntoMemoEvent {
   optional string location = 1;
+  optional PRegisteredRelationalExpression expression = 2;
+  repeated PRegisteredReference reusedExpressionReferences = 3;
 }
 
 message PTranslateCorrelationsEvent {
