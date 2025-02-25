@@ -23,16 +23,21 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.BooleanSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -52,6 +57,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for building indexes from other indexes with {@link OnlineIndexer}.
  */
 class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerIndexFromIndexTest.class);
+
 
     private void populateData(final long numRecords, final long numOtherRecords) {
         openSimpleMetaData();
@@ -1148,6 +1155,47 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertReadable(tgtIndex);
+        scrubAndValidate(List.of(tgtIndex));
+    }
+
+    @Test
+    void testIndexFromIndexIgnoreSyncLock() {
+
+        final long numRecords = 180;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+        disableAll(List.of(tgtIndex));
+
+        openSimpleMetaData(hook);
+
+        IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
+            snooze(100 - id);
+            try {
+                try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
+                        .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                                        .setSourceIndex("src_index")
+                                        .forbidRecordScan())
+                        .setLimit(5)
+                        .setUseSynchronizedSession(id == 0)
+                        .setMaxRetries(100) // enough to avoid giving up
+                        .build()) {
+                    indexBuilder.buildIndex(true);
+                }
+            } catch (SynchronizedSessionLockedException | IndexingBase.UnexpectedReadableException ex) {
+                LOGGER.info(KeyValueLogMessage.of("Ignoring lock, got exception",
+                        LogMessageKeys.SESSION_ID, id,
+                        LogMessageKeys.ERROR, ex.getMessage()));
+            }
+        });
+
+        assertReadable(List.of(tgtIndex));
         scrubAndValidate(List.of(tgtIndex));
     }
 }
