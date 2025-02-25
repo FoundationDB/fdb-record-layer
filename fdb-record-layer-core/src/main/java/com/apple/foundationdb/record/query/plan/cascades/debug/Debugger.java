@@ -939,7 +939,9 @@ public interface Debugger {
         public InsertIntoMemoEvent(@Nonnull final Location location,
                                    @Nonnull final RelationalExpression expression,
                                    @Nonnull final Collection<Reference> reusedExpressionReferences) {
-            Debugger.registerExpression(expression);
+            if (expression != null) {
+                Debugger.registerExpression(expression);
+            }
             this.expression = expression;
             this.location = location;
             this.reusedExpressionReferences = ImmutableList.copyOf(reusedExpressionReferences);
