@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class ParameterHelper {
 
@@ -73,6 +74,13 @@ public class ParameterHelper {
         return Parameter.newBuilder()
                 .setJavaSqlTypesCode(Types.VARCHAR)
                 .setParameter(Column.newBuilder().setString(s))
+                .build();
+    }
+
+    public static Parameter ofUUID(UUID id) {
+        return Parameter.newBuilder()
+                .setJavaSqlTypesCode(Types.OTHER)
+                .setParameter(Column.newBuilder().setString(id.toString()))
                 .build();
     }
 

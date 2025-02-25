@@ -36,6 +36,7 @@ setup:
     - query: INSERT INTO TA(A) VALUES (7), (8)
 ---
 test_block:
+  supported_version: !current_version
   name: uuid-as-a-field-tests
   tests:
     -

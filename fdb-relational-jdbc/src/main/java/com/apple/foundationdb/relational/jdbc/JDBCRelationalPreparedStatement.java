@@ -115,9 +115,7 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
 
     @Override
     public void setUUID(int parameterIndex, final UUID x) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.OTHER).setParameter(Column.newBuilder()
-                        .setString(x.toString()).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofUUID(x));
     }
 
     @Override
