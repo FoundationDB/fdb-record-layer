@@ -213,7 +213,7 @@ public class QueryExecutor {
     private Object executeStatementAndCheckForceContinuations(@Nonnull Statement s, @Nullable String queryString,
                                                               final YamlConnection connection, @Nullable Integer maxRows) throws SQLException {
         // Check if we need to force continuations
-        if ((maxRows == null) && forceContinuations) {
+        if ((maxRows == null) && forceContinuations && isForcedContinuationsEligible(queryString)) {
             return executeStatementWithForcedContinuations(s, queryString, connection);
         } else {
             if (maxRows != null) {
