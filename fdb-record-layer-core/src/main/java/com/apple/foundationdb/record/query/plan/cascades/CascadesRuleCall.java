@@ -363,10 +363,10 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     private Reference memoizeExpressionsExactly(@Nonnull final Collection<? extends RelationalExpression> expressions,
                                                 @Nonnull Function<Set<? extends RelationalExpression>, Reference> referenceCreator) {
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN, null)));
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
-            Debugger.withDebugger(debugger -> expressions.forEach(
-                    expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN, expression))));
+
 
             //
             // Note that we cannot ever reuse a reference containing just plans unless we can somehow prove
@@ -380,19 +380,19 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 final Optional<Reference> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
                 if (memoizedRefMaybe.isPresent()) {
                     Debugger.withDebugger(debugger ->
-                            expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED, plan))));
+                            expressionSet.forEach(plan -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED, null))));
                     return memoizedRefMaybe.get();
                 }
             }
 
             final var newRef = referenceCreator.apply(expressionSet);
             for (final var plan : expressionSet) {
-                Debugger.withDebugger(debugger -> expressions.forEach(expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW, expression))));
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW, null)));
                 traversal.addExpression(newRef, plan);
             }
             return newRef;
         } finally {
-            Debugger.withDebugger(debugger -> expressions.forEach(expression -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END, expression))));
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END, null)));
         }
     }
 

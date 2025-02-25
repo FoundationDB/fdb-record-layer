@@ -980,10 +980,10 @@ public interface Debugger {
         public PInsertIntoMemoEvent toProto() {
             return PInsertIntoMemoEvent.newBuilder()
                     .setLocation(getLocation().name())
-                    .setExpression(Event.toExpressionProto(expression))
-                    .addAllReusedExpressionReferences(getReusedExpressionReferences().stream()
-                            .map(Event::toReferenceProto)
-                            .collect(ImmutableList.toImmutableList()))
+                    //.setExpression(Event.toExpressionProto(expression))
+                    //.addAllReusedExpressionReferences(getReusedExpressionReferences().stream()
+                    //        .map(Event::toReferenceProto)
+                    //        .collect(ImmutableList.toImmutableList()))
                     .build();
         }
 

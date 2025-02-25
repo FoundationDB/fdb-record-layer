@@ -8,7 +8,7 @@ cte-tests:
     transform_time_ms: 1
     transform_yield_count: 33
     insert_time_ms: 0
-    insert_new_count: 46
+    insert_new_count: 42
     insert_reused_count: 3
 -   query: EXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where
         y < 3
@@ -20,7 +20,7 @@ cte-tests:
     transform_time_ms: 1
     transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 32
+    insert_new_count: 28
     insert_reused_count: 3
 -   query: EXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where
         y < 3
@@ -32,5 +32,5 @@ cte-tests:
     transform_time_ms: 1
     transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 32
+    insert_new_count: 28
     insert_reused_count: 3
