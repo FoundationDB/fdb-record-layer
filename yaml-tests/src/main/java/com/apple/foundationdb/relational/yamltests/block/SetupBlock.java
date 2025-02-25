@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
@@ -51,7 +51,7 @@ public class SetupBlock extends ConnectedBlock {
 
     public static final String SETUP_BLOCK = "setup";
 
-    protected SetupBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull URI connectionURI,
+    protected SetupBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
                          @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executables, connectionURI, executionContext);
     }
@@ -78,7 +78,7 @@ public class SetupBlock extends ConnectedBlock {
                 if (stepsObject == null) {
                     Assert.failUnchecked("Illegal Format: No steps provided in setup block.");
                 }
-                final var executables = new ArrayList<Consumer<RelationalConnection>>();
+                final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : Matchers.arrayList(stepsObject, "setup steps")) {
                     Assert.thatUnchecked(Matchers.map(step, "setup step").size() == 1, "Illegal Format: A setup step should be a single command");
                     final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step), "unnamed-setup-block", executionContext));
@@ -91,7 +91,7 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private ManualSetupBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull URI connectionURI,
+        private ManualSetupBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
                                  @Nonnull YamlExecutionContext executionContext) {
             super(lineNumber, executables, connectionURI, executionContext);
         }
@@ -114,7 +114,7 @@ public class SetupBlock extends ConnectedBlock {
                 steps.add("DROP DATABASE IF EXISTS " + databasePath);
                 steps.add("CREATE DATABASE " + databasePath);
                 steps.add("CREATE SCHEMA " + databasePath + "/" + schemaName + " WITH TEMPLATE " + schemaTemplateName);
-                final var executables = new ArrayList<Consumer<RelationalConnection>>();
+                final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : steps) {
                     final var resolvedCommand = QueryCommand.withQueryString(lineNumber, step, executionContext);
                     executables.add(resolvedCommand::execute);
@@ -128,7 +128,7 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private SchemaTemplateBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+        private SchemaTemplateBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
             super(lineNumber, executables, executionContext.inferConnectionURI(0), executionContext);
         }
     }
@@ -141,7 +141,7 @@ public class SetupBlock extends ConnectedBlock {
                 final var steps = new ArrayList<String>();
                 steps.add("DROP DATABASE " + databasePath);
                 steps.add("DROP SCHEMA TEMPLATE " + schemaTemplateName);
-                final var executables = new ArrayList<Consumer<RelationalConnection>>();
+                final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : steps) {
                     final var resolvedCommand = QueryCommand.withQueryString(lineNumber, step, executionContext);
                     executables.add(resolvedCommand::execute);
@@ -152,7 +152,7 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private DestructTemplateBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+        private DestructTemplateBlock(int lineNumber, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
             super(lineNumber, executables, executionContext.inferConnectionURI(0), executionContext);
         }
     }

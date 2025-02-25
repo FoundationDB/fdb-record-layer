@@ -18,6 +18,11 @@
 # limitations under the License.
 
 ---
+options:
+    # This does not work against any version between 4.0.559.6 and 4.1.6.0 because server support was backported
+    # to a patch release. We would like to surface that in the mixed mode test results rather than hide it.
+    supported_version: 4.0.559.6 # This will only work on 4.0.559.6 and then on 4.1.6.0+
+---
 schema_template:
     create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
 ---
