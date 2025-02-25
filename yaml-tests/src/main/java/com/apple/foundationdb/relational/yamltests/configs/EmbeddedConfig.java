@@ -46,6 +46,7 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
+                .withOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 100)
                 .build();
         frl = new FRL(options);
     }
