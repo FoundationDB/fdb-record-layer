@@ -49,7 +49,6 @@ message ContinuationProto {
 }
 
 message PartialAggregationResult {
-  optional bytes cursor = 1;
   optional PValue groupingKey = 2;
   optional int64 scanned_rows = 3;
   optional PQueryResult partial_result = 4; // for example, current avg value
