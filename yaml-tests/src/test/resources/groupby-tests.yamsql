@@ -142,19 +142,23 @@ test_block:
     # -
     #   - query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
     #   - result: [{!l 5}, {!l 8}]
-    # 4.1 Triage: Test failed when run with forced continuations (Result mismatch)
-    # -
-    #   - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-    #   - result: [{3.0}, {9.5}]
+    # 4.1 Triage: [Investigate further] Test failed when run with forced continuations (Result mismatch)
+    # [4.0.559.6, !currentVersion] returned 10.0 instead of 9.5
+    -
+      - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - maxRows: 0
+      - result: [{3.0}, {9.5}]
     # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
     #   - result: [{!l 15}, {!l 76}]
-    # 4.1 Triage: Test failed when run with forced continuations (Result mismatch)
-    # -
+    # 4.1 Triage: [Investigate further] Test failed when run with forced continuations (Result mismatch)
+    # [4.0.559.6, !currentVersion] returned {10, 10.0} instead of {9, 9.5}
+    -
       # result is correct since we don't use (not support, yet) explicit casting.
-    #   - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-    #   - result: [{!l 3, 3.0}, {!l 9, 9.5}]
+      - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - maxRows: 0
+      - result: [{!l 3, 3.0}, {!l 9, 9.5}]
     -
       - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
       - error: "42703"

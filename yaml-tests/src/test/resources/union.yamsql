@@ -58,7 +58,7 @@ test_block:
   tests:
     -
       - query: select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*) as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x
-      # 4.1 Triage: infinite loop
+      # 4.1 Triage: [Investigate further: aggregates on subquery] infinite loop
       - maxRows: 0
       - unorderedResult: [{A: 74 , B: 13}]
     -
@@ -157,19 +157,20 @@ test_block:
                           {A: 10.0, B: 20.0}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X
-      # 4.1 Triage: Infinite loop
+      # 4.1 Triage: [Investigate further: aggregates on subquery] Infinite loop
       - maxRows: 0
       - explain: "AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
       - result: [{S: 2}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X
       - explain: "SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
-      # 4.1 Triage: Infinite loop
+      # 4.1 Triage: [Investigate further: aggregates on subquery] Infinite loop
       - maxRows: 0
       - result: [{S: 5}]
     -
       - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)
-      # 4.1 Triage: Invalid continuation
+      # 4.1 Triage: [Investigate further] fails with forced continuations (Invalid continuation)
+      # Failed with both 559 and 4.1.8, RecordCoreException: invalid continuation
       - maxRows: 0
       - result: [{1}, {2}, {6}, {7}]
     -
@@ -184,6 +185,7 @@ test_block:
     -
       - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
       - explain: "AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
-      # 4.1 Triage: Wrong result with forced continuation (NULL vs 0)
+      # 4.1 Triage: [Initial version] Failing with 559: (Wrong result with forced continuation (NULL vs 0))
+      # 4.1 Triage: [deferred: Client checks for END] Failing with forced continuations: (Received continuation shouldn't be at beginning)
       # - result: [{0}]
 ...

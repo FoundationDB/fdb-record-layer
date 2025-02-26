@@ -148,7 +148,7 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database if exists /frl/db
-# 4.1 triage: Fails with force continuations (but not for snapshot)
+# 4.1 triage: [Initial version] Fails with force continuations (but not for snapshot)
 # Embedded -> 4.0.559.6:
 # expected: <false> but was: <true>
 #  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
@@ -158,13 +158,14 @@ setup:
 # 4.0.559.6 -> Embedded:
 #   Received continuation shouldn't be at beginning
 #---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{0}]
+test_block:
+ connect: "jdbc:embed:/__SYS?schema=CATALOG"
+ preset: single_repetition_ordered
+ tests:
+   -
+     - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+     - maxRows: 0
+     - result: [{0}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
