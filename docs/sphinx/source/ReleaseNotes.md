@@ -1460,7 +1460,7 @@ New index state "READABLE_UNIQUE_PENDING" - the proper way to roll this feature 
 1. The adopter should upgrade to the new Record Layer version and deploy the version everywhere.
 2. The format version should be set READABLE_UNIQUE_PENDING_FORMAT_VERSION.
 3. Only after all the possible clients are upgraded to support the new state, the adopter may set the allowPendingState on the indexing policy of new index builds.
-An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable. 
+An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable.  
 
 
 ### Breaking Changes
@@ -2956,4 +2956,4 @@ The capability and reliability of text queries on more sophisticated indexes has
 
 ### 2.1.10.0
 
-* **Feature** A new record type key expression allows for structuring data in a record store more akin to how tables are stored in a traditional relational database [(Issue #27)](https://github.com/FoundationDB/fdb-record-layer/issues/27)
+* **Feature** A new record type key expression allows for structuring data in a record store more akin to how tables are stored in a traditional relational database [(Issue #27)](https://github.com/FoundationDB/fdb-record-layer/issues/27) 
