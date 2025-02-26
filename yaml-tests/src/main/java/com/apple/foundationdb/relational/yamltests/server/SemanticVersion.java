@@ -23,6 +23,9 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -46,9 +49,33 @@ import java.util.stream.Collectors;
  *     at the end. Each version component is compared as integers, and versions with a different number of components
  *     are not comparable. A version with {@code -SNAPSHOT} version added to a version the less than the same set of
  *     numbers without {@code -SNAPSHOT} (e.g. {@code 3.4.5.1-SNAPSHOT < 3.4.5.1}).
+ *</p>
+ *
+ * <p>
+ * In addition, there are a set of "special" versions included that are not based on the version numbers. They
+ * stand in for special versions that are not encompassed by the normal version space. They are:
+ * </p>
+ * <ul>
+ *     <li>
+ *         {@link #min()}: The minimum possible version. This is useful for specifying the endpoint of open version
+ *         range. For example, set of all versions less than {@code 3.4.5.1} can be expressed as all versions between
+ *         {@link #min()} and {@code 3.4.5.1}.
+ *     </li>
+ *     <li>
+ *         {@link #current()}: The current version of the code. Before code is committed and released, it is useful to
+ *         have a pointer to what <em>will</em> be the code's version even if it isn't known. For example, one might
+ *         want to assert on what the behavior of any version older than the current version was. The {@link #current()}
+ *         version provides that context, and it is assumed to be greater than all other versions (except the
+ *         {@link #max()} version).
+ *     </li>
+ *     <li>
+ *         {@link #max()}: The maximum possible version. Like {@link #min()}, this is also useful for specifying the
+ *         endpoint of an open range.
+ *     </li>
+ * </ul>
  * @see <a href="https://github.com/FoundationDB/fdb-record-layer/blob/main/docs/Versioning.md#semantic-versioning">Versioning</a>
  */
-public class SemanticVersion implements CodeVersion {
+public class SemanticVersion implements Comparable<SemanticVersion> {
     private static final String NUMBER_PATTERN = "(?:0|[1-9]\\d*)";
     private static final String ALPHANUMERIC_PATTERN = "\\d*[a-zA-Z-][0-9a-zA-Z-]";
     private static final String PRE_RELEASE_PART = "(?:" + NUMBER_PATTERN + "|" + ALPHANUMERIC_PATTERN + ")";
@@ -57,12 +84,83 @@ public class SemanticVersion implements CodeVersion {
                     "(?:-(?<prerelease>" + dotSeparated(PRE_RELEASE_PART) + "))?");
 
     /**
+     * Enum representing the type of this version. The {@link SemanticVersion} class is
+     * modeled like an algebraic data type that might look like, say:
+     *
+     * <pre>{@code
+     * enum SemanticVersion {
+     *     case MIN
+     *     case NORMAL(versionNumbers: [Integer], preRelease: [String]),
+     *     case CURRENT
+     *     case MAX
+     * }
+     * }</pre>
+     *
+     * <p>
+     * The {@code versionNumbers} and {@code preRelease} are only really relevant
+     * for the {@link #NORMAL} case. The other three cases are all singletons and do not
+     * contain any state themselves.
+     * </p>
+     *
+     * <p>
+     * The order here is important. Versions are ordered first by their type, and then
+     * by their other data (if appropriate).
+     * </p>
+     */
+    public enum SemanticVersionType {
+        MIN("!min_version", true),
+        NORMAL("", false),
+        CURRENT("!current_version", true),
+        MAX("!max_version", true),
+        ;
+
+        @Nonnull
+        private final String text;
+        private final boolean singleton;
+
+        SemanticVersionType(String text, boolean singleton) {
+            this.text = text;
+            this.singleton = singleton;
+        }
+
+        @Nonnull
+        public String getText() {
+            return text;
+        }
+
+        public boolean isSingleton() {
+            return singleton;
+        }
+    }
+
+    @Nonnull
+    private static final EnumMap<SemanticVersionType, SemanticVersion> SINGLETONS = new EnumMap<>(SemanticVersionType.class);
+
+    static {
+        Arrays.stream(SemanticVersionType.values()).forEach(type -> {
+            if (type.isSingleton()) {
+                SINGLETONS.put(type, new SemanticVersion(type, Collections.emptyList(), Collections.emptyList()));
+            }
+        });
+    }
+
+    /**
+     * The type of the semantic version. Determines whether this is a normal semantic version
+     * or one of the special stand-ins. See {@link SemanticVersionType} for more information.
+     *
+     * @see SemanticVersionType
+     */
+    @Nonnull
+    private final SemanticVersionType type;
+
+    /**
      * The main version components.
      * <p>
      *     For the current record layer versioning, this would be {@code List.of(major, minor, build, patch)}, but this
      *     class supports any number of version components.
      *     When comparing, these are compared in order.
      */
+    @Nonnull
     private final List<Integer> versionNumbers;
     /**
      * The prerelease metadata, but only {@code SNAPSHOT} is supported.
@@ -71,11 +169,44 @@ public class SemanticVersion implements CodeVersion {
      *     and gradle and maven have complicated comparison that disagrees. A version that has the same value
      *     {@link #versionNumbers} but an empty {@code prerelease} is greater than one with a non-empty {@code prerelease}.
      */
+    @Nonnull
     private final List<String> prerelease;
 
-    private SemanticVersion(@Nonnull List<Integer> versionNumbers, @Nonnull List<String> prerelease) {
+    private SemanticVersion(@Nonnull SemanticVersionType type, @Nonnull List<Integer> versionNumbers, @Nonnull List<String> prerelease) {
+        this.type = type;
         this.versionNumbers = versionNumbers;
         this.prerelease = prerelease;
+    }
+
+    /**
+     * Get the special "point at negative infinity". Useful for range endpoints.
+     *
+     * @return a special version that is less than all other versions
+     */
+    @Nonnull
+    public static SemanticVersion min() {
+        return SINGLETONS.get(SemanticVersionType.MIN);
+    }
+
+    /**
+     * Get the special version indicating the current code version. Useful for asserting
+     * about behavior that differs between the current version and previous releases.
+     *
+     * @return a special version that represents the current (potentially unreleased) code version
+     */
+    @Nonnull
+    public static SemanticVersion current() {
+        return SINGLETONS.get(SemanticVersionType.CURRENT);
+    }
+
+    /**
+     * Get the special "point at positive infinity". Useful for range endpoints.
+     *
+     * @return a special version that is greater than all other versions
+     */
+    @Nonnull
+    public static SemanticVersion max() {
+        return SINGLETONS.get(SemanticVersionType.MAX);
     }
 
     /**
@@ -85,6 +216,12 @@ public class SemanticVersion implements CodeVersion {
      */
     @Nonnull
     public static SemanticVersion parse(@Nonnull String versionString) {
+        for (SemanticVersionType type : SemanticVersionType.values()) {
+            if (type.isSingleton() && type.getText().equals(versionString)) {
+                return SINGLETONS.get(type);
+            }
+        }
+
         final Matcher matcher = VERSION_PATTERN.matcher(versionString);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Version is not valid: " + versionString);
@@ -97,7 +234,18 @@ public class SemanticVersion implements CodeVersion {
             throw new IllegalArgumentException("Only SNAPSHOT (all caps) pre-release is supported right now");
         }
         final List<String> prerelease = prereleaseString == null ? List.of() : List.of(prereleaseString.split("\\."));
-        return new SemanticVersion(versionNumbers, prerelease);
+        return new SemanticVersion(SemanticVersionType.NORMAL, versionNumbers, prerelease);
+    }
+
+    /**
+     * Get the type of this version. See the {@link SemanticVersionType} enum for more details.
+     *
+     * @return the type of this version
+     * @see SemanticVersionType
+     */
+    @Nonnull
+    public SemanticVersionType getType() {
+        return type;
     }
 
     @Nonnull
@@ -107,6 +255,9 @@ public class SemanticVersion implements CodeVersion {
 
     @Override
     public String toString() {
+        if (type.isSingleton()) {
+            return type.getText();
+        }
         String version = versionNumbers.stream().map(Object::toString).collect(Collectors.joining("."));
         if (!prerelease.isEmpty()) {
             version = version + "-" + prerelease;
@@ -123,15 +274,38 @@ public class SemanticVersion implements CodeVersion {
             return false;
         }
         final SemanticVersion that = (SemanticVersion)o;
-        return Objects.equals(versionNumbers, that.versionNumbers) && Objects.equals(prerelease, that.prerelease);
+        return type.equals(that.type)
+                && Objects.equals(versionNumbers, that.versionNumbers)
+                && Objects.equals(prerelease, that.prerelease);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(versionNumbers, prerelease);
+        return Objects.hash(type.name(), versionNumbers, prerelease);
     }
 
-    public int compareSemanticVersion(@Nonnull SemanticVersion o) {
+    @Nonnull
+    public List<SemanticVersion> lesserVersions(@Nonnull Collection<SemanticVersion> rawVersions) {
+        return rawVersions.stream()
+                .filter(other -> other.compareTo(this) < 0)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public int compareTo(@Nonnull SemanticVersion o) {
+        // First, compare by type using ordinal position. Values in the enum are sorted according
+        // to their expected precedence
+        int typeCompare = type.compareTo(o.type);
+        if (typeCompare != 0) {
+            return typeCompare;
+        }
+
+        // For singleton values, type comparison is enough.
+        if (type.isSingleton()) {
+            return 0;
+        }
+
+        // Otherwise, compare version numbers and pre-release information
         final int versionComparison = compareVersionNumbers(o);
         if (versionComparison != 0) {
             return versionComparison;

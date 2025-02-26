@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
-import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests that tests based on the initial version flags skip what they should and nothing else.
  */
 public class InitialVersionTest {
-    private static final CodeVersion VERSION = CodeVersion.parse("3.0.18.0");
+    private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
     private static final EmbeddedConfig config = new EmbeddedConfig();
 
     @BeforeAll
@@ -76,7 +76,7 @@ public class InitialVersionTest {
             }
 
             @Override
-            public Set<CodeVersion> getVersionsUnderTest() {
+            public Set<SemanticVersion> getVersionsUnderTest() {
                 return Set.of(VERSION);
             }
 

@@ -20,35 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
-import javax.annotation.Nonnull;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-
 /**
  * Marker interface representing a code version.
  */
 public interface CodeVersion extends Comparable<CodeVersion> {
-    @Override
-    default int compareTo(@Nonnull CodeVersion other) {
-        return CodeVersionComparator.instance().compare(this, other);
-    }
-
-    @Nonnull
-    default List<CodeVersion> lesserVersions(@Nonnull Collection<CodeVersion> rawVersions) {
-        return rawVersions.stream()
-                .filter(other -> other.compareTo(this) < 0)
-                .collect(Collectors.toList());
-    }
-
-    @Nonnull
-    static CodeVersion parse(@Nonnull String string) {
-        for (SpecialCodeVersion.SpecialCodeVersionType type : SpecialCodeVersion.SpecialCodeVersionType.values()) {
-            if (type.getText().equals(string)) {
-                return SpecialCodeVersion.of(type);
-            }
-        }
-        // If it's none of the special versions, parse as a semantic version
-        return SemanticVersion.parse(string);
-    }
 }

@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
-import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -87,7 +87,7 @@ public interface YamlConnection extends AutoCloseable {
      * @return the ordered list of versions
      */
     @Nonnull
-    List<CodeVersion> getVersions();
+    List<SemanticVersion> getVersions();
 
     /**
      * Return the initial version returned by this connection. If this connection
@@ -100,5 +100,5 @@ public interface YamlConnection extends AutoCloseable {
      * @return the first version that an underlying connection will represent
      */
     @Nonnull
-    CodeVersion getInitialVersion();
+    SemanticVersion getInitialVersion();
 }

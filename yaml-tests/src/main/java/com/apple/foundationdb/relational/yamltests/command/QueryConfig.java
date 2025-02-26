@@ -30,8 +30,7 @@ import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
-import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
-import com.apple.foundationdb.relational.yamltests.server.SpecialCodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
@@ -532,13 +531,13 @@ public abstract class QueryConfig {
 
     private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, int lineNumber, YamlExecutionContext executionContext) {
         try {
-            CodeVersion versionArgument = FileOptions.parseVersion(value);
+            SemanticVersion versionArgument = FileOptions.parseVersion(value);
             if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
                 return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, value, lineNumber, executionContext,
-                        versionArgument, SpecialCodeVersion.max());
+                        versionArgument, SemanticVersion.max());
             } else if (QUERY_CONFIG_INITIAL_VERSION_LESS_THAN.equals(key)) {
                 return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN, value, lineNumber, executionContext,
-                        SpecialCodeVersion.min(), versionArgument);
+                        SemanticVersion.min(), versionArgument);
             } else {
                 throw new IllegalArgumentException("Unknown version constraint " + key);
             }
@@ -594,13 +593,13 @@ public abstract class QueryConfig {
         // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
         if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
             // Creating an interval set including each covered range
-            RangeSet<CodeVersion> rangeSet = TreeRangeSet.create();
+            RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
             configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
                     .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
                     .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
             // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
-            Set<Range<CodeVersion>> uncovered = rangeSet.complement()
-                    .subRangeSet(Range.closedOpen(SpecialCodeVersion.min(), SpecialCodeVersion.max()))
+            Set<Range<SemanticVersion>> uncovered = rangeSet.complement()
+                    .subRangeSet(Range.closedOpen(SemanticVersion.min(), SemanticVersion.max()))
                     .asRanges();
             if (!uncovered.isEmpty()) {
                 IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
@@ -629,18 +628,18 @@ public abstract class QueryConfig {
     }
 
     public static class InitialVersionCheckConfig extends QueryConfig {
-        private final CodeVersion minVersion;
-        private final CodeVersion maxVersion;
+        private final SemanticVersion minVersion;
+        private final SemanticVersion maxVersion;
 
         public InitialVersionCheckConfig(final String configName, final Object value, final int lineNumber, final YamlExecutionContext executionContext,
-                                         CodeVersion minVersion, CodeVersion maxVersion) {
+                                         SemanticVersion minVersion, SemanticVersion maxVersion) {
             super(configName, value, lineNumber, executionContext);
             this.minVersion = minVersion;
             this.maxVersion = maxVersion;
         }
 
         public boolean shouldExecute(YamlConnection connection) {
-            CodeVersion initialVersion = connection.getInitialVersion();
+            SemanticVersion initialVersion = connection.getInitialVersion();
             return initialVersion.compareTo(minVersion) >= 0 && initialVersion.compareTo(maxVersion) < 0;
         }
 
@@ -650,12 +649,12 @@ public abstract class QueryConfig {
         }
 
         @Nonnull
-        public CodeVersion getMinVersion() {
+        public SemanticVersion getMinVersion() {
             return minVersion;
         }
 
         @Nonnull
-        public CodeVersion getMaxVersion() {
+        public SemanticVersion getMaxVersion() {
             return maxVersion;
         }
     }

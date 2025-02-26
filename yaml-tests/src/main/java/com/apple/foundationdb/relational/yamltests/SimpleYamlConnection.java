@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
-import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,9 +40,9 @@ public class SimpleYamlConnection implements YamlConnection {
     @Nonnull
     private final RelationalConnection underlying;
     @Nonnull
-    private final List<CodeVersion> versions;
+    private final List<SemanticVersion> versions;
 
-    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull CodeVersion version) throws SQLException {
+    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
         this.versions = List.of(version);
     }
@@ -85,13 +85,13 @@ public class SimpleYamlConnection implements YamlConnection {
 
     @Nonnull
     @Override
-    public List<CodeVersion> getVersions() {
+    public List<SemanticVersion> getVersions() {
         return versions;
     }
 
     @Nonnull
     @Override
-    public CodeVersion getInitialVersion() {
+    public SemanticVersion getInitialVersion() {
         return versions.get(0);
     }
 }

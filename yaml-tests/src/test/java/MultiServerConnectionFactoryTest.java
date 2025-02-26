@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
-import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -147,24 +147,24 @@ public class MultiServerConnectionFactoryTest {
     }
 
     private static void assertConnection(final YamlConnection connection, final String initialVersion, final List<String> expectedVersions) {
-        assertEquals(CodeVersion.parse(initialVersion), connection.getInitialVersion());
-        assertEquals(expectedVersions.stream().map(CodeVersion::parse).collect(Collectors.toList()),
+        assertEquals(SemanticVersion.parse(initialVersion), connection.getInitialVersion());
+        assertEquals(expectedVersions.stream().map(SemanticVersion::parse).collect(Collectors.toList()),
                 connection.getVersions());
     }
 
     YamlConnectionFactory dummyConnectionFactory(@Nonnull String version) {
-        CodeVersion codeVersion = CodeVersion.parse(version);
+        SemanticVersion semanticVersion = SemanticVersion.parse(version);
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add query string to connection so we can tell where it came from
                 URI newPath = URI.create(connectPath + "?version=" + version);
-                return new SimpleYamlConnection(dummyConnection(newPath), codeVersion);
+                return new SimpleYamlConnection(dummyConnection(newPath), semanticVersion);
             }
 
             @Override
-            public Set<CodeVersion> getVersionsUnderTest() {
-                return Set.of(codeVersion);
+            public Set<SemanticVersion> getVersionsUnderTest() {
+                return Set.of(semanticVersion);
             }
         };
     }
