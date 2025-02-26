@@ -40,6 +40,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
@@ -225,7 +226,7 @@ public class QueryExecutor {
     }
 
     private boolean isForcedContinuationsEligible(final String queryString) {
-        return ((queryString == null) || queryString.trim().toLowerCase().startsWith("select"));
+        return ((queryString == null) || queryString.trim().toLowerCase(Locale.ROOT).startsWith("select"));
     }
 
     private Object executeStatementWithForcedContinuations(final @Nonnull Statement s,
