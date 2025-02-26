@@ -31,7 +31,7 @@ test_block:
            VALUES ((1, 2, 3, 4), 5),
                   ((1, 2, 30, 40), 50)
       - error: "23505"
-    # 4.1 Triage: [Deferred: Not failing in CK] failed when running with forced continuations against 4.0.559.6 (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Client checks for End] failed when running with forced continuations against 4.0.559.6 (Received continuation shouldn't be at beginning)
     -
       - query: SELECT COUNT(*) FROM T1
       - maxRows: 0

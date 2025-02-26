@@ -161,22 +161,22 @@ test_block:
     -
       - query: select X.col2 from (select  col1, col2 from t1) as x group by x.col1;
       - error: "42803"
-    # 4.1 Triage: [Deferred: Not failing in CK] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
       - maxRows: 0
       - result: [{!l 13}]
-    # 4.1 Triage: [Deferred: Not failing in CK] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
       - maxRows: 0
       - result: [{!l 1}]
-    # 4.1 Triage: [Deferred: Not failing in CK] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
       - maxRows: 0
       - result: [{!l 13}]
-    # 4.1 Triage: [Deferred: Not failing in CK] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
       - maxRows: 0
@@ -198,12 +198,12 @@ test_block:
     # -
     #   - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
     #   - result: [{!l 10}]
-    # 4.1 Triage: [Deferred: Not failing in CK] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select COUNT(*) from T1;
       - maxRows: 0
       - result: [{!l 13}]
-    # 4.1 Triage: [Deferred: Not failing in CK] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select COUNT(col1) from T1;
       - maxRows: 0
