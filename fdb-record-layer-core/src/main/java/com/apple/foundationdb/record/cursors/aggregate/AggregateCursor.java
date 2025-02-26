@@ -61,12 +61,13 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // last row in last group, is null if the current group is the first group
     @Nullable
     private RecordCursorResult<QueryResult> lastInLastGroup;
+    @Nullable
     byte[] continuation;
 
     public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
                            @Nonnull final StreamGrouping<M> streamGrouping,
                            boolean isCreateDefaultOnEmpty,
-                           byte[] continuation) {
+                           @Nullable byte[] continuation) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
         this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
