@@ -45,10 +45,11 @@ test_block:
     -
       - query: select * from (select * from (select * from T1) as x where ID is null) as y;
       - result: []
-    # 4.1 Triage: failed when running with forced continuations (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from (select * from (select * from T1) as x where ID is not null) as y;
-    #   - unorderedResult: [{13}]
+    # 4.1 Triage: [Deferred: Not failing in CK] failed when running with forced continuations (Received continuation shouldn't be at beginning)
+    -
+      - query: select count(*) from (select * from (select * from T1) as x where ID is not null) as y;
+      - maxRows: 0
+      - unorderedResult: [{13}]
 #    -
 #      - query: select count(*) from (select * from (select * from T1) as x where ID != null) as y;
 #      - unorderedResult: [{13}]

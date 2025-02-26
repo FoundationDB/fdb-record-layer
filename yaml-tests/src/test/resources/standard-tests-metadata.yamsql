@@ -56,10 +56,11 @@ test_block:
     -
       - query: select * from (select * from (select * from T1) as x) as y where ID = 5;
       - result: [{ID: !l 5, !l 10, !l 5}]
-    # 4.1 Triage: failed running with forced continuations (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
-    #   - result: [{!l 1}]
+    # 4.1 Triage: [Deferred: Not failing in CK] failed running with forced continuations (Received continuation shouldn't be at beginning)
+    -
+      - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
+      - maxRows: 0
+      - result: [{!l 1}]
     -
       - query: select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;
       - result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]

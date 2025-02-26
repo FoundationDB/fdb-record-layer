@@ -58,7 +58,7 @@ test_block:
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
               group by template_name, template_version having template_name = 't') as t;
       - explainContains: 'AISCAN(TEMPLATES_COUNT_INDEX'
-    # 4.1 Triage: failing when running with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Not failing in CK] failing when running with forced continuations (Received continuation shouldn't be at beginning)
     # -
     #   - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
     #       group by template_name, template_version having template_name = 'TEST_TEMPLATE_1') as t;
@@ -68,7 +68,7 @@ test_block:
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
             group by template_name, template_version having template_name = 't' and template_version = 1) as t;
       - explainContains: 'AISCAN(TEMPLATES_COUNT_INDEX'
-    # 4.1 Triage: failing when running with forced continuations (Received continuation shouldn't be at beginning)
+    # 4.1 Triage: [Deferred: Not failing in CK] failing when running with forced continuations (Received continuation shouldn't be at beginning)
     # -
     #   - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
     #       group by template_name, template_version having template_name = 'TEST_TEMPLATE_1' and template_version = 1) as t;

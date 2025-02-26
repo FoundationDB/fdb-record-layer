@@ -94,7 +94,7 @@ test_block:
     -
       - query: select B AND FALSE from lb
       - result: [ { false }, { false }, { false } ]
-    # 4.1 Triage: failing when running with forced continuations (cannot continue query due to mismatch between serialized and actual plan hash)
+    # 4.1 Triage: [Deferred: literal null issue] failing when running with forced continuations (cannot continue query due to mismatch between serialized and actual plan hash)
     # -
     #   - query: select B AND NULL from lb
     #   - result: [ { !null }, { false }, { !null } ]
@@ -104,7 +104,7 @@ test_block:
     -
       - query: select B OR FALSE from lb
       - result: [ { true }, { false }, { !null } ]
-    # 4.1 Triage: failing when running with forced continuations (cannot continue query due to mismatch between serialized and actual plan hash)
+    # 4.1 Triage: [Deferred: literal null issue] failing when running with forced continuations (cannot continue query due to mismatch between serialized and actual plan hash)
     # -
     #   - query: select B OR NULL from lb
     #   - result: [ { true }, { !null }, { !null } ]

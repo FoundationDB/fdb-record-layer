@@ -44,7 +44,7 @@ setup:
     - query: drop database if exists /frl/DB
     - query: create schema template temp1 create table T1(a1 bigint, primary key(a1))
 
-# 4.1 triage: Fails with force continuations for all versions with:
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations for all versions with:
 # Received continuation shouldn't be at beginning
 #---
 #test_block:
@@ -59,9 +59,10 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template temp1
-# 4.1 triage: Fails with force continuations (Does not fail with SNAPSHOT)
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations (Does not fail with SNAPSHOT)
 # Embedded -> 4.0.559.6:
 #   Received continuation shouldn't be at beginning
+# 4.1 Triage: fails with force continuations (Does not fail with SNAPSHOT)
 # 4.0.559.6 -> Embedded:
 # expected: <false> but was: <true>
 #  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
@@ -80,7 +81,7 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create schema template temp2 create table T1(a1 bigint, primary key(a1))
-# 4.1 triage: Fails with force continuations for all versions (including SNAPSHOT):
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations for all versions (including SNAPSHOT):
 #   Received continuation shouldn't be at beginning
 #---
 #test_block:
@@ -95,7 +96,7 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
-# 4.1 triage: Fails with force continuations for all versions (including SNAPSHOT):
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations for all versions (including SNAPSHOT):
 #   Received continuation shouldn't be at beginning
 #---
 #test_block:
@@ -110,9 +111,10 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
-# 4.1 triage: Fails with force continuations (but not for snapshot)
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations (but not for snapshot)
 # Embedded -> 4.0.559.6:
 #   Received continuation shouldn't be at beginning
+# 4.1 triage: Fails with force continuations (but not for snapshot)
 # 4.0.559.6 -> Embedded:
 # expected: <false> but was: <true>
 #  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
@@ -131,7 +133,7 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
-# 4.1 triage: Fails with force continuations for all versions (including SNAPSHOT):
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations for all versions (including SNAPSHOT):
 #   Received continuation shouldn't be at beginning
 #---
 #test_block:
@@ -152,6 +154,7 @@ setup:
 #  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
 #  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementWithForcedContinuations(QueryExecutor.java:258)
 #  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementAndCheckForceContinuations(QueryExecutor.java:219)
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations (but not for snapshot)
 # 4.0.559.6 -> Embedded:
 #   Received continuation shouldn't be at beginning
 #---
@@ -167,7 +170,7 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
-# 4.1 triage: Fails with force continuations for all versions (including SNAPSHOT):
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations for all versions (including SNAPSHOT):
 #   Received continuation shouldn't be at beginning
 #---
 #test_block:
@@ -182,7 +185,7 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create schema /frl/db/s1 with template temp2
-# 4.1 triage: Fails with force continuations for all versions (including SNAPSHOT):
+# 4.1 triage: [Deferred: Not failing in CK] Fails with force continuations for all versions (including SNAPSHOT):
 #   Received continuation shouldn't be at beginning
 #---
 #test_block:
@@ -197,9 +200,10 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
-# 4.1 triage: Both queries fail with force continuations (but not for snapshot)
+# 4.1 triage: [Deferred: Not failing in CK] Both queries fail with force continuations (but not for snapshot)
 # Embedded -> 4.0.559.6:
 #   Received continuation shouldn't be at beginning
+# 4.1 triage: Both queries fail with force continuations (but not for snapshot)
 # 4.0.559.6 -> Embedded:
 # expected: <false> but was: <true>
 #  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
@@ -224,7 +228,7 @@ setup:
     - query: create database /frl/db
     - query: create schema /frl/db/s1 with template temp2
     - query: create schema /frl/db/s2 with template temp2
-# 4.1 triage: Both queries fail with force continuations for all versions (including SNAPSHOT):
+# 4.1 triage: [Deferred: Not failing in CK] Both queries fail with force continuations for all versions (including SNAPSHOT):
 #   Received continuation shouldn't be at beginning
 #---
 #test_block:
@@ -242,9 +246,10 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
-# 4.1 triage: Both queries fail with force continuations (but not for snapshot)
+# 4.1 triage: [Deferred: Not failing in CK] Both queries fail with force continuations (but not for snapshot)
 # Embedded -> 4.0.559.6:
 #   Received continuation shouldn't be at beginning
+# 4.1 triage: Both queries fail with force continuations (but not for snapshot)
 # 4.0.559.6 -> Embedded:
 # expected: <false> but was: <true>
 #  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
