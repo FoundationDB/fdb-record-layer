@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
+
 import javax.annotation.Nullable;
 
 /**
@@ -29,4 +31,6 @@ public interface Accumulator {
     void accumulate(@Nullable Object currentObject);
 
     @Nullable Object finish();
+
+    @Nullable PartialAggregationResult getPartialAggregationResult();
 }

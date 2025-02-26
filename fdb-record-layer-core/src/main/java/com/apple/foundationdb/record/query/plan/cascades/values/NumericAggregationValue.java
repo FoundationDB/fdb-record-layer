@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMin;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PSum;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -58,6 +59,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -862,5 +864,17 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         public Object finish() {
             return physicalOperator.evalPartialToFinal(state);
         }
-    }
+
+        @Nullable
+        @Override
+        public PartialAggregationResult getPartialAggregationResult() {
+            if (state ==  null) {
+                return null;
+            }
+            return PartialAggregationResult.newBuilder()
+                    .setPhysicalOperatorName(physicalOperator.name())
+                    // (TODO) store state, maybe a string?
+                    .build();
+        }
+     }
 }

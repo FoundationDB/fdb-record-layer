@@ -1782,3 +1782,8 @@ message PRecursiveUnionQueryPlan {
   optional string initialTempTableAlias = 3;
   optional string recursiveTempTableAlias = 4;
 }
+
+message PartialAggregationResult {
+  optional string physical_operator_name = 1;
+  optional google.protobuf.Any state = 2;
+}

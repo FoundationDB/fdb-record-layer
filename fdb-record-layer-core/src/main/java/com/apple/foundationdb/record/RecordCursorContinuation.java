@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;

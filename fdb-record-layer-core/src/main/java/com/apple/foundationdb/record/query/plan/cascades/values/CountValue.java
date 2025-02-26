@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PCountValue;
 import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -344,6 +345,18 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
         @Override
         public Object finish() {
             return physicalOperator.evalPartialToFinal(state);
+        }
+
+        @Nullable
+        @Override
+        public PartialAggregationResult getPartialAggregationResult() {
+            if (state ==  null) {
+                return null;
+            }
+            return PartialAggregationResult.newBuilder()
+                    .setPhysicalOperatorName(physicalOperator.name())
+                    // (TODO) store state, maybe a string?
+                    .build();
         }
     }
 

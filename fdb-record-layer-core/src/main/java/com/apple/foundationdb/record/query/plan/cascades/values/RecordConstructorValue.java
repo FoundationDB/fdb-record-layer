@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -373,6 +374,12 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                     childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
                 }
                 return childAccumulatorsBuilder.build();
+            }
+
+            @Nullable
+            @Override
+            public PartialAggregationResult getPartialAggregationResult() {
+                return null;
             }
         };
     }

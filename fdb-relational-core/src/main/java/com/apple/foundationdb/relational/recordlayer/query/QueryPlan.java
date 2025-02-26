@@ -238,7 +238,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final String schemaName = conn.getSchema();
                 try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                     final var evaluationContext = queryExecutionParameters.getEvaluationContext();
-                    final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
                     final ContinuationImpl parsedContinuation;
                     try {
                         parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionParameters.getContinuation());
@@ -246,6 +245,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         executionContext.metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
                         throw ExceptionUtil.toRelationalException(ipbe);
                     }
+                    final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepositoryAndPartialAggregationResult(evaluationContext.getBindings(), typeRepository, parsedContinuation.getPartialAggregationResult());
+
                     if (queryExecutionParameters.isForExplain()) {
                         return executeExplain(parsedContinuation);
                     } else {

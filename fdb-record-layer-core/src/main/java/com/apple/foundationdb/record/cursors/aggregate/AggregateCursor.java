@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.cursors.RecursiveUnionCursor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -105,7 +106,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }), getExecutor()).thenApply(vignore -> {
             // either innerResult.hasNext() = false; or groupBreak = true
             if (Verify.verifyNotNull(previousResult).hasNext()) {
-                // in this case groupBreak = true, return aggregated result and continuation
+                // in this case groupBreak = true, return aggregated result and continuation, partialAggregationResult = null
                 RecordCursorContinuation continuation = Verify.verifyNotNull(previousValidResult).getContinuation();
                 /*
                 * Update the previousValidResult to the next continuation even though it hasn't been returned. This is to return the correct continuation when there are single-element groups.
@@ -132,7 +133,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 previousValidResult = previousResult;
                 return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
             } else {
+                // innerResult.hasNext() = false, might stop in the middle of a group
                 if (Verify.verifyNotNull(previousResult).getNoNextReason() == NoNextReason.SOURCE_EXHAUSTED) {
+                    // exhausted
                     if (previousValidResult == null) {
                         return RecordCursorResult.exhausted();
                     } else {
@@ -141,6 +144,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                         return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
                     }
                 } else {
+                    // stopped in the middle of a group
+                    ContinuationImpl.
+                    /*
                     RecordCursorContinuation currentContinuation;
                     // in the current scan, if current group is the first group, set the continuation to the start of the current scan
                     // otherwise set the continuation to the last row in the last group
@@ -149,6 +155,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     } else {
                         currentContinuation = lastInLastGroup.getContinuation();
                     }
+
+                     */
                     previousValidResult = lastInLastGroup;
                     return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
                 }

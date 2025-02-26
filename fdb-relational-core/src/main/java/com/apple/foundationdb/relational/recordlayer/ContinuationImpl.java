@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -79,6 +80,10 @@ public final class ContinuationImpl implements Continuation {
         } else {
             return proto.getExecutionState().toByteArray();
         }
+    }
+
+    public PartialAggregationResult getPartialAggregationResult() {
+        return proto.getPartialAggregationResult();
     }
 
     @Override
@@ -174,6 +179,16 @@ import com.apple.foundationdb.annotation.API;
      */
     public static Continuation fromRecordCursorContinuation(RecordCursorContinuation cursorContinuation) {
         return cursorContinuation.isEnd() ? END : new ContinuationImpl(cursorContinuation.toBytes());
+    }
+
+    public static Continuation fromRecordCursorContinuationAndPartialAggregationResult(@Nonnull RecordCursorContinuation cursorContinuation, @Nullable PartialAggregationResult partialAggregationResultProto) {
+        if (cursorContinuation.isEnd()) {
+            return END;
+        }
+        ContinuationProto.Builder builder = ContinuationProto.newBuilder().setVersion(CURRENT_VERSION);
+        builder.setExecutionState(ByteString.copyFrom(Objects.requireNonNull(cursorContinuation.toBytes())))
+                .setPartialAggregationResult(partialAggregationResultProto);
+        return new ContinuationImpl(builder.build());
     }
 
     /**

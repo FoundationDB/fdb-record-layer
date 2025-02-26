@@ -46,12 +46,7 @@ message ContinuationProto {
   // The serialized package
   optional CompiledStatement compiled_statement = 5;
   optional Reason reason = 6;
-}
-
-message PartialAggregationResult {
-  optional PValue groupingKey = 2;
-  optional int64 scanned_rows = 3;
-  optional PQueryResult partial_result = 4; // for example, current avg value
+  optional com.apple.foundationdb.record.planprotos.PartialAggregationResult partial_aggregation_result = 7;
 }
 
 message TypedQueryArgument {

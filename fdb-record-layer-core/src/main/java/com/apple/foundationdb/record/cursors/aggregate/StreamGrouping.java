@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
@@ -196,5 +197,10 @@ public class StreamGrouping<M extends Message> {
 
     public boolean isResultOnEmpty() {
         return groupingKeyValue == null;
+    }
+
+    @Nullable
+    public PartialAggregationResult getPartialAggregationResult() {
+        return accumulator.getPartialAggregationResult();
     }
 }
