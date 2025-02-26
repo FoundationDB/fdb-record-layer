@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 public class MultiServerConnectionFactory implements YamlConnectionFactory {
     // The fixed index of the default connection
     public static final int DEFAULT_CONNECTION = 0;
-    private final Set<String> versionsUnderTest;
+    private final Set<CodeVersion> versionsUnderTest;
 
     /**
      * Server selection policy.
@@ -97,7 +97,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     }
 
     @Override
-    public Set<String> getVersionsUnderTest() {
+    public Set<CodeVersion> getVersionsUnderTest() {
         return versionsUnderTest;
     }
 

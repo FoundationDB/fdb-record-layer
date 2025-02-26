@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -53,7 +54,7 @@ public interface YamlConnectionFactory {
      * @return A set of versions that we are testing against, or an empty set if just testing against the current
      * version
      */
-    Set<String> getVersionsUnderTest();
+    Set<CodeVersion> getVersionsUnderTest();
 
     /**
      * Whether the connection supports multiple servers.

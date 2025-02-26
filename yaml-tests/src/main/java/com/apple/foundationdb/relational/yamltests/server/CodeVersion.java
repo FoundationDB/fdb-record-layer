@@ -37,9 +37,8 @@ public interface CodeVersion extends Comparable<CodeVersion> {
     }
 
     @Nonnull
-    default List<CodeVersion> lesserVersions(@Nonnull Collection<String> rawVersions) {
+    default List<CodeVersion> lesserVersions(@Nonnull Collection<CodeVersion> rawVersions) {
         return rawVersions.stream()
-                .map(CodeVersion::parse)
                 .filter(other -> other.compareTo(this) < 0)
                 .collect(Collectors.toList());
     }

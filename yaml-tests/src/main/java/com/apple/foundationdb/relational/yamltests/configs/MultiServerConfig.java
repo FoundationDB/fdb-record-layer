@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
 import javax.annotation.Nonnull;
@@ -70,7 +71,7 @@ public class MultiServerConfig extends JDBCInProcessConfig {
             }
 
             @Override
-            public Set<String> getVersionsUnderTest() {
+            public Set<CodeVersion> getVersionsUnderTest() {
                 return Set.of(externalServer.getVersion());
             }
 

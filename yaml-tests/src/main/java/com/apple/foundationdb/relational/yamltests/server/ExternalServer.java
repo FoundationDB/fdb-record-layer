@@ -45,7 +45,7 @@ public class ExternalServer {
     private final File serverJar;
     private final int grpcPort;
     private final int httpPort;
-    private String version;
+    private CodeVersion version;
     private Process serverProcess;
 
     /**
@@ -100,7 +100,7 @@ public class ExternalServer {
      *
      * @return the version of the server being run.
      */
-    public String getVersion() {
+    public CodeVersion getVersion() {
         return version;
     }
 
@@ -114,7 +114,7 @@ public class ExternalServer {
             jar = serverJar;
         }
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
-        this.version = getVersion(jar);
+        this.version = CodeVersion.parse(getVersion(jar));
         ProcessBuilder processBuilder = new ProcessBuilder("java",
                 // TODO add support for debugging by adding, but need to take care with ports
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",

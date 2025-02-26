@@ -153,17 +153,18 @@ public class MultiServerConnectionFactoryTest {
     }
 
     YamlConnectionFactory dummyConnectionFactory(@Nonnull String version) {
+        CodeVersion codeVersion = CodeVersion.parse(version);
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add query string to connection so we can tell where it came from
                 URI newPath = URI.create(connectPath + "?version=" + version);
-                return new SimpleYamlConnection(dummyConnection(newPath), version);
+                return new SimpleYamlConnection(dummyConnection(newPath), codeVersion);
             }
 
             @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of(version);
+            public Set<CodeVersion> getVersionsUnderTest() {
+                return Set.of(codeVersion);
             }
         };
     }

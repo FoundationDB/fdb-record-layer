@@ -26,7 +26,8 @@ import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SpecialCodeVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -72,12 +73,12 @@ public class JDBCInProcessConfig implements YamlTestConfig {
                 URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
                 String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
                 LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                return new SimpleYamlConnection(DriverManager.getConnection(uriStr), YamlConnection.CURRENT_VERSION);
+                return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SpecialCodeVersion.current());
             }
 
             @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of(FileOptions.CurrentVersion.TEXT);
+            public Set<CodeVersion> getVersionsUnderTest() {
+                return Set.of(SpecialCodeVersion.current());
             }
 
         };

@@ -52,7 +52,7 @@ public class SupportedVersionCheck {
 
     public static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
         CodeVersion supportedVersion = CodeVersion.parseObject(rawVersion);
-        final Set<String> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
+        final Set<CodeVersion> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
         final List<CodeVersion> unsupportedVersions = supportedVersion.lesserVersions(versionsUnderTest);
         if (!unsupportedVersions.isEmpty()) {
             if (SpecialCodeVersion.current().equals(supportedVersion)) {

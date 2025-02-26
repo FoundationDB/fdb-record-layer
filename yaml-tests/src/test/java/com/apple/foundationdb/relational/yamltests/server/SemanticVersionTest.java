@@ -146,6 +146,7 @@ class SemanticVersionTest {
         final List<String> greaterVersions = List.of("4.4.3.1", "3.6.3.1", "3.5.5.1", "3.5.4.3", "3.5.4.3-SNAPSHOT");
         final List<CodeVersion> actualLesserVersions = CodeVersion.parse(versionString).lesserVersions(
                 Stream.concat(lesserVersions.stream(), Stream.concat(Stream.of(versionString), greaterVersions.stream()))
+                        .map(CodeVersion::parse)
                         .collect(Collectors.toSet()));
         actualLesserVersions.sort(Comparator.naturalOrder());
         final List<SemanticVersion> expectedLesserVersions = lesserVersions.stream()

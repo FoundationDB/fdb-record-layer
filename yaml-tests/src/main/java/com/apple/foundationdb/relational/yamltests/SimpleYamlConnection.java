@@ -42,9 +42,9 @@ public class SimpleYamlConnection implements YamlConnection {
     @Nonnull
     private final List<CodeVersion> versions;
 
-    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull String version) throws SQLException {
+    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull CodeVersion version) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
-        this.versions = List.of(CodeVersion.parse(version));
+        this.versions = List.of(version);
     }
 
     @Override
