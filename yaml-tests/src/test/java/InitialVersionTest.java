@@ -56,8 +56,16 @@ public class InitialVersionTest {
         config.afterAll();
     }
 
-    private void doRun(String fileName) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
+    private void doRunFixedVersion(String testName) throws Exception {
+        doRun(testName, createConnectionFactory());
+    }
+
+    private void doRunCurrentVersion(String testName) throws Exception {
+        doRun(testName, config.createConnectionFactory());
+    }
+
+    private void doRun(String testName, YamlConnectionFactory connectionFactory) throws Exception {
+        new YamlRunner("initial-version/" + testName + ".yamsql", connectionFactory, YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
     }
 
     YamlConnectionFactory createConnectionFactory() {
@@ -77,8 +85,12 @@ public class InitialVersionTest {
 
     static Stream<String> shouldFail() {
         return Stream.of(
-                "non-exhaustive-versions",
+                "do-not-allow-max-rows-in-at-least",
+                "do-not-allow-max-rows-in-less-than",
                 "explain-after-version",
+                "mid-query",
+                "non-exhaustive-versions",
+                "non-exhaustive-current-version",
                 "wrong-result-at-least",
                 "wrong-result-less-than",
                 "wrong-count-at-least",
@@ -91,10 +103,10 @@ public class InitialVersionTest {
     }
 
     @ParameterizedTest
-    @MethodSource("shouldFail")
-    void shouldFail(String filename) {
+    @MethodSource
+    void shouldFail(String testName) {
         assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
-                doRun("initial-version/" + filename + ".yamsql"));
+                doRunFixedVersion(testName));
     }
 
 
@@ -106,8 +118,44 @@ public class InitialVersionTest {
     }
 
     @ParameterizedTest
-    @MethodSource("shouldPass")
-    void shouldPass(String filename) throws Exception {
-        doRun("initial-version/" + filename + ".yamsql");
+    @MethodSource
+    void shouldPass(String testName) throws Exception {
+        doRunFixedVersion(testName);
+    }
+
+    static Stream<String> shouldFailOnCurrent() {
+        return Stream.of(
+                "mid-query",
+                "non-exhaustive-versions",
+                "non-exhaustive-current-version",
+                "wrong-result-at-least",
+                "wrong-count-at-least",
+                "wrong-unordered-at-least",
+                "wrong-error-at-least"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void shouldFailOnCurrent(String testName) {
+        assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
+                doRunCurrentVersion(testName));
+    }
+
+    static Stream<String> shouldPassOnCurrent() {
+        return Stream.of(
+                "at-least-current-version",
+                "at-least-version-tests",
+                "wrong-result-less-than",
+                "wrong-count-less-than",
+                "wrong-unordered-less-than",
+                "wrong-error-less-than"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void shouldPassOnCurrent(String testName) throws Exception {
+        doRunCurrentVersion(testName);
     }
 }

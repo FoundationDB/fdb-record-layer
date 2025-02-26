@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass when run on version 3.0.18.0
+# This test should fail when run on any version
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
@@ -25,7 +25,7 @@ schema_template:
 test_block:
   tests:
     -
-      - query: SHOULD ERROR IF RUN;
+      - query: select * from t1;
       - initialVersionLessThan: 3.0.18.0
       - result: []
       - initialVersionAtLeast: 3.0.19.0

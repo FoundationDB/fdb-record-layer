@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -51,7 +52,7 @@ public class SupportedVersionCheck {
     }
 
     public static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
-        CodeVersion supportedVersion = CodeVersion.parseObject(rawVersion);
+        CodeVersion supportedVersion = FileOptions.parseVersion(rawVersion);
         final Set<CodeVersion> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
         final List<CodeVersion> unsupportedVersions = supportedVersion.lesserVersions(versionsUnderTest);
         if (!unsupportedVersions.isEmpty()) {

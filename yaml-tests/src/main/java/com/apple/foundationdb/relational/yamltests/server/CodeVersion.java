@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
-
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
@@ -41,18 +39,6 @@ public interface CodeVersion extends Comparable<CodeVersion> {
         return rawVersions.stream()
                 .filter(other -> other.compareTo(this) < 0)
                 .collect(Collectors.toList());
-    }
-
-
-    @Nonnull
-    static CodeVersion parseObject(@Nonnull Object object) {
-        if (object instanceof FileOptions.CurrentVersion) {
-            return SpecialCodeVersion.current();
-        } else if (object instanceof String) {
-            return SemanticVersion.parse((String) object);
-        } else {
-            throw new IllegalArgumentException("Unable to determine semantic version from object: " + object);
-        }
     }
 
     @Nonnull

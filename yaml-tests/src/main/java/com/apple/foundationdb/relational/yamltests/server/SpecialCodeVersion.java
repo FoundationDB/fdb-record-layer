@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
-
 import javax.annotation.Nonnull;
 import java.util.EnumMap;
 import java.util.Objects;
@@ -49,7 +47,7 @@ public class SpecialCodeVersion implements CodeVersion {
      */
     public enum SpecialCodeVersionType {
         MIN("!min_version", false),
-        CURRENT(FileOptions.CurrentVersion.TEXT, true),
+        CURRENT("!current_version", true),
         MAX("!max_version", true),
         ;
 

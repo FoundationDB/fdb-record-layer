@@ -39,6 +39,9 @@ import com.github.difflib.text.DiffRowGenerator;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import com.google.protobuf.Descriptors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -499,10 +502,11 @@ public abstract class QueryConfig {
     }
 
     @Nonnull
-    public static List<QueryConfig> parseConfigs(String blockName, @Nonnull List<?> objects, @Nonnull YamlExecutionContext executionContext) {
+    public static List<QueryConfig> parseConfigs(String blockName, int commandLineNumber, @Nonnull List<?> objects, @Nonnull YamlExecutionContext executionContext) {
         List<QueryConfig> configs = new ArrayList<>();
+        // After the first result config, require all future results are also result configs. That is, we should
+        // not interleave explain, maxRows, etc., and result configurations, and the results should be the last
         boolean requireResults = false;
-        boolean areResultsForCurrentVersion = true;
 
         for (Object object : objects) {
             final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
@@ -515,21 +519,20 @@ public abstract class QueryConfig {
                 if (requireResults && !resultOrVersionConfig) {
                     throw new IllegalArgumentException("Only result configurations can follow first result or version specification config");
                 }
-                requireResults = requireResults || resultOrVersionConfig;
-                if (areResultsForCurrentVersion) {
-                    configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
-                }
+                requireResults |= resultOrVersionConfig;
+                configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
             } catch (Exception e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
             }
         }
 
+        validateConfigs(configs, commandLineNumber, executionContext);
         return configs;
     }
 
-    private static QueryConfig getVersionSupportedConfig(Object key, Object value, int lineNumber, YamlExecutionContext executionContext) {
+    private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, int lineNumber, YamlExecutionContext executionContext) {
         try {
-            CodeVersion versionArgument = CodeVersion.parseObject(value);
+            CodeVersion versionArgument = FileOptions.parseVersion(value);
             if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
                 return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, value, lineNumber, executionContext,
                         versionArgument, SpecialCodeVersion.max());
@@ -548,7 +551,7 @@ public abstract class QueryConfig {
         if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
             return getSupportedVersionConfig(value, lineNumber, executionContext);
         } else if (VERSION_DEPENDENT_RESULT_CONFIGS.contains(key)) {
-            return getVersionSupportedConfig(key, value, lineNumber, executionContext);
+            return getInitialVersionCheckConfig(key, value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_COUNT.equals(key)) {
             return getCheckCountConfig(value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_ERROR.equals(key)) {
@@ -579,6 +582,30 @@ public abstract class QueryConfig {
             return getMaxRowConfig(value, lineNumber, executionContext);
         } else {
             throw Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+        }
+    }
+
+    private static void validateConfigs(List<QueryConfig> configs, int lineNumber, YamlExecutionContext executionContext) {
+        Assert.thatUnchecked(configs.stream().skip(1)
+                        .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
+                "supported_version must be the first config in a query (after the query itself)");
+
+        // Validate that the results check each version comprehensively by making sure the set of
+        // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
+        if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
+            // Creating an interval set including each covered range
+            RangeSet<CodeVersion> rangeSet = TreeRangeSet.create();
+            configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
+                    .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
+                    .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
+            // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
+            Set<Range<CodeVersion>> uncovered = rangeSet.complement()
+                    .subRangeSet(Range.closedOpen(SpecialCodeVersion.min(), SpecialCodeVersion.max()))
+                    .asRanges();
+            if (!uncovered.isEmpty()) {
+                IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
+                throw executionContext.wrapContext(e, () -> "‼️ Non-comprehensive test case found at line " + lineNumber, "config", lineNumber);
+            }
         }
     }
 

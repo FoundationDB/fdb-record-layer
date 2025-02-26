@@ -1,5 +1,5 @@
 #
-# wrong-error-at-least.yamsql
+# mid-query.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,16 +17,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail when run on version 3.0.18.0
+# This test should fail when run on any version
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 2),
+               (2, 3)
 ---
 test_block:
   tests:
     -
       - query: select * from t1;
+      - maxRows: 1
+      - result: [{id: 1, col1: 2}]
       - initialVersionLessThan: 3.0.19.0
-      - error: 'X0000'
+      - result: [{id: 1, col1: 2}]
       - initialVersionAtLeast: 3.0.19.0
-      - result: []
+      - result: [{id: 1, col1: 2}]

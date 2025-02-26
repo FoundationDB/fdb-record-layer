@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
+import com.apple.foundationdb.relational.yamltests.server.SpecialCodeVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -66,9 +68,19 @@ public class FileOptions {
         return new NoOpBlock(lineNumber);
     }
 
+    public static CodeVersion parseVersion(Object rawVersion) {
+        if (rawVersion instanceof CurrentVersion) {
+            return SpecialCodeVersion.current();
+        } else if (rawVersion instanceof String) {
+            return CodeVersion.parse((String) rawVersion);
+        } else {
+            throw new IllegalArgumentException("Unable to determine semantic version from object: " + rawVersion);
+        }
+    }
+
     public static final class CurrentVersion {
         public static final CurrentVersion INSTANCE = new CurrentVersion();
-        public static final String TEXT = "!current_version";
+        public static final String TEXT = SpecialCodeVersion.SpecialCodeVersionType.CURRENT.getText();
 
         private CurrentVersion() {
         }

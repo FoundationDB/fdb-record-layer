@@ -32,11 +32,6 @@ import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.server.CodeVersion;
-import com.apple.foundationdb.relational.yamltests.server.SpecialCodeVersion;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -47,7 +42,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -96,29 +90,7 @@ public final class QueryCommand extends Command {
             final List<?> queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
             final var configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
-                    QueryConfig.parseConfigs(blockName, queryConfigsWithValueList, executionContext);
-
-            Assert.thatUnchecked(configs.stream().skip(1)
-                    .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
-                    "supported_version must be the first config in a query (after the query itself)");
-
-            // Validate that the results check each version comprehensively by making sure the set of
-            // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
-            if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
-                // Creating an interval set including each covered range
-                RangeSet<CodeVersion> rangeSet = TreeRangeSet.create();
-                configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
-                        .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
-                        .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
-                // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
-                Set<Range<CodeVersion>> uncovered = rangeSet.complement()
-                        .subRangeSet(Range.closedOpen(SpecialCodeVersion.min(), SpecialCodeVersion.max()))
-                        .asRanges();
-                if (!uncovered.isEmpty()) {
-                    IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
-                    throw executionContext.wrapContext(e, () -> "‼️ Non-comprehensive test case found at line " + lineNumber, "config", lineNumber);
-                }
-            }
+                    QueryConfig.parseConfigs(blockName, lineNumber, queryConfigsWithValueList, executionContext);
 
             final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
                     .collect(Collectors.toList());
@@ -185,10 +157,12 @@ public final class QueryCommand extends Command {
         Continuation continuation = null;
         Integer maxRows = null;
         boolean exhausted = false;
+        boolean errored = false;
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
             if (queryConfig instanceof QueryConfig.InitialVersionCheckConfig) {
+                Assert.thatUnchecked(!queryIsRunning, "Initial version checks should not be executed while a query is running");
                 shouldExecute = ((QueryConfig.InitialVersionCheckConfig)queryConfig).shouldExecute(connection);
                 continue;
             }
@@ -196,6 +170,7 @@ public final class QueryCommand extends Command {
                 continue;
             }
 
+            Assert.that(!errored, "ERROR config should be the last config specified.");
             if (QueryConfig.QUERY_CONFIG_MAX_ROWS.equals(queryConfig.getConfigName())) {
                 maxRows = Integer.parseInt(queryConfig.getValueString());
             } else if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {
@@ -206,7 +181,7 @@ public final class QueryCommand extends Command {
                 Integer finalMaxRows = maxRows;
                 runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
-                Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
+                Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
                 Integer finalMaxRows1 = maxRows;
@@ -216,7 +191,7 @@ public final class QueryCommand extends Command {
                 continue;
             } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
-                    Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
+                    errored = true;
                 }
 
                 if (exhausted && (QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(queryConfig.getConfigName()))) {

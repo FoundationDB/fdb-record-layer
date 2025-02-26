@@ -1,5 +1,5 @@
 #
-# wrong-error-at-least.yamsql
+# do-not-allow-max-rows-in-at-least.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,16 +17,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail when run on version 3.0.18.0
+# This test should fail when run on any version
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
 ---
 test_block:
+  preset: single_repetition_ordered
   tests:
     -
       - query: select * from t1;
-      - initialVersionLessThan: 3.0.19.0
-      - error: 'X0000'
-      - initialVersionAtLeast: 3.0.19.0
+      - initialVersionLessThan: 3.0.18.0
+      - result: []
+      - initialVersionAtLeast: 3.0.18.0
+      - maxRows: 2
       - result: []
