@@ -110,9 +110,9 @@ class BooleanValueTest {
     private static final LiteralValue<String> ENUM_STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "DIAMONDS");
     private static final LiteralValue<String> UUID_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "0920df1c-be81-4ec1-8a06-2180226f051d");
     private static final LiteralValue<String> UUID_STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "a8708750-d70f-4800-8c3b-13700d5b369f");
-    private static final LiteralValue<UUID> UUID_1 = new LiteralValue<>(Type.Uuid.getInstance(false), UUID.fromString(UUID_STRING_1.getLiteralValue()));
-    private static final LiteralValue<UUID> UUID_2 = new LiteralValue<>(Type.Uuid.getInstance(false), UUID.fromString(UUID_STRING_2.getLiteralValue()));
-    private static final LiteralValue<UUID> UUID_NULL = new LiteralValue<>(Type.Uuid.getInstance(true), null);
+    private static final LiteralValue<UUID> UUID_1 = new LiteralValue<>(Type.uuidType(false), UUID.fromString(UUID_STRING_1.getLiteralValue()));
+    private static final LiteralValue<UUID> UUID_2 = new LiteralValue<>(Type.uuidType(false), UUID.fromString(UUID_STRING_2.getLiteralValue()));
+    private static final LiteralValue<UUID> UUID_NULL = new LiteralValue<>(Type.uuidType(true), null);
 
     private static final LiteralValue<byte[]> BYTES_1 = new LiteralValue<>("foo".getBytes(StandardCharsets.UTF_8));
     private static final LiteralValue<byte[]> BYTES_2 = new LiteralValue<>("bar".getBytes(StandardCharsets.UTF_8));

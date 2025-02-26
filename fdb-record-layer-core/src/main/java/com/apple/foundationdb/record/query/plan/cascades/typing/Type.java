@@ -95,6 +95,13 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     None NONE = new None();
 
+    @Nonnull
+    Uuid UUID_NULL_INSTANCE = new Uuid(true);
+
+    @Nonnull
+    Uuid UUID_NON_NULL_INSTANCE = new Uuid(false);
+
+
     /**
      * A map from Java {@link Class} to corresponding {@link TypeCode}.
      */
@@ -333,6 +340,15 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         return Type.NONE;
     }
 
+    @Nonnull
+    static Uuid uuidType(boolean withNullability) {
+        if (withNullability) {
+            return UUID_NULL_INSTANCE;
+        } else {
+            return UUID_NON_NULL_INSTANCE;
+        }
+    }
+
     /**
      * For a given {@link TypeCode}, it returns a corresponding <i>nullable</i> {@link Type}.
      * <br>
@@ -388,14 +404,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                       @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                       @Nonnull FieldDescriptorProto.Label protoLabel,
                                       boolean isNullable) {
-        final var typeCode = TypeCode.fromProtobufInfo(descriptor, protoType);
+        final var typeCode = TypeCode.fromProtobufInfo(protoType);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
             return fromProtoTypeToArray(descriptor, protoType, typeCode, false);
         } else if (typeCode.isPrimitive()) {
             return primitiveType(typeCode, isNullable);
-        } else if (typeCode == TypeCode.UUID) {
-            return Uuid.getInstance(isNullable);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
             return Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
@@ -405,8 +419,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
                 // find TypeCode of array elements
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
-                final var elementTypeCode = TypeCode.fromProtobufInfo(elementField.getMessageType(), elementField.getType());
+                final var elementTypeCode = TypeCode.fromProtobufInfo(elementField.getType());
                 return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
+            } else if (Uuid.MESSAGE_NAME.equals(messageDescriptor.getName())) {
+                return Type.uuidType(isNullable);
             } else {
                 return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
             }
@@ -627,7 +643,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return Type.primitiveType(typeCode, false);
         }
         if (typeCode == TypeCode.UUID) {
-            return Type.Uuid.getInstance(false);
+            return Type.uuidType(false);
         }
         throw new RecordCoreException("Unable to convert value to Type")
                 .addLogInfo(LogMessageKeys.VALUE, object);
@@ -786,8 +802,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * @return A corresponding {@link TypeCode} instance.
          */
         @Nonnull
-        public static TypeCode fromProtobufInfo(@Nullable Descriptors.GenericDescriptor descriptor,
-                                                @Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
+        public static TypeCode fromProtobufInfo(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
             switch (protobufType) {
                 case DOUBLE:
                     return TypeCode.DOUBLE;
@@ -804,10 +819,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 case ENUM:
                     return TypeCode.ENUM;
                 case MESSAGE:
-                    Verify.verify(descriptor != null);
-                    if (Uuid.MESSAGE_NAME.equals(descriptor.getName())) {
-                        return TypeCode.UUID;
-                    }
                     return TypeCode.RECORD;
                 case BYTES:
                     return TypeCode.BYTES;
@@ -2904,20 +2915,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
     class Uuid implements Type {
 
-        private static final Uuid NULL_INSTANCE = new Uuid(true);
-        private static final Uuid NON_NULL_INSTANCE = new Uuid(false);
-
         public static final String MESSAGE_NAME = TupleFieldsProto.UUID.getDescriptor().getName();
 
-        final boolean isNullable;
-
-        public static Uuid getInstance(boolean nullable) {
-            if (nullable) {
-                return NULL_INSTANCE;
-            } else {
-                return NON_NULL_INSTANCE;
-            }
-        }
+        private final boolean isNullable;
 
         private Uuid(boolean isNullable) {
             this.isNullable = isNullable;
@@ -2937,9 +2937,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Override
         public Type withNullability(final boolean newIsNullable) {
             if (newIsNullable) {
-                return NULL_INSTANCE;
+                return UUID_NULL_INSTANCE;
             } else {
-                return NON_NULL_INSTANCE;
+                return UUID_NON_NULL_INSTANCE;
             }
         }
 
@@ -2990,7 +2990,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         public static Uuid fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                           @Nonnull final PUuidType uuidTypeProto) {
             Verify.verify(uuidTypeProto.hasIsNullable());
-            return Uuid.getInstance(uuidTypeProto.getIsNullable());
+            return Type.uuidType(uuidTypeProto.getIsNullable());
         }
 
 
