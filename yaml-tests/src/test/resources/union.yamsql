@@ -183,9 +183,12 @@ test_block:
       - query: select col1, col2 from t1 union all select a, b from t5
       - error: "42F65"
     -
-      - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
-      - explain: "AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
       # 4.1 Triage: [Initial version] Failing with 559: (Wrong result with forced continuation (NULL vs 0))
       # 4.1 Triage: [deferred: Client checks for END] Failing with forced continuations: (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
+      - explain: "AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
+      - initialVersionLessThan: 4.0.561.0
+      - result: [{!null _ }]
+      - initialVersionAtLeast: 4.0.561.0
+      - result: [{0}]
 ...

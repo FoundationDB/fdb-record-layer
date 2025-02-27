@@ -1,5 +1,5 @@
 /*
- * SupportedVersionTest.java
+ * InitialVersionTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -40,10 +40,9 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests that {@code supported_version} skip what they should and nothing else.
+ * Tests that tests based on the initial version flags skip what they should and nothing else.
  */
-public class SupportedVersionTest {
-
+public class InitialVersionTest {
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
     private static final EmbeddedConfig config = new EmbeddedConfig();
 
@@ -57,8 +56,16 @@ public class SupportedVersionTest {
         config.afterAll();
     }
 
-    private void doRun(String fileName) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
+    private void doRunFixedVersion(String testName) throws Exception {
+        doRun(testName, createConnectionFactory());
+    }
+
+    private void doRunCurrentVersion(String testName) throws Exception {
+        doRun(testName, config.createConnectionFactory());
+    }
+
+    private void doRun(String testName, YamlConnectionFactory connectionFactory) throws Exception {
+        new YamlRunner("initial-version/" + testName + ".yamsql", connectionFactory, YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
     }
 
     YamlConnectionFactory createConnectionFactory() {
@@ -72,49 +79,83 @@ public class SupportedVersionTest {
             public Set<SemanticVersion> getVersionsUnderTest() {
                 return Set.of(VERSION);
             }
+
         };
     }
 
     static Stream<String> shouldFail() {
         return Stream.of(
-                "supported-at-file",
-                "supported-at-block",
-                "unsupported-at-block-only",
-                "supported-at-query",
-                "unspecified",
-                "lower-at-block",
-                "lower-at-query",
-                "late-query-supported-version",
-                "late-file-options"
+                "do-not-allow-max-rows-in-at-least",
+                "do-not-allow-max-rows-in-less-than",
+                "explain-after-version",
+                "mid-query",
+                "non-exhaustive-versions",
+                "non-exhaustive-current-version",
+                "wrong-result-at-least",
+                "wrong-result-less-than",
+                "wrong-count-at-least",
+                "wrong-count-less-than",
+                "wrong-unordered-at-least",
+                "wrong-unordered-less-than",
+                "wrong-error-at-least",
+                "wrong-error-less-than"
         );
     }
 
     @ParameterizedTest
-    @MethodSource("shouldFail")
-    void shouldFail(String filename) {
+    @MethodSource
+    void shouldFail(String testName) {
         assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
-                doRun("supported-version/" + filename + ".yamsql"));
+                doRunFixedVersion(testName));
     }
 
 
     static Stream<String> shouldPass() {
         return Stream.of(
-                "unsupported-at-file", // technically for this one the whole test is ignored
-                "unsupported-at-block",
-                "unsupported-at-query",
-                "current-version-at-file",
-                "current-version-at-block",
-                "current-version-at-query",
-                "higher-at-block",
-                "higher-at-query",
-                "fully-supported",
-                "query-with-multiple-configs"
+                "less-than-version-tests",
+                "at-least-version-tests"
         );
     }
 
     @ParameterizedTest
-    @MethodSource("shouldPass")
-    void shouldPass(String filename) throws Exception {
-        doRun("supported-version/" + filename + ".yamsql");
+    @MethodSource
+    void shouldPass(String testName) throws Exception {
+        doRunFixedVersion(testName);
+    }
+
+    static Stream<String> shouldFailOnCurrent() {
+        return Stream.of(
+                "mid-query",
+                "non-exhaustive-versions",
+                "non-exhaustive-current-version",
+                "wrong-result-at-least",
+                "wrong-count-at-least",
+                "wrong-unordered-at-least",
+                "wrong-error-at-least"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void shouldFailOnCurrent(String testName) {
+        assertThrows(YamlExecutionContext.YamlExecutionError.class, () ->
+                doRunCurrentVersion(testName));
+    }
+
+    static Stream<String> shouldPassOnCurrent() {
+        return Stream.of(
+                "at-least-current-version",
+                "at-least-version-tests",
+                "wrong-result-less-than",
+                "wrong-count-less-than",
+                "wrong-unordered-less-than",
+                "wrong-error-less-than"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void shouldPassOnCurrent(String testName) throws Exception {
+        doRunCurrentVersion(testName);
     }
 }

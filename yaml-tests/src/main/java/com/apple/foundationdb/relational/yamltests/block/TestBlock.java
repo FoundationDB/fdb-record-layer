@@ -104,7 +104,6 @@ public final class TestBlock extends ConnectedBlock {
     static final String OPTION_STATEMENT_TYPE = "statement_type";
     static final String OPTION_STATEMENT_TYPE_SIMPLE = "simple";
     static final String OPTION_STATEMENT_TYPE_PREPARED = "prepared";
-    static final String OPTION_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
 
     /**
      * Defines the way in which the tests are run.
@@ -190,7 +189,7 @@ public final class TestBlock extends ConnectedBlock {
         private boolean checkCache = true;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         private StatementType statementType = StatementType.BOTH;
-        private Object rawSupportedVersion;
+        private SupportedVersionCheck supportedVersionCheck = SupportedVersionCheck.supported();
 
         private void verifyPreset(@Nonnull String preset) {
             switch (preset) {
@@ -224,7 +223,7 @@ public final class TestBlock extends ConnectedBlock {
             }
         }
 
-        private void setWithOptionsMap(@Nonnull Map<?, ?> optionsMap) {
+        private void setWithOptionsMap(@Nonnull Map<?, ?> optionsMap, @Nonnull YamlExecutionContext executionContext) {
             setOptionExecutionModeAndRepetition(optionsMap);
             if (optionsMap.containsKey(OPTION_SEED)) {
                 this.seed = Matchers.longValue(optionsMap.get(OPTION_SEED));
@@ -246,9 +245,7 @@ public final class TestBlock extends ConnectedBlock {
                         break;
                 }
             }
-            if (optionsMap.containsKey(OPTION_SUPPORTED_VERSION)) {
-                this.rawSupportedVersion = optionsMap.get(OPTION_SUPPORTED_VERSION);
-            }
+            supportedVersionCheck = SupportedVersionCheck.parseOptions(optionsMap, executionContext);
             setOptionConnectionLifecycle(optionsMap);
         }
 
@@ -330,7 +327,7 @@ public final class TestBlock extends ConnectedBlock {
             }
             // higher priority than the preset is that of options map, set the options according to that, if any is present.
             if (testsMap.get(TEST_BLOCK_OPTIONS) != null) {
-                options.setWithOptionsMap(CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS))));
+                options.setWithOptionsMap(CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS))), executionContext);
             }
             // execution context carries the highest priority, try setting options per that if it has some options to override.
             options.setWithExecutionContext(executionContext);
@@ -338,11 +335,8 @@ public final class TestBlock extends ConnectedBlock {
             final String blockName = testsMap.containsKey(TEST_BLOCK_NAME)
                                      ? Matchers.string(testsMap.get(TEST_BLOCK_NAME)) : "unnamed-" + blockNumber;
             final var testsObject = Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber);
-            if (options.rawSupportedVersion != null) {
-                final SupportedVersionCheck check = SupportedVersionCheck.parse(options.rawSupportedVersion, executionContext);
-                if (!check.isSupported()) {
-                    return new SkipBlock(lineNumber, check.getMessage());
-                }
+            if (!options.supportedVersionCheck.isSupported()) {
+                return new SkipBlock(lineNumber, options.supportedVersionCheck.getMessage());
             }
             var randomGenerator = new Random(options.seed);
             final var executables = new ArrayList<Consumer<YamlConnection>>();

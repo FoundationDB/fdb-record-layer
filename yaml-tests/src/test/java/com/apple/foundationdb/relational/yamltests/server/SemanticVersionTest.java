@@ -23,15 +23,23 @@ package com.apple.foundationdb.relational.yamltests.server;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SemanticVersionTest {
@@ -43,7 +51,10 @@ class SemanticVersionTest {
             "4.2, 4.2",
             "5.8.9, 5.8.9",
             "9.7.4.3.0, 9.7.4.3.0",
-            "5.4.3-SNAPSHOT, 5.4.3-SNAPSHOT"
+            "5.4.3-SNAPSHOT, 5.4.3-SNAPSHOT",
+            "!current_version, !current_version",
+            "!min_version, !min_version",
+            "!max_version, !max_version",
     })
     void equal(String rawVersionA, String rawVersionB) {
         final SemanticVersion versionA = SemanticVersion.parse(rawVersionA);
@@ -65,13 +76,23 @@ class SemanticVersionTest {
             "3.5.55.0, 3.5.55.1",
             "3.5.55.1, 3.5.56.0",
             "3.5.55.0, 3.55.5.0",
+            "3.5.55.0, !current_version",
+            "3.5.55.0-SNAPSHOT, !current_version",
+            "!current_version, !max_version",
+            "3.5.55.0, !max_version",
+            "3.5.55.0-SNAPSHOT, !max_version",
+            "!min_version, 3.5.55.0",
+            "!min_version, 3.5.55.0-SNAPSHOT",
+            "3.1-SNAPSHOT, !current_version",
+            "3.1-SNAPSHOT, !max_version",
+            "!min_version, 3.1-SNAPSHOT",
     })
     void notEqual(String rawLowerVersion, String rawHigherVersion) {
         final SemanticVersion lowerVersion = SemanticVersion.parse(rawLowerVersion);
         final SemanticVersion higherVersion = SemanticVersion.parse(rawHigherVersion);
         Assertions.assertAll(
-                () -> assertEquals(-1, lowerVersion.compareTo(higherVersion)),
-                () -> assertEquals(1, higherVersion.compareTo(lowerVersion)));
+                () -> assertThat(lowerVersion.compareTo(higherVersion)).isLessThan(0),
+                () -> assertThat(higherVersion.compareTo(lowerVersion)).isGreaterThan(0));
     }
 
     @ParameterizedTest
@@ -97,7 +118,7 @@ class SemanticVersionTest {
             "3.2-SNAPSHOT, 3.2.0",
             "3.2-SNAPSHOT, 3.2.1"
     })
-    void incomparible(String rawVersionA, String rawVersionB) {
+    void incomparable(String rawVersionA, String rawVersionB) {
         final SemanticVersion versionA = SemanticVersion.parse(rawVersionA);
         final SemanticVersion versionB = SemanticVersion.parse(rawVersionB);
         Assertions.assertAll(
@@ -146,10 +167,83 @@ class SemanticVersionTest {
         final List<String> greaterVersions = List.of("4.4.3.1", "3.6.3.1", "3.5.5.1", "3.5.4.3", "3.5.4.3-SNAPSHOT");
         final List<SemanticVersion> actualLesserVersions = SemanticVersion.parse(versionString).lesserVersions(
                 Stream.concat(lesserVersions.stream(), Stream.concat(Stream.of(versionString), greaterVersions.stream()))
+                        .map(SemanticVersion::parse)
                         .collect(Collectors.toSet()));
         actualLesserVersions.sort(Comparator.naturalOrder());
         final List<SemanticVersion> expectedLesserVersions = lesserVersions.stream()
                 .map(SemanticVersion::parse).sorted().collect(Collectors.toList());
         assertEquals(expectedLesserVersions, actualLesserVersions);
+    }
+
+    @Nonnull
+    private static String randomVersionString(Random r) {
+        if (r.nextBoolean()) {
+            List<SemanticVersion.SemanticVersionType> singletons = Arrays.stream(SemanticVersion.SemanticVersionType.values())
+                    .filter(SemanticVersion.SemanticVersionType::isSingleton)
+                    .collect(Collectors.toList());
+            int choice = r.nextInt(singletons.size());
+            return singletons.get(choice).getText();
+        } else {
+            String version = IntStream.generate(() -> r.nextInt(1000))
+                    .limit(4)
+                    .mapToObj(Integer::toString)
+                    .collect(Collectors.joining("."));
+            if (r.nextBoolean()) {
+                version = version + "-SNAPSHOT";
+            }
+            return version;
+        }
+    }
+
+    private static List<String> randomVersionStrings(Random r, int length) {
+        return Stream.generate(() -> randomVersionString(r))
+                .limit(length)
+                .collect(Collectors.toList());
+    }
+
+    private void assertSorted(List<SemanticVersion> versions) {
+        int pos = 0;
+        // First, all the min versions
+        while (pos < versions.size() && SemanticVersion.min().equals(versions.get(pos))) {
+            pos++;
+        }
+        // Then all the semantic versions, in order
+        SemanticVersion last = null;
+        while (pos < versions.size() && SemanticVersion.SemanticVersionType.NORMAL.equals(versions.get(pos).getType())) {
+            SemanticVersion current = versions.get(pos);
+            if (last != null) {
+                assertThat(current)
+                        .as("current version %s is out of order in %s", current, versions)
+                        .isGreaterThanOrEqualTo(last);
+            }
+            last = current;
+            pos++;
+        }
+        // Then all the current
+        while (pos < versions.size() && SemanticVersion.current().equals(versions.get(pos))) {
+            pos++;
+        }
+        // Then all the max
+        while (pos < versions.size() && SemanticVersion.max().equals(versions.get(pos))) {
+            pos++;
+        }
+        assertThat(pos)
+                .as("versions %s are out of order starting at position %d", versions, pos)
+                .isEqualTo(versions.size());
+    }
+
+    static Stream<Arguments> sortRandomVersions() {
+        final Random r = new Random(0x5ca1ab13L);
+        return Stream.generate(() -> randomVersionStrings(r, 10))
+                .limit(100)
+                .map(Arguments::of);
+    }
+
+    @ParameterizedTest(name = "sortRandomVersions[versions={0}]")
+    @MethodSource
+    void sortRandomVersions(List<String> versionStrings) {
+        List<SemanticVersion> versions = new ArrayList<>(versionStrings.stream().map(SemanticVersion::parse).collect(Collectors.toList()));
+        versions.sort(Comparator.naturalOrder());
+        assertSorted(versions);
     }
 }

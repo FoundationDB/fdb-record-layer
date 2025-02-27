@@ -68,11 +68,14 @@ test_block:
     -
       - query: select count(*) from T1 where col1 > 0 group by col1;
       - error: "0AF00"
-    # 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
-    # -
-    #   - query: select count(*) from T2;
-    #   - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-    #   - result: [{0}]
+    -
+    # DONE: 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
+      - query: select count(*) from T2;
+      - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
+      - result: [{0}]
     -
       - query: select count(*) from T2 where col1 = 0;
       - explain: "AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
@@ -153,10 +156,13 @@ test_block:
       - query: select count(col2) from T1 where col1 > 0 group by col1;
       - error: "0AF00"
     -
+    # DONE: 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
       - query: select count(col2) from T2;
       - explain: "AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-    # 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
-    #   - result: [{0}]
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
+      - result: [{0}]
     -
       - query: select count(col2) from T2 where col1 = 0;
       - explain: "AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
@@ -234,10 +240,13 @@ test_block:
       # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
       # - result: [{!null _}]
     -
+    # DONE: 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
       - query: select sum(col1) from T2;
       - explain: "AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-    # 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
-    #   - result: [{!null _}]
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 = 0;
       - explain: "SCAN(<,>) | TFILTER T2 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
