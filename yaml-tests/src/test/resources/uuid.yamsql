@@ -16,7 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
+options:
+  supported_version: !current_version
 ---
 schema_template:
     create table ta(a bigint, b uuid, primary key(a))
@@ -36,7 +38,6 @@ setup:
     - query: INSERT INTO TA(A) VALUES (7), (8)
 ---
 test_block:
-  supported_version: !current_version
   name: uuid-as-a-field-tests
   tests:
     -

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.google.protobuf.ByteString;
 
 import java.sql.Array;
@@ -91,6 +92,16 @@ public class ParameterHelper {
                 .build();
     }
 
+    public static Parameter ofUuid(UUID uuid) {
+        return Parameter.newBuilder()
+                .setJavaSqlTypesCode(Types.OTHER)
+                .setParameter(Column.newBuilder().setUuid(Uuid.newBuilder()
+                        .setMostSignificantBits(uuid.getMostSignificantBits())
+                        .setLeastSignificantBits(uuid.getLeastSignificantBits())
+                        .build()))
+                .build();
+    }
+
     public static Parameter ofNull(int sqlType) throws SQLException {
         return Parameter.newBuilder()
                 .setJavaSqlTypesCode(Types.NULL)
@@ -145,6 +156,13 @@ public class ParameterHelper {
                 return ofNull(Types.NULL); // TODO: THis would be generic null...
             case Types.ARRAY:
                 return ofArray((Array)x);
+            case Types.OTHER:
+                if (x instanceof UUID) {
+                    return ofUuid((UUID)x);
+                } else {
+                    throw new SQLException("setObject Unrecognized type OTHER of class: " + x.getClass().getName(),
+                            ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+                }
             default:
                 throw new SQLException("setObject Not supported for type " + typeCodeFromObject,
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());

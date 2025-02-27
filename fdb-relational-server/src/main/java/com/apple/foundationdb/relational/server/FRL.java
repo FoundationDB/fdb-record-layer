@@ -63,6 +63,7 @@ import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Temporary class. "The Relational Database".
@@ -253,6 +254,14 @@ public class FRL implements AutoCloseable {
                 break;
             case Types.NULL:
                 relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
+                break;
+            case Types.OTHER:
+                if (parameter.getParameter().hasUuid()) {
+                    final var uuidParameter = parameter.getParameter().getUuid();
+                    relationalPreparedStatement.setUUID(index, new UUID(uuidParameter.getMostSignificantBits(), uuidParameter.getLeastSignificantBits()));
+                } else {
+                    throw new SQLException("Unsupported type OTHER");
+                }
                 break;
             case Types.ARRAY:
                 final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();

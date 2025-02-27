@@ -50,7 +50,6 @@ public class MultiServerConfig extends JDBCInProcessConfig {
     @Override
     public void beforeAll() throws Exception {
         super.beforeAll();
-        externalServer.start();
     }
 
     @Override

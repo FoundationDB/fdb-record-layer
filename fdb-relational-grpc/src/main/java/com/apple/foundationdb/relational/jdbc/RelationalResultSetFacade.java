@@ -301,8 +301,9 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public UUID getUUID(int oneBasedColumn) throws SQLException {
-        // Not implemented
-        throw new SQLException("Not implemented getUUID");
+        UUID s = TypeConversion.getUUID(this.delegate, this.rowIndex, oneBasedColumn);
+        wasNull = s == null;
+        return s;
     }
 
     @Override
@@ -332,13 +333,18 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 o = getBoolean(oneBasedColumn);
                 break;
             case Types.BINARY:
+                o = getBytes(oneBasedColumn);
+                break;
+            case Types.OTHER:
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
                 Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
-                return column == null || !column.hasBinary() ? null : column.getBinary().toByteArray();
-            case Types.OTHER:
-                // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
-                // thing which appears as OTHER
-                o = getString(oneBasedColumn);
+                if (column.hasUuid()) {
+                    o = getUUID(oneBasedColumn);
+                } else {
+                    // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
+                    // thing which appears as OTHER
+                    o = getString(oneBasedColumn);
+                }
                 break;
             default:
                 throw new SQLException("Unsupported type " + type);

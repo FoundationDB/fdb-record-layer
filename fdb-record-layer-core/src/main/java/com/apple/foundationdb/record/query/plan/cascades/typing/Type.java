@@ -404,7 +404,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                       @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                       @Nonnull FieldDescriptorProto.Label protoLabel,
                                       boolean isNullable) {
-        final var typeCode = TypeCode.fromProtobufInfo(protoType);
+        final var typeCode = TypeCode.fromProtobufType(protoType);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
             return fromProtoTypeToArray(descriptor, protoType, typeCode, false);
@@ -419,7 +419,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
                 // find TypeCode of array elements
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
-                final var elementTypeCode = TypeCode.fromProtobufInfo(elementField.getType());
+                final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
                 return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
             } else if (Uuid.MESSAGE_NAME.equals(messageDescriptor.getName())) {
                 return Type.uuidType(isNullable);
@@ -802,7 +802,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * @return A corresponding {@link TypeCode} instance.
          */
         @Nonnull
-        public static TypeCode fromProtobufInfo(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
+        public static TypeCode fromProtobufType(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
             switch (protobufType) {
                 case DOUBLE:
                     return TypeCode.DOUBLE;
