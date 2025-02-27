@@ -31,7 +31,6 @@ test_block:
   name: agg-index-tests-count-empty
   tests:
     -
-      # DONE: 4.1 Triage: [No Fix Necessary] failing when running against 4.0.559.6 (result mismatch)
       - query: select count(*) from t1
       - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - initialVersionLessThan: 4.0.561.0
@@ -43,8 +42,9 @@ test_block:
       - explain: "AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
-      # DONE: 4.1 Triage: failing when running against 4.0.559.6 (result mismatch)
       - query: select count(col1) from t1
+      # FORCE_CONTINUATIONS does not work with versions before 4.1.4.0 due to limits not enforced "ON EMPTY" prior to https://github.com/FoundationDB/fdb-record-layer/pull/3092
+      # Can remove once we no longer want to test versions prior to 4.1.4.0
       - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - initialVersionLessThan: 4.0.561.0
       - result: []
@@ -60,8 +60,7 @@ test_block:
     -
       - query: select count(*) from t2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: failing when running against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(*) from t2 group by col2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
@@ -69,8 +68,7 @@ test_block:
     -
       - query: select count(col1) from t2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: failing when running against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col1) from t2 group by col2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
