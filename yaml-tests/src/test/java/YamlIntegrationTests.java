@@ -219,8 +219,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Like continuation failure (https://github.com/FoundationDB/fdb-record-layer/issues/3099)")
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
     }
