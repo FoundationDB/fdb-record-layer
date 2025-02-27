@@ -67,6 +67,9 @@ public class TypeRepository {
     public static final TypeRepository EMPTY_SCHEMA = empty();
 
     @Nonnull
+    public static final List<FileDescriptor> DEPENDENCIES = List.of(TupleFieldsProto.getDescriptor());
+
+    @Nonnull
     private final FileDescriptorSet fileDescSet;
 
     @Nonnull
@@ -83,9 +86,6 @@ public class TypeRepository {
 
     @Nonnull
     private final Map<Type, String> typeToNameMap;
-
-    @Nonnull
-    public static List<FileDescriptor> DEPENDENCIES = List.of(TupleFieldsProto.getDescriptor());
 
     @Nonnull
     public static TypeRepository empty() {

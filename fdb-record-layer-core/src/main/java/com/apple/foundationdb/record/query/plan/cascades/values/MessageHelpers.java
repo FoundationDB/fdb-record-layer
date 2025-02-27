@@ -360,8 +360,8 @@ public class MessageHelpers {
             } else {
                 if (currentMessage != null) {
                     final var currentFieldType = Verify.verifyNotNull(currentRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
-                    var fieldResult = messageFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE) ?
-                                            getFieldMessageOnMessage(currentMessage, messageFieldDescriptor) : getFieldOnMessage(currentMessage, messageFieldDescriptor);
+                    var fieldResult = messageFieldDescriptor.isRepeated() || !messageFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE) ?
+                                      getFieldOnMessage(currentMessage, messageFieldDescriptor) : getFieldMessageOnMessage(currentMessage, messageFieldDescriptor);
                     fieldResult = NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType);
                     final var coercedObject =
                             coerceObject(promotionTrieForField, targetFieldType, targetDescriptorForField, currentFieldType, fieldResult);
