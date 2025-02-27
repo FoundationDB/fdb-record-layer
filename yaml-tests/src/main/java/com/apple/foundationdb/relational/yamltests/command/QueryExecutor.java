@@ -261,7 +261,7 @@ public class QueryExecutor {
                         results.add(resultSet);
                     } else {
                         // We assume that the last result is empty because of the maxRows:1
-                        Assertions.assertFalse(hasNext);
+                        Assertions.assertFalse(hasNext, "Result has more rows than maxRows allowed");
                     }
                 }
                 count += 1; // PMD failure for ++
