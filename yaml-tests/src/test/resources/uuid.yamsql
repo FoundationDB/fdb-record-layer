@@ -22,8 +22,8 @@ options:
 ---
 schema_template:
     create table ta(a bigint, b uuid, primary key(a))
-#    create table tb(a uuid, b bigint, primary key(a))
-#    create table tc(a bigint, b uuid, primary key(a, b))
+    create table tb(a uuid, b bigint, primary key(a))
+    create table tc(a bigint, b uuid, c bigint, primary key(a, b))
 #    create table td(a bigint, b uuid, c bigint, primary key(a))
 ---
 setup:
@@ -36,6 +36,13 @@ setup:
                (5, 'a8708750-d70f-4800-8c3b-13700d5b369f'),
                (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6')
     - query: INSERT INTO TA(A) VALUES (7), (8)
+    - query: INSERT INTO TB (B, A)
+        VALUES (1, '0920df1c-be81-4ec1-8a06-2180226f051d'),
+               (2, '64120112-4e39-40c3-94b9-2cc88a52e8df'),
+               (3, 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'),
+               (4, '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'),
+               (5, 'a8708750-d70f-4800-8c3b-13700d5b369f'),
+               (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6')
 ---
 test_block:
   name: uuid-as-a-field-tests
@@ -128,6 +135,56 @@ test_block:
                           {8, !null _}]
     -
       - query: select * from ta where b is not null
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+---
+test_block:
+  name: uuid-as-a-field-tests
+  tests:
+    -
+      - query: select B, A from TB
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a > !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+    -
+      - query: select B, A from TB where a < !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'}]
+    -
+      - query: select B, A from TB where a >= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a <= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a = !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - unorderedResult: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
+    -
+      - query: select B, A from TB where a != !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
+                          {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
+                          {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
+                          {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
+                          {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
+    -
+      - query: select B, A from TB where a is not null
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},

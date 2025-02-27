@@ -21,9 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.FileDescript
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -160,7 +159,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         try {
             fileDescriptor = Descriptors.FileDescriptor.buildFrom(
                     fileDescriptorProtoSerializer.getFileBuilder().build(),
-                    new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor()});
+                    new Descriptors.FileDescriptor[]{RecordMetaDataProto.getDescriptor(), TupleFieldsProto.getDescriptor()});
         } catch (Descriptors.DescriptorValidationException e) {
             throw new RelationalException(ErrorCode.SERIALIZATION_FAILURE, e).toUncheckedWrappedException();
         }

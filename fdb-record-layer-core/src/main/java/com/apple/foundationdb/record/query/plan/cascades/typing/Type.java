@@ -2950,19 +2950,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         @Override
-        public void defineProtoType(final TypeRepository.Builder typeRepositoryBuilder) {
-            if (typeRepositoryBuilder.getTypeByName(MESSAGE_NAME).isEmpty()) {
-                typeRepositoryBuilder.addMessageType(TupleFieldsProto.UUID.getDescriptor().toProto());
-                typeRepositoryBuilder.registerTypeToTypeNameMapping(this, MESSAGE_NAME);
-            }
-        }
-
-        @Override
         public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, @Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldNumber, @Nonnull final String fieldName, @Nonnull final Optional<String> typeNameOptional, @Nonnull final FieldDescriptorProto.Label label) {
             FieldDescriptorProto.Builder builder = FieldDescriptorProto.newBuilder()
                     .setNumber(fieldNumber)
                     .setName(fieldName)
-                    .setLabel(label);
+                    .setLabel(label)
+                    .setTypeName(TupleFieldsProto.UUID.getDescriptor().getFullName());
             typeNameOptional.ifPresent(builder::setTypeName);
             descriptorBuilder.addField(builder);
         }

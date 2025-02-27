@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -52,6 +53,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * A utility class that enables mapping of a structured {@link Type} into a dynamically-generated equivalent Protobuf message
@@ -81,6 +83,9 @@ public class TypeRepository {
 
     @Nonnull
     private final Map<Type, String> typeToNameMap;
+
+    @Nonnull
+    public static List<FileDescriptor> DEPENDENCIES = List.of(TupleFieldsProto.getDescriptor());
 
     @Nonnull
     public static TypeRepository empty() {
@@ -341,12 +346,16 @@ public class TypeRepository {
                 List<String> dependencyList = fdProto.getDependencyList();
                 List<FileDescriptor> resolvedFdList = new ArrayList<>();
                 for (String depName : dependencyList) {
-                    if (!allFdProtoNames.contains(depName)) {
+                    final var dependencyMaybe = DEPENDENCIES.stream().filter(d -> d.getFullName().equals(depName)).findAny();
+                    if (dependencyMaybe.isPresent()) {
+                        resolvedFdList.add(dependencyMaybe.get());
+                    } else if (allFdProtoNames.contains(depName)) {
+                        FileDescriptor fd = resolvedFileDescMap.get(depName);
+                        if (fd != null) {
+                            resolvedFdList.add(fd);
+                        }
+                    } else {
                         throw new IllegalArgumentException("cannot resolve import " + depName + " in " + fdProto.getName());
-                    }
-                    FileDescriptor fd = resolvedFileDescMap.get(depName);
-                    if (fd != null) {
-                        resolvedFdList.add(fd);
                     }
                 }
 
@@ -430,6 +439,7 @@ public class TypeRepository {
 
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
+            fileDescProtoBuilder.addAllDependency(DEPENDENCIES.stream().map(FileDescriptor::getFullName).collect(Collectors.toList()));
             fileDescSetBuilder = FileDescriptorSet.newBuilder();
             typeToNameMap = HashBiMap.create();
         }
