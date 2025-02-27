@@ -26,6 +26,7 @@
 ---
 schema_template:
     create table A(a1 string, primary key(a1))
+    create table B(b1 integer, b2 string, primary key(b1))
 ---
 setup:
   steps:
@@ -45,11 +46,45 @@ setup:
         ('{abcdefghijk}'),
         ('^$'),
         ('\\||%');
+    - query: insert into B values
+        (1, 'Y'),
+        (2, 'Z'),
+        (3, 'A'),
+        (4, 'Z'),
+        (5, 'B');
 ---
-# TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
 test_block:
+  # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
   preset: single_repetition_parallelized
   tests:
+    -
+      - query: select * from B WHERE B2 LIKE 'X'
+      - result: []
+    -
+      - query: select * from B WHERE B2 LIKE 'Y'
+      - result: [{1, 'Y'}]
+    -
+      # Issue #3099 found that the pattern was being put in the escape part of the LIKE on continuation
+      # which for all the other queries, would result in an error that the escape should be of length 1.
+      # This query attempts to catch a similar issue, where on continuation this would be:
+      # SELECT * FROM B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
+      # But, escape characters only matter if they precede a non-escape character.
+      - query: select * from B WHERE B2 NOT LIKE 'Z'
+      - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
+    -
+      - query: select * from B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
+      - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
+    -
+      - query: select * from B WHERE B2 LIKE 'Z'
+      - result: [{2, 'Z'}, {4, 'Z'}]
+---
+test_block:
+  # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
+  preset: single_repetition_parallelized
+  tests:
+    -
+      - query: select * from A WHERE A1 LIKE 'A'
+      - result: []
     -
       - query: select * from A WHERE A1 LIKE 'abc'
       - result: []
@@ -158,5 +193,6 @@ test_block:
           {'学校'},
           {'مدرسة'},
           {'^$'},
-          {'\\||%'} ]
+          {'\\||%'}
+          ]
 ...
