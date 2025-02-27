@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
+import com.apple.foundationdb.relational.util.BuildVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -114,7 +115,7 @@ public class ExternalServer {
             jar = serverJar;
         }
         Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
-        this.version = SemanticVersion.parse(getVersion(jar));
+        this.version = getVersion(jar);
         ProcessBuilder processBuilder = new ProcessBuilder("java",
                 // TODO add support for debugging by adding, but need to take care with ports
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
@@ -147,13 +148,17 @@ public class ExternalServer {
         return List.of(externalServers);
     }
 
-    private static String getVersion(File jar) throws IOException {
+    private static SemanticVersion getVersion(File jar) throws IOException {
         try (JarFile jarFile = new JarFile(jar)) {
             final Manifest manifest = jarFile.getManifest();
             final Attributes mainAttributes = manifest.getMainAttributes();
             String version = mainAttributes.getValue("Specification-Version");
             if (version != null) {
-                return version;
+                if (version.equals(BuildVersion.getInstance().getVersion())) {
+                    return SemanticVersion.current();
+                } else {
+                    return SemanticVersion.parse(version);
+                }
             } else {
                 return Assertions.fail("Server does not specify a version in the manifest: " + jar.getAbsolutePath());
             }
