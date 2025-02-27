@@ -157,7 +157,7 @@ setup:
 # 4.1 triage: [Deferred: Client checks for End] Fails with force continuations (but not for snapshot)
 # 4.0.559.6 -> Embedded:
 #   Received continuation shouldn't be at beginning
-#---
+---
 test_block:
  connect: "jdbc:embed:/__SYS?schema=CATALOG"
  preset: single_repetition_ordered
