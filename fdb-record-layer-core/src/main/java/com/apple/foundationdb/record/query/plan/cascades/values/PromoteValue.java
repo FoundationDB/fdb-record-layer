@@ -442,6 +442,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             }
             return false;
         }
+        SemanticException.check(inType.isPrimitive() && (promoteToType.isPrimitive() ||
+                promoteToType.isEnum() || promoteToType.isUuid()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();
     }
 

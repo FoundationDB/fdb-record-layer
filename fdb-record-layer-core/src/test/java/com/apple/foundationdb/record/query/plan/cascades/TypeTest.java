@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -125,6 +127,15 @@ class TypeTest {
                                             .setStartDate(random.nextLong())
                                             .setSchoolName("randomString" + random.nextInt()).build()
                                     ).build()
+                    ),
+                    Arguments.of(
+                            "TestRecords2Proto.MyUuidRecord", TestRecords2Proto.MyUuidRecord.newBuilder()
+                                    .setRecNo(1L)
+                                    .setUuidValue(TupleFieldsProto.UUID.newBuilder()
+                                            .setMostSignificantBits(98452560)
+                                            .setLeastSignificantBits(30900234)
+                                            .build())
+                                    .build()
                     )
             );
         }
@@ -239,6 +250,9 @@ class TypeTest {
                     Arguments.of(43L, Type.primitiveType(Type.TypeCode.LONG, false)),
                     Arguments.of("foo", Type.primitiveType(Type.TypeCode.STRING, false)),
                     Arguments.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()), Type.primitiveType(Type.TypeCode.BYTES, false)),
+
+                    // UUID
+                    Arguments.of(UUID.fromString("eebee473-690b-48c1-beb0-07c3aca77768"), Type.uuidType(false)),
 
                     // Arrays
                     Arguments.of(listOfNulls, new Type.Array(Type.any())),

@@ -25,12 +25,18 @@ option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestRecords2Proto";
 
 import "record_metadata_options.proto";
+import "tuple_fields.proto";
 
 option (schema).split_long_records = true;
 
 message MyLongRecord {
   required int64 rec_no = 1 [(field).primary_key = true];
   optional bytes bytes_value = 2;
+}
+
+message MyUuidRecord {
+  required int64 rec_no = 1 [(field).primary_key = true];
+  optional UUID uuid_value = 2;
 }
 
 message RecordTypeUnion {
