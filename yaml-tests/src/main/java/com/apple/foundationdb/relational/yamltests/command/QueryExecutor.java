@@ -111,24 +111,36 @@ public class QueryExecutor {
             return null;
         } else {
             // Have a continuation - continue
-            return executeContinuation(connection, continuation, config, maxRows);
+            return executeContinuation(connection, continuation, config, currentQuery, maxRows);
         }
     }
 
+    /**
+     * Execute a statement with (or without) cache-checking logic.
+     * @param s the statement to execute
+     * @param statementHasQuery whether the statement already has a query (e.g. prepared statement) or not (e.g. regular statement)
+     * @param connection the connection to use
+     * @param queryString the query string
+     * @param checkCache whether to check cache metrics
+     * @param maxRows the maxRows value to set, none if null
+     * @return the QueryResult
+     * @throws SQLException in case of error
+     * @throws RelationalException in case of error
+     */
     @SuppressWarnings({
             "PMD.CloseResource", // lifetime of autocloseable resource persists beyond current method
             "PMD.CompareObjectsWithEquals" // pointer equality used on purpose
     })
-    private Object executeStatementAndCheckCacheIfNeeded(@Nonnull Statement s, @Nonnull YamlConnection connection,
-                                                         @Nullable String queryString, boolean checkCache, @Nullable Integer maxRows) throws SQLException, RelationalException {
+    private Object executeStatementAndCheckCacheIfNeeded(@Nonnull Statement s, final boolean statementHasQuery, @Nonnull YamlConnection connection,
+                                                         @Nonnull String queryString, boolean checkCache, @Nullable Integer maxRows) throws SQLException, RelationalException {
         if (!checkCache) {
-            return executeStatementAndCheckForceContinuations(s, queryString, connection, maxRows);
+            return executeStatementAndCheckForceContinuations(s, statementHasQuery, queryString, connection, maxRows);
         }
         final var preMetricCollector = connection.getMetricCollector();
         final var preValue = preMetricCollector != null &&
                 preMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
                 preMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
-        final var toReturn = executeStatementAndCheckForceContinuations(s, queryString, connection, maxRows);
+        final var toReturn = executeStatementAndCheckForceContinuations(s, statementHasQuery, queryString, connection, maxRows);
         final var postMetricCollector = connection.getMetricCollector();
         final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
                 postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
@@ -149,7 +161,7 @@ public class QueryExecutor {
             if (parameters == null) {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.createStatement()) {
-                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache, maxRows);
+                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, false, connection, currentQuery, checkCache, maxRows);
                     config.checkResult(currentQuery, queryResult, this.toString(), connection);
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -159,7 +171,7 @@ public class QueryExecutor {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.prepareStatement(currentQuery)) {
                     setParametersInPreparedStatement(s);
-                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, connection, null, checkCache, maxRows);
+                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, true, connection, currentQuery, checkCache, maxRows);
                     config.checkResult(currentQuery, queryResult, this.toString(), connection);
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -175,7 +187,7 @@ public class QueryExecutor {
 
     @Nullable
     private Continuation executeContinuation(@Nonnull YamlConnection connection, @Nonnull Continuation continuation,
-                                             @Nonnull QueryConfig config, @Nullable Integer maxRows) {
+                                             @Nonnull QueryConfig config, final @Nonnull String currentQuery, @Nullable Integer maxRows) {
         Continuation continuationAfter = null;
         try {
             logger.debug("⏳ Executing continuation for query '{}'", this.toString());
@@ -183,7 +195,7 @@ public class QueryExecutor {
             try (var s = prepareContinuationStatement(connection, continuation, maxRows)) {
                 // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
                 // for caching.
-                final var queryResult = executeStatement(s, null);
+                final var queryResult = executeStatement(s, true, currentQuery);
                 config.checkResult(executeContinuationQuery, queryResult, this.toString(), connection);
                 if (queryResult instanceof RelationalResultSet) {
                     continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -211,29 +223,29 @@ public class QueryExecutor {
         return s;
     }
 
-    private Object executeStatementAndCheckForceContinuations(@Nonnull Statement s, @Nullable String queryString,
+    private Object executeStatementAndCheckForceContinuations(@Nonnull Statement s, final boolean statementHasQuery, @Nonnull String queryString,
                                                               final YamlConnection connection, @Nullable Integer maxRows) throws SQLException {
         // Check if we need to force continuations
         if ((maxRows == null) && forceContinuations && isForcedContinuationsEligible(queryString)) {
-            return executeStatementWithForcedContinuations(s, queryString, connection);
+            return executeStatementWithForcedContinuations(s, statementHasQuery, queryString, connection);
         } else {
             if (maxRows != null) {
                 s.setMaxRows(maxRows);
             }
             // No change to behavior
-            return executeStatement(s, queryString);
+            return executeStatement(s, statementHasQuery, queryString);
         }
     }
 
-    private boolean isForcedContinuationsEligible(final String queryString) {
-        return ((queryString == null) || queryString.trim().toLowerCase(Locale.ROOT).startsWith("select"));
+    private boolean isForcedContinuationsEligible(final @Nonnull String queryString) {
+        return (queryString.trim().toLowerCase(Locale.ROOT).startsWith("select"));
     }
 
     private Object executeStatementWithForcedContinuations(final @Nonnull Statement s,
-                                                           final @Nullable String queryString,
+                                                           final boolean statementHasQuery, final @Nonnull String queryString,
                                                            final @Nonnull YamlConnection connection) throws SQLException {
         s.setMaxRows(FORCED_MAX_ROWS);
-        Object result = executeStatement(s, queryString);
+        Object result = executeStatement(s, statementHasQuery, queryString);
         if (result instanceof RelationalResultSet) {
             @SuppressWarnings("PMD.CloseResource")
             RelationalResultSet resultSet = (RelationalResultSet)result;
@@ -254,7 +266,7 @@ public class QueryExecutor {
                     reportTestFailure("Received continuation shouldn't be at beginning");
                 }
                 try (var s2 = prepareContinuationStatement(connection, continuation, FORCED_MAX_ROWS)) {
-                    resultSet = (RelationalResultSet)executeStatement(s2, null);
+                    resultSet = (RelationalResultSet)executeStatement(s2, true, queryString);
                     final boolean hasNext = resultSet.next(); // Initialize result set value retrieval. Has only one row.
                     continuation = resultSet.getContinuation();
                     if (!continuation.atEnd()) {
@@ -278,8 +290,8 @@ public class QueryExecutor {
         }
     }
 
-    private static Object executeStatement(@Nonnull Statement s, @Nullable String q) throws SQLException {
-        final var execResult = q == null ? ((PreparedStatement) s).execute() : s.execute(q);
+    private static Object executeStatement(@Nonnull Statement s, final boolean statementHasQuery, @Nonnull String q) throws SQLException {
+        final var execResult = statementHasQuery ? ((PreparedStatement) s).execute() : s.execute(q);
         return execResult ? s.getResultSet() : s.getUpdateCount();
     }
 
