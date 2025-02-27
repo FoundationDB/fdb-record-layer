@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import javax.annotation.Nonnull;
 
@@ -41,7 +41,7 @@ public class ConfigWithOptions implements YamlTestConfig {
 
 
     @Override
-    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
+    public YamlConnectionFactory createConnectionFactory() {
         return underlying.createConnectionFactory();
     }
 

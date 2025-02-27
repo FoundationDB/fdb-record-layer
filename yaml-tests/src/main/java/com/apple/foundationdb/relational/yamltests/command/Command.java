@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -38,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOper
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
@@ -96,15 +96,17 @@ public abstract class Command {
         }
     }
 
-    public final void execute(@Nonnull final RelationalConnection connection) {
+    public final void execute(@Nonnull final YamlConnection connection) {
         try {
             executeInternal(connection);
         } catch (Throwable e) {
-            throw executionContext.wrapContext(e, () -> "‼️ Error executing command at line " + getLineNumber(), "command", getLineNumber());
+            throw executionContext.wrapContext(e,
+                    () -> "‼️ Error executing command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
+                    "command", getLineNumber());
         }
     }
 
-    abstract void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException;
+    abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
     private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection, @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws SQLException, RelationalException {
         StoreCatalog backingCatalog = connection.getBackingCatalog();
@@ -142,18 +144,20 @@ public abstract class Command {
         }
     }
 
+    @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
     private static Command getLoadSchemaTemplateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
-            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Loading template '{}'", value);
                 // current connection should be __SYS/catalog
                 // save schema template
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
                 };
-                if (connection instanceof EmbeddedRelationalConnection) {
-                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection, RecordLayerConfig.getDefault(), applyState);
+                final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
+                if (embedded != null) {
+                    Command.applyMetadataOperationEmbedded(embedded, RecordLayerConfig.getDefault(), applyState);
                 } else {
                     Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState);
                 }
@@ -161,10 +165,11 @@ public abstract class Command {
         };
     }
 
+    @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
     private static Command getSetSchemaStateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
-            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Setting schema state '{}'", value);
                 SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(value);
                 RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
@@ -175,8 +180,9 @@ public abstract class Command {
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     factory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(txn);
                 };
-                if (connection instanceof EmbeddedRelationalConnection) {
-                    Command.applyMetadataOperationEmbedded((EmbeddedRelationalConnection) connection, rlConfig, applyState);
+                final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
+                if (embedded != null) {
+                    Command.applyMetadataOperationEmbedded(embedded, rlConfig, applyState);
                 } else {
                     Command.applyMetadataOperationDirectly(rlConfig, applyState);
                 }
