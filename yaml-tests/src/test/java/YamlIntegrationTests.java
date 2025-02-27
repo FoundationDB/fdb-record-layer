@@ -298,6 +298,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+//    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS, reason = "er")
     public void uuidTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("uuid.yamsql");
     }

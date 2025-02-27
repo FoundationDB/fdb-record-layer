@@ -84,8 +84,6 @@ public class TypeConversion {
 
     static UUID getUUID(ResultSet resultSet, int rowIndex, int oneBasedColumn) throws SQLException {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        var metadata =
-                resultSet.getMetadata().getColumnMetadata().getColumnMetadata(index).getStructMetadata();
         Column column = resultSet.getRow(rowIndex).getColumns().getColumn(index);
         return column.hasUuid() ? new UUID(column.getUuid().getMostSignificantBits(), column.getUuid().getLeastSignificantBits()) : null;
     }

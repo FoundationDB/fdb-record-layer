@@ -82,11 +82,8 @@ class TypeRepositoryTest {
     }
 
     private static int countTypes(@Nonnull final Type type) {
-        if (type.isPrimitive()) {
+        if (type.isPrimitive() || type.isUuid()) {
             return 0;
-        }
-        if (type.isUuid()) {
-            return 1;
         }
         if (type instanceof Type.Array) {
             if (type.isNullable()) {
