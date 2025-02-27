@@ -109,6 +109,7 @@ public class StreamGrouping<M extends Message> {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
         this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+        this.accumulator.setInitialState(context.getPartialAggregationResult());
         this.store = store;
         this.context = context;
         this.alias = alias;

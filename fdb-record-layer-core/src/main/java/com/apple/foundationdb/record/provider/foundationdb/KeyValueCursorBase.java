@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
@@ -134,18 +135,29 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         return new Continuation(lastKey, prefixLength);
     }
 
-    private static class Continuation implements RecordCursorContinuation {
+    public static class Continuation implements RecordCursorContinuation {
         @Nullable
         private final byte[] lastKey;
         private final int prefixLength;
+        @Nullable
+        private final PartialAggregationResult partialAggregationResult;
 
         public Continuation(@Nullable final byte[] lastKey, final int prefixLength) {
             // Note that doing this without a full copy is dangerous if the array is ever mutated.
             // Currently, this never happens and the only thing that changes is which array lastKey points to.
             // However, if logic in KeyValueCursor or KeyValue changes, this could break continuations.
             // To resolve it, we could resort to doing a full copy here, although that's somewhat expensive.
+            this(lastKey, prefixLength, null);
+        }
+
+        private Continuation(@Nullable final byte[] lastKey, final int prefixLength, @Nullable PartialAggregationResult partialAggregationResult) {
+            // Note that doing this without a full copy is dangerous if the array is ever mutated.
+            // Currently, this never happens and the only thing that changes is which array lastKey points to.
+            // However, if logic in KeyValueCursor or KeyValue changes, this could break continuations.
+            // To resolve it, we could resort to doing a full copy here, although that's somewhat expensive.
             this.lastKey = lastKey;
             this.prefixLength = prefixLength;
+            this.partialAggregationResult = partialAggregationResult;
         }
 
         @Override
@@ -170,6 +182,10 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 return null;
             }
             return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+        }
+
+        public Continuation withPartialAggregationResult(@Nullable PartialAggregationResult partialAggregationResult) {
+            return new Continuation(lastKey, prefixLength, partialAggregationResult);
         }
     }
 

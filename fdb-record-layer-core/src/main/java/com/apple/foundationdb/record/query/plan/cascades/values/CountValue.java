@@ -358,6 +358,15 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
                     // (TODO) store state, maybe a string?
                     .build();
         }
+
+        @Override
+        public void setInitialState(@Nullable PartialAggregationResult partialAggregationResult) {
+            if (partialAggregationResult != null) {
+                // check physical operator name are the same
+                // check this.state == null
+                this.state = partialAggregationResult.getState();
+            }
+        }
     }
 
     /**

@@ -381,6 +381,10 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             public PartialAggregationResult getPartialAggregationResult() {
                 return null;
             }
+
+            @Override
+            public void setInitialState(@Nullable PartialAggregationResult partialAggregationResult) {
+            }
         };
     }
 

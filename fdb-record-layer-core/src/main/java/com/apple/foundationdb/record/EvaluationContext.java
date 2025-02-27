@@ -115,6 +115,11 @@ public class EvaluationContext {
         return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA);
     }
 
+    @Nullable
+    public PartialAggregationResult getPartialAggregationResult() {
+        return partialAggregationResultProto;
+    }
+
     /**
      * Retrieve the mapping from parameter names to values associated with
      * this context.

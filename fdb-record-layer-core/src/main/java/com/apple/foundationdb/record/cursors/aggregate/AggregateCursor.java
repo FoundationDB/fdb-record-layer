@@ -29,8 +29,11 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.cursors.RecursiveUnionCursor;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.google.common.base.Verify;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -145,7 +148,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     }
                 } else {
                     // stopped in the middle of a group
-                    ContinuationImpl.
                     /*
                     RecordCursorContinuation currentContinuation;
                     // in the current scan, if current group is the first group, set the continuation to the start of the current scan
@@ -157,7 +159,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     }
 
                      */
-                    previousValidResult = lastInLastGroup;
+                    RecordCursorContinuation currentContinuation = ((KeyValueCursorBase.Continuation) previousValidResult.getContinuation()).withPartialAggregationResult(streamGrouping.getPartialAggregationResult());
+                    previousValidResult = previousResult;
                     return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
                 }
             }

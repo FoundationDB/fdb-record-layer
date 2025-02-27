@@ -33,4 +33,6 @@ public interface Accumulator {
     @Nullable Object finish();
 
     @Nullable PartialAggregationResult getPartialAggregationResult();
+
+    void setInitialState(@Nullable PartialAggregationResult partialAggregationResult);
 }

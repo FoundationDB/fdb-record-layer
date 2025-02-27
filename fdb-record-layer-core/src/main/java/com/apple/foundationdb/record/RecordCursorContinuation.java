@@ -74,6 +74,11 @@ public interface RecordCursorContinuation {
         return bytes == null ? ByteString.EMPTY : ByteString.copyFrom(bytes);
     }
 
+    @Nullable
+    default PartialAggregationResult getPartialAggregationResult() {
+        return null;
+    }
+
     /**
      * Return whether this continuation is an "end continuation", i.e., represents that the iteration has reached
      * its end and would not produce more results even if restarted. If {@code isEnd()} returns {@code true}, then
