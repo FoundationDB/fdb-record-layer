@@ -35,14 +35,13 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MultiServerConnectionFactoryTest {
-    private static final String PRIMARY_VERSION = "2.2.2.0";
-    private static final String ALTERNATE_VERSION = "1.1.1.0";
+    private static final SemanticVersion PRIMARY_VERSION = SemanticVersion.parse("2.2.2.0");
+    private static final SemanticVersion ALTERNATE_VERSION = SemanticVersion.parse("1.1.1.0");
 
     @ParameterizedTest
     @CsvSource({"0", "1"})
@@ -77,9 +76,9 @@ public class MultiServerConnectionFactoryTest {
     @ParameterizedTest
     @CsvSource({"0", "1"})
     void testAlternatePolicy(int initialConnection) throws SQLException {
-        final String[] path = new String[] { PRIMARY_VERSION, ALTERNATE_VERSION };
-        final String initialConnectionVersion = path[initialConnection];
-        final String otherConnectionVersion = path[(initialConnection + 1) % 2];
+        final SemanticVersion[] versions = new SemanticVersion[] { PRIMARY_VERSION, ALTERNATE_VERSION };
+        final SemanticVersion initialConnectionVersion = versions[initialConnection];
+        final SemanticVersion otherConnectionVersion = versions[(initialConnection + 1) % 2];
 
         MultiServerConnectionFactory classUnderTest = new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
@@ -133,38 +132,36 @@ public class MultiServerConnectionFactoryTest {
         assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 -1,
-                dummyConnectionFactory("A"),
-                List.of(dummyConnectionFactory("B"))));
+                dummyConnectionFactory(PRIMARY_VERSION),
+                List.of(dummyConnectionFactory(ALTERNATE_VERSION))));
         assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 7,
-                dummyConnectionFactory("A"),
-                List.of(dummyConnectionFactory("B"))));
+                dummyConnectionFactory(PRIMARY_VERSION),
+                List.of(dummyConnectionFactory(ALTERNATE_VERSION))));
     }
 
-    private void assertStatement(final RelationalPreparedStatement statement, final String query) throws SQLException {
-        assertEquals("version=" + query, ((RelationalConnection)statement.getConnection()).getPath().getQuery());
+    private void assertStatement(final RelationalPreparedStatement statement, final SemanticVersion version) throws SQLException {
+        assertEquals("version=" + version, ((RelationalConnection)statement.getConnection()).getPath().getQuery());
     }
 
-    private static void assertConnection(final YamlConnection connection, final String initialVersion, final List<String> expectedVersions) {
-        assertEquals(SemanticVersion.parse(initialVersion), connection.getInitialVersion());
-        assertEquals(expectedVersions.stream().map(SemanticVersion::parse).collect(Collectors.toList()),
-                connection.getVersions());
+    private static void assertConnection(final YamlConnection connection, final SemanticVersion initialVersion, final List<SemanticVersion> expectedVersions) {
+        assertEquals(initialVersion, connection.getInitialVersion());
+        assertEquals(expectedVersions, connection.getVersions());
     }
 
-    YamlConnectionFactory dummyConnectionFactory(@Nonnull String version) {
-        SemanticVersion semanticVersion = SemanticVersion.parse(version);
+    YamlConnectionFactory dummyConnectionFactory(@Nonnull SemanticVersion version) {
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add query string to connection so we can tell where it came from
                 URI newPath = URI.create(connectPath + "?version=" + version);
-                return new SimpleYamlConnection(dummyConnection(newPath), semanticVersion);
+                return new SimpleYamlConnection(dummyConnection(newPath), version);
             }
 
             @Override
             public Set<SemanticVersion> getVersionsUnderTest() {
-                return Set.of(semanticVersion);
+                return Set.of(version);
             }
         };
     }
