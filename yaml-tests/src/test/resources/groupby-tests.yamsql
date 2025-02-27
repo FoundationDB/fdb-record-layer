@@ -57,18 +57,18 @@ setup:
 test_block:
   name: group-by-tests
   tests:
-    # 4.1 Triage: Test failed when run with forced continuations (used by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (used by: com.google.common.base.VerifyException)
     # -
     #   - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
     #   - result: [{330}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select max(q.s) from nested group by r.v.z as GRP having GRP > 120
     #   - result: [{330}]
     -
       - query: select max(id) from t1 group by col1 having min(id) > 0 and col1 = 20;
       - result: [{13}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select max(id) from t1 group by col1
     #   - result: [{5}, {13}]
@@ -122,37 +122,37 @@ test_block:
     -
       - query: select col1 from (select col1 from t1) as x group by x.col1;
       - result: [{!l 10}, {!l 20}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
     #   - result: [{!l 10}, {!l 20}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select MAX(z) from (select col1 from t1) as x group by x.col1 as z;
     #   - result: [{!l 10}, {!l 20}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
     #   - result: [{!l 5}, {!l 13}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select MIN(x.col2) from (select col1,col2 from t1) as x group by x.col1;
     #   - result: [{!l 1}, {!l 6}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
     #   - result: [{!l 5}, {!l 8}]
-    # 4.1 Triage: [Investigate further] Test failed when run with forced continuations (Result mismatch)
+    # 4.1 Triage: [Investigate further: potentially aggregate cursor bug] Test failed when run with forced continuations (Result mismatch)
     # [4.0.559.6, !currentVersion] returned 10.0 instead of 9.5
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - maxRows: 0
       - result: [{3.0}, {9.5}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs initial version]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
     #   - result: [{!l 15}, {!l 76}]
-    # 4.1 Triage: [Investigate further] Test failed when run with forced continuations (Result mismatch)
+    # 4.1 Triage: [Investigate further: aggregate cursor bug] Test failed when run with forced continuations (Result mismatch)
     # [4.0.559.6, !currentVersion] returned {10, 10.0} instead of {9, 9.5}
     -
       # result is correct since we don't use (not support, yet) explicit casting.
@@ -194,11 +194,11 @@ test_block:
     -
       - query: select x.col1 + x.col1 from (select col1, col2 from t1) as x group by x.col1;
       - result: [{!l 20}, {!l 40}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs rerun]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
     #   - result: [{!l 10}]
-    # 4.1 Triage: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
+    # 4.1 Triage[needs rerun]: Test failed when run with forced continuations (Caused by: com.google.common.base.VerifyException)
     # -
     #   - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
     #   - result: [{!l 10}]

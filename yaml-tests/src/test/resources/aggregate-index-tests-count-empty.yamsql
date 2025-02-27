@@ -33,7 +33,7 @@ test_block:
     -
       - query: select count(*) from t1
       - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: [No Fix Necessary] failing when running against 4.0.559.6 (result mismatch)
+      # 4.1 Triage: [needs initial version] failing when running against 4.0.559.6 (result mismatch)
       # Triage Note: 4.2.9.0 to 4.0.559.6 works correctly, need to write a test to verify
       # - result: [{0}]
     -
@@ -43,7 +43,7 @@ test_block:
     -
       - query: select count(col1) from t1
       - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: failing when running against 4.0.559.6 (result mismatch)
+      # 4.1 Triage[needs initial version]: failing when running against 4.0.559.6 (result mismatch)
       # - result: [{0}]
     -
       - query: select count(col1) from t1 group by col2
@@ -55,7 +55,7 @@ test_block:
     -
       - query: select count(*) from t2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: failing when running against 4.0.559.6 (Received continuation shouldn't be at beginning)
+      # 4.1 Triage[needs initial version]: failing when running against 4.0.559.6 (Received continuation shouldn't be at beginning)
       # - result: [{0}]
     -
       - query: select count(*) from t2 group by col2
@@ -64,7 +64,7 @@ test_block:
     -
       - query: select count(col1) from t2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: failing when running against 4.0.559.6 (Received continuation shouldn't be at beginning)
+      # 4.1 Triage[needs initial version]: failing when running against 4.0.559.6 (Received continuation shouldn't be at beginning)
       # - result: [{0}]
     -
       - query: select count(col1) from t2 group by col2

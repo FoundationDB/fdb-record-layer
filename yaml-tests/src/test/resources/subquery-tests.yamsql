@@ -62,13 +62,13 @@ test_block:
     -
       # correlations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
-      # 4.1 Triage: fail with forced continuations (Verify Exception for continuation, Type$Record.fromProto(Type.java:2095))
+      # 4.1 Triage[needs rerun]: fail with forced continuations (Verify Exception for continuation, Type$Record.fromProto(Type.java:2095))
       - maxRows: 0
       - result: [{1}, {2}, {3}]
     -
       # correlations are allowed inside a nested subquery with group by, not necessarily qualified
       - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
-      # 4.1 Triage: fail with forced continuations (Verify Exception for continuation, Type$Record.fromProto(Type.java:2095))
+      # 4.1 Triage[needs rerun]: fail with forced continuations (Verify Exception for continuation, Type$Record.fromProto(Type.java:2095))
       - maxRows: 0
       - result: [{1}, {2}, {3}]
     -
