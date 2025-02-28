@@ -70,7 +70,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             testConfigs = List.of(new EmbeddedConfig());
             maintainConfigs = List.of();
         } else {
-            AtomicInteger serverPort = new AtomicInteger(2222);
+            AtomicInteger serverPort = new AtomicInteger(1111);
             List<File> jars = ExternalServer.getAvailableServers();
             // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
             // we don't have access to the artifacts.
