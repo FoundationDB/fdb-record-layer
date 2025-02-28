@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -63,13 +64,14 @@ public class EmbeddedConfig implements YamlTestConfig {
         return new YamlConnectionFactory() {
             @Override
             public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), YamlConnection.CURRENT_VERSION);
+                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), SemanticVersion.current());
             }
 
             @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of();
+            public Set<SemanticVersion> getVersionsUnderTest() {
+                return Set.of(SemanticVersion.current());
             }
+
         };
     }
 

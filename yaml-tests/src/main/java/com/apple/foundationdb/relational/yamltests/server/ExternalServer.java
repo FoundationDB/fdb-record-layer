@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
+import com.apple.foundationdb.relational.util.BuildVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -45,7 +46,7 @@ public class ExternalServer {
     private final File serverJar;
     private final int grpcPort;
     private final int httpPort;
-    private String version;
+    private SemanticVersion version;
     private Process serverProcess;
 
     /**
@@ -100,7 +101,7 @@ public class ExternalServer {
      *
      * @return the version of the server being run.
      */
-    public String getVersion() {
+    public SemanticVersion getVersion() {
         return version;
     }
 
@@ -147,13 +148,24 @@ public class ExternalServer {
         return List.of(externalServers);
     }
 
-    private static String getVersion(File jar) throws IOException {
+    private static SemanticVersion getVersion(File jar) throws IOException {
         try (JarFile jarFile = new JarFile(jar)) {
             final Manifest manifest = jarFile.getManifest();
             final Attributes mainAttributes = manifest.getMainAttributes();
             String version = mainAttributes.getValue("Specification-Version");
             if (version != null) {
-                return version;
+                if (version.equals(BuildVersion.getInstance().getVersion())) {
+                    // One of the external servers is locally built. In order for conditional execution
+                    // in the test assertions to be executed correctly, it needs to be registered
+                    // as such.
+                    //
+                    // Ideally, it would be nice if the two versions aligned, potentially by having
+                    // SemanticVersion.current() return a version based on the BuildVersion.
+                    // See: https://github.com/FoundationDB/fdb-record-layer/issues/3208 for more details
+                    return SemanticVersion.current();
+                } else {
+                    return SemanticVersion.parse(version);
+                }
             } else {
                 return Assertions.fail("Server does not specify a version in the manifest: " + jar.getAbsolutePath());
             }

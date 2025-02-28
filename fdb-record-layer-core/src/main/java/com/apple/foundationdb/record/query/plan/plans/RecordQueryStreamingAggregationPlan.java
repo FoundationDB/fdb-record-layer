@@ -370,7 +370,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
         builder.setGroupingKeyAlias(groupingKeyAlias.getId())
                 .setAggregateAlias(aggregateAlias.getId())
-                .setCompleteResultValue(completeResultValue.toValueProto(serializationContext));
+                .setCompleteResultValue(completeResultValue.toValueProto(serializationContext))
+                .setIsCreateDefaultOnEmpty(isCreateDefaultOnEmpty);
         return builder.build();
     }
 

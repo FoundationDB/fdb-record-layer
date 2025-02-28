@@ -190,12 +190,7 @@ public final class YamlExecutionContext {
     }
 
     public int getNumThreads() {
-        var numThreads = 1;
-        if (System.getProperties().stringPropertyNames().contains(YamlRunner.TEST_MAX_THREADS)) {
-            numThreads = Integer.parseInt(System.getProperty(YamlRunner.TEST_MAX_THREADS));
-            Assert.thatUnchecked(numThreads > 0, "Invalid number of threads provided in the YamlExecutionContext");
-        }
-        return numThreads;
+        return Runtime.getRuntime().availableProcessors() / 2;
     }
 
     boolean isDirty() {

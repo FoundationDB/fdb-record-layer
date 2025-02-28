@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -55,8 +56,7 @@ public class FileOptions {
 
     public static Block parse(int lineNumber, Object document, YamlExecutionContext executionContext) {
         final Map<?, ?> options = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
-        Object rawVersion = options.get(SUPPORTED_VERSION_OPTION);
-        final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
+        final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(options, executionContext);
         if (!check.isSupported()) {
             // IntelliJ, at least, doesn't display the reason, so log it
             if (logger.isInfoEnabled()) {
@@ -67,15 +67,26 @@ public class FileOptions {
         return new NoOpBlock(lineNumber);
     }
 
+    public static SemanticVersion parseVersion(Object rawVersion) {
+        if (rawVersion instanceof CurrentVersion) {
+            return SemanticVersion.current();
+        } else if (rawVersion instanceof String) {
+            return SemanticVersion.parse((String) rawVersion);
+        } else {
+            throw new IllegalArgumentException("Unable to determine semantic version from object: " + rawVersion);
+        }
+    }
+
     public static final class CurrentVersion {
         public static final CurrentVersion INSTANCE = new CurrentVersion();
+        public static final String TEXT = SemanticVersion.SemanticVersionType.CURRENT.getText();
 
         private CurrentVersion() {
         }
 
         @Override
         public String toString() {
-            return "!current_version";
+            return TEXT;
         }
     }
 }
