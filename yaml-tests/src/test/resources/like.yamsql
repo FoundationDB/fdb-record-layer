@@ -66,14 +66,18 @@ test_block:
     -
       # Issue #3099 found that the pattern was being put in the escape part of the LIKE on continuation
       # which for all the other queries, would result in an error that the escape should be of length 1.
-      # This query attempts to catch a similar issue, where on continuation this would be:
-      # SELECT * FROM B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
-      # But, escape characters only matter if they precede a non-escape character.
+      # I added these queries to see if that issue would expose differently if the query was only one character,
+      # and it kind of did, it ended up exposing issue: https://github.com/FoundationDB/fdb-record-layer/issues/3216
       - query: select * from B WHERE B2 NOT LIKE 'Z'
       - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
+      # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
       - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
+    -
+      - query: select * from B WHERE B2 NOT LIKE '\'
+      # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
+      - result: [{1, 'Y'}, {2, 'Z'}, {3, 'A'}, {4, Z}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 LIKE 'Z'
       - result: [{2, 'Z'}, {4, 'Z'}]
