@@ -142,9 +142,7 @@ test_block:
        # (Extra values being produced after exhausting source of an aggregate cursor)
        # Can remove once we do not care about backwards compatibility before !current_version
        - initialVersionLessThan: !current_version
-       - result: [{!l 13}]
-       - result: [{!null _}]
-       - result: [{!l 13}] # Repeats ad infinitum
+       # Different (incorrect) behavior for different past versions
        - initialVersionAtLeast: !current_version
        - result: [{!l 13}]
        - result: []
@@ -171,6 +169,7 @@ test_block:
        # Can remove once we do not care about backwards compatibility before !current_version
       - maxRows: 1
       - initialVersionLessThan: !current_version
+       # Different (incorrect) behavior for different past versions
       - initialVersionAtLeast: !current_version
       - result: [{!l 1}]
       - result: [{!l 2}]

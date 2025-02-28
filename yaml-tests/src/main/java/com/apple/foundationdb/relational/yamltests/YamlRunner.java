@@ -51,10 +51,9 @@ public final class YamlRunner {
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
-    static final String TEST_NIGHTLY = "yaml_testing_nightly";
-    static final String TEST_SEED = "yaml_testing_seed";
-    static final String TEST_NIGHTLY_REPETITION = "yaml_testing_nightly_repetition";
-    static final String TEST_MAX_THREADS = "yaml_testing_max_threads";
+    static final String TEST_NIGHTLY = "tests.nightly";
+    static final String TEST_SEED = "tests.yaml.seed";
+    static final String TEST_NIGHTLY_REPETITION = "tests.yaml.iterations";
 
     @Nonnull
     private final String resourcePath;
