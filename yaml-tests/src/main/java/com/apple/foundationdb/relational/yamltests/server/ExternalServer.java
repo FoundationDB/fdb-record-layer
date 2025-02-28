@@ -155,6 +155,13 @@ public class ExternalServer {
             String version = mainAttributes.getValue("Specification-Version");
             if (version != null) {
                 if (version.equals(BuildVersion.getInstance().getVersion())) {
+                    // One of the external servers is locally built. In order for conditional execution
+                    // in the test assertions to be executed correctly, it needs to be registered
+                    // as such.
+                    //
+                    // Ideally, it would be nice if the two versions aligned, potentially by having
+                    // SemanticVersion.current() return a version based on the BuildVersion.
+                    // See: https://github.com/FoundationDB/fdb-record-layer/issues/3208 for more details
                     return SemanticVersion.current();
                 } else {
                     return SemanticVersion.parse(version);
