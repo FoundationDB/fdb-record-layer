@@ -1,4 +1,7 @@
 ---
+options:
+  supported_version: 4.0.561.0
+---
 schema_template:
     create table t1(id bigint, parent bigint, primary key(id))
     create index parentIdx as select parent, id from t1 order by parent, id
