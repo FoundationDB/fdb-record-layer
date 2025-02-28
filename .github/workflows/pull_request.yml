@@ -28,7 +28,7 @@ jobs:
       - name: Run Gradle Build
         uses: ./actions/run-gradle
         with:
-          gradle_command: build -x test -x destructiveTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+          gradle_command: build -x test -x destructiveTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport --warning-mode all
 
   core-tests:
     runs-on: ubuntu-latest
@@ -47,7 +47,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false --warning-mode all
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
@@ -81,7 +81,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: test -x :fdb-record-layer-core:test destructiveTest -x :fdb-record-layer-core:destructiveTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false --warning-mode all
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
@@ -132,7 +132,7 @@ jobs:
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
-          gradle_command: codeCoverageReport
+          gradle_command: codeCoverageReport --warning-mode all
       - name: Publish Coverage Report
         uses: actions/upload-artifact@v4.6.0
         with:
