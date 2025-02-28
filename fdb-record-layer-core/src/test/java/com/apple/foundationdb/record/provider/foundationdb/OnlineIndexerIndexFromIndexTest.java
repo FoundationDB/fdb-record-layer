@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.BooleanSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1188,7 +1187,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .build()) {
                     indexBuilder.buildIndex(true);
                 }
-            } catch (SynchronizedSessionLockedException | IndexingBase.UnexpectedReadableException ex) {
+            } catch (IndexingBase.UnexpectedReadableException ex) {
                 LOGGER.info(KeyValueLogMessage.of("Ignoring lock, got exception",
                         LogMessageKeys.SESSION_ID, id,
                         LogMessageKeys.ERROR, ex.getMessage()));

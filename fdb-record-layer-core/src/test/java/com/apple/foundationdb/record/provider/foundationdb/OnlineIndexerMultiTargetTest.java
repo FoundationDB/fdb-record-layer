@@ -1048,7 +1048,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                         .build()) {
                     indexBuilder.buildIndex(true);
                 }
-            } catch (SynchronizedSessionLockedException | IndexingBase.UnexpectedReadableException ex) {
+            } catch (IndexingBase.UnexpectedReadableException ex) {
                 LOGGER.info(KeyValueLogMessage.of("Ignoring lock, got exception",
                         LogMessageKeys.SESSION_ID, id,
                         LogMessageKeys.ERROR, ex.getMessage()));
