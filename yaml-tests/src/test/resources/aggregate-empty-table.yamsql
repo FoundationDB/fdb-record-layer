@@ -34,24 +34,17 @@ schema_template:
 test_block:
   name: agg-empty-table-tests
   tests:
-    # 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-      # - query: select count(*) from T1;
-      # - explain: "SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # - maxRows: 1
-      # - result: [{0}]
-      # - result: []
+    -
+      - query: select count(*) from T1;
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{0}]
     -
       - query: select count(*) from T1 where col1 = 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      - maxRows: 0
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 > 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      - maxRows: 0
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 = 0 group by col1;
@@ -69,7 +62,6 @@ test_block:
       - query: select count(*) from T1 where col1 > 0 group by col1;
       - error: "0AF00"
     -
-    # DONE: 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
       - query: select count(*) from T2;
       - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - initialVersionLessThan: 4.0.561.0
@@ -79,13 +71,11 @@ test_block:
     -
       - query: select count(*) from T2 where col1 = 0;
       - explain: "AISCAN(T2_I2 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(*) from T2 where col1 > 0;
       - explain: "SCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(*) from T2 group by col1;
       - explain: "AISCAN(T2_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
@@ -101,18 +91,15 @@ test_block:
     -
       - query: select count(*) from T3;
       - explain: "ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(*) from T3 where col1 = 0;
       - explain: "ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(*) from T3 where col1 > 0;
       - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(*) from T3 group by col1;
       - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
@@ -128,18 +115,15 @@ test_block:
     -
       - query: select count(col2) from T1;
       - explain: "SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 = 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 > 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 = 0 group by col1;
       - error: "0AF00"
@@ -156,7 +140,6 @@ test_block:
       - query: select count(col2) from T1 where col1 > 0 group by col1;
       - error: "0AF00"
     -
-    # DONE: 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
       - query: select count(col2) from T2;
       - explain: "AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - initialVersionLessThan: 4.0.561.0
@@ -166,13 +149,11 @@ test_block:
     -
       - query: select count(col2) from T2 where col1 = 0;
       - explain: "AISCAN(T2_I4 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T2 where col1 > 0;
       - explain: "SCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T2 group by col1;
       - explain: "AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
@@ -188,18 +169,15 @@ test_block:
     -
       - query: select count(col2) from T3;
       - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 = 0;
       - explain: "ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 > 0;
       - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{0}]
+      - result: [{0}]
     -
       - query: select count(col2) from T3 group by col1;
       - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
@@ -215,32 +193,24 @@ test_block:
     -
       - query: select sum(col1) from T1;
       - explain: "SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-    # 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (too many rows in actual result set! expected 0 rows, got 1)
-    #   - maxRows: 1
-    #   - result: [{!null _}]
-    #   - result: []
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col1 = 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col2 = 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL2 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col1 > 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col2 > 0;
       - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
-    # DONE: 4.1 Triage: This test fails when running in multi-server mode against 4.0.559.6 (result does not contain all expected rows! expected 1 rows, got 0)
       - query: select sum(col1) from T2;
       - explain: "AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - initialVersionLessThan: 4.0.561.0
@@ -250,23 +220,19 @@ test_block:
     -
       - query: select sum(col1) from T2 where col1 = 0;
       - explain: "SCAN(<,>) | TFILTER T2 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col2 = 0;
       - explain: "AISCAN(T2_I6 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 > 0;
       - explain: "SCAN(<,>) | TFILTER T2 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col2 > 0;
       - explain: "SCAN(<,>) | TFILTER T2 | FILTER _.COL2 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 = 0 group by col2;
       - error: "0AF00"
@@ -280,33 +246,27 @@ test_block:
     -
       - query: select sum(col1) from T2 where col2 > 0 group by col2;
       - explain: "AISCAN(T2_I6 [[GREATER_THAN promote(@c11 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: []
+      - result: []
     -
       - query: select sum(col1) from T3;
       - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 = 0;
       - explain: "ISCAN(T3_I1 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 = 0;
       - explain: "ISCAN(T3_I2 [EQUALS promote(@c11 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 > 0;
       - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 > 0;
       - explain: "ISCAN(T3_I2 [[GREATER_THAN promote(@c11 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-      # - result: [{!null _}]
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 = 0 group by col2;
       - explain: "ISCAN(T3_I2 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
@@ -348,19 +308,20 @@ test_block:
 ---
 test_block:
   name: agg-empty-table-tests-after-modifications
+  preset: single_repetition_ordered
   tests:
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from T1;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select count(*) from T1 where col1 = 0;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from T1 where col1 > 0;
-    #   - result: [{0}]
+    -
+      - query: select count(*) from T1;
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 = 0;
+      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 EQUALS promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 > 0;
+      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.COL1 GREATER_THAN promote(@c11 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{0}]
     -
       - query: select count(*) from T1 where col1 = 0 group by col1;
       - error: "0AF00"
@@ -376,18 +337,19 @@ test_block:
     -
       - query: select count(*) from T1 where col1 > 0 group by col1;
       - error: "0AF00"
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from T2;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from T2 where col1 = 0;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select count(*) from T2 where col1 > 0;
-    #   - result: [{0}]
+    -
+      - query: select count(*) from T2;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T2 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(*) from T2 where col1 > 0;
+      - result: [{0}]
 #    -
 #      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
 #      - query: select count(*) from T2 group by col1;
@@ -399,18 +361,15 @@ test_block:
 #      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
 #      - query: select count(*) from T2 where col1 > 0 group by col1;
 #      - result: []
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from T3;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(*) from T3 where col1 = 0;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select count(*) from T3 where col1 > 0;
-    #   - result: [{0}]
+    -
+      - query: select count(*) from T3;
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 where col1 > 0;
+      - result: [{0}]
     -
       - query: select count(*) from T3 group by col1;
       - result: []
@@ -420,18 +379,15 @@ test_block:
     -
       - query: select count(*) from T3 where col1 > 0 group by col1;
       - result: []
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(col2) from T1;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(col2) from T1 where col1 = 0;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(col2) from T1 where col1 > 0;
-    #   - result: [{0}]
+    -
+      - query: select count(col2) from T1;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 > 0;
+      - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 = 0 group by col1;
       - error: "0AF00"
@@ -447,18 +403,21 @@ test_block:
     -
       - query: select count(col2) from T1 where col1 > 0 group by col1;
       - error: "0AF00"
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(col2) from T2;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select count(col2) from T2 where col1 = 0;
-    #   - result: [{0}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select count(col2) from T2 where col1 > 0;
-    #   - result: [{0}]
+    -
+      - query: select count(col2) from T2;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{0}]
+    -
+      - query: select count(col2) from T2 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T2 where col1 > 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{0}]
 #    -
 #      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
 #      - query: select count(col2) from T2 group by col1;
@@ -470,18 +429,15 @@ test_block:
 #      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
 #      - query: select count(col2) from T2 where col1 > 0 group by col1;
 #      - result: []
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select count(col2) from T3;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select count(col2) from T3 where col1 = 0;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select count(col2) from T3 where col1 > 0;
-    #   - result: [{0}]
+    -
+      - query: select count(col2) from T3;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 where col1 > 0;
+      - result: [{0}]
     -
       - query: select count(col2) from T3 group by col1;
       - result: []
@@ -491,51 +447,65 @@ test_block:
     -
       - query: select count(col2) from T3 where col1 > 0 group by col1;
       - result: []
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T1;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T1 where col1 = 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T1 where col2 = 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select sum(col1) from T1 where col1 > 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T1 where col2 > 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
+    -
+      - query: select sum(col1) from T1;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col1 = 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col2 = 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col1 > 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col2 > 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
       # TODO (enhance SUM aggregate index to disambiguate null results and 0 results)
       # This query is using the index T2_I5, the reason we're returning 0 here comes from the SUM index maintainer that
       # is configured by default to:
       # - subtract the indexed value when the corresponding tuple is removed from the base table.
       # - if the sum reaches zero, it keeps it in the sum index and does not remove the entry from there.
-    #   - query: select sum(col1) from T2;
-    #   - result: [{0}]
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select sum(col1) from T2 where col1 = 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T2 where col2 = 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T2 where col1 > 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T2 where col2 > 0;
-    #   - result: [{!null _}]
+      - query: select sum(col1) from T2;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{0}]
+    -
+      - query: select sum(col1) from T2 where col1 = 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col2 = 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col1 > 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col2 > 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 = 0 group by col2;
       - error: "0AF00"
@@ -549,26 +519,33 @@ test_block:
 #      # TODO ([POST] Enhance SUM aggregate index to disambiguate null results and 0 results)
 #      - query: select sum(col1) from T2 where col2 > 0 group by col2;
 #      - result: []
-    # 4.1 Triage: This test fails when running in forced-continuations mode against 4.0.559.6 (result has more than maxRows rows)
-    # -
-    #   - query: select sum(col1) from T3;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T3 where col1 = 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T3 where col2 = 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T3 where col1 > 0;
-    #   - result: [{!null _}]
-    # 4.1 Triage: this test fails when running with forced continuations current version on two JVMs (Received continuation shouldn't be at beginning)
-    # -
-    #   - query: select sum(col1) from T3 where col2 > 0;
-    #   - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 = 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col2 = 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 > 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col2 > 0;
+      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 = 0 group by col2;
       - result: []
