@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import java.sql.SQLException;
+import java.util.UUID;
 
 /**
  * A result set implementation that aggregates many result sets into one, where each internal result set acts as a row
@@ -125,6 +126,12 @@ public abstract class AbstractAggregateResultSet implements RelationalResultSet 
     }
 
     @Override
+    public UUID getUUID(int oneBasedPosition) throws SQLException {
+        checkCurrentRow();
+        return currentRow.getUUID(oneBasedPosition);
+    }
+
+    @Override
     public String getString(String columnLabel) throws SQLException {
         checkCurrentRow();
         return currentRow.getString(columnLabel);
@@ -182,6 +189,12 @@ public abstract class AbstractAggregateResultSet implements RelationalResultSet 
     public RelationalArray getArray(String fieldName) throws SQLException {
         checkCurrentRow();
         return currentRow.getArray(fieldName);
+    }
+
+    @Override
+    public UUID getUUID(String fieldName) throws SQLException {
+        checkCurrentRow();
+        return currentRow.getUUID(fieldName);
     }
 
     @Override
