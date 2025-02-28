@@ -434,7 +434,9 @@ public final class PlanGenerator {
      */
     private static boolean shouldNotCache(@Nonnull final Set<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags) {
         return queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
-                queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT);
+                queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT) ||
+                queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.IS_DML_STATEMENT);
+
     }
 
     /**
