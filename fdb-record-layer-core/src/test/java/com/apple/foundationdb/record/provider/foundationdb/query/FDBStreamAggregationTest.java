@@ -20,11 +20,17 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.ByteScanLimiterFactory;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -49,11 +55,13 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -305,6 +313,34 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    void aggregateHitScanLimitReached() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            Assertions.assertEquals(RecordCursorStartContinuation.START, continuation1);
+            // recordScanLimit = 6: scans 4 rows, and the 5th scan hits SCAN_LIMIT_REACHED, we know that we've finished the 1st group, aggregated result is returned
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("0", 3));
+            // continue with recordScanLimit = 5, scans 3 rows and hits SCAN_LIMIT_REACHED
+            // again, we don't know that we've finished the 2nd group, nothing is returned, continuation is back to where the scan starts
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 5, continuation2.toBytes(), null);
+            Assertions.assertArrayEquals(continuation2.toBytes(), continuation3.toBytes());
+            // finish the 2nd group, aggregated result is returned, exhausted the source
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 6, continuation3.toBytes(), resultOf("1", 12));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation4);
+        }
+    }
+
     private static Stream<Arguments> provideArguments() {
         // (boolean, rowLimit)
         // setting rowLimit = 0 is equivalent to no limit
@@ -334,11 +370,17 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan plan, final int rowLimit, final byte[] continuation) {
+    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan plan, final int rowLimit, final int recordScanLimit, final byte[] continuation) {
         final var types = plan.getDynamicTypes();
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
+        ExecuteState executeState;
+        if (recordScanLimit > 0) {
+            executeState = new ExecuteState(RecordScanLimiterFactory.enforce(recordScanLimit), ByteScanLimiterFactory.tracking());
+        } else {
+            executeState = ExecuteState.NO_LIMITS;
+        }
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
-        executeProperties = executeProperties.setReturnedRowLimit(rowLimit);
+        executeProperties = executeProperties.setReturnedRowLimit(rowLimit).setState(executeState);
         try {
             return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
         } catch (final Throwable t) {
@@ -346,11 +388,32 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?> expectedResult) {
+        List<QueryResult> queryResults = new LinkedList<>();
+        RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation);
+        RecordCursorResult<QueryResult> currentCursorResult;
+        RecordCursorContinuation cursorContinuation;
+        while (true) {
+            currentCursorResult = currentCursor.getNext();
+            cursorContinuation = currentCursorResult.getContinuation();
+            if (!currentCursorResult.hasNext()) {
+                break;
+            }
+            queryResults.add(currentCursorResult.get());
+        }
+        if (expectedResult == null) {
+            Assertions.assertTrue(queryResults.isEmpty());
+        } else {
+            assertResults(this::assertResultFlattened, queryResults, expectedResult);
+        }
+        return cursorContinuation;
+    }
+
     private List<QueryResult> executePlanWithRowLimit(final RecordQueryPlan plan, final int rowLimit) {
         byte[] continuation = null;
         List<QueryResult> queryResults = new LinkedList<>();
         while (true) {
-            RecordCursor<QueryResult> currentCursor = executePlan(plan, rowLimit, continuation);
+            RecordCursor<QueryResult> currentCursor = executePlan(plan, rowLimit, 0, continuation);
             RecordCursorResult<QueryResult> currentCursorResult;
             while (true) {
                 currentCursorResult = currentCursor.getNext();
@@ -369,7 +432,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     private void assertResults(@Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer, @Nonnull final List<QueryResult> actual, @Nonnull final List<?>... expected) {
         Assertions.assertEquals(expected.length, actual.size());
-        for (var i = 0 ; i < actual.size() ; i++) {
+        for (var i = 0; i < actual.size(); i++) {
             checkConsumer.accept(actual.get(i), expected[i]);
         }
     }
@@ -385,7 +448,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         final var resultFields = resultFieldsBuilder.build();
 
         Assertions.assertEquals(resultFields.size(), expected.size());
-        for (var i = 0 ; i < resultFields.size() ; i++) {
+        for (var i = 0; i < resultFields.size(); i++) {
             Assertions.assertEquals(expected.get(i), resultFields.get(i));
         }
     }
@@ -416,7 +479,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         final var resultFields = resultFieldsBuilder.build();
 
         Assertions.assertEquals(resultFields.size(), expected.size());
-        for (var i = 0 ; i < resultFields.size() ; i++) {
+        for (var i = 0; i < resultFields.size(); i++) {
             Assertions.assertEquals(expected.get(i), resultFields.get(i));
         }
     }
