@@ -17,12 +17,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#---
-#options:
-#  # Prior to #3099 being fixed, every query that returned any data failed if there are continuations
-#  # Without testing any continuations there's not a lot of value here to running with multi-server,
-#  # So this is just being disabled entirely for older versions.
-#  supported_version: !current_version # https://github.com/FoundationDB/fdb-record-layer/issues/3099
+---
+options:
+  # Prior to #3099 being fixed, every query that returned any data failed if there are continuations
+  # Without testing any continuations there's not a lot of value here to running with multi-server,
+  # So this is just being disabled entirely for older versions.
+  supported_version: !current_version # https://github.com/FoundationDB/fdb-record-layer/issues/3099
 ---
 schema_template:
     create table A(a1 string, primary key(a1))
