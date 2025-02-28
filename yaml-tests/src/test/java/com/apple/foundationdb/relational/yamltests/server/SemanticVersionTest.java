@@ -79,6 +79,8 @@ class SemanticVersionTest {
             "3.5.55.0, !current_version",
             "3.5.55.0-SNAPSHOT, !current_version",
             "!current_version, !max_version",
+            "!min_version, !current_version",
+            "!min_version, !max_version",
             "3.5.55.0, !max_version",
             "3.5.55.0-SNAPSHOT, !max_version",
             "!min_version, 3.5.55.0",
