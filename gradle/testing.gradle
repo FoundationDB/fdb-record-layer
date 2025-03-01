@@ -58,6 +58,13 @@ task quickTest(type: Test) {
     }
 }
 
+task singleVersionTest(type: Test) {
+    systemProperties["tests.singleVersion"] = true
+    useJUnitPlatform {
+        excludeTags 'WipesFDB'
+    }
+}
+
 def getMixedModeVersion(descriptor) {
     while (descriptor != null) {
         // don't display this or any of the parents. Let's assume that nobody ever
