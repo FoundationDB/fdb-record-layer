@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -29,6 +31,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -86,6 +91,10 @@ public class StreamGrouping<M extends Message> {
     @Nonnull
     private final Value completeResultValue;
 
+    @Nonnull
+    private static PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+            PlanHashable.CURRENT_FOR_CONTINUATION);
+
     /**
      * Create a new group aggregator.
      *
@@ -109,7 +118,9 @@ public class StreamGrouping<M extends Message> {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
         this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
-        this.accumulator.setInitialState(context.getPartialAggregationResult());
+        if (context.getPartialAggregationResult() != null) {
+            this.accumulator.setInitialState(context.getPartialAggregationResult().getAccumulatorStatesList());
+        }
         this.store = store;
         this.context = context;
         this.alias = alias;
@@ -163,26 +174,36 @@ public class StreamGrouping<M extends Message> {
 
     private boolean isGroupBreak(final Object currentGroup, final Object nextGroup) {
         if (currentGroup == null) {
+            if (context.getPartialAggregationResult() != null) {
+                try {
+                    this.currentGroup = DynamicMessage.parseFrom(((Message) nextGroup).getDescriptorForType(), context.getPartialAggregationResult().getGroupKey());
+                    return (!this.currentGroup.equals(nextGroup));
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             return false;
         } else {
             return (!currentGroup.equals(nextGroup));
         }
     }
 
-    public void finalizeGroup() {
-        finalizeGroup(null);
+    public PartialAggregationResult finalizeGroup() {
+        return finalizeGroup(null);
     }
 
-    private void finalizeGroup(Object nextGroup) {
+    private PartialAggregationResult finalizeGroup(Object nextGroup) {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
+        PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult((Message) currentGroup);
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+        return result;
     }
 
     private void accumulate(@Nullable Object currentObject) {
@@ -201,7 +222,7 @@ public class StreamGrouping<M extends Message> {
     }
 
     @Nullable
-    public PartialAggregationResult getPartialAggregationResult() {
-        return accumulator.getPartialAggregationResult();
+    public PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
+        return accumulator.getPartialAggregationResult(groupingKey, serializationContext);
     }
 }

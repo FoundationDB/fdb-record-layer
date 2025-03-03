@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.planprotos.AccumulatorState;
 import com.apple.foundationdb.record.planprotos.PCountValue;
 import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PValue;
@@ -46,6 +47,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -349,23 +351,23 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nullable
         @Override
-        public PartialAggregationResult getPartialAggregationResult() {
+        public PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext) {
             if (state ==  null) {
                 return null;
             }
             return PartialAggregationResult.newBuilder()
-                    .setPhysicalOperatorName(physicalOperator.name())
-                    // (TODO) store state, maybe a string?
+                    .setGroupKey(groupingKey.toByteString())
+                    .addAccumulatorStates(AccumulatorState.newBuilder()
+                            .setPhysicalOperatorName(physicalOperator.name())
+                            .addState(String.valueOf(state)))
                     .build();
         }
 
         @Override
-        public void setInitialState(@Nullable PartialAggregationResult partialAggregationResult) {
-            if (partialAggregationResult != null) {
-                // check physical operator name are the same
-                // check this.state == null
-                this.state = partialAggregationResult.getState();
-            }
+        public void setInitialState(@Nonnull List<AccumulatorState> accumulatorStates) {
+            // check physical operator name are the same
+            // check this.state == null
+            this.state = Long.parseLong(accumulatorStates.get(0).getState(0));
         }
     }
 

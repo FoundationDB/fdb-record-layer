@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
+import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
@@ -181,7 +182,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             if (lastKey == null) {
                 return null;
             }
-            return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+            ContinuationProto proto = ContinuationProto.newBuilder()
+                    .setExecutionState(ByteString.copyFrom(Arrays.copyOfRange(lastKey, prefixLength, lastKey.length)))
+                    .setPartialAggregationResults(partialAggregationResult)
+                    .build();
+            return proto.toByteArray();
         }
 
         public Continuation withPartialAggregationResult(@Nullable PartialAggregationResult partialAggregationResult) {

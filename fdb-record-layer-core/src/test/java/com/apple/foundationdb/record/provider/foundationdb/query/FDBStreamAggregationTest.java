@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ByteScanLimiterFactory;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -28,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -328,15 +329,15 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
             // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
             RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
-            Assertions.assertEquals(RecordCursorStartContinuation.START, continuation1);
-            // recordScanLimit = 6: scans 4 rows, and the 5th scan hits SCAN_LIMIT_REACHED, we know that we've finished the 1st group, aggregated result is returned
-            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("0", 3));
-            // continue with recordScanLimit = 5, scans 3 rows and hits SCAN_LIMIT_REACHED
-            // again, we don't know that we've finished the 2nd group, nothing is returned, continuation is back to where the scan starts
-            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 5, continuation2.toBytes(), null);
-            Assertions.assertArrayEquals(continuation2.toBytes(), continuation3.toBytes());
-            // finish the 2nd group, aggregated result is returned, exhausted the source
-            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 6, continuation3.toBytes(), resultOf("1", 12));
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 3));
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), return 2nd group aggregated result
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            // (TODO): return exhausted, but not result, probably when finish scan x row, needs to return (x-1) to avoid this from happening
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 12));
+
             Assertions.assertEquals(RecordCursorEndContinuation.END, continuation4);
         }
     }
@@ -382,13 +383,20 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         executeProperties = executeProperties.setReturnedRowLimit(rowLimit).setState(executeState);
         try {
-            return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
+            if (continuation == null) {
+                return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, executeProperties);
+            } else {
+                ContinuationProto continuationProto = ContinuationProto.parseFrom(continuation);
+                System.out.println("partialAggregationResult:" + continuationProto.getPartialAggregationResults());
+                return plan.executePlan(recordStore, EvaluationContext.forBindingsAndTypeRepositoryAndPartialAggregationResult(Bindings.EMPTY_BINDINGS, typeRepository, continuationProto.getPartialAggregationResults()), continuationProto.getExecutionState().toByteArray(), executeProperties);
+            }
         } catch (final Throwable t) {
             throw Assertions.<RuntimeException>fail(t);
         }
     }
 
     private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?> expectedResult) {
+        System.out.println("executePlanWithRecordScanLimit called with recordScanLimit:" + recordScanLimit + " expectedResult:" + expectedResult);
         List<QueryResult> queryResults = new LinkedList<>();
         RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation);
         RecordCursorResult<QueryResult> currentCursorResult;
@@ -396,10 +404,13 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         while (true) {
             currentCursorResult = currentCursor.getNext();
             cursorContinuation = currentCursorResult.getContinuation();
+            System.out.println("cursor hasNext:" + currentCursorResult.hasNext());
             if (!currentCursorResult.hasNext()) {
+                System.out.println("cursor NoNextReason:" +  currentCursorResult.getNoNextReason());
                 break;
             }
             queryResults.add(currentCursorResult.get());
+            System.out.println("queryResults size:" + queryResults.size() + " new added:" + currentCursorResult.get().getMessage());
         }
         if (expectedResult == null) {
             Assertions.assertTrue(queryResults.isEmpty());
