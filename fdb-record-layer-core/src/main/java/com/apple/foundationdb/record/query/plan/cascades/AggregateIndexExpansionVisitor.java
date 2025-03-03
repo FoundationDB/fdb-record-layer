@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -57,7 +58,6 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -139,9 +139,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 .addAll(groupByPlaceholders).build();
 
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, placeholders);
-        final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
-        final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
+        final var constructSelectHavingResult = constructSelectHaving(groupByQun, placeholders);
+        final var selectHaving = constructSelectHavingResult.getSelectExpression();
+        final var placeHolderAliases = constructSelectHavingResult.getPlaceholderAliases();
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.
         final var maybeWithSort = placeHolderAliases.isEmpty()
@@ -155,7 +155,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
                 groupByQun.getRangesOver().get().getResultValue(),
-                selectHaving);
+                selectHaving,
+                constructSelectHavingResult.getGroupByValues());
     }
 
     @Nonnull
@@ -278,19 +279,23 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private NonnullPair<SelectExpression, List<CorrelationIdentifier>> constructSelectHaving(@Nonnull final Quantifier groupByQun,
-                                                                                             @Nonnull final List<Placeholder> selectWherePlaceholders) {
+    private ConstructSelectHavingResult constructSelectHaving(@Nonnull final Quantifier groupByQun,
+                                                              @Nonnull final List<Placeholder> selectWherePlaceholders) {
+        final var rangesOverExpression = groupByQun.getRangesOver().get();
+        Verify.verify(rangesOverExpression instanceof GroupByExpression);
+        final var groupByExpression = (GroupByExpression)rangesOverExpression;
+
         // the grouping value in GroupByExpression comes first (if set).
         @Nullable final var groupingValueReference =
-                (groupByQun.getRangesOver().get() instanceof GroupByExpression && ((GroupByExpression)groupByQun.getRangesOver().get()).getGroupingValue() == null)
-                ? null
-                : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
+                groupByExpression.getGroupingValue() == null
+                ? null : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
 
         final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), groupingValueReference == null ? 0 : 1), 0);
 
         final var placeholderAliases = ImmutableList.<CorrelationIdentifier>builder();
         final var selectHavingGraphExpansionBuilder = GraphExpansion.builder().addQuantifier(groupByQun);
-        final List<Value> groupingValues = groupingValueReference == null ? Collections.emptyList() : Values.deconstructRecord(groupingValueReference);
+        final List<Value> groupingValues = groupingValueReference == null
+                                           ? ImmutableList.of() : Values.deconstructRecord(groupingValueReference);
         if (groupingValueReference != null) {
             int i = 0;
             for (final var groupingValue : groupingValues) {
@@ -322,7 +327,13 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         } else {
             finalPlaceholders = placeholderAliases.build();
         }
-        return NonnullPair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), finalPlaceholders);
+
+        final var currentGroupingValues = groupingValues.stream()
+                .map(groupingValue -> groupingValue.translateCorrelations(TranslationMap.ofAliases(groupByQun.getAlias(), Quantifier.current())))
+                .collect(ImmutableList.toImmutableList());
+
+        return new ConstructSelectHavingResult(selectHavingGraphExpansionBuilder.build().buildSelect(),
+                finalPlaceholders, currentGroupingValues);
     }
 
     @Nonnull
@@ -338,5 +349,37 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
         mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
         return mapBuilder.build();
+    }
+
+    private static class ConstructSelectHavingResult {
+        @Nonnull
+        private final SelectExpression selectExpression;
+        @Nonnull
+        private final List<CorrelationIdentifier> placeholderAliases;
+        @Nonnull
+        private final List<Value> groupByValues;
+
+        private ConstructSelectHavingResult(@Nonnull final SelectExpression selectExpression,
+                                            @Nonnull final List<CorrelationIdentifier> placeholderAliases,
+                                            @Nonnull final List<Value> groupByValues) {
+            this.selectExpression = selectExpression;
+            this.placeholderAliases = placeholderAliases;
+            this.groupByValues = groupByValues;
+        }
+
+        @Nonnull
+        public SelectExpression getSelectExpression() {
+            return selectExpression;
+        }
+
+        @Nonnull
+        public List<CorrelationIdentifier> getPlaceholderAliases() {
+            return placeholderAliases;
+        }
+
+        @Nonnull
+        public List<Value> getGroupByValues() {
+            return groupByValues;
+        }
     }
 }

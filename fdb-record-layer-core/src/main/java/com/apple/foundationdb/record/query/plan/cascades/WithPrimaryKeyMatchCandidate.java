@@ -34,24 +34,28 @@ public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
     Optional<List<Value>> getPrimaryKeyValuesMaybe();
 
     @Nonnull
-    static Optional<List<Value>> commonPrimaryKeyValuesMaybe(@Nonnull Iterable<? extends MatchCandidate> matchCandidates) {
+    static Optional<List<Value>> commonRecordKeyValuesMaybe(@Nonnull Iterable<? extends MatchCandidate> matchCandidates) {
         List<Value> common = null;
         var first = true;
         for (final var matchCandidate : matchCandidates) {
+            final List<Value> key;
             if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
                 final var withPrimaryKeyMatchCandidate = (WithPrimaryKeyMatchCandidate)matchCandidate;
-                final var primaryKeyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyValuesMaybe();
-                if (primaryKeyMaybe.isEmpty()) {
+                final var keyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyValuesMaybe();
+                if (keyMaybe.isEmpty()) {
                     return Optional.empty();
                 }
-                final var primaryKey = primaryKeyMaybe.get();
-                if (first) {
-                    common = primaryKey;
-                    first = false;
-                } else if (!common.equals(primaryKey)) {
-                    return Optional.empty();
-                }
+                key = keyMaybe.get();
+            } else if (matchCandidate instanceof AggregateIndexMatchCandidate) {
+                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
+                key = aggregateIndexMatchCandidate.getGroupByValues();
             } else {
+                return Optional.empty();
+            }
+            if (first) {
+                common = key;
+                first = false;
+            } else if (!common.equals(key)) {
                 return Optional.empty();
             }
         }

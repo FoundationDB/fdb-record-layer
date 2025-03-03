@@ -284,7 +284,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 distinctMatchToScanMap(call, bestMatchToPlanMap);
 
         final var commonPrimaryKeyValuesOptional =
-                WithPrimaryKeyMatchCandidate.commonPrimaryKeyValuesMaybe(
+                WithPrimaryKeyMatchCandidate.commonRecordKeyValuesMaybe(
                         bestMaximumCoverageMatches.stream()
                                 .map(singleMatchedAccessVectored -> singleMatchedAccessVectored.getElement().getPartialMatch().getMatchCandidate())
                                 .collect(ImmutableList.toImmutableList()));
@@ -817,7 +817,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .flatMap(orderingPartsPair ->
                                 orderingPartsPair.getKey()
                                         .stream()
-                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
+                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() ==
+                                                ComparisonRange.Type.EQUALITY)
                                         .map(MatchedOrderingPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
 

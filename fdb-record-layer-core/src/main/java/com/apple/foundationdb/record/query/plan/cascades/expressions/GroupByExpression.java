@@ -316,10 +316,10 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var translatedAggregateValues =
                 Values.primitiveAccessorsForType(translatedAggregateValue.getResultType(),
                                 () -> translatedAggregateValue).stream()
-                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(evaluationContext,
+                        .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
                                 AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
-        if (translatedAggregateValues.size() != 1) {
+        if (translatedAggregateValues.isEmpty()) {
             return ImmutableList.of();
         }
 
@@ -329,16 +329,16 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                         .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
                                 AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
-        if (translatedAggregateValues.size() != 1) {
+        if (otherAggregateValues.size() != 1) {
             return ImmutableList.of();
         }
 
-        final var subsumedAggregations =
-                Iterables.getOnlyElement(translatedAggregateValues).semanticEquals(Iterables.getOnlyElement(otherAggregateValues),
-                        valueEquivalence);
-        if (subsumedAggregations.isFalse()) {
-            return ImmutableList.of();
-        }
+        final var subsumedAggregations = BooleanWithConstraint.alwaysTrue();
+//                Iterables.getOnlyElement(translatedAggregateValues).semanticEquals(Iterables.getOnlyElement(otherAggregateValues),
+//                        valueEquivalence);
+//        if (subsumedAggregations.isFalse()) {
+//            return ImmutableList.of();
+//        }
 
         final var subsumedGroupings =
                 subsumedAggregations
