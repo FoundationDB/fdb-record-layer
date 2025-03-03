@@ -373,6 +373,7 @@ public abstract class OnlineIndexerTest {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();  //set the flag back to true
+            throw new RuntimeException(e);
         }
     }
 }
