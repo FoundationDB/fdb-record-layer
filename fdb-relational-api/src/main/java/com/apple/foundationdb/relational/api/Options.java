@@ -192,6 +192,7 @@ public final class Options {
         /**
          * Timeout for asynchronous operations in milliseconds, this is usually used to set an upperbound time limit for
          * operations interacting with FDB.
+         * Scope: Engine
          */
         ASYNC_OPERATIONS_TIMEOUT_MILLIS
     }
