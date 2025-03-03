@@ -63,8 +63,7 @@ test_block:
       - supported_version: !current_version
       - result: [{330}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -78,8 +77,7 @@ test_block:
       - supported_version: !current_version
       - result: [{13}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select max(id) from t1 group by col1 having min(id) > 0 and col1 = 20;
       # Plans did not serialize before !current_version due to: https://github.com/FoundationDB/fdb-record-layer/issues/3214
       - maxRows: 1
@@ -94,8 +92,7 @@ test_block:
       - supported_version: !current_version
       - result: [{5}, {13}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select max(id) from t1 group by col1
       # Plans did not serialize before !current_version due to: https://github.com/FoundationDB/fdb-record-layer/issues/3214
       - maxRows: 1
@@ -161,8 +158,7 @@ test_block:
       - supported_version: !current_version
       - result: [{!l 10}, {!l 20}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -176,8 +172,7 @@ test_block:
       - supported_version: !current_version
       - result: [{!l 10}, {!l 20}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select MAX(z) from (select col1 from t1) as x group by x.col1 as z;
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -191,8 +186,7 @@ test_block:
       - supported_version: !current_version
       - result: [{!l 5}, {!l 13}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -206,8 +200,7 @@ test_block:
       - supported_version: !current_version
       - result: [{!l 1}, {!l 6}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select MIN(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -221,8 +214,7 @@ test_block:
       - supported_version: !current_version
       - result: [{!l 5}, {!l 8}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select COUNT(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -230,11 +222,23 @@ test_block:
       - result: [{!l 7}] # Off by one from https://github.com/FoundationDB/fdb-record-layer/issues/3097 also fixed in !current_version
       - error: 'XX000'
       - initialVersionAtLeast: !current_version
-    # 4.1 Triage: [Investigate further] Test failed when run with forced continuations (Result mismatch)
-    # [4.0.559.6, !currentVersion] returned 10.0 instead of 9.5
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{3.0}, {9.5}]
+    -
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{3.0}]
+      - result: [{10.0}] # Incorrect value because of off-by-one: https://github.com/FoundationDB/fdb-record-layer/issues/3097
+      - result: []
+      - initialVersionAtLeast: !current_version
+      - result: [{3.0}]
+      - result: [{9.5}]
+      - result: []
     -
       - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       # Plans did not serialize before !current_version due to: https://github.com/FoundationDB/fdb-record-layer/issues/3214
@@ -243,6 +247,7 @@ test_block:
     -
       # Same as test above, but allows for testing upgrading continuations from before !current_version
       # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select SUM(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -250,34 +255,97 @@ test_block:
       - result: [{!l 70}] # Off by one from https://github.com/FoundationDB/fdb-record-layer/issues/3097 also fixed in !current_version
       - error: 'XX000'
       - initialVersionAtLeast: !current_version
-    # 4.1 Triage: [Investigate further] Test failed when run with forced continuations (Result mismatch)
-    # [4.0.559.6, !currentVersion] returned {10, 10.0} instead of {9, 9.5}
     -
       # result is correct since we don't use (not support, yet) explicit casting.
       - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{!l 3, 3.0}, {!l 9, 9.5}]
+    -
+      # Duplicate of above but with simulation of force_continuations mode. Can be removed after we no longer
+      # care about mixed-mode testing with versions before !current_version
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{!l 3, 3.0}]
+      - result: [{!l 10, 10.0}] # Incorrect value due to off-by-one: https://github.com/FoundationDB/fdb-record-layer/issues/3097
+      - result: []
+      - initialVersionAtLeast: !current_version
+      - result: [{!l 3, 3.0}]
+      - result: [{!l 9, 9.5}]
+      - result: []
     -
       - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
       - error: "42703"
     -
       - query: select X.col2 from (select  col1, col2 from t1) as x group by x.col1;
       - error: "42803"
-    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{!l 13}]
-    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    -
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{!l 13}]
+      - result: [{!null _}]
+      - result: [{!l 13}] # ad infinitum. Due to incorrect continuation serialization identified in: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      - initialVersionAtLeast: !current_version
+      - result: [{!l 13}]
+      - result: []
     -
       - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{!l 1}]
-    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    -
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{!l 1}]
+      - result: [{!null _}]
+      - result: [{!l 1}] # ad infinitum. Due to incorrect continuation serialization identified in: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      - initialVersionAtLeast: !current_version
+      - result: [{!l 1}]
+      - result: []
     -
       - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{!l 13}]
-    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    -
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{!l 13}]
+      - result: [{!l 0}]
+      - result: [{!l 13}] # ad infinitum. Due to incorrect continuation serialization identified in: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      - initialVersionAtLeast: !current_version
+      - result: [{!l 13}]
+      - result: []
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{7.0}]
+    -
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{7.0}]
+      - result: [{!null _}]
+      - result: [{7.0}] # ad infinitum. Due to incorrect continuation serialization identified in: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      - initialVersionAtLeast: !current_version
+      - result: [{7.0}]
+      - result: []
     -
       - query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
       - result: [{!l 20}, {!l 30}]
@@ -293,8 +361,7 @@ test_block:
       - supported_version: !current_version
       - result: [{!l 10}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
       - maxRows: 1
       - initialVersionLessThan: !current_version
@@ -307,22 +374,47 @@ test_block:
       - supported_version: !current_version
       - result: [{!l 10}]
     -
-      # Same as test above, but allows for testing upgrading continuations from before !current_version
-      # Can be removed when we no longer care about that mixed-mode path
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
       - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
       - maxRows: 1
       - initialVersionLessThan: !current_version
       - result: [{!l 10}]
       - result: []
       - initialVersionAtLeast: !current_version
-    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select COUNT(*) from T1;
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{!l 13}]
-    # 4.1 Triage: [Deferred: Client checks for End] Test failed when run with forced continuations (Received continuation shouldn't be at beginning)
+    -
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select COUNT(*) from T1;
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{!l 13}]
+      - result: [{!l 0}]
+      - result: [{!l 13}] # ad infinitum. Due to incorrect continuation serialization identified in: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      - initialVersionAtLeast: !current_version
+      - result: [{!l 13}]
+      - result: []
     -
       - query: select COUNT(col1) from T1;
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than !current_version
       - result: [{!l 13}]
+    -
+      # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before !current_version
+      - query: select COUNT(col1) from T1;
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{!l 13}]
+      - result: [{!l 0}]
+      - result: [{!l 13}] # ad infinitum. Due to incorrect continuation serialization identified in: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      - initialVersionAtLeast: !current_version
+      - result: [{!l 13}]
+      - result: []
     -
       - query: select x from t1 group by col1 as x, col2 as x;
       - error: "42702"

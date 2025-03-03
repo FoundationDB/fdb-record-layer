@@ -55,7 +55,7 @@ public class QueryExecutor {
     private static final Logger logger = LogManager.getLogger(QueryExecutor.class);
     private static final int FORCED_MAX_ROWS = 1; // The maxRows number to use when we are forcing it on the test
     private static final int MAX_CONTINUATIONS_ALLOWED = 100;
-    private static final SemanticVersion STRICT_ASSERTIONS_CUTOFF = SemanticVersion.parse("4.1.4.0");
+    private static final SemanticVersion STRICT_ASSERTIONS_CUTOFF = SemanticVersion.parse("4.1.9.0");
 
     @Nonnull
     private final String query;
