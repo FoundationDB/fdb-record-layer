@@ -63,6 +63,7 @@ import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Temporary class. "The Relational Database".
@@ -88,6 +89,10 @@ public class FRL implements AutoCloseable {
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
     public FRL(@Nonnull Options options) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+        final Long asyncToSyncTimeout = options.getOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS);
+        if (asyncToSyncTimeout > 0) {
+            fdbDb.setAsyncToSyncTimeout(asyncToSyncTimeout, TimeUnit.MILLISECONDS);
+        }
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
