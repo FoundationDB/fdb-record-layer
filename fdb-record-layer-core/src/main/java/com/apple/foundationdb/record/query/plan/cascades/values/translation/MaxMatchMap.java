@@ -21,12 +21,16 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
@@ -47,6 +51,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -758,7 +763,7 @@ public class MaxMatchMap {
                                                                                        @Nonnull final ValueEquivalence valueEquivalence) {
         for (final var currentCandidateValue : candidateValue
                 // when traversing the candidate in pre-order, only descend into structures that can be referenced
-                // from the top expression. For example, RCV's components can be referenced however an Arithmetic
+                // from the top expression. For example, rcv's components can be referenced however an arithmetic
                 // operator's children can not be referenced.
                 // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
                 .preOrderIterable(v -> v instanceof RecordConstructorValue)) {
@@ -774,6 +779,11 @@ public class MaxMatchMap {
                 return Pair.of(semanticEquals, currentCandidateValue);
             }
         }
+
+        if (currentQueryValue instanceof IndexableAggregateValue) {
+            return Pair.of(BooleanWithConstraint.alwaysTrue(), new UnmatchedAggregateValue(ImmutableList.of()));
+        }
+
         return Pair.of(ConstrainedBoolean.falseValue(), null);
     }
 
@@ -1060,6 +1070,62 @@ public class MaxMatchMap {
 
         public static MatchResult notMatched() {
             return NOT_MATCHED;
+        }
+    }
+
+    public static class UnmatchedAggregateValue extends AbstractValue implements Value.NonEvaluableValue, IndexableAggregateValue {
+        @Nonnull
+        private final List<Value> children;
+
+        public UnmatchedAggregateValue(@Nonnull final Iterable<? extends Value> children) {
+            this.children = ImmutableList.copyOf(children);
+        }
+
+        @Nonnull
+        @Override
+        protected Iterable<? extends Value> computeChildren() {
+            return children;
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("unmatched",
+                    Value.explainFunctionArguments(explainSuppliers)));
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Nonnull
+        @Override
+        public Value withChildren(final Iterable<? extends Value> newChildren) {
+            return new UnmatchedAggregateValue(newChildren);
         }
     }
 }
