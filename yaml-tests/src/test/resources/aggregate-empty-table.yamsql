@@ -67,6 +67,9 @@ test_block:
     -
       - query: select count(*) from T2;
       - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
       - result: [{0}]
     -
       - query: select count(*) from T2 where col1 = 0;
@@ -142,6 +145,9 @@ test_block:
     -
       - query: select count(col2) from T2;
       - explain: "AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
       - result: [{0}]
     -
       - query: select count(col2) from T2 where col1 = 0;
@@ -213,6 +219,9 @@ test_block:
     -
       - query: select sum(col1) from T2;
       - explain: "AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - initialVersionLessThan: 4.0.561.0
+      - result: []
+      - initialVersionAtLeast: 4.0.561.0
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 = 0;

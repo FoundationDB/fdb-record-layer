@@ -279,6 +279,7 @@ subprojects {
                 sourceSets["test"].resources.srcDirs.stream().flatMap( resourceDir ->
                     fileTree(dir: resourceDir).matching {
                         include '**/*.yamsql'
+                        exclude '/initial-version/*'
                         exclude '/supported-version/*'
                     }.stream()
                 ).forEach { yamsql ->

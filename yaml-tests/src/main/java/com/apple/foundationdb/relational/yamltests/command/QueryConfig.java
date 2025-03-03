@@ -30,12 +30,17 @@ import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import com.google.protobuf.Descriptors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -45,10 +50,12 @@ import org.opentest4j.AssertionFailedError;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
 
@@ -75,7 +82,12 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
     public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
     public static final String QUERY_CONFIG_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
+    public static final String QUERY_CONFIG_INITIAL_VERSION_AT_LEAST = "initialVersionAtLeast";
+    public static final String QUERY_CONFIG_INITIAL_VERSION_LESS_THAN = "initialVersionLessThan";
     public static final String QUERY_CONFIG_NO_OP = "noOp";
+
+    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
+    private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
 
     @Nullable private final Object value;
     private final int lineNumber;
@@ -453,15 +465,15 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getSupportedVersionConfig(final Object value, final int lineNumber, final YamlExecutionContext executionContext) {
-        final SupportedVersionCheck check = SupportedVersionCheck.parse(value, executionContext);
+    @Nonnull
+    public static QueryConfig getSupportedVersionConfig(Object rawVersion, final int lineNumber, final YamlExecutionContext executionContext) {
+        final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
         if (!check.isSupported()) {
-            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext, check.getMessage());
+            return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, lineNumber, executionContext, check.getMessage());
         }
-        return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, value, lineNumber, executionContext) {
+        return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, lineNumber, executionContext) {
             @Override
-            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                     @Nonnull final String queryDescription) throws SQLException {
+            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
                 // Nothing to do, this query is supported
                 // SupportedVersion configs are not executed
                 Assertions.fail("Supported version configs are not meant to be executed.");
@@ -488,46 +500,111 @@ public abstract class QueryConfig {
         };
     }
 
-    public static QueryConfig parse(@Nonnull Object object, @Nonnull String blockName, @Nonnull YamlExecutionContext executionContext) {
-        final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
-        final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
-        final var lineNumber = linedObject.getLineNumber();
-        try {
-            final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
-            final var value = Matchers.notNull(configEntry, "query configuration").getValue();
-            if (QUERY_CONFIG_COUNT.equals(key)) {
-                return getCheckCountConfig(value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_ERROR.equals(key)) {
-                return getCheckErrorConfig(value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
-                if (shouldExecuteExplain(executionContext)) {
-                    return getCheckExplainConfig(true, blockName, key, value, lineNumber, executionContext);
-                } else {
-                    return getNoOpConfig(lineNumber, executionContext);
+    @Nonnull
+    public static List<QueryConfig> parseConfigs(String blockName, int commandLineNumber, @Nonnull List<?> objects, @Nonnull YamlExecutionContext executionContext) {
+        List<QueryConfig> configs = new ArrayList<>();
+        // After the first result config, require all future results are also result configs. That is, we should
+        // not interleave explain, maxRows, etc., and result configurations, and the results should be the last
+        boolean requireResults = false;
+
+        for (Object object : objects) {
+            final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
+            final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
+            final var lineNumber = linedObject.getLineNumber();
+            try {
+                final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
+                final var value = Matchers.notNull(configEntry, "query configuration").getValue();
+                boolean resultOrVersionConfig = RESULT_CONFIGS.contains(key) || VERSION_DEPENDENT_RESULT_CONFIGS.contains(key);
+                if (requireResults && !resultOrVersionConfig) {
+                    throw new IllegalArgumentException("Only result configurations can follow first result or version specification config");
                 }
-            } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
-                if (shouldExecuteExplain(executionContext)) {
-                    return getCheckExplainConfig(false, blockName, key, value, lineNumber, executionContext);
-                } else {
-                    return getNoOpConfig(lineNumber, executionContext);
-                }
-            } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
-                return getCheckPlanHashConfig(value, lineNumber, executionContext);
-            } else if (key.contains(QUERY_CONFIG_RESULT)) {
-                return getCheckResultConfig(true, key, value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_UNORDERED_RESULT.equals(key)) {
-                return getCheckResultConfig(false, key, value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
-                return getMaxRowConfig(value, lineNumber, executionContext);
-            } else if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
-                return getSupportedVersionConfig(value, lineNumber, executionContext);
-            } else {
-                Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+                requireResults |= resultOrVersionConfig;
+                configs.add(parseConfig(blockName, key, value, lineNumber, executionContext));
+            } catch (Exception e) {
+                throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
             }
-            // should not happen
-            return null;
+        }
+
+        validateConfigs(configs, commandLineNumber, executionContext);
+        return configs;
+    }
+
+    private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, int lineNumber, YamlExecutionContext executionContext) {
+        try {
+            SemanticVersion versionArgument = FileOptions.parseVersion(value);
+            if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
+                return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, value, lineNumber, executionContext,
+                        versionArgument, SemanticVersion.max());
+            } else if (QUERY_CONFIG_INITIAL_VERSION_LESS_THAN.equals(key)) {
+                return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN, value, lineNumber, executionContext,
+                        SemanticVersion.min(), versionArgument);
+            } else {
+                throw new IllegalArgumentException("Unknown version constraint " + key);
+            }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
+            throw executionContext.wrapContext(e, () -> "‼️ Unable to parse version constraint information at line " + lineNumber, "version constraint", lineNumber);
+        }
+    }
+
+    private static QueryConfig parseConfig(String blockName, String key, Object value, int lineNumber, YamlExecutionContext executionContext) {
+        if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
+            return getSupportedVersionConfig(value, lineNumber, executionContext);
+        } else if (VERSION_DEPENDENT_RESULT_CONFIGS.contains(key)) {
+            return getInitialVersionCheckConfig(key, value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_COUNT.equals(key)) {
+            return getCheckCountConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_ERROR.equals(key)) {
+            return getCheckErrorConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_EXPLAIN.equals(key)) {
+            if (shouldExecuteExplain(executionContext)) {
+                return getCheckExplainConfig(true, blockName, key, value, lineNumber, executionContext);
+            } else {
+                return getNoOpConfig(lineNumber, executionContext);
+            }
+        } else if (QUERY_CONFIG_EXPLAIN_CONTAINS.equals(key)) {
+            if (shouldExecuteExplain(executionContext)) {
+                return getCheckExplainConfig(false, blockName, key, value, lineNumber, executionContext);
+            } else {
+                return getNoOpConfig(lineNumber, executionContext);
+            }
+        } else if (QUERY_CONFIG_PLAN_HASH.equals(key)) {
+            if (shouldExecuteExplain(executionContext)) {
+                return getCheckPlanHashConfig(value, lineNumber, executionContext);
+            } else {
+                return getNoOpConfig(lineNumber, executionContext);
+            }
+        } else if (QUERY_CONFIG_RESULT.equals(key)) {
+            return getCheckResultConfig(true, key, value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_UNORDERED_RESULT.equals(key)) {
+            return getCheckResultConfig(false, key, value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
+            return getMaxRowConfig(value, lineNumber, executionContext);
+        } else {
+            throw Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+        }
+    }
+
+    private static void validateConfigs(List<QueryConfig> configs, int lineNumber, YamlExecutionContext executionContext) {
+        Assert.thatUnchecked(configs.stream().skip(1)
+                        .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
+                "supported_version must be the first config in a query (after the query itself)");
+
+        // Validate that the results check each version comprehensively by making sure the set of
+        // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
+        if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
+            // Creating an interval set including each covered range
+            RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
+            configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
+                    .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
+                    .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
+            // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
+            Set<Range<SemanticVersion>> uncovered = rangeSet.complement()
+                    .subRangeSet(Range.closedOpen(SemanticVersion.min(), SemanticVersion.max()))
+                    .asRanges();
+            if (!uncovered.isEmpty()) {
+                IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
+                throw executionContext.wrapContext(e, () -> "‼️ Non-comprehensive test case found at line " + lineNumber, "config", lineNumber);
+            }
         }
     }
 
@@ -547,6 +624,38 @@ public abstract class QueryConfig {
 
         public String getMessage() {
             return message;
+        }
+    }
+
+    public static class InitialVersionCheckConfig extends QueryConfig {
+        private final SemanticVersion minVersion;
+        private final SemanticVersion maxVersion;
+
+        public InitialVersionCheckConfig(final String configName, final Object value, final int lineNumber, final YamlExecutionContext executionContext,
+                                         SemanticVersion minVersion, SemanticVersion maxVersion) {
+            super(configName, value, lineNumber, executionContext);
+            this.minVersion = minVersion;
+            this.maxVersion = maxVersion;
+        }
+
+        public boolean shouldExecute(YamlConnection connection) {
+            SemanticVersion initialVersion = connection.getInitialVersion();
+            return initialVersion.compareTo(minVersion) >= 0 && initialVersion.compareTo(maxVersion) < 0;
+        }
+
+        @Override
+        void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual, @Nonnull final String queryDescription) throws SQLException {
+            Assertions.fail("Check version config should not be executed: Line: " + getLineNumber());
+        }
+
+        @Nonnull
+        public SemanticVersion getMinVersion() {
+            return minVersion;
+        }
+
+        @Nonnull
+        public SemanticVersion getMaxVersion() {
+            return maxVersion;
         }
     }
 
