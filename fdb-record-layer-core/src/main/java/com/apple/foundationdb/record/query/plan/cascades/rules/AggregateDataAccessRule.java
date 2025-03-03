@@ -1,5 +1,5 @@
 /*
- * SelectDataAccessRule.java
+ * AggregateDataAccessRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -49,8 +50,9 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.matchingAggregateIndexMatchCandidate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.completeMatch;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.ofType;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
@@ -62,14 +64,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpression> {
-    private static final BindingMatcher<PartialMatch> completeMatchMatcher = completeMatch();
-    private static final BindingMatcher<SelectExpression> expressionMatcher = ofType(SelectExpression.class);
+public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalExpression> {
+    private static final BindingMatcher<PartialMatch> completeMatchMatcher =
+            completeMatch().and(matchingAggregateIndexMatchCandidate());
+    private static final BindingMatcher<RelationalExpression> expressionMatcher = anyExpression();
 
     private static final BindingMatcher<MatchPartition> rootMatcher =
             ofExpressionAndMatches(expressionMatcher, some(completeMatchMatcher));
 
-    public SelectDataAccessRule() {
+    public AggregateDataAccessRule() {
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
