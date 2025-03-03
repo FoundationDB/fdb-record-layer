@@ -58,6 +58,7 @@ task quickTest(type: Test) {
     }
 }
 
+// Tests that run a single version on multiple external servers
 task singleVersionTest(type: Test) {
     systemProperties["tests.singleVersion"] = true
     useJUnitPlatform {

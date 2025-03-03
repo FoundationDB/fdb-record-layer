@@ -39,7 +39,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * An abstract class for server-based configs. It holds a few common utilities for server-based configs to use
+ * An abstract class for server-based configs. It holds a few common utilities for
+ * external-server-based configs to use
  */
 public abstract class BaseServerConfig implements YamlTestConfig {
     private static final Logger LOG = LogManager.getLogger(BaseServerConfig.class);
