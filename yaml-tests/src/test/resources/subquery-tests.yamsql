@@ -40,12 +40,14 @@ test_block:
     -
       # non correlated subquery, resolving alias should be fine.
       - query: select ida from a where exists (select ida from a where ida = 1);
+      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }"
       - result: [{1}, {2}, {3}]
     -
       # this should work albeit being seemingly ambiguous
       # upper query block resolution should kick in _iff_ we fail to resolve
       # the identifier in current query block.
       - query: select idx from x where exists (select x from a where ida = 1);
+      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }"
       - result: [{4}, {5}, {6}]
     -
       # PartiQL resolution.
@@ -62,25 +64,70 @@ test_block:
     -
       # correlations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
-      # 4.1 Triage: fail with forced continuations (Verify Exception for continuation, Type$Record.fromProto(Type.java:2095))
-      - maxRows: 0
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
       - result: [{1}, {2}, {3}]
+    -
+      # Copy of above to simulate force_continuations with versions older than !current_version
+      # Can remove when we no longer care about mixed mode compatibility with older versions
+      - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{1}]
+      - result: [{2}]
+      - error: 'XX000' # Fails to deserialize due to https://github.com/FoundationDB/fdb-record-layer/issues/3214
+      - initialVersionAtLeast: !current_version # Handled in previous query
     -
       # correlations are allowed inside a nested subquery with group by, not necessarily qualified
       - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
-      # 4.1 Triage: fail with forced continuations (Verify Exception for continuation, Type$Record.fromProto(Type.java:2095))
-      - maxRows: 0
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
       - result: [{1}, {2}, {3}]
+    -
+      # Copy of above to simulate force_continuations with versions older than !current_version
+      # Can remove when we no longer care about mixed mode compatibility with older versions
+      - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{1}]
+      - result: [{2}]
+      - error: 'XX000' # Fails to deserialize due to https://github.com/FoundationDB/fdb-record-layer/issues/3214
+      - initialVersionAtLeast: !current_version # Handled in previous query
     -
       # correlations inside aggregations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
-      # 4.1 Triage: [Investigate further: exists subquery] infinite loop for continuation
-      - maxRows: 0
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+      - result: [{1}, {2}, {3}]
+    -
+      # Copy of above to simulate force_continuations with versions older than !current_version
+      # Can remove when we no longer care about mixed mode compatibility with older versions
+      - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{1}]
+      - result: [{2}]
+      - result: [{2}] # Repetition of previously returned result due to: https://github.com/FoundationDB/fdb-record-layer/issues/3219
+      - result: [{3}]
+      - result: [{3}]
+      - result: []
+      - initialVersionAtLeast: !current_version
+    -
+      # correlations inside aggregations are allowed inside a nested subquery with group by
+      - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
       - result: [{1}, {2}, {3}]
     -
       # correlations inside aggregations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
-      # 4.1 Triage: [Investigate further: exists subquery] infinite loop for continuation
-      - maxRows: 0
-      - result: [{1}, {2}, {3}]
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{1}]
+      - result: [{2}]
+      - result: [{2}] # Repetition of previously returned result due to: https://github.com/FoundationDB/fdb-record-layer/issues/3219
+      - result: [{3}]
+      - result: [{3}]
+      - result: []
+      - initialVersionAtLeast: !current_version
 ...
