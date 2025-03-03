@@ -92,10 +92,9 @@ test_block:
     -
       - query: select least(a1, a2, a8), least(1, 2, 3.0, 4, 5) from A
       - result: [{_0: 1.0, _1: 1.0}]
-    # 4.1 triage: [Deferred: literal null issue] Fails with force continuations for all versions with (including snapshot): cannot continue query due to mismatch between serialized and actual plan hash
     -
       - query: select coalesce(null, null, 5), coalesce(null, 1, null), coalesce(null, a1, a8) from A
-      - maxRows: 0
+      - maxRows: 0 # Disable FORCE_CONTINUATIONS due to plan hash instability: https://github.com/FoundationDB/fdb-record-layer/issues/3218
       - result: [{_0: 5, _1: 1, _2: 1.0}]
     -
       - query: select b1, b2, coalesce(b1, b2, 42) from B
@@ -125,10 +124,9 @@ test_block:
           {{ T1: 3, A: 'c', B: 3.0}},
           {{ T1: 4, A: 'd', B: 4.0}},
           {!null _}]
-    # 4.1 triage: [Deferred: literal null issue] Fails with force continuations for all versions with (including snapshot): cannot continue query due to mismatch between serialized and actual plan hash
     -
       - query: select coalesce(null, (1, 1.0, 'a', true)) from C
-      - maxRows: 0
+      - maxRows: 0 # Disable FORCE_CONTINUATIONS due to plan hash instability: https://github.com/FoundationDB/fdb-record-layer/issues/3218
       - unorderedResult: [
         {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
         {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
