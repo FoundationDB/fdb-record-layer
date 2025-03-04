@@ -51,17 +51,34 @@ test_block:
   tests:
     -
       - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
+      - explain: "SCAN(<,>) | FILTER _.ID EQUALS promote(@c19 AS LONG)"
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select * from (select * from (select * from T1) as x) as y where ID = 5;
+      - explain: "SCAN(<,>) | FILTER _.ID EQUALS promote(@c22 AS LONG)"
       - result: [{ID: !l 5, !l 10, !l 5}]
     # 4.1 Triage: [Deferred: Client checks for End] failed when running with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
-      - maxRows: 0
+      - supported_version: !current_version
+      - explain: "SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 1}]
     -
+      # Copy of above query to simulate force continuations mode, which does not work prior to !current_version due to
+      # https://github.com/FoundationDB/fdb-record-layer/issues/3096. Can remove once we no longer with testing mixed-mode
+      # capabilities with versions older than !current_version
+      - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{!l 1}]
+      - result: [{!l 0}]
+      - result: [{!l 1}]
+      - initialVersionAtLeast: !current_version
+      - result: [{!l 1}]
+      - result: []
+    -
       - query: select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;
+      - explain: "SCAN([[GREATER_THAN promote(@c20 AS LONG)]])"
       - result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]
 ---
 setup:
