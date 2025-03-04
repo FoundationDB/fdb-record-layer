@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -45,8 +45,8 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Key-Expression");
 
     public static final EmptyKeyExpression EMPTY = new EmptyKeyExpression();
-    public static final RecordMetaDataProto.KeyExpression EMPTY_PROTO =
-            RecordMetaDataProto.KeyExpression.newBuilder().setEmpty(EMPTY.toProto()).build();
+    public static final RecordKeyExpressionProto.KeyExpression EMPTY_PROTO =
+            RecordKeyExpressionProto.KeyExpression.newBuilder().setEmpty(EMPTY.toProto()).build();
 
     private EmptyKeyExpression() {
         // nothing to initialize
@@ -75,8 +75,8 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Empty toProto() throws SerializationException {
-        return RecordMetaDataProto.Empty.getDefaultInstance();
+    public RecordKeyExpressionProto.Empty toProto() throws SerializationException {
+        return RecordKeyExpressionProto.Empty.getDefaultInstance();
     }
 
     @Nonnull
@@ -87,7 +87,7 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return EMPTY_PROTO;
     }
 

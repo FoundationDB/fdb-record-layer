@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -60,8 +60,8 @@ import java.util.List;
 public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Key-Expression");
     public static final RecordTypeKeyExpression RECORD_TYPE_KEY = new RecordTypeKeyExpression();
-    public static final RecordMetaDataProto.KeyExpression RECORD_TYPE_KEY_PROTO =
-            RecordMetaDataProto.KeyExpression.newBuilder().setRecordTypeKey(RECORD_TYPE_KEY.toProto()).build();
+    public static final RecordKeyExpressionProto.KeyExpression RECORD_TYPE_KEY_PROTO =
+            RecordKeyExpressionProto.KeyExpression.newBuilder().setRecordTypeKey(RECORD_TYPE_KEY.toProto()).build();
 
     private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new RecordTypeKeyExpression(), 0);
 
@@ -107,13 +107,13 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.RecordTypeKey toProto() throws SerializationException {
-        return RecordMetaDataProto.RecordTypeKey.getDefaultInstance();
+    public RecordKeyExpressionProto.RecordTypeKey toProto() throws SerializationException {
+        return RecordKeyExpressionProto.RecordTypeKey.getDefaultInstance();
     }
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RECORD_TYPE_KEY_PROTO;
     }
 
