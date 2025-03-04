@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
@@ -186,8 +185,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Update statements fail with force continuations")
     public void updateDeleteReturning(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("update-delete-returning.yamsql");
     }
@@ -233,8 +230,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void unionEmptyTables(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union-empty-tables.yamsql");
     }

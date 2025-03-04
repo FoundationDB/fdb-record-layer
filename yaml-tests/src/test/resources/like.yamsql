@@ -17,8 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# 4.1 triage: [Deferred: like continuations] All queries that return any results, fail with force continuations, even against current version
-# with: The like operator expects an escape character of length 1.
 ---
 schema_template:
     create table A(a1 string, primary key(a1))
@@ -54,7 +52,6 @@ test_block:
       - result: []
     -
       - query: select * from A WHERE A1 LIKE '%abc%'
-      - maxRows: 0
       - unorderedResult: [
           {'abcdefghijklmnopqrstuvwxyz'},
           {'___abcdef'},
@@ -65,7 +62,6 @@ test_block:
           {'{abcdefghijk}'}]
     -
       - query: select * from A WHERE A1 LIKE '_abc%'
-      - maxRows: 0
       - unorderedResult: [
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
@@ -74,24 +70,20 @@ test_block:
     -
       # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
       - query: select * from A WHERE A1 LIKE '%ABC%'
-      - maxRows: 0
       - unorderedResult: [{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}]
     -
       - query: select * from A WHERE A1 LIKE '%ABC%X_Z'
-      - maxRows: 0
       - unorderedResult: [{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}]
     -
       - query: select * from A WHERE A1 LIKE '%ABC%XY_Z'
       - unorderedResult: []
     -
       - query: select * from A WHERE A1 LIKE '__'
-      - maxRows: 0
       - unorderedResult: [
           {'学校'},
           {'^$'}]
     -
       - query: select * from A WHERE A1 LIKE '_____'
-      - maxRows: 0
       - unorderedResult: [
           {'école'},
           {'ありがとう'},
@@ -106,42 +98,33 @@ test_block:
   tests:
     -
       - query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'
-      - maxRows: 0
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%' ESCAPE '\'
-      - maxRows: 0
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%' ESCAPE '|'
-      - maxRows: 0
       - result: [{'\\||%'}]
     -
       - query: select * from A WHERE A1 LIKE '\_%'
-      - maxRows: 0
       - result: [{'\\||%'}]
     -
       - query: select * from A WHERE A1 LIKE '\_\_\_abcdef' ESCAPE '\'
-      - maxRows: 0
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\_\_\_______' ESCAPE '\'
-      - maxRows: 0
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\__\_______' ESCAPE '\'
-      - maxRows: 0
       - result: [{'___abcdef'}]
     -
       - query: select * from A WHERE A1 LIKE '\__\______\_' ESCAPE '\'
       - result: []
     -
       - query: select * from A WHERE A1 LIKE '%\%' ESCAPE '\'
-      - maxRows: 0
       - result: [{'\\||%'}]
     -
       - query: select * from A WHERE A1 NOT LIKE '|_|_%' ESCAPE '|'
-      - maxRows: 0
       - unorderedResult: [
           {'abcdefghijklmnopqrstuvwxyz'},
           {'%%abcdef'},
@@ -162,7 +145,6 @@ test_block:
       - unorderedResult: []
     -
       - query: select * from A WHERE A1 NOT LIKE '%abcde%'
-      - maxRows: 0
       - unorderedResult: [
           {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
           {'école'},
