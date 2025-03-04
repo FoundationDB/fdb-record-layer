@@ -58,8 +58,9 @@ test_block:
   tests:
     -
       - query: select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*) as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x
-      # 4.1 Triage: [Investigate further: aggregates on subquery] infinite loop
-      - maxRows: 0
+      # Versions prior to !current_version, this would infinite loop in a hard to assert about way due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      - supported_version: !current_version
+      - explain: "ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) ⊎ SCAN(<,>) | TFILTER T2 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)"
       - unorderedResult: [{A: 74 , B: 13}]
     -
       - query: select col1, col2 from t1 union all select col1, col2 from t1
@@ -157,21 +158,19 @@ test_block:
                           {A: 10.0, B: 20.0}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X
-      # 4.1 Triage: [Investigate further: aggregates on subquery] Infinite loop
-      - maxRows: 0
+      # Does not work in force continuations mode on prior versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      # Hard to write asserts for on older versions, but no unexpected mixed mode issues when running with older versions
+      - supported_version: !current_version
       - explain: "AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
       - result: [{S: 2}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X
+      - supported_version: !current_version
       - explain: "SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
-      # 4.1 Triage: [Investigate further: aggregates on subquery] Infinite loop
-      - maxRows: 0
       - result: [{S: 5}]
     -
       - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)
-      # 4.1 Triage: [Investigate further] fails with forced continuations (Invalid continuation)
-      # Failed with both 559 and 4.1.8, RecordCoreException: invalid continuation
-      - maxRows: 0
+      - supported_version: !current_version
       - result: [{1}, {2}, {6}, {7}]
     -
       - query: select col1, col2 from t1 union all select col1 from t1
@@ -183,12 +182,25 @@ test_block:
       - query: select col1, col2 from t1 union all select a, b from t5
       - error: "42F65"
     -
-      # 4.1 Triage: [Initial version] Failing with 559: (Wrong result with forced continuation (NULL vs 0))
-      # 4.1 Triage: [deferred: Client checks for END] Failing with forced continuations: (Received continuation shouldn't be at beginning)
       - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
       - explain: "AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
+      - maxRows: 0 # Disable force_continuations until we no longer care about versions before !current_version
+      # Value returned on empty changed in 4.0.561.0 due to: https://github.com/FoundationDB/fdb-record-layer/pull/3029
       - initialVersionLessThan: 4.0.561.0
       - result: [{!null _ }]
       - initialVersionAtLeast: 4.0.561.0
       - result: [{0}]
+    -
+      # Copy of above query to simulate force_continuations before !current_version due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      # Can remove once we no longer care about mixed mode with older versions
+      - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
+      - supported_version: 4.1.4.0
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{0}]
+      - result: [{!null _}]
+      - result: [{0}] # ad infinitum
+      - initialVersionAtLeast: !current_version
+      - result: [{0}]
+      - result: []
 ...
