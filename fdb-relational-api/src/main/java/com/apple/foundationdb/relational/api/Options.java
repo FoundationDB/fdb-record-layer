@@ -188,6 +188,13 @@ public final class Options {
          * that can be used in EXECUTE CONTINUATION statements.
          */
         CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS,
+
+        /**
+         * Timeout for asynchronous operations in milliseconds, this is usually used to set an upperbound time limit for
+         * operations interacting with FDB.
+         * Scope: Engine
+         */
+        ASYNC_OPERATIONS_TIMEOUT_MILLIS
     }
 
     public enum IndexFetchMethod {
@@ -221,6 +228,7 @@ public final class Options {
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+        builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -355,6 +363,7 @@ public final class Options {
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
         data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
+        data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
 
         return Collections.unmodifiableMap(data);
     }

@@ -92,6 +92,7 @@ test_block:
       - result: [{_0: 1.0, _1: 1.0}]
     -
       - query: select coalesce(null, null, 5), coalesce(null, 1, null), coalesce(null, a1, a8) from A
+      - supported_version: !current_version # literal null in plan hash
       - result: [{_0: 5, _1: 1, _2: 1.0}]
     -
       - query: select b1, b2, coalesce(b1, b2, 42) from B
@@ -123,6 +124,7 @@ test_block:
           {!null _}]
     -
       - query: select coalesce(null, (1, 1.0, 'a', true)) from C
+      - supported_version: !current_version # literal null in plan hash
       - unorderedResult: [
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
