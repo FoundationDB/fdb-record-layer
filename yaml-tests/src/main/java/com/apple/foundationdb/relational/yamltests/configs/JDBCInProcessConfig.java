@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -30,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * Run against an embedded JDBC server.
  */
-public class JDBCInProcessConfig extends BaseServerConfig {
+public class JDBCInProcessConfig implements YamlTestConfig {
     @Nullable
     private InProcessRelationalServer server;
 
@@ -53,7 +54,7 @@ public class JDBCInProcessConfig extends BaseServerConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return createJDBCInProcessConnectionFactory(server);
+        return new JDBCInProcessYamlConnectionFactory(server);
     }
 
     @Override

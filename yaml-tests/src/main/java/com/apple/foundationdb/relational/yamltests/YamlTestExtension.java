@@ -117,7 +117,10 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (singleExternalVersionOnly) {
             return servers.stream()
                     // Create an ExternalServer config with two servers of the same version for each server
-                    .map(server -> new ForceContinuations(new ExternalMultiServerConfig(0, server, server)));
+                    // (with and without forced continuations)
+                    .flatMap(server ->
+                            Stream.of(new ExternalMultiServerConfig(0, server, server),
+                                    new ForceContinuations(new ExternalMultiServerConfig(0, server, server))));
         } else {
             return servers.stream().flatMap(server ->
                     // (4 configs for each server available)

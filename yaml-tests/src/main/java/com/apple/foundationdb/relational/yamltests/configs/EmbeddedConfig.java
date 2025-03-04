@@ -24,13 +24,14 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
 
 /**
  * Run directly against an instance of {@link FRL}.
  */
-public class EmbeddedConfig extends BaseServerConfig {
+public class EmbeddedConfig implements YamlTestConfig {
     private FRL frl;
 
     @Override
@@ -54,7 +55,7 @@ public class EmbeddedConfig extends BaseServerConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return createEmbeddedConnectionFactory();
+        return new EmbeddedYamlConnectionFactory();
     }
 
     @Override

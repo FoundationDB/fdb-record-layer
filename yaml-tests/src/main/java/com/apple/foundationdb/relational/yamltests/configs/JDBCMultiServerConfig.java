@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
 import java.util.List;
@@ -46,9 +48,11 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return createMultiServerConnectionFactory(initialConnection,
+        return new MultiServerConnectionFactory(
+                MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
+                initialConnection,
                 super.createConnectionFactory(),
-                List.of(createExternalServerConnectionFactory(externalServer)));
+                List.of(new ExternalServerYamlConnectionFactory(externalServer)));
     }
 
     @Override
