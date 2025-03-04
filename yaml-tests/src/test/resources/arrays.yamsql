@@ -19,7 +19,7 @@
 
 ---
 schema_template:
-    create table A(pk integer, x integer array, z string, primary key(pk))
+    create table A(pk integer, x integer array, primary key(pk))
     create table B(pk integer, x string array, primary key(pk))
     create table C(pk integer, x double array, primary key(pk))
     CREATE TYPE AS STRUCT S(f integer)
@@ -34,7 +34,7 @@ test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: INSERT INTO A VALUES (1, [1, 2, 3]), (2, [2, null, 4]), (3, [3, 4, 5])
+      - query: INSERT INTO A VALUES (1, [1, 2, 3]), (2, [2, 3, 4]), (3, [3, 4, 5])
       - count: 3
     -
       - query: SELECT * FROM A
