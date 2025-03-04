@@ -16,7 +16,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
+options:
+  # Prior to !current_version, these tests did not work in force_continuations mode due to
+  # https://github.com/FoundationDB/fdb-record-layer/pull/3211. This would result in looping
+  # continuations. We have coverage of similar queries in other files, (see:
+  # aggregate-index-tests.yamsql, aggregate-empty-count.yamsql, aggregate-empty.yamsql), so for
+  # this file, just require the version is at least !current_version
+  supported_version: !current_version
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
@@ -44,120 +51,87 @@ setup:
     - query: drop database if exists /frl/DB
     - query: create schema template temp1 create table T1(a1 bigint, primary key(a1))
 
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations for all versions with:
-# Received continuation shouldn't be at beginning
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
-#      - result: [{1}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
+      - explain: "SCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{1}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template temp1
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations (Does not fail with SNAPSHOT)
-# Embedded -> 4.0.559.6:
-#   Received continuation shouldn't be at beginning
-# 4.1 Triage: fails with force continuations (Does not fail with SNAPSHOT)
-# 4.0.559.6 -> Embedded:
-# expected: <false> but was: <true>
-#  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementWithForcedContinuations(QueryExecutor.java:258)
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementAndCheckForceContinuations(QueryExecutor.java:219)
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
-#      - result: [{0}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
+      - result: [{0}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create schema template temp2 create table T1(a1 bigint, primary key(a1))
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations for all versions (including SNAPSHOT):
-#   Received continuation shouldn't be at beginning
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP2'
-#      - result: [{1}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP2'
+      - result: [{1}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations for all versions (including SNAPSHOT):
-#   Received continuation shouldn't be at beginning
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{1}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - explain: "SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{1}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations (but not for snapshot)
-# Embedded -> 4.0.559.6:
-#   Received continuation shouldn't be at beginning
-# 4.1 triage: Fails with force continuations (but not for snapshot)
-# 4.0.559.6 -> Embedded:
-# expected: <false> but was: <true>
-#  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementWithForcedContinuations(QueryExecutor.java:258)
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementAndCheckForceContinuations(QueryExecutor.java:219)
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{0}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations for all versions (including SNAPSHOT):
-#   Received continuation shouldn't be at beginning
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{1}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{1}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database if exists /frl/db
-# 4.1 triage: [Initial version] Fails with force continuations (but not for snapshot)
-# Embedded -> 4.0.559.6:
-# expected: <false> but was: <true>
-#  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementWithForcedContinuations(QueryExecutor.java:258)
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementAndCheckForceContinuations(QueryExecutor.java:219)
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations (but not for snapshot)
-# 4.0.559.6 -> Embedded:
-#   Received continuation shouldn't be at beginning
-#---
+---
 test_block:
  connect: "jdbc:embed:/__SYS?schema=CATALOG"
  preset: single_repetition_ordered
@@ -171,56 +145,44 @@ setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations for all versions (including SNAPSHOT):
-#   Received continuation shouldn't be at beginning
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{1}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{1}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create schema /frl/db/s1 with template temp2
-# 4.1 triage: [Deferred: Client checks for End] Fails with force continuations for all versions (including SNAPSHOT):
-#   Received continuation shouldn't be at beginning
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-#      - result: [{1}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - explain: "COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{1}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
-# 4.1 triage: [Deferred: Client checks for End] Both queries fail with force continuations (but not for snapshot)
-# Embedded -> 4.0.559.6:
-#   Received continuation shouldn't be at beginning
-# 4.1 triage: Both queries fail with force continuations (but not for snapshot)
-# 4.0.559.6 -> Embedded:
-# expected: <false> but was: <true>
-#  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementWithForcedContinuations(QueryExecutor.java:258)
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementAndCheckForceContinuations(QueryExecutor.java:219)
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{0}]
-#    -
-#      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-#      - result: [{0}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
@@ -229,44 +191,33 @@ setup:
     - query: create database /frl/db
     - query: create schema /frl/db/s1 with template temp2
     - query: create schema /frl/db/s2 with template temp2
-# 4.1 triage: [Deferred: Client checks for End] Both queries fail with force continuations for all versions (including SNAPSHOT):
-#   Received continuation shouldn't be at beginning
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{1}]
-#    -
-#      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-#      - result: [{2}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{1}]
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - result: [{2}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
-# 4.1 triage: [Deferred: Client checks for End] Both queries fail with force continuations (but not for snapshot)
-# Embedded -> 4.0.559.6:
-#   Received continuation shouldn't be at beginning
-# 4.1 triage: Both queries fail with force continuations (but not for snapshot)
-# 4.0.559.6 -> Embedded:
-# expected: <false> but was: <true>
-#  org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementWithForcedContinuations(QueryExecutor.java:258)
-#  	at app//com.apple.foundationdb.relational.yamltests.command.QueryExecutor.executeStatementAndCheckForceContinuations(QueryExecutor.java:219)
-#---
-#test_block:
-#  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-#      - result: [{0}]
-#    -
-#      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-#      - result: [{0}]
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
