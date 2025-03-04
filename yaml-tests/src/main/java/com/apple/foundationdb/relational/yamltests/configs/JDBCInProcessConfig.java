@@ -22,15 +22,17 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
@@ -62,21 +64,22 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     }
 
     @Override
-    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return new YamlRunner.YamlConnectionFactory() {
+    public YamlConnectionFactory createConnectionFactory() {
+        return new YamlConnectionFactory() {
             @Override
-            public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add name of the in-process running server to the connectPath.
                 URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
                 String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
                 LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                return DriverManager.getConnection(uriStr);
+                return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current());
             }
 
             @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of();
+            public Set<SemanticVersion> getVersionsUnderTest() {
+                return Set.of(SemanticVersion.current());
             }
+
         };
     }
 

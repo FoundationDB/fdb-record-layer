@@ -1,0 +1,46 @@
+name: Mixed Mode Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to test from'
+        required: true
+
+jobs:
+  gradle:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ inputs.tag }}
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - name: Fetch Main
+        run: git fetch --depth=1 origin main
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+
+      # Push a version bump back to main. There are failure scenarios that can result
+      # in published artifacts but an erroneous build, so it's safer to bump the version
+      # at the beginning
+      - name: Configure git
+        run: |
+          git config --global user.name 'FoundationDB CI'
+          git config --global user.email 'foundationdb_ci@apple.com'
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: mixedModeTest
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      - name: Checkout Main
+        run: git checkout main
+      - name: Update release notes
+        run: python build/publish-mixed-mode-results.py ${{ inputs.tag }} --release-notes docs/sphinx/source/ReleaseNotes.md --commit --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      - name: Push release notes update
+        run: git push
+

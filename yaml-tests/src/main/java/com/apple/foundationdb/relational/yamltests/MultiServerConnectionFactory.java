@@ -20,21 +20,20 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.Array;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -48,10 +47,10 @@ import java.util.stream.Stream;
  * running concurrently, and verify that the results (e.g. Continuations) are correctly handled through the entire
  * setup.
  */
-public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFactory {
+public class MultiServerConnectionFactory implements YamlConnectionFactory {
     // The fixed index of the default connection
     public static final int DEFAULT_CONNECTION = 0;
-    private final Set<String> versionsUnderTest;
+    private final Set<SemanticVersion> versionsUnderTest;
 
     /**
      * Server selection policy.
@@ -63,22 +62,17 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     @Nonnull
     private final ConnectionSelectionPolicy connectionSelectionPolicy;
     @Nonnull
-    private final YamlRunner.YamlConnectionFactory defaultFactory;
+    private final YamlConnectionFactory defaultFactory;
     @Nonnull
-    private final List<YamlRunner.YamlConnectionFactory> alternateFactories;
+    private final List<YamlConnectionFactory> alternateFactories;
     private final int totalFactories;
     @Nonnull
     private final AtomicInteger currentConnectionSelector;
 
-    public MultiServerConnectionFactory(@Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
-        this(ConnectionSelectionPolicy.DEFAULT, 0, defaultFactory, alternateFactories);
-    }
-
     public MultiServerConnectionFactory(@Nonnull final ConnectionSelectionPolicy connectionSelectionPolicy,
                                         final int initialConnection,
-                                        @Nonnull final YamlRunner.YamlConnectionFactory defaultFactory,
-                                        @Nonnull final List<YamlRunner.YamlConnectionFactory> alternateFactories) {
+                                        @Nonnull final YamlConnectionFactory defaultFactory,
+                                        @Nonnull final List<YamlConnectionFactory> alternateFactories) {
         this.connectionSelectionPolicy = connectionSelectionPolicy;
         this.defaultFactory = defaultFactory;
         this.alternateFactories = alternateFactories;
@@ -93,12 +87,17 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
     }
 
     @Override
-    public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return new MultiServerRelationalConnection(connectionSelectionPolicy, getNextConnectionNumber(), defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
+    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+        if (connectionSelectionPolicy == ConnectionSelectionPolicy.DEFAULT) {
+            return defaultFactory.getNewConnection(connectPath);
+        } else {
+            return new MultiServerConnection(connectionSelectionPolicy, getNextConnectionNumber(),
+                    defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
+        }
     }
 
     @Override
-    public Set<String> getVersionsUnderTest() {
+    public Set<SemanticVersion> getVersionsUnderTest() {
         return versionsUnderTest;
     }
 
@@ -107,12 +106,8 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
         return true;
     }
 
-    public int getCurrentConnectionSelector() {
-        return currentConnectionSelector.get();
-    }
-
     @Nonnull
-    private List<Connection> alternateConnections(URI connectPath) {
+    private List<YamlConnection> alternateConnections(URI connectPath) {
         return alternateFactories.stream().map(factory -> {
             try {
                 return factory.getNewConnection(connectPath);
@@ -144,166 +139,116 @@ public class MultiServerConnectionFactory implements YamlRunner.YamlConnectionFa
      * A connection that wraps around multiple connections.
      */
     @SuppressWarnings("PMD.CloseResource") // false-positive as constituent connections are closed when object is closed
-    public static class MultiServerRelationalConnection implements RelationalConnection {
-        private static final Logger logger = LogManager.getLogger(MultiServerRelationalConnection.class);
+    public static class MultiServerConnection implements YamlConnection {
+        private static final Logger logger = LogManager.getLogger(MultiServerConnection.class);
 
         private int currentConnectionSelector;
 
         @Nonnull
         private final ConnectionSelectionPolicy connectionSelectionPolicy;
         @Nonnull
-        private final List<RelationalConnection> relationalConnections;
+        private final List<YamlConnection> underlyingConnections;
+        @Nonnull
+        private final List<SemanticVersion> versions;
 
-        public MultiServerRelationalConnection(@Nonnull ConnectionSelectionPolicy connectionSelectionPolicy,
-                                             final int initialConnecion,
-                                             @Nonnull final Connection defaultConnection,
-                                             @Nonnull List<Connection> alternateConnections) throws SQLException {
+        public MultiServerConnection(@Nonnull ConnectionSelectionPolicy connectionSelectionPolicy,
+                                     final int initialConnecion,
+                                     @Nonnull final YamlConnection defaultConnection,
+                                     @Nonnull List<YamlConnection> alternateConnections) throws SQLException {
             this.connectionSelectionPolicy = connectionSelectionPolicy;
             this.currentConnectionSelector = initialConnecion;
-            relationalConnections = new ArrayList<>();
+            underlyingConnections = new ArrayList<>();
             // The default connection is always the one at location 0
-            relationalConnections.add(defaultConnection.unwrap(RelationalConnection.class));
-            for (final Connection alternateConnection : alternateConnections) {
-                relationalConnections.add(alternateConnection.unwrap(RelationalConnection.class));
-            }
-        }
+            underlyingConnections.add(defaultConnection);
+            underlyingConnections.addAll(alternateConnections);
 
-        public int getCurrentConnectionSelector() {
-            return currentConnectionSelector;
+            versions = createVersionsList(initialConnecion, underlyingConnections);
         }
 
         @Override
         public RelationalStatement createStatement() throws SQLException {
-            return getNextConnection("createStatement").createStatement();
+            return getCurrentConnection(true, "createStatement").createStatement();
         }
 
         @Override
         public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
-            return getNextConnection("prepareStatement").prepareStatement(sql);
+            return getCurrentConnection(true, "prepareStatement").prepareStatement(sql);
         }
 
+        @Nullable
         @Override
-        public void setAutoCommit(boolean autoCommit) throws SQLException {
-            if (!autoCommit) {
-                throw new UnsupportedOperationException("setAutoCommit(false) is not supported in YAML tests");
-            }
-            logger.info("Sending operation {} to all connections", "setAutoCommit");
-            for (RelationalConnection connection: relationalConnections) {
-                connection.setAutoCommit(autoCommit);
-            }
+        public MetricCollector getMetricCollector() {
+            throw new UnsupportedOperationException("MultiServer does not support getting the metric collector");
         }
 
+        @Nullable
         @Override
-        public boolean getAutoCommit() throws SQLException {
-            return getNextConnection("getAutoCommit").getAutoCommit();
+        public EmbeddedRelationalConnection tryGetEmbedded() {
+            return null;
         }
 
+        @Nonnull
         @Override
-        public void commit() throws SQLException {
-            throw new UnsupportedOperationException("commit is not supported in YAML tests");
+        public List<SemanticVersion> getVersions() {
+            return this.versions;
         }
 
+        @Nonnull
         @Override
-        public void rollback() throws SQLException {
-            throw new UnsupportedOperationException("rollback is not supported in YAML tests");
+        public SemanticVersion getInitialVersion() {
+            return versions.get(0);
         }
 
         @Override
         public void close() throws SQLException {
             logger.info("Sending operation {} to all connections", "close");
-            for (RelationalConnection connection : relationalConnections) {
+            for (var connection : underlyingConnections) {
                 connection.close();
             }
         }
 
         @Override
-        public boolean isClosed() throws SQLException {
-            return getNextConnection("isClosed").isClosed();
+        public boolean supportsMetricCollector() {
+            return false;
         }
 
-        @Override
-        public DatabaseMetaData getMetaData() throws SQLException {
-            return getNextConnection("getMetaData").getMetaData();
-        }
-
-        @Override
-        public void setTransactionIsolation(int level) throws SQLException {
-            getNextConnection("setTransactionIsolation").setTransactionIsolation(level);
-        }
-
-        @Override
-        public int getTransactionIsolation() throws SQLException {
-            return getNextConnection("getTransactionIsolation").getTransactionIsolation();
-        }
-
-        @Override
-        public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-            return getNextConnection("createArrayOf").createArrayOf(typeName, elements);
-        }
-
-        @Override
-        public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-            return getNextConnection("createStruct").createStruct(typeName, attributes);
-        }
-
-        @Override
-        public void setSchema(String schema) throws SQLException {
-            logger.info("Sending operation {} to all connections", "setSchema");
-            for (RelationalConnection connection: relationalConnections) {
-                connection.setSchema(schema);
+        /**
+         * Get the connection to send requests to.
+         * This method conditionally advances the connection selector. This is done for ease of testing, where some
+         * commands that just return information will not advance the selector, leading to better predictability
+         * of the command routing.
+         * @param advance whether to advance the connection selector
+         * @param op the name of the operation (for logging)
+         * @return the underlying connection to use
+         */
+        private YamlConnection getCurrentConnection(boolean advance, String op) {
+            if (connectionSelectionPolicy == ConnectionSelectionPolicy.ALTERNATE) {
+                YamlConnection result = underlyingConnections.get(currentConnectionSelector);
+                if (logger.isInfoEnabled()) {
+                    logger.info("Sending operation {} to connection {}", op, currentConnectionSelector);
+                }
+                if (advance) {
+                    currentConnectionSelector = (currentConnectionSelector + 1) % underlyingConnections.size();
+                }
+                return result;
             }
+            throw new IllegalStateException("Unsupported selection policy " + connectionSelectionPolicy);
         }
 
-        @Override
-        public String getSchema() throws SQLException {
-            return getNextConnection("getSchema").getSchema();
-        }
-
-        @Nonnull
-        @Override
-        public Options getOptions() {
-            return getNextConnection("getOptions").getOptions();
-        }
-
-        @Override
-        public void setOption(Options.Name name, Object value) throws SQLException {
-            logger.info("Sending operation {} to all connections", "setOption");
-            for (RelationalConnection connection: relationalConnections) {
-                connection.setOption(name, value);
+        private static List<SemanticVersion> createVersionsList(final int initialConnection,
+                                                                final List<YamlConnection> relationalConnections) {
+            List<SemanticVersion> versions = new ArrayList<>();
+            for (int i = initialConnection; i < relationalConnections.size(); i++) {
+                final List<SemanticVersion> underlying = relationalConnections.get(i).getVersions();
+                Assert.thatUnchecked(underlying.size() == 1, "Part of multi server config has more than one version");
+                versions.add(underlying.get(0));
             }
-        }
-
-        @Override
-        public URI getPath() {
-            return getNextConnection("getPath").getPath();
-        }
-
-        private RelationalConnection getNextConnection(String op) {
-            switch (connectionSelectionPolicy) {
-                case DEFAULT:
-                    if (logger.isInfoEnabled()) {
-                        logger.info("Sending operation {} to connection {}", op, "DEFAULT");
-                    }
-                    return relationalConnections.get(DEFAULT_CONNECTION);
-                case ALTERNATE:
-                    RelationalConnection result = relationalConnections.get(currentConnectionSelector);
-                    if (logger.isInfoEnabled()) {
-                        logger.info("Sending operation {} to connection {}", op, currentConnectionSelector);
-                    }
-                    currentConnectionSelector = (currentConnectionSelector + 1) % relationalConnections.size();
-                    return result;
-                default:
-                    throw new IllegalStateException("Unsupported selection policy " + connectionSelectionPolicy);
+            for (int i = 0; i < initialConnection; i++) {
+                final List<SemanticVersion> underlying = relationalConnections.get(i).getVersions();
+                Assert.thatUnchecked(underlying.size() == 1, "Part of multi server config has more than one version");
+                versions.add(underlying.get(0));
             }
-        }
-
-        @Override
-        public <T> T unwrap(final Class<T> iface) throws SQLException {
-            if (iface.equals(RelationalConnection.class)) {
-                return iface.cast(this);
-            } else {
-                return RelationalConnection.super.unwrap(iface);
-            }
+            return List.copyOf(versions);
         }
     }
 }

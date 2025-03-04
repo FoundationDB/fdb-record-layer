@@ -76,7 +76,7 @@ public final class YamlExecutionContext {
     private final Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap;
     private boolean isDirtyMetrics;
     @Nonnull
-    private final YamlRunner.YamlConnectionFactory connectionFactory;
+    private final YamlConnectionFactory connectionFactory;
     @Nonnull
     private final List<Block> finalizeBlocks = new ArrayList<>();
     @SuppressWarnings("AbbreviationAsWordInName")
@@ -93,7 +93,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory,
+    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
                          @Nonnull final ContextOptions additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
@@ -117,7 +117,7 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
-    public YamlRunner.YamlConnectionFactory getConnectionFactory() {
+    public YamlConnectionFactory getConnectionFactory() {
         return connectionFactory;
     }
 
@@ -190,12 +190,7 @@ public final class YamlExecutionContext {
     }
 
     public int getNumThreads() {
-        var numThreads = 1;
-        if (System.getProperties().stringPropertyNames().contains(YamlRunner.TEST_MAX_THREADS)) {
-            numThreads = Integer.parseInt(System.getProperty(YamlRunner.TEST_MAX_THREADS));
-            Assert.thatUnchecked(numThreads > 0, "Invalid number of threads provided in the YamlExecutionContext");
-        }
-        return numThreads;
+        return Runtime.getRuntime().availableProcessors() / 2;
     }
 
     boolean isDirty() {

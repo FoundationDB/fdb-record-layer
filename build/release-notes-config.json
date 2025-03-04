@@ -1,0 +1,21 @@
+{"categories":
+ [
+   {"title": "Breaking Changes",
+    "labels": ["breaking change"]},
+   {"title": "New Features",
+    "labels": ["enhancement"]},
+   {"title": "Bug Fixes",
+    "labels": ["bug fix"]},
+   {"title": "Performance Improvements",
+    "labels": ["performance"]},
+   {"title": "Dependency Updates",
+    "labels": ["dependencies"]},
+   {"title": "Build/Test/Documentation Improvements",
+    "collapsed": true,
+    "labels": [
+      "build improvement",
+      "documentation",
+      "testing improvement"]}
+ ],
+ "catch_all": "Other Changes"
+}
