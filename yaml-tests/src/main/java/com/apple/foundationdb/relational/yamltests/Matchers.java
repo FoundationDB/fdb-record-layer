@@ -573,6 +573,9 @@ public class Matchers {
         if (expected instanceof CustomTag.StringContains) {
             return ((CustomTag.StringContains) expected).matchWith(actual, rowNumber, cellRef);
         }
+        if (expected instanceof CustomTag.UuidField) {
+            return ((CustomTag.UuidField) expected).matchWith(actual, rowNumber, cellRef);
+        }
 
         // (nested) message
         if (expected instanceof Map<?, ?>) {

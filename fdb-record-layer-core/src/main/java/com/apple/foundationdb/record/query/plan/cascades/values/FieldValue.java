@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -63,6 +64,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -174,6 +176,14 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             return returnList;
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
             return FDBRecordVersion.fromBytes(((ByteString)fieldValue).toByteArray(), false);
+        } else if (type.isUuid()) {
+            if (fieldValue instanceof UUID) {
+                return fieldValue;
+            }
+            Verify.verify(fieldValue instanceof DynamicMessage);
+            final var message = (DynamicMessage) fieldValue;
+            return new UUID((Long) message.getField(message.getDescriptorForType().findFieldByName("most_significant_bits")),
+                    (Long) message.getField(message.getDescriptorForType().findFieldByName("least_significant_bits")));
         } else {
             // This also may need to turn ByteString's into byte[] for Type.TypeCode.BYTES
             return fieldValue;
