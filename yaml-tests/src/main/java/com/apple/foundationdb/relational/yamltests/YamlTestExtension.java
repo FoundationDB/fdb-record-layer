@@ -85,7 +85,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
             final boolean singleExternalVersionOnly = Boolean.parseBoolean(System.getProperty("tests.singleVersion", "false"));
             Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
-            Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(mixedModeOnly, singleExternalVersionOnly);
+            Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
 
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)
@@ -113,7 +113,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         }
     }
 
-    private Stream<YamlTestConfig> externalServerConfigs(final boolean mixedModeOnly, final boolean singleExternalVersionOnly) {
+    private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
         if (singleExternalVersionOnly) {
             return servers.stream()
                     // Create an ExternalServer config with two servers of the same version for each server
