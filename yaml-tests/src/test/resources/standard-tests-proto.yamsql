@@ -57,7 +57,6 @@ test_block:
       - query: select * from (select * from (select * from T1) as x) as y where ID = 5;
       - explain: "SCAN(<,>) | FILTER _.ID EQUALS promote(@c22 AS LONG)"
       - result: [{ID: !l 5, !l 10, !l 5}]
-    # 4.1 Triage: [Deferred: Client checks for End] failed when running with forced continuations (Received continuation shouldn't be at beginning)
     -
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
       - supported_version: !current_version
