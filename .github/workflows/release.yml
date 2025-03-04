@@ -55,7 +55,7 @@ jobs:
 
   deploy_docs: # Is this supposed to be done in parallel ?
     runs-on: ubuntu-latest
-    needs: gradle
+    needs: [publish]
     permissions:
       pages: write
       id-token: write
