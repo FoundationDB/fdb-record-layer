@@ -86,6 +86,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -1391,6 +1392,65 @@ public class RecordCursorTest {
             final ExecutionException executionException = assertThrows(ExecutionException.class,
                     () -> resultFuture.get(2, TimeUnit.SECONDS));
             assertThat(executionException.getCause(), Matchers.instanceOf(CancellationException.class));
+        }
+    }
+
+    @Test
+    void futureCursorTest() {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        final RecordCursorContinuation continuation;
+        try (RecordCursor<Integer> fromFuture = RecordCursor.fromFuture(EXECUTOR, future, null)) {
+            assertSame(EXECUTOR, fromFuture.getExecutor());
+            future.complete(42);
+            RecordCursorResult<Integer> result = fromFuture.getNext();
+            assertTrue(result.hasNext(), "first result from future should have value");
+            assertEquals(42, result.get());
+            assertFalse(result.getContinuation().isEnd());
+            continuation = result.getContinuation();
+
+            result = fromFuture.getNext();
+            assertFalse(result.hasNext(), "second result from future should have value");
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+            assertTrue(result.getContinuation().isEnd());
+        }
+
+        CompletableFuture<Integer> secondFuture = new CompletableFuture<>();
+        try (RecordCursor<Integer> fromFuture = RecordCursor.fromFuture(EXECUTOR, secondFuture, continuation.toBytes())) {
+            assertSame(EXECUTOR, fromFuture.getExecutor());
+
+            RecordCursorResult<Integer> result = fromFuture.getNext();
+            assertFalse(result.hasNext(), "future should not have value when resuming from a continuation");
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+            assertTrue(result.getContinuation().isEnd());
+        }
+    }
+
+    @Test
+    void futureCursorFromSupplierTest() {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        final RecordCursorContinuation continuation;
+        try (RecordCursor<Integer> fromFuture = RecordCursor.fromFuture(EXECUTOR, () -> future, null)) {
+            assertSame(EXECUTOR, fromFuture.getExecutor());
+            future.complete(1066);
+            RecordCursorResult<Integer> result = fromFuture.getNext();
+            assertTrue(result.hasNext(), "first result from future should have value");
+            assertEquals(1066, result.get());
+            assertFalse(result.getContinuation().isEnd());
+            continuation = result.getContinuation();
+
+            result = fromFuture.getNext();
+            assertFalse(result.hasNext(), "second result from future should have value");
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+            assertTrue(result.getContinuation().isEnd());
+        }
+
+        try (RecordCursor<Integer> fromFuture = RecordCursor.fromFuture(EXECUTOR, () -> fail("should not be run"), continuation.toBytes())) {
+            assertSame(EXECUTOR, fromFuture.getExecutor());
+
+            RecordCursorResult<Integer> result = fromFuture.getNext();
+            assertFalse(result.hasNext(), "future should not have value when resuming from a continuation");
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+            assertTrue(result.getContinuation().isEnd());
         }
     }
 }
