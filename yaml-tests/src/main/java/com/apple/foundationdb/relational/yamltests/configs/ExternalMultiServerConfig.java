@@ -64,7 +64,7 @@ public class ExternalMultiServerConfig extends BaseServerConfig {
         if (initialConnection == 0) {
             return "MultiServer (" + server0.getVersion() + " then " + server1.getVersion() + ")";
         } else {
-            return "MultiServer (" + server1.getVersion() + " then " + server0 + ")";
+            return "MultiServer (" + server1.getVersion() + " then " + server0.getVersion() + ")";
         }
     }
 
