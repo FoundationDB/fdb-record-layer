@@ -85,6 +85,9 @@ test_block:
       - result: [{"Megan", "Miller"}]
       - result: []
       - initialVersionAtLeast: !current_version
+      # Covered by the previous query if the second server version is >= !current_version
+      # If the second server version is < !current_version, then this repeats the previous value when returned.
+      # That behavior is checked by the other branch on individual responses.
     -
       # Get names of people working on a project in Sales department
       - query: select fname, lname from
@@ -106,6 +109,10 @@ test_block:
       - result: [{"Daniel", "Miller"}]
       - result: []
       - initialVersionAtLeast: !current_version
+      # Covered by the previous query if the second server version is >= !current_version
+      # If the second server version is < !current_version, then this repeats the previous value when returned.
+      # That behavior is checked by another query. As this returns a single row, the only thing we can test can
+      # really validate is that the continuation is parsed correctly during up-level testing
     -
       # three-way join to find which departments' corresponding projects.
       - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
