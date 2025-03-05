@@ -132,6 +132,11 @@ public class CustomYamlConstructor extends SafeConstructor {
             Assert.thatUnchecked(obj instanceof LinedObject, ErrorCode.INTERNAL_ERROR, msg);
             return (LinedObject) obj;
         }
+
+        @Override
+        public String toString() {
+            return object + "@line:" + lineNumber;
+        }
     }
 
     private static class ConstructIgnore extends AbstractConstruct {

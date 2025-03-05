@@ -22,7 +22,10 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.TestRecords7Proto;
+import com.apple.foundationdb.record.planprotos.PLikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -33,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -41,6 +45,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -188,18 +193,38 @@ class LikeOperatorValueTest {
     }
 
     @ParameterizedTest
-    @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
+    @SuppressWarnings({"ConstantConditions"})
     @ArgumentsSource(ValidInputArgumentsProvider.class)
     void testLike(String lhs, String rhs, final String escapeChar, Boolean result) {
+        final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
+        Assertions.assertEquals(result, value.eval(null, evaluationContext));
+    }
+
+    @ParameterizedTest
+    @SuppressWarnings({"ConstantConditions"})
+    @ArgumentsSource(ValidInputArgumentsProvider.class)
+    void testLikeSerialization(String lhs, String rhs, final String escapeChar, Boolean result) {
+        final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
+        final PLikeOperatorValue proto = value.toProto(
+                new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
+                        PlanHashable.CURRENT_FOR_CONTINUATION));
+        final LikeOperatorValue deserialized = LikeOperatorValue.fromProto(new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
+                PlanHashable.CURRENT_FOR_CONTINUATION), proto);
+        Assertions.assertEquals(result, deserialized.eval(null, evaluationContext));
+    }
+
+
+    @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
+    @Nonnull
+    private static LikeOperatorValue createLikeOperatorValue(final String lhs, final String rhs, final String escapeChar) {
         BuiltInFunction like = new LikeOperatorValue.LikeFn();
         BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
         Typed value = like.encapsulate(Arrays.asList(
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), lhs),
-                    pattern.encapsulate(Arrays.asList(
-                            new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), rhs),
-                            new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), escapeChar)))));
-        Assertions.assertTrue(value instanceof LikeOperatorValue);
-        Object actualValue = ((LikeOperatorValue)value).eval(null, evaluationContext);
-        Assertions.assertEquals(result, actualValue);
+                new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), lhs),
+                pattern.encapsulate(Arrays.asList(
+                        new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), rhs),
+                        new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), escapeChar)))));
+        Assertions.assertInstanceOf(LikeOperatorValue.class, value);
+        return (LikeOperatorValue) value;
     }
 }
