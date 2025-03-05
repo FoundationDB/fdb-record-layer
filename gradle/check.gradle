@@ -115,6 +115,7 @@ tasks.withType(rootProject.SpotBugsTask) { task ->
 // PMD
 apply plugin: 'pmd'
 pmd {
+    consoleOutput = true
     ignoreFailures = false
     targetJdk = '1.7'
     sourceSets = [sourceSets.main]
