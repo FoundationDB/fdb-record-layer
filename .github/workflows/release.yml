@@ -25,6 +25,14 @@ jobs:
         uses: ./actions/mixed-mode-test
         with:
           update_type: BUILD
+      # I think this _needs_ to be done at this level, rather than in the action
+      # so that "mixed-mode-results" gets passed around correctly
+      - name: Upload mixed mode results
+        id: mixed_mode_results
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: mixed-mode-results
+          path: ./mixed-mode-results
   publish:
     needs: [test, mixed-mode-test]
     runs-on: ubuntu-latest
@@ -41,6 +49,12 @@ jobs:
           # fetch all the history to make sure that we have the last release
           # I tried fetching part of the history, but I just couldn't get it to work, and fetching all still takes like 5s
           fetch-depth: 0
+      # I think downloading needs to happen at this level so that it can
+      # see the "mixed-mode-results" from above
+      - name: Download mixed mode results
+        uses: actions/download-artifact@v2
+        with:
+          name: mixed-mode-results
       - name: Publish
         uses: ./actions/release-publish
         with:
@@ -62,6 +76,7 @@ jobs:
         uses: ./actions/run-gradle
         with:
           gradle_command: documentationSite -PreleaseBuild=true
+# TODO ensure this uploads the updated release notes
       - name: Upload Documentation
         id: doc_upload
         uses: actions/upload-pages-artifact@v3
