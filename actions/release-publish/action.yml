@@ -63,6 +63,9 @@ runs:
     - name: list files
       shell: bash
       run: ls
+    - name: list artifact.tar
+      shell: bash
+      run: tar -tf artifact.tar
     - name: echo results
       shell: bash
       run: cat mixed-mode-results/results.md
