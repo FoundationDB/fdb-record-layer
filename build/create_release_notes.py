@@ -120,7 +120,7 @@ def generate_note(prs, commit, label_config):
         f'[PR #{pr["number"]}]({pr["html_url"]})'
     return (category, text)
 
-def format_notes(notes, label_config, old_version, new_version, repository):
+def format_notes(notes, label_config, old_version, new_version, repository, mixed_mode_results):
     ''' Format a list of notes for the changes between the two given versions '''
     grouping = defaultdict(list)
     for (category, line) in notes:
@@ -142,7 +142,7 @@ def format_notes(notes, label_config, old_version, new_version, repository):
             if put_in_summary:
                 text += '\n</details>\n'
     text += f"\n\n**[Full Changelog ({old_version}...{new_version})](https://github.com/{repository}/compare/{old_version}...{new_version})**"
-    text += f"\n\n<!-- MIXED_MODE_RESULTS {new_version} PLACEHOLDER -->\n"
+    text += f"\n\n{mixed_mode_results}\n"
     return text
 
 def replace_note(lines, note):
@@ -243,6 +243,9 @@ def main(argv):
     parser.add_argument('--skip-commit', action='append', default=[],
                         help="If provided, skip this commit (can be repeated)")
     parser.add_argument('--repository', default='FoundationDB/fdb-record-layer', help="Repository")
+    parser.add_argument('--mixed-mode-results',
+                        help="Path to markdown for mixed mode test results for this version; " +
+                        "only available when there's 1 new_version")
     parser.add_argument('old_version', help='Old version to use when generating release notes')
     parser.add_argument('new_version', nargs='+', 
                         help='New version to use when generating release notes.\n' + 
@@ -254,13 +257,24 @@ def main(argv):
 
     old_version = args.old_version
     release_notes = []
+    if len(args.new_version) == 0:
+        print("At least one new version must be provided", file=sys.stderr)
+        exit(1)
+    elif len(args.new_version) > 1 and args.mixed_mode_results is not None:
+        print("--mixed-mode-result cannot be provided with more than one new_version", file=sys.stderr)
+        exit(1)
+    mixed_mode_results = "<!-- MIXED_MODE_RESULTS {new_version} PLACEHOLDER -->"
+    if args.mixed_mode_results is not None:
+        with open(args.mixed_mode_results, 'r') as fin:
+            mixed_mode_results = fin.read()
     for new_version in args.new_version:
         print(f"Generating release notes for {new_version}")
         commits = get_commits(old_version, new_version, args.skip_commit)
         prs = get_prs(commits, args.pr_cache, args.repository)
         prs = dedup_prs(prs)
         new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
-        release_notes.append(Note(old_version, new_version, format_notes(new_notes, label_config, old_version, new_version, args.repository)))
+        
+        release_notes.append(Note(old_version, new_version, format_notes(new_notes, label_config, old_version, new_version, args.repository, mixed_mode_results)))
         old_version = new_version
     print("\n\n------------------------------\n\n")
     if args.release_notes_md is None:

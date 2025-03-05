@@ -48,18 +48,6 @@ runs:
 
     # We want to do this before anything else, because if the later steps fail, we want to make sure that the full
     # change log includes all changes, even if they reference a release that was never actually published.
-    - name: Update release notes
-      shell: bash
-      run: |
-        python ./build/create_release_notes.py \
-        --config ./build/release-notes-config.json \
-        --release-notes-md docs/sphinx/source/ReleaseNotes.md \
-        --skip-commit $(git log -n 1 --format=%H HEAD) \
-        --repository ${{ github.repository }} \
-        --commit \
-        ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
-    # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
-    # release notes
     - name: list artifact.tar
       shell: bash
       run: tar -xf artifact.tar
@@ -69,10 +57,19 @@ runs:
     - name: echo results
       shell: bash
       run: cat mixed-mode-results.md
-    # TODO Instead of manually doing this after, give it to the `create_release_notes` script
-    - name: Insert mixed mode results
+    - name: Update release notes
       shell: bash
-      run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --markdown '${{ inputs.mixed_mode_results }}'
+      run: |
+        python ./build/create_release_notes.py \
+        --config ./build/release-notes-config.json \
+        --release-notes-md docs/sphinx/source/ReleaseNotes.md \
+        --skip-commit $(git log -n 1 --format=%H HEAD) \
+        --repository ${{ github.repository }} \
+        --commit \
+        --mixed-mode-results mixed-mode-results.md
+        ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
+    # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
+    # release notes
     - name: Move tag to HEAD
       shell: bash
       run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
