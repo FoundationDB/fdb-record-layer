@@ -1,7 +1,7 @@
 name: Release
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # TODO restrict to main (if possible) OR treat all others as patch releases
 
 jobs:
   # TOODO how do I ensure that nothing is running on a different commit
@@ -16,8 +16,6 @@ jobs:
         uses: ./actions/release-test
   mixed-mode-test:
     runs-on: ubuntu-latest
-    outputs:
-      results: ${{ steps.mixed_mode_results.outputs.results }}
     permissions:
       contents: read
     steps:
