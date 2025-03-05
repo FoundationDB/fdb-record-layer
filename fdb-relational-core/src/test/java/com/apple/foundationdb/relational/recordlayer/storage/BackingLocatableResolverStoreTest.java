@@ -34,15 +34,15 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.StorageCluster;
-import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
+import com.apple.foundationdb.relational.api.StorageCluster;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -53,9 +53,8 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
-import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -446,6 +445,73 @@ public class BackingLocatableResolverStoreTest {
         }
     }
 
+    @Test
+    void listResolverState() throws RelationalException, SQLException {
+        RelationalDatabase db = createScopedInterningDatabase();
+        ScopedInterningLayer interningLayer = createScopedInterningLayer();
+
+        try (RelationalConnection connection = db.connect(null)) {
+            connection.setSchema("dl");
+            try (RelationalStatement statement = connection.createStatement()) {
+                long version = interningLayer.getVersion(null).join();
+
+                try (RelationalResultSet resultSet = scanResolverStates(statement)) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .row()
+                            .hasValue(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, version)
+                            .hasValue(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, "UNLOCKED");
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNoNextRow();
+                    Assertions.assertThat(resultSet.getContinuation().atBeginning())
+                            .isFalse();
+                    Assertions.assertThat(resultSet.getContinuation().atEnd())
+                            .isTrue();
+                }
+            }
+        }
+    }
+
+    @Test
+    void listResolverStateWithContinuation() throws RelationalException, SQLException {
+        RelationalDatabase db = createScopedInterningDatabase();
+        ScopedInterningLayer interningLayer = createScopedInterningLayer();
+
+        try (RelationalConnection connection = db.connect(null)) {
+            connection.setSchema("dl");
+            try (RelationalStatement statement = connection.createStatement()) {
+                long version = interningLayer.getVersion(null).join();
+
+                Continuation continuation;
+                try (RelationalResultSet resultSet = scanResolverStates(statement, 1, ContinuationImpl.BEGIN)) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .row()
+                            .hasValue(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, version)
+                            .hasValue(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, "UNLOCKED");
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    Assertions.assertThat(continuation.atBeginning())
+                            .isFalse();
+                    Assertions.assertThat(continuation.atEnd())
+                            .isFalse();
+                }
+                // There's always only a single record, so just assert that there is not another row returned
+                // when resumed from a continuation
+                try (RelationalResultSet resultSet = scanResolverStates(statement, 1, continuation)) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    Assertions.assertThat(continuation.atBeginning())
+                            .isFalse();
+                    Assertions.assertThat(continuation.atEnd())
+                            .isTrue();
+                }
+            }
+        }
+    }
+
     private Map<String, Long> resolveMappings(RelationalDatabase db, int count) throws RelationalException, SQLException {
         return resolveMappings(db, count, ignore -> null);
     }
@@ -572,7 +638,7 @@ public class BackingLocatableResolverStoreTest {
                     .hasNoNextRow();
         }
 
-        try (RelationalResultSet resultSet = statement.executeScan(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, new KeySet(), Options.NONE)) {
+        try (RelationalResultSet resultSet = scanResolverStates(statement)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .row()
@@ -592,5 +658,19 @@ public class BackingLocatableResolverStoreTest {
                 .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
                 .build();
         statement.executeInsert(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, struct, options);
+    }
+
+    @Nonnull
+    private RelationalResultSet scanResolverStates(RelationalStatement statement) throws SQLException {
+        return scanResolverStates(statement, 0, ContinuationImpl.BEGIN);
+    }
+
+    @Nonnull
+    private RelationalResultSet scanResolverStates(RelationalStatement statement, int maxRows, Continuation continuation) throws SQLException {
+        Options options = Options.builder()
+                .withOption(Options.Name.MAX_ROWS, maxRows)
+                .withOption(Options.Name.CONTINUATION, continuation)
+                .build();
+        return statement.executeScan(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, new KeySet(), options);
     }
 }
