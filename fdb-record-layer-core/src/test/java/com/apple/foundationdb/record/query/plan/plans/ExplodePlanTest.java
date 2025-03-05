@@ -31,9 +31,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
-@SuppressWarnings("DataFlowIssue") // explode transposes the underlying constant array Value, it does not strictly require a record store instance.
 public class ExplodePlanTest {
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -67,6 +67,7 @@ public class ExplodePlanTest {
         }
 
         @Nonnull
+        @SuppressWarnings("DataFlowIssue") // explode transposes the underlying constant array Value, it does not strictly require a record store instance.
         RecordCursor<QueryResult> build() {
             final var executionPropertiesBuilder = ExecuteProperties.newBuilder();
             skip.ifPresent(executionPropertiesBuilder::setSkip);
@@ -93,7 +94,8 @@ public class ExplodePlanTest {
         for (final var expectedValue : expectedResults) {
             final var result = actualCursor.getNext();
             Assertions.assertTrue(result.hasNext());
-            Assertions.assertEquals(expectedValue, result.get().getDatum());
+            Assertions.assertNotNull(result.get());
+            Assertions.assertEquals(expectedValue, Objects.requireNonNull(result.get()).getDatum());
         }
         if (verifyLimitExceeded) {
             final var result = actualCursor.getNext();
