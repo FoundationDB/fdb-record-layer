@@ -25,15 +25,18 @@ runs:
       shell: bash
       run: |
         echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+    - name: Create results directory
+      shell: bash
+      run: mkdir mixed-mode-results
     - name: Create markdown
       shell: bash
-      run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} > mixed-mode-results.md
+      run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} > mixed-mode-results/results.md
     - name: Upload mixed mode results
       id: mixed_mode_results
       uses: actions/upload-pages-artifact@v3
       with:
         name: mixed-mode-results
-        path: mixed-mode-results.md
+        path: ./mixed-mode-results
     - name: Preview results
       shell: bash
       run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY

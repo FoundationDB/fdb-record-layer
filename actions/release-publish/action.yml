@@ -64,9 +64,12 @@ runs:
       uses: actions/download-artifact@v2
       with:
         name: mixed-mode-results
+    - name: list files
+      shell: bash
+      run: ls
     - name: echo results
       shell: bash
-      run: cat mixed-mode-results.md
+      run: cat mixed-mode-results/results.md
     # TODO Instead of manually doing this after, give it to the `create_release_notes` script
     - name: Insert mixed mode results
       shell: bash
