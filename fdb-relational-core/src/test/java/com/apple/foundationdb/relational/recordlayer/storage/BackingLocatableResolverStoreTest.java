@@ -267,6 +267,9 @@ public class BackingLocatableResolverStoreTest {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
+                        Assertions.assertThat(continuation.getReason())
+                                .as("Continuation reasons are all erroneously null due to: https://github.com/FoundationDB/fdb-record-layer/issues/3227")
+                                .isNull();
                     }
                 }
             }
@@ -496,6 +499,9 @@ public class BackingLocatableResolverStoreTest {
                             .isFalse();
                     Assertions.assertThat(continuation.atEnd())
                             .isFalse();
+                    Assertions.assertThat(continuation.getReason())
+                            .as("Continuation reasons are all erroneously null due to: https://github.com/FoundationDB/fdb-record-layer/issues/3227")
+                            .isNull();
                 }
                 // There's always only a single record, so just assert that there is not another row returned
                 // when resumed from a continuation
@@ -507,6 +513,9 @@ public class BackingLocatableResolverStoreTest {
                             .isFalse();
                     Assertions.assertThat(continuation.atEnd())
                             .isTrue();
+                    Assertions.assertThat(continuation.getReason())
+                            .as("Continuation reasons are all erroneously null due to: https://github.com/FoundationDB/fdb-record-layer/issues/3227")
+                            .isNull();
                 }
             }
         }
