@@ -27,6 +27,7 @@ runs:
         echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
     - name: Cache results
       id: mixed_mode_results
+      shell: bash
       run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} >> "$GITHUB_OUTPUT"
 
 # TODO push results to release notes
