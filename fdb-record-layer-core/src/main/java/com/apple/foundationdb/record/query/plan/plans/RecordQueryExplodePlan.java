@@ -93,7 +93,8 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
         }
         final var result = collectionValue.eval(store, context);
         return RecordCursor.fromList(result == null ? ImmutableList.of() : (List<?>)result, continuation)
-                .map(QueryResult::ofComputed);
+                .map(QueryResult::ofComputed)
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Nonnull
