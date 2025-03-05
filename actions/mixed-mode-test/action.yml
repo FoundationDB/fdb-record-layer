@@ -39,7 +39,7 @@ runs:
         path: ./mixed-mode-results
     - name: Preview results
       shell: bash
-      run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
+      run: cat mixed-mode-results/results.md >> $GITHUB_STEP_SUMMARY
 
 # TODO push results to release notes
 #       - name: Checkout Main
