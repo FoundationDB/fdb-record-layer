@@ -34,6 +34,10 @@ runs:
           python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           echo "XTYTXTJKLMNZ"
         } >> "$GITHUB_OUTPUT"
+    - name: Preview results
+      shell: bash
+      run: |
+        echo "${{ steps.mixed_mode_results.outputs.results }}" >> $GITHUB_STEP_SUMMARY
 
 # TODO push results to release notes
 #       - name: Checkout Main
