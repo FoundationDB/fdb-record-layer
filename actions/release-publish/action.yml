@@ -60,15 +60,15 @@ runs:
         ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
     # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
     # release notes
+    - name: list artifact.tar
+      shell: bash
+      run: tar -xf artifact.tar
     - name: list files
       shell: bash
       run: ls
-    - name: list artifact.tar
-      shell: bash
-      run: tar -tf artifact.tar
     - name: echo results
       shell: bash
-      run: cat mixed-mode-results/results.md
+      run: cat mixed-mode-results.md
     # TODO Instead of manually doing this after, give it to the `create_release_notes` script
     - name: Insert mixed mode results
       shell: bash

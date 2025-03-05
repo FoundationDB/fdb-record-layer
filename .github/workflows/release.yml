@@ -32,7 +32,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           name: mixed-mode-results
-          path: ./mixed-mode-results
+          path: ./artifact
   publish:
     needs: [test, mixed-mode-test]
     runs-on: ubuntu-latest
