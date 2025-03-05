@@ -4,8 +4,6 @@ name: Run standard tests for release
 runs:
   using: "composite"
   steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4.2.2
     - name: Setup Base Environment
       id: setup-base
       uses: ./actions/setup-base-env

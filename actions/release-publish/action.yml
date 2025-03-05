@@ -14,14 +14,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4.2.2
-        with:
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
-          fetch-tags: true
-          # fetch all the history to make sure that we have the last release
-          # I tried fetching part of the history, but I just couldn't get it to work, and fetching all still takes like 5s
-          fetch-depth: 0
     - name: Configure git
       run: |
         git config --global user.name 'FoundationDB CI'
