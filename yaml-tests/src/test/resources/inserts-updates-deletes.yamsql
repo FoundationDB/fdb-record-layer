@@ -106,7 +106,7 @@ test_block:
                  { B1: 20, B2: 22, B3: { 6, 51 } },
                  { B1: 30, B2: 22, B3: { 7, 61 } } ]
     -
-    # Case where not all values are provided of A. Still works, since the columns for which no values are provided can be nullable.
+      # Case where not all values are provided of A. Fails as not all columns (specified in the query) can be matched
       - query: insert into A(A1, A2, A3) values (4);
       - initialVersionLessThan: 4.1.5.0
       # Used to get an internal error prior to: https://github.com/FoundationDB/fdb-record-layer/pull/3070
@@ -114,7 +114,11 @@ test_block:
       - initialVersionAtLeast: 4.1.5.0
       - error: "42601"
     -
-    # Case when the number of values is more than the number of columns specified.
+      # Case where not all values are provided of A. Fails as not all columns (from the schema template) can be matched
+      - query: insert into A values (4);
+      - error: "22000"
+    -
+      # Case when the number of values is more than the number of columns specified.
       - query: insert into A(A1, A2, A3) values (5, 6, 7, 8, 9);
       - initialVersionLessThan: 4.1.5.0
       # Used to ignore extra column prior to: https://github.com/FoundationDB/fdb-record-layer/pull/3070

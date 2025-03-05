@@ -16,11 +16,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 4.1-triage: [Ignored: Enum] Enum support wasn't added until 4.1.6.0 All tests fail to insert enums with:
-# Caused by: java.sql.SQLException: java.sql.Type=1111 not supported
 ---
 options:
-    supported_version: 4.1.6.0
+  # Enum support wasn't added until 4.1.6.0. On older versions, all tests fail to insert enums with:
+  # Caused by: java.sql.SQLException: java.sql.Type=1111 not supported
+  supported_version: 4.1.6.0
 ---
 schema_template:
     CREATE TYPE AS ENUM "WHATEVER" ( 'OWNING', 'WEAK', 'VALIDATING' )

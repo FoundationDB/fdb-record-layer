@@ -67,7 +67,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
-            testConfigs = List.of(new ForceContinuations(new EmbeddedConfig()));
+            testConfigs = List.of(new EmbeddedConfig());
             maintainConfigs = List.of();
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);

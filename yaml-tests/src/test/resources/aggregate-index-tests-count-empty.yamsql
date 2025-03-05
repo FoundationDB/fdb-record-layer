@@ -43,8 +43,6 @@ test_block:
       - result: []
     -
       - query: select count(col1) from t1
-      # FORCE_CONTINUATIONS does not work with versions before 4.1.4.0 due to limits not enforced "ON EMPTY" prior to https://github.com/FoundationDB/fdb-record-layer/pull/3092
-      # Can remove once we no longer want to test versions prior to 4.1.4.0
       - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - initialVersionLessThan: 4.0.561.0
       - result: []

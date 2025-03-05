@@ -165,11 +165,15 @@ test_block:
       - result: [{S: 2}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X
+      # Does not work in force continuations mode on prior versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      # Hard to write asserts for on older versions, but no unexpected mixed mode issues when running with older versions
       - supported_version: !current_version
       - explain: "SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
       - result: [{S: 5}]
     -
       - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)
+      # Does not work in force continuations mode on prior versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      # Hard to write asserts for on older versions, but no unexpected mixed mode issues when running with older versions
       - supported_version: !current_version
       - result: [{1}, {2}, {6}, {7}]
     -
@@ -192,7 +196,7 @@ test_block:
       - result: [{0}]
     -
       # Copy of above query to simulate force_continuations before !current_version due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
-      # Can remove once we no longer care about mixed mode with older versions
+      # Can remove (and remove `maxRows: 0` from above query) once we no longer care about mixed mode with older versions
       - query: select sum(Y) as S from (select count(*) as Y from t6 union all select count(*) from t7) as X
       - supported_version: 4.1.4.0
       - maxRows: 1

@@ -50,7 +50,6 @@ setup:
     - query: drop schema template if exists temp
     - query: drop database if exists /frl/DB
     - query: create schema template temp1 create table T1(a1 bigint, primary key(a1))
-
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
@@ -133,13 +132,12 @@ setup:
     - query: drop database if exists /frl/db
 ---
 test_block:
- connect: "jdbc:embed:/__SYS?schema=CATALOG"
- preset: single_repetition_ordered
- tests:
-   -
-     - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-     - maxRows: 0
-     - result: [{0}]
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"

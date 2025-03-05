@@ -128,10 +128,10 @@ test_block:
       - query: select coalesce(null, (1, 1.0, 'a', true)) from C
       - supported_version: !current_version # Force continuations does not on older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3218
       - unorderedResult: [
-        {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
-        {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
-        {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
-        {{ _0: 1, _1: 1.0, _2: 'a', _3: true}}]
+          {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
+          {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
+          {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
+          {{ _0: 1, _1: 1.0, _2: 'a', _3: true}}]
 ---
 test_block:
   preset: single_repetition_ordered
