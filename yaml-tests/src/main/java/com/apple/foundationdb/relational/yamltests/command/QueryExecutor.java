@@ -26,9 +26,11 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.yamltests.AggregateResultSet;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -53,6 +55,8 @@ public class QueryExecutor {
     private static final Logger logger = LogManager.getLogger(QueryExecutor.class);
     private static final int FORCED_MAX_ROWS = 1; // The maxRows number to use when we are forcing it on the test
     private static final int MAX_CONTINUATIONS_ALLOWED = 100;
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // This is not an IP address
+    private static final SemanticVersion STRICT_ASSERTIONS_CUTOFF = SemanticVersion.parse("4.1.9.0");
 
     @Nonnull
     private final String query;
@@ -107,8 +111,10 @@ public class QueryExecutor {
             return executeQuery(connection, config, currentQuery, checkCache, maxRows);
         } else if (continuation.atBeginning()) {
             // Continuation cannot be at beginning if it was returned from a query
-            reportTestFailure("Received continuation shouldn't be at beginning");
-            return null;
+            if (STRICT_ASSERTIONS_CUTOFF.lesserVersions(connection.getVersions()).isEmpty()) {
+                reportTestFailure("Received continuation shouldn't be at beginning");
+            }
+            return ContinuationImpl.END;
         } else {
             // Have a continuation - continue
             return executeContinuation(connection, continuation, config, currentQuery, maxRows);
@@ -143,7 +149,7 @@ public class QueryExecutor {
         final var toReturn = executeStatementAndCheckForceContinuations(s, statementHasQuery, queryString, connection, maxRows);
         final var postMetricCollector = connection.getMetricCollector();
         final var postValue = postMetricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
-                postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
+                              postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
         final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
         if (!planFound) {
             reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
@@ -263,7 +269,11 @@ public class QueryExecutor {
             int count = 0;
             while (!continuation.atEnd()) {
                 if (continuation.atBeginning()) {
-                    reportTestFailure("Received continuation shouldn't be at beginning");
+                    if (STRICT_ASSERTIONS_CUTOFF.lesserVersions(connection.getVersions()).isEmpty()) {
+                        reportTestFailure("Received continuation shouldn't be at beginning");
+                    }
+                    continuation = ContinuationImpl.END;
+                    break;
                 }
                 try (var s2 = prepareContinuationStatement(connection, continuation, FORCED_MAX_ROWS)) {
                     resultSet = (RelationalResultSet)executeStatement(s2, true, queryString);
@@ -273,7 +283,9 @@ public class QueryExecutor {
                         results.add(resultSet);
                     } else {
                         // We assume that the last result is empty because of the maxRows:1
-                        Assertions.assertFalse(hasNext, "Result has more rows than maxRows allowed");
+                        if (STRICT_ASSERTIONS_CUTOFF.lesserVersions(connection.getVersions()).isEmpty()) {
+                            Assertions.assertFalse(hasNext, "End result should not have any associated value when maxRows is 1");
+                        }
                     }
                 }
                 count += 1; // PMD failure for ++

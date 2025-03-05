@@ -18,7 +18,9 @@
 # limitations under the License.
 ---
 options:
-    supported_version: 4.1.6.0
+  # Enum support was not added to client until 4.1.6.0, so prior to that version, none of these queries pass, all with:
+  #   The comparand to a comparison expecting an argument of a primitive type, is invoked with an argument of a complex type, e.g. an array or a record.
+  supported_version: 4.1.6.0
 ---
 schema_template:
     CREATE TYPE AS ENUM MOOD ( 'JOYFUL', 'HAPPY', 'RELAXED', 'INDIFFERENT', 'CONFUSED', 'SAD', 'ANXIOUS', 'ANGRY' )

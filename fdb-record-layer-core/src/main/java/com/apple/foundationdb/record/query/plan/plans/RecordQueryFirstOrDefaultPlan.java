@@ -96,10 +96,19 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        return new FutureCursor<>(store.getExecutor(),
-                getChild().executePlan(store, context, continuation, executeProperties).first()
-                        .thenApply(resultOptional ->
-                                resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))));
+        if (continuation == null) {
+            return new FutureCursor<>(store.getExecutor(),
+                    getChild().executePlan(store, context, null, executeProperties).first()
+                            .thenApply(resultOptional ->
+                                    resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))));
+        } else {
+            // The FutureCursor only ever returns a single continuation, indicating that the future
+            // has been completed. So, if we get a non-null continuation back, that means we've already
+            // completed the work done and returned something, so send an empty cursor back.
+            // Note that this doesn't handle out-of-band cursor no-next-reasons
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/3220
+            return RecordCursor.empty(store.getExecutor());
+        }
     }
 
     @Override

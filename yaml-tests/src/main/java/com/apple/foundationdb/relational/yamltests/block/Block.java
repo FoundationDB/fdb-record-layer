@@ -53,7 +53,8 @@ public interface Block {
      */
     static Block parse(@Nonnull Object document, int blockNumber, @Nonnull YamlExecutionContext executionContext) {
         final var blockObject = Matchers.map(document, "block");
-        Assert.thatUnchecked(blockObject.size() == 1, "Illegal Format: A block is expected to be a map of size 1");
+        Assert.thatUnchecked(blockObject.size() == 1,
+                "Illegal Format: A block is expected to be a map of size 1 (block: " + blockNumber + ") keys: " + blockObject.keySet());
         final var entry = Matchers.firstEntry(blockObject, "block key-value");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(entry.getKey(), () -> "Invalid block key-value pair: " + entry);
         final var lineNumber = linedObject.getLineNumber();
