@@ -52,7 +52,7 @@ jobs:
       # I think downloading needs to happen at this level so that it can
       # see the "mixed-mode-results" from above
       - name: Download mixed mode results
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: mixed-mode-results
       - name: Publish
