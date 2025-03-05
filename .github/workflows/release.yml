@@ -44,7 +44,7 @@ jobs:
           # I tried fetching part of the history, but I just couldn't get it to work, and fetching all still takes like 5s
           fetch-depth: 0
       - name: Publish
-        uses: ./action/release-publish
+        uses: ./actions/release-publish
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
