@@ -22,17 +22,11 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.server.FRL;
-import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
-import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Set;
 
 /**
  * Run directly against an instance of {@link FRL}.
@@ -61,18 +55,7 @@ public class EmbeddedConfig implements YamlTestConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new YamlConnectionFactory() {
-            @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), SemanticVersion.current());
-            }
-
-            @Override
-            public Set<SemanticVersion> getVersionsUnderTest() {
-                return Set.of(SemanticVersion.current());
-            }
-
-        };
+        return new EmbeddedYamlConnectionFactory();
     }
 
     @Override
