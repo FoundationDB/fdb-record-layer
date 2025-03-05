@@ -1,5 +1,10 @@
 name: Run mixed mode tests for release
 
+inputs:
+  update_type:
+    description: 'One of MAJOR, MINOR, BUILD, PATCH'
+    required: true
+
 runs:
   using: "composite"
   steps:
@@ -12,7 +17,17 @@ runs:
       with:
         gradle_command: mixedModeTest
         gradle_args: -PreleaseBuild=false -PpublishBuild=false
-# TODO put results in step summary
+    - name: Increment version
+      shell: bash
+      run: python build/versionutils.py gradle.properties --increment -u ${{ inputs.update_type }}
+    - name: Get new version
+      id: get_new_version
+      shell: bash
+      run: |
+        echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+    - name: Cache results
+      id: mixed_mode_results
+      run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} >> "$GITHUB_OUTPUT"
 
 # TODO push results to release notes
 #       - name: Checkout Main

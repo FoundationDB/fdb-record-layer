@@ -16,6 +16,8 @@ jobs:
         uses: ./actions/release-test
   mixed-mode-test:
     runs-on: ubuntu-latest
+    outputs:
+      results: ${{ steps.mixed_mode_results.outputs }}
     permissions:
       contents: read
     steps:
@@ -23,6 +25,8 @@ jobs:
         uses: actions/checkout@v4.2.2
       - name: Mixed Mode Test
         uses: ./actions/mixed-mode-test
+        with:
+          update_type: BUILD
   publish:
     needs: [test, mixed-mode-test]
     runs-on: ubuntu-latest
@@ -45,6 +49,7 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
           update_type: BUILD
+          mixed_mode_results: ${{ needs.mixed-mode-test.outputs.results }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAVEN_USER: ${{ secrets.MAVEN_USER }}

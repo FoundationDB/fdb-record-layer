@@ -91,12 +91,15 @@ def main(argv):
     parser.add_argument('--header-size', help='Markdown header level (e.g. # or ##)', default='####')
     parser.add_argument('--run-link', help='A link to the test run that generated the results')
     parser.add_argument('--commit', action='store_true', default=False, help='Commit the updates to the release notes')
+    parser.add_argument('--markdown', help="Already created markdown to be injected")
     parser.add_argument('version', help='Version of the server that was tested')
     args = parser.parse_args(argv)
 
-    markdown = generate_markdown(args.version, get_results(args.results_path), args.header_size)
-    if args.run_link is not None:
-        markdown = markdown + "\n\n[See full test run](" + args.run_link +")"
+    markdown = args.markdown
+    if markdown is None:
+        markdown = generate_markdown(args.version, get_results(args.results_path), args.header_size)
+        if args.run_link is not None:
+            markdown = markdown + "\n\n[See full test run](" + args.run_link +")"
     if args.release_notes is None:
         print(markdown)
     else:

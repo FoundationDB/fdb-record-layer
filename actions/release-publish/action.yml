@@ -10,6 +10,9 @@ inputs:
   update_type:
     description: 'One of MAJOR, MINOR, BUILD, PATCH'
     required: true
+  mixed_mode_results:
+    description: 'Rendered mixed mode results'
+    required: true
 
 runs:
   using: "composite"
@@ -56,6 +59,8 @@ runs:
         ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
     # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
     # release notes
+    - name: Insert mixed mode results
+      run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --markdown "${{ inputs.mixed_mode_results }}"
     - name: Move tag to HEAD
       shell: bash
       run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
