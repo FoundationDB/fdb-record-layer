@@ -27,12 +27,17 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ArgumentsProvider;
+import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 public class ExplodePlanTest {
 
@@ -64,6 +69,13 @@ public class ExplodePlanTest {
         ExplodeCursorBuilder withLimit(int limit) {
             this.limit = Optional.of(limit);
             return this;
+        }
+
+        @Override
+        public String toString() {
+            return "explode [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] "
+                    + limit.map(l -> "limit " + l + " ").orElse("")
+                    + skip.map(s -> "skip " + s).orElse("");
         }
 
         @Nonnull
@@ -104,12 +116,23 @@ public class ExplodePlanTest {
         }
     }
 
-    @Test
-    void explodeWithSkipAndLimitWorks() {
-        verifyCursor(ExplodeCursorBuilder.instance().withLimit(1).build(), ImmutableList.of(1), true);
-        verifyCursor(ExplodeCursorBuilder.instance().withLimit(4).build(), ImmutableList.of(1, 2, 3, 4), true);
-        verifyCursor(ExplodeCursorBuilder.instance().withLimit(1).withSkip(3).build(), ImmutableList.of(4), true);
-        verifyCursor(ExplodeCursorBuilder.instance().withLimit(2).withSkip(5).build(), ImmutableList.of(6, 7), true);
-        verifyCursor(ExplodeCursorBuilder.instance().build(), ImmutableList.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), false);
+    private static class ArgumentProvider implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of(ExplodeCursorBuilder.instance().withLimit(1), ImmutableList.of(1), true),
+                    Arguments.of(ExplodeCursorBuilder.instance().withLimit(4), ImmutableList.of(1, 2, 3, 4), true),
+                    Arguments.of(ExplodeCursorBuilder.instance().withLimit(1).withSkip(3), ImmutableList.of(4), true),
+                    Arguments.of(ExplodeCursorBuilder.instance().withLimit(2).withSkip(5), ImmutableList.of(6, 7), true),
+                    Arguments.of(ExplodeCursorBuilder.instance(), ImmutableList.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), false));
+        }
+    }
+
+    @ParameterizedTest(name = "{0} should return {1}")
+    @ArgumentsSource(ArgumentProvider.class)
+    void explodeWithSkipAndLimitWorks(@Nonnull final ExplodeCursorBuilder actualCursorBuilder,
+                                      @Nonnull final List<Integer> expectedResult,
+                                      boolean shouldReachLimit) {
+        verifyCursor(actualCursorBuilder.build(), expectedResult, shouldReachLimit);
     }
 }
