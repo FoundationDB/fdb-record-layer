@@ -17,7 +17,7 @@ jobs:
   mixed-mode-test:
     runs-on: ubuntu-latest
     outputs:
-      results: ${{ steps.mixed_mode_results.outputs }}
+      results: ${{ steps.mixed_mode_results.outputs.results }}
     permissions:
       contents: read
     steps:
