@@ -311,9 +311,21 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_DML_STATEMENT);
-        return visitChildren(ctx);
+    public Object visitInsertStatement(final RelationalParser.InsertStatementContext ctx) {
+        queryCachingFlags.add(Result.QueryCachingFlags.IS_INSERT_STATEMENT);
+        return super.visitInsertStatement(ctx);
+    }
+
+    @Override
+    public Object visitUpdateStatement(final RelationalParser.UpdateStatementContext ctx) {
+        queryCachingFlags.add(Result.QueryCachingFlags.IS_UPDATE_STATEMENT);
+        return super.visitUpdateStatement(ctx);
+    }
+
+    @Override
+    public Object visitDeleteStatement(final RelationalParser.DeleteStatementContext ctx) {
+        queryCachingFlags.add(Result.QueryCachingFlags.IS_DELETE_STATEMENT);
+        return super.visitDeleteStatement(ctx);
     }
 
     @Override
@@ -600,7 +612,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
          */
         public enum QueryCachingFlags {
             IS_DDL_STATEMENT,
-            IS_DML_STATEMENT,
+            IS_UPDATE_STATEMENT,
+            IS_DELETE_STATEMENT,
+            IS_INSERT_STATEMENT,
             IS_DQL_STATEMENT,
             IS_UTILITY_STATEMENT,
             IS_ADMIN_STATEMENT,
