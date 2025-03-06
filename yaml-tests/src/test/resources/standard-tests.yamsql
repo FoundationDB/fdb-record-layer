@@ -91,7 +91,6 @@ test_block:
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
       - supported_version: !current_version
       - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c23 AS LONG) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      - maxRows: 0
       - result: [{!l 1}]
     -
       # Copy of above query to simulate force continuations mode, which does not work prior to !current_version due to
