@@ -7,9 +7,9 @@ on:
 jobs:
   # TOODO how do I ensure that nothing is running on a different commit
   get-update-type:
-    # If the github.ref is refs/heads/main we want to do a standard release
-    # If the github.ref is refs/heads/* we want to do a patch release
-    # If the github.ref is some other ref, we want to fail
+    # If the context.ref is refs/heads/main we want to do a standard release
+    # If the context.ref is refs/heads/* we want to do a patch release
+    # If the context.ref is some other ref, we want to fail
     # Selecting a tag github.ref becomes e.g.: refs/tags/4.1.9.0
     runs-on: ubuntu-latest
     permissions:
@@ -20,11 +20,9 @@ jobs:
         id: update-type
         with:
           script: |
-            console.log(context);
-            console.log(github);
-            if (github.ref == "refs/head/main") {
+            if (context.ref == "refs/head/main") {
                 return "BUILD";
-            } else if (github.ref.startsWith("refs/head/")) {
+            } else if (context.ref.startsWith("refs/head/")) {
                 return "PATCH";
             } else {
                 throw new Error("Target must be a patch branch or main, but was: " + github.ref);
