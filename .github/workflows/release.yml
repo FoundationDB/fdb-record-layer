@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      update-type: ${{ steps.update-type.outputs.result }}
     steps:
       - name: Calculate update type
         uses: actions/github-script@v7
@@ -40,7 +42,7 @@ jobs:
     steps:
       - name: Print update type
         shell: bash
-        run: echo "${{steps.update-type.outputs.result}}"
+        run: echo "${{ needs.get-update-type.outputs.update-type}}"
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
       - name: Release Test
