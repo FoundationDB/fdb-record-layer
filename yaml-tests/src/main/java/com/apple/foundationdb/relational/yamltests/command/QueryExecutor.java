@@ -109,11 +109,8 @@ public class QueryExecutor {
         if (continuation == null) {
             // no continuation - start the query execution from the beginning
             return executeQuery(connection, config, currentQuery, checkCache, maxRows);
-        } else if (continuation.atBeginning()) {
+        } else if (checkBeginningContinuation(continuation, connection)) {
             // Continuation cannot be at beginning if it was returned from a query
-            if (STRICT_ASSERTIONS_CUTOFF.lesserVersions(connection.getVersions()).isEmpty()) {
-                reportTestFailure("Received continuation shouldn't be at beginning");
-            }
             return ContinuationImpl.END;
         } else {
             // Have a continuation - continue
@@ -268,10 +265,7 @@ public class QueryExecutor {
             Continuation continuation = resultSet.getContinuation();
             int count = 0;
             while (!continuation.atEnd()) {
-                if (continuation.atBeginning()) {
-                    if (STRICT_ASSERTIONS_CUTOFF.lesserVersions(connection.getVersions()).isEmpty()) {
-                        reportTestFailure("Received continuation shouldn't be at beginning");
-                    }
+                if (checkBeginningContinuation(continuation, connection)) {
                     continuation = ContinuationImpl.END;
                     break;
                 }
@@ -300,6 +294,20 @@ public class QueryExecutor {
             // non-result set - just return
             return result;
         }
+    }
+
+    private boolean checkBeginningContinuation(Continuation continuation, YamlConnection connection) {
+        if (continuation.atBeginning()) {
+            if (STRICT_ASSERTIONS_CUTOFF.lesserVersions(connection.getVersions()).isEmpty()) {
+                reportTestFailure("Received continuation shouldn't be at beginning");
+            }
+            if (logger.isInfoEnabled()) {
+                logger.info("ignoring beginning continuation check for query '{}' at line {} (connection: {})",
+                        query, lineNumber, connection.getVersions());
+            }
+            return true;
+        }
+        return false;
     }
 
     private static Object executeStatement(@Nonnull Statement s, final boolean statementHasQuery, @Nonnull String q) throws SQLException {
