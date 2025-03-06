@@ -48,6 +48,9 @@ runs:
 
     # We want to do this before anything else, because if the later steps fail, we want to make sure that the full
     # change log includes all changes, even if they reference a release that was never actually published.
+    - name: list artifact.tar
+      shell: bash
+      run: tar -xf artifact.tar
     - name: echo results
       shell: bash
       run: cat mixed-mode-results.md
