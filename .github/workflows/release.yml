@@ -20,6 +20,8 @@ jobs:
         id: update-type
         with:
           script: |
+            console.log(context);
+            console.log(github);
             if (github.ref == "refs/head/main") {
                 return "BUILD";
             } else if (github.ref.startsWith("refs/head/")) {
