@@ -25,7 +25,7 @@ jobs:
             } else if (context.ref.startsWith("refs/head/")) {
                 return "PATCH";
             } else {
-                throw new Error("Target must be a patch branch or main, but was: " + github.ref);
+                throw new Error("Target must be a patch branch or main, but was: " + context.ref);
             }
           result-encoding: string
       - name: Print update type
