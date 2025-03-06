@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrd
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.base.Equivalence;
@@ -69,10 +70,41 @@ public interface MatchInfo {
                                                                            @Nonnull Set<QueryPredicate> interestingPredicates);
 
     @Nonnull
+    Map<Value, Value> getMatchedAggregateValueMap();
+
+    @Nonnull
     default AdjustedBuilder adjustedBuilder() {
         return new AdjustedBuilder(this,
                 getMatchedOrderingParts(),
-                getMaxMatchMap());
+                getMaxMatchMap(),
+                getMatchedAggregateValueMap());
+    }
+
+    @Nonnull
+    default Map<Value, Value> adjustMatchedAggregateMap(@Nonnull final PartialMatch partialMatch,
+                                                        @Nonnull final Quantifier candidateQuantifier) {
+        final var matchedAggregateValueMapBuilder = ImmutableMap.<Value, Value>builder();
+        final var matchedAggregateValueMap = getMatchedAggregateValueMap();
+        for (final var matchedAggregateValueMapEntry : matchedAggregateValueMap.entrySet()) {
+            final var queryAggregateValue = matchedAggregateValueMapEntry.getKey();
+            final var candidateAggregateValue = matchedAggregateValueMapEntry.getValue();
+            final var candidateLowerExpression =
+                    Iterables.getOnlyElement(partialMatch.getCandidateRef().getMembers());
+            final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
+            final var candidatePullUpMap =
+                    candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
+                            AliasMap.emptyMap(),
+                            Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
+                                    candidateLowerExpression.getCorrelatedTo()),
+                            candidateQuantifier.getAlias());
+            final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
+            if (pulledUpCandidateAggregateValue == null) {
+                return ImmutableMap.of();
+            }
+            matchedAggregateValueMapBuilder.put(queryAggregateValue, pulledUpCandidateAggregateValue);
+        }
+
+        return matchedAggregateValueMapBuilder.build();
     }
 
     /**
@@ -113,6 +145,9 @@ public interface MatchInfo {
         @Nonnull
         private final MaxMatchMap maxMatchMap;
 
+        @Nonnull
+        private final Map<Value, Value> matchedAggregateValueMap;
+
         /**
          * Field to hold additional query plan constraints that need to be imposed on the potentially realized match.
          */
@@ -125,6 +160,7 @@ public interface MatchInfo {
                                  @Nonnull final PredicateMultiMap predicateMap,
                                  @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
                                  @Nonnull final MaxMatchMap maxMatchMap,
+                                 @Nonnull final Map<Value, Value> matchedAggregateValueMap,
                                  @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
             this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
             this.bindingAliasMap = bindingAliasMap;
@@ -138,6 +174,7 @@ public interface MatchInfo {
             this.predicateMap = predicateMap;
             this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
             this.maxMatchMap = maxMatchMap;
+            this.matchedAggregateValueMap = ImmutableMap.copyOf(matchedAggregateValueMap);
             this.additionalPlanConstraint = additionalPlanConstraint;
         }
 
@@ -209,6 +246,12 @@ public interface MatchInfo {
         }
 
         @Nonnull
+        @Override
+        public Map<Value, Value> getMatchedAggregateValueMap() {
+            return matchedAggregateValueMap;
+        }
+
+        @Nonnull
         public QueryPlanConstraint getAdditionalPlanConstraint() {
             return additionalPlanConstraint;
         }
@@ -247,7 +290,7 @@ public interface MatchInfo {
                                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                           @Nonnull final MaxMatchMap maxMatchMap) {
             return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                    maxMatchMap, maxMatchMap.getQueryPlanConstraint());
+                    maxMatchMap, ImmutableMap.of(), maxMatchMap.getQueryPlanConstraint());
         }
 
         @Nonnull
@@ -256,6 +299,7 @@ public interface MatchInfo {
                                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                                    @Nonnull final PredicateMultiMap predicateMap,
                                                    @Nonnull final MaxMatchMap maxMatchMap,
+                                                   @Nonnull final Map<Value, Value> additionalMatchedAggregateValueMap,
                                                    @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
             final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
             final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
@@ -281,6 +325,10 @@ public interface MatchInfo {
             final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
                     tryMergeParameterBindings(parameterMapsBuilder.build());
 
+            final var matchedAggregateValueMap =
+                    pullUpAndMergeMatchedAggregateMap(bindingAliasMap, partialMatchMap,
+                            additionalMatchedAggregateValueMap);
+
             return mergedParameterBindingsOptional
                     .map(mergedParameterBindings -> new RegularMatchInfo(mergedParameterBindings,
                             bindingAliasMap,
@@ -288,6 +336,7 @@ public interface MatchInfo {
                             predicateMap,
                             orderingParts,
                             maxMatchMap,
+                            matchedAggregateValueMap,
                             additionalPlanConstraint));
         }
 
@@ -311,6 +360,51 @@ public interface MatchInfo {
             }
 
             return Optional.of(resultMap);
+        }
+
+        @Nonnull
+        private static Map<Value, Value> pullUpAndMergeMatchedAggregateMap(@Nonnull final AliasMap bindingAliasMap,
+                                                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                                           @Nonnull final Map<Value, Value> additionalMatchedAggregateValueMap) {
+            final var matchedAggregateValueMapBuilder = ImmutableMap.<Value, Value>builder();
+            matchedAggregateValueMapBuilder.putAll(additionalMatchedAggregateValueMap);
+            for (final var partialMatchMapEntry : partialMatchMap.entrySet()) {
+                final var quantifier = partialMatchMapEntry.getKey().get();
+                if (quantifier instanceof Quantifier.ForEach) {
+                    final var partialMatch = partialMatchMapEntry.getValue().get();
+                    final var matchInfo = partialMatch.getMatchInfo();
+                    final var matchedAggregateValueMap = matchInfo.getMatchedAggregateValueMap();
+                    for (final var matchedAggregateValueMapEntry : matchedAggregateValueMap.entrySet()) {
+                        final var queryAggregateValue = matchedAggregateValueMapEntry.getKey();
+                        final var lowerQueryExpression = partialMatch.getQueryExpression();
+                        final var lowerResultValue = lowerQueryExpression.getResultValue();
+                        final var pullUpMap =
+                                lowerResultValue.pullUp(ImmutableList.of(queryAggregateValue), AliasMap.emptyMap(),
+                                        Sets.difference(queryAggregateValue.getCorrelatedToWithoutChildren(),
+                                                lowerQueryExpression.getCorrelatedTo()), quantifier.getAlias());
+                        final var pulledUpQueryAggregateValue = pullUpMap.get(queryAggregateValue);
+                        if (pulledUpQueryAggregateValue == null) {
+                            return ImmutableMap.of();
+                        }
+                        final var candidateAggregateValue = matchedAggregateValueMapEntry.getValue();
+                        final var candidateLowerExpression =
+                                Iterables.getOnlyElement(partialMatch.getCandidateRef().getMembers());
+                        final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
+                        final var candidatePullUpMap =
+                                candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
+                                        AliasMap.emptyMap(),
+                                        Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
+                                                candidateLowerExpression.getCorrelatedTo()),
+                                        Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
+                        final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
+                        if (pulledUpCandidateAggregateValue == null) {
+                            return ImmutableMap.of();
+                        }
+                        matchedAggregateValueMapBuilder.put(pulledUpQueryAggregateValue, pulledUpCandidateAggregateValue);
+                    }
+                }
+            }
+            return matchedAggregateValueMapBuilder.build();
         }
     }
 
@@ -346,12 +440,17 @@ public interface MatchInfo {
         @Nonnull
         private final MaxMatchMap maxMatchMap;
 
-        public AdjustedMatchInfo(@Nonnull final MatchInfo underlying,
-                                 @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                                 @Nonnull final MaxMatchMap maxMatchMap) {
+        @Nonnull
+        private final Map<Value, Value> matchedAggregateValueMap;
+
+        private AdjustedMatchInfo(@Nonnull final MatchInfo underlying,
+                                  @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
+                                  @Nonnull final MaxMatchMap maxMatchMap,
+                                  @Nonnull final Map<Value, Value> matchedAggregateValueMap) {
             this.underlying = underlying;
             this.matchedOrderingParts = matchedOrderingParts;
             this.maxMatchMap = maxMatchMap;
+            this.matchedAggregateValueMap = ImmutableMap.copyOf(matchedAggregateValueMap);
         }
 
         @Nonnull
@@ -369,6 +468,12 @@ public interface MatchInfo {
         @Override
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
+        }
+
+        @Nonnull
+        @Override
+        public Map<Value, Value> getMatchedAggregateValueMap() {
+            return matchedAggregateValueMap;
         }
 
         @Override
@@ -424,6 +529,9 @@ public interface MatchInfo {
         @Nonnull
         private List<MatchedOrderingPart> matchedOrderingParts;
 
+        @Nonnull
+        private Map<Value, Value> matchedAggregateValueMap;
+
         /**
          * A map of maximum matches between the query result {@code Value} and the corresponding candidate's result
          * {@code Value}.
@@ -433,10 +541,12 @@ public interface MatchInfo {
 
         private AdjustedBuilder(@Nonnull final MatchInfo underlying,
                                 @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                                @Nonnull final MaxMatchMap maxMatchMap) {
+                                @Nonnull final MaxMatchMap maxMatchMap,
+                                @Nonnull final Map<Value, Value> matchedAggregateValueMap) {
             this.underlying = underlying;
             this.matchedOrderingParts = matchedOrderingParts;
             this.maxMatchMap = maxMatchMap;
+            this.matchedAggregateValueMap = matchedAggregateValueMap;
         }
 
         @Nonnull
@@ -450,13 +560,27 @@ public interface MatchInfo {
         }
 
         @Nonnull
+        public AdjustedBuilder setMatchedAggregateValueMap(@Nonnull final Map<Value, Value> matchedAggregateValueMap) {
+            this.matchedAggregateValueMap = matchedAggregateValueMap;
+            return this;
+        }
+
+        @Nonnull
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
         }
 
+        @Nonnull
         public AdjustedBuilder setMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap) {
             this.maxMatchMap = maxMatchMap;
             return this;
+        }
+
+
+
+        @Nonnull
+        public Map<Value, Value> getMatchedAggregateValueMap() {
+            return matchedAggregateValueMap;
         }
 
         @Nonnull
@@ -464,7 +588,8 @@ public interface MatchInfo {
             return new AdjustedMatchInfo(
                     underlying,
                     matchedOrderingParts,
-                    maxMatchMap);
+                    maxMatchMap,
+                    matchedAggregateValueMap);
         }
     }
 }

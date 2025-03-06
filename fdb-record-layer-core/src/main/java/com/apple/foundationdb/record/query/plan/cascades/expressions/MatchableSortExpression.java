@@ -212,7 +212,8 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
+    public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch,
+                                           @Nonnull final Quantifier candidateQuantifier) {
         final var childMatchInfo = partialMatch.getMatchInfo();
         final var maxMatchMap = childMatchInfo.getMaxMatchMap();
         final var innerQuantifier = Iterables.getOnlyElement(getQuantifiers());
@@ -223,6 +224,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
                         childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
                                 .setMatchedOrderingParts(forPartialMatch(partialMatch))
+                                .setMatchedAggregateValueMap(childMatchInfo.adjustMatchedAggregateMap(partialMatch, candidateQuantifier))
                                 .build());
     }
 

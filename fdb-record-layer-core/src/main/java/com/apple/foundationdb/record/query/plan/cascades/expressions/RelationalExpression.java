@@ -750,12 +750,15 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Override that is called by {@link AdjustMatchRule} to improve an already existing {@link PartialMatch}.
-     * @param partialMatch the partial match already existing between {@code expression} and {@code this}
+     * @param partialMatch the partial match already existing between {@code expression} and the only child of
+     *        {@code this}
+     * @param candidateQuantifier the quantifier we adjust along
      * @return {@code Optional.empty()} if the match could not be adjusted, Optional.of(matchInfo) for a new adjusted
      *         match, otherwise.
      */
     @Nonnull
-    default Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
+    default Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch,
+                                            @Nonnull final Quantifier candidateQuantifier) {
         return Optional.empty();
     }
 
