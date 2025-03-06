@@ -20,9 +20,9 @@ jobs:
         id: update-type
         with:
           script: |
-            if (context.ref == "refs/head/main") {
+            if (context.ref == "refs/heads/main") {
                 return "BUILD";
-            } else if (context.ref.startsWith("refs/head/")) {
+            } else if (context.ref.startsWith("refs/heads/")) {
                 return "PATCH";
             } else {
                 throw new Error("Target must be a patch branch or main, but was: " + context.ref);
