@@ -65,7 +65,7 @@ jobs:
           name: mixed-mode-results
           path: ./artifact
   publish:
-    needs: [test, mixed-mode-test, get-update-typ]
+    needs: [test, mixed-mode-test, get-update-type]
     runs-on: ubuntu-latest
     permissions:
       contents: write
