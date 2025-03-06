@@ -40,9 +40,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Print update type
-        shell: bash
-        run: echo "${{ needs.get-update-type.outputs.update-type}}"
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
       - name: Release Test
@@ -58,7 +55,7 @@ jobs:
       - name: Mixed Mode Test
         uses: ./actions/mixed-mode-test
         with:
-          update_type: BUILD
+          update_type: ${{ needs.get-update-type.outputs.update-type }}
       # I think this _needs_ to be done at this level, rather than in the action
       # so that "mixed-mode-results" gets passed around correctly
       - name: Upload mixed mode results
@@ -68,7 +65,7 @@ jobs:
           name: mixed-mode-results
           path: ./artifact
   publish:
-    needs: [test, mixed-mode-test]
+    needs: [test, mixed-mode-test, get-update-typ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -94,7 +91,7 @@ jobs:
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          update_type: BUILD
+          update_type: ${{ needs.get-update-type.outputs.update-type }}
           mixed_mode_results: ${{ needs.mixed-mode-test.outputs.results }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
