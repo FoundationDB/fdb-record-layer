@@ -3,21 +3,50 @@ name: Release
 on:
   workflow_dispatch: # TODO restrict to main (if possible) OR treat all others as patch releases
 
+
 jobs:
   # TOODO how do I ensure that nothing is running on a different commit
-  test:
+  get-update-type:
+    # If the github.ref is refs/heads/main we want to do a standard release
+    # If the github.ref is refs/heads/* we want to do a patch release
+    # If the github.ref is some other ref, we want to fail
+    # Selecting a tag github.ref becomes e.g.: refs/tags/4.1.9.0
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: log ref
+      - name: Calculate update type
+        uses: actions/github-script@v7
+        id: update-type
+        with:
+          script: |
+            if (github.ref == "refs/head/main") {
+                return "BUILD"
+            } else if (github.ref.startsWith("refs/head/") {
+                return "PATCH"
+            } else {
+                throw new Error("Target must be a patch branch or main, but was: " + github.ref);
+            }
+          result-encoding: string
+      - name: Print update type
         shell: bash
-        run: echo '${{ github.ref }}'
+        run: echo "${{steps.update-type.outputs.result}}"
+
+  test:
+    needs: [get-update-type]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Print update type
+        shell: bash
+        run: echo "${{steps.update-type.outputs.result}}"
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
       - name: Release Test
         uses: ./actions/release-test
   mixed-mode-test:
+    needs: [get-update-type]
     runs-on: ubuntu-latest
     permissions:
       contents: read
