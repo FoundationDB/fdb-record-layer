@@ -311,15 +311,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
-        final var translatedAggregateValue =
-                aggregateValue.translateCorrelations(translationMap, true);
-        final var translatedAggregateValues =
-                Values.primitiveAccessorsForType(translatedAggregateValue.getResultType(),
-                                () -> translatedAggregateValue).stream()
+        final var aggregateValues =
+                Values.primitiveAccessorsForType(aggregateValue.getResultType(), () -> aggregateValue).stream()
                         .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
                                 AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
-        if (translatedAggregateValues.isEmpty()) {
+        if (aggregateValues.isEmpty()) {
             return ImmutableList.of();
         }
 
@@ -332,13 +329,21 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         if (otherAggregateValues.size() != 1) {
             return ImmutableList.of();
         }
+        final var otherPrimitiveAggregateValue = Iterables.getOnlyElement(otherAggregateValues);
+        final var matchedAggregateValueMapBuilder = ImmutableMap.<Value, Value>builder();
+        var subsumedAggregations = BooleanWithConstraint.alwaysTrue();
+        for (final var primitiveAggregateValue : aggregateValues) {
+            final var translatedPrimitiveAggregateValue =
+                    primitiveAggregateValue.translateCorrelations(translationMap, true);
 
-        final var subsumedAggregations = BooleanWithConstraint.alwaysTrue();
-//                Iterables.getOnlyElement(translatedAggregateValues).semanticEquals(Iterables.getOnlyElement(otherAggregateValues),
-//                        valueEquivalence);
-//        if (subsumedAggregations.isFalse()) {
-//            return ImmutableList.of();
-//        }
+            final var semanticEquals =
+                    translatedPrimitiveAggregateValue.semanticEquals(otherPrimitiveAggregateValue, valueEquivalence);
+            if (semanticEquals.isTrue()) {
+                matchedAggregateValueMapBuilder.put(primitiveAggregateValue, otherPrimitiveAggregateValue);
+                subsumedAggregations = semanticEquals;
+                break;
+            }
+        }
 
         final var subsumedGroupings =
                 subsumedAggregations
@@ -358,7 +363,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 subsumedGroupings.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 
         return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                        maxMatchMap, queryPlanConstraint)
+                        maxMatchMap, matchedAggregateValueMapBuilder.build(), queryPlanConstraint)
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }
