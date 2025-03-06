@@ -20,7 +20,7 @@
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
-import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
