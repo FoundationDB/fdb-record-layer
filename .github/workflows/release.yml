@@ -21,9 +21,9 @@ jobs:
         with:
           script: |
             if (github.ref == "refs/head/main") {
-                return "BUILD"
+                return "BUILD";
             } else if (github.ref.startsWith("refs/head/") {
-                return "PATCH"
+                return "PATCH";
             } else {
                 throw new Error("Target must be a patch branch or main, but was: " + github.ref);
             }
