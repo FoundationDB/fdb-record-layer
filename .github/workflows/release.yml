@@ -10,6 +10,9 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: log ref
+        shell: bash
+        run: echo '${{ github.ref }}'
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
       - name: Release Test
