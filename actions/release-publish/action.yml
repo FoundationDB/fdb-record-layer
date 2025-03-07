@@ -107,13 +107,12 @@ runs:
         body: |
           Updates from release for version ${{ steps.get_new_version.outputs.version }}. Conflicts during the build prevented automatic updating. Please resolve conflicts by checking out the current branch, merging, and then deleting this branch.
 
-# TODO temporarily do not publish
-#     - name: Publish Artifacts
-#       uses: ./actions/run-gradle
-#       with:
-#         gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
-#       env:
-#         ORG_GRADLE_PROJECT_signingKey: ${{ inputs.gpg_private_key }}
+    - name: Publish Artifacts
+      uses: ./actions/run-gradle
+      with:
+        gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+      env:
+        ORG_GRADLE_PROJECT_signingKey: ${{ inputs.gpg_private_key }}
 
     # Creating the PR can change the current branch. Explicitly check out the tag here for downstream builds
     - name: Revert to tag
