@@ -64,10 +64,10 @@ jobs:
       # so that "mixed-mode-results" gets passed around correctly
       - name: Upload mixed mode results
         id: mixed_mode_results
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4.6.0
         with:
           name: mixed-mode-results
-          path: ./artifact
+          path: mixed-mode-results.md
   # 3. Update the version in the repo, update the release notes, tag the commit
   #    and publish the artifacts, and if this is a BUILD release generate the documentation
   publish:
