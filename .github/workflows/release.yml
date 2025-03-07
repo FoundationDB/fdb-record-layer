@@ -5,7 +5,6 @@ on:
 
 
 jobs:
-  # TOODO how do I ensure that nothing is running on a different commit
   # 1. We look at the target branch and figure out whether this should be a BUILD
   # release or a patch release
   get-update-type:
