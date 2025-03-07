@@ -308,7 +308,6 @@ test_block:
 ---
 test_block:
   name: agg-empty-table-tests-after-modifications
-  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from T1;
