@@ -39,7 +39,6 @@ jobs:
   #   a) all the tests
   #   b) the mixed-mode tests
   test:
-    needs: [get-update-type]
     runs-on: ubuntu-latest
     permissions:
       contents: read
