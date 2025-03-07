@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -63,7 +63,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         this.dimensionsSize = dimensionsSize;
     }
 
-    DimensionsKeyExpression(@Nonnull final RecordMetaDataProto.Dimensions dimensions) throws DeserializationException {
+    DimensionsKeyExpression(@Nonnull final RecordKeyExpressionProto.Dimensions dimensions) throws DeserializationException {
         this(KeyExpression.fromProto(dimensions.getWholeKey()), dimensions.getPrefixSize(), dimensions.getDimensionsSize());
     }
 
@@ -114,8 +114,8 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Dimensions toProto() throws SerializationException {
-        final RecordMetaDataProto.Dimensions.Builder builder = RecordMetaDataProto.Dimensions.newBuilder();
+    public RecordKeyExpressionProto.Dimensions toProto() throws SerializationException {
+        final RecordKeyExpressionProto.Dimensions.Builder builder = RecordKeyExpressionProto.Dimensions.newBuilder();
         builder.setWholeKey(getWholeKey().toKeyExpression());
         builder.setPrefixSize(prefixSize);
         builder.setDimensionsSize(dimensionsSize);
@@ -124,8 +124,8 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setDimensions(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setDimensions(toProto()).build();
     }
 
     @Nonnull
