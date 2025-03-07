@@ -74,6 +74,14 @@ runs:
       shell: bash
       run: git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
 
+    - name: Publish Artifacts
+      uses: ./actions/run-gradle
+      with:
+        gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+      env:
+        ORG_GRADLE_PROJECT_signingKey: ${{ inputs.gpg_private_key }}
+        ORG_GRADLE_PROJECT_signingPassword: ${{ inputs.gpg_passphrase }}
+
     # Post release: Update various files which reference version
     # Updating the yaml files has to be done after the tests complete, or it will mark tests as failing that aren't
     # supported by the previous version.
@@ -103,13 +111,6 @@ runs:
         sign-commits: true
         body: |
           Updates from release for version ${{ steps.get_new_version.outputs.version }}. Conflicts during the build prevented automatic updating. Please resolve conflicts by checking out the current branch, merging, and then deleting this branch.
-
-    - name: Publish Artifacts
-      uses: ./actions/run-gradle
-      with:
-        gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
-      env:
-        ORG_GRADLE_PROJECT_signingKey: ${{ inputs.gpg_private_key }}
 
     # Creating the PR can change the current branch. Explicitly check out the tag here for downstream builds
     - name: Revert to tag
