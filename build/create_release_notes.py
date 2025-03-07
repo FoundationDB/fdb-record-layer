@@ -142,7 +142,8 @@ def format_notes(notes, label_config, old_version, new_version, repository, mixe
             if put_in_summary:
                 text += '\n</details>\n'
     text += f"\n\n**[Full Changelog ({old_version}...{new_version})](https://github.com/{repository}/compare/{old_version}...{new_version})**"
-    text += f"\n\n{mixed_mode_results}\n"
+    if mixed_mode_results is not None:
+        text += f"\n\n{mixed_mode_results}\n"
     return text
 
 def replace_note(lines, note):
@@ -263,7 +264,7 @@ def main(argv):
     elif len(args.new_version) > 1 and args.mixed_mode_results is not None:
         print("--mixed-mode-result cannot be provided with more than one new_version", file=sys.stderr)
         exit(1)
-    mixed_mode_results = "<!-- MIXED_MODE_RESULTS {new_version} PLACEHOLDER -->"
+    mixed_mode_results = None
     if args.mixed_mode_results is not None:
         with open(args.mixed_mode_results, 'r') as fin:
             mixed_mode_results = fin.read()
