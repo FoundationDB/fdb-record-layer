@@ -228,12 +228,12 @@ tasks.withType(Test) { theTask ->
     }
 
     beforeTest { descriptor -> 
-        println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
+        print("${Instant.now()} ${getFullDisplayName(descriptor)}")
+        System.out.flush()
     } 
     afterTest { descriptor, result ->
         def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
-        println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
-        println()
+        println " ${result.resultType} (${duration}ms)"
         if (result.resultType == TestResult.ResultType.FAILURE) {
             failures.append(
                 "<details>\n" +
