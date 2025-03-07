@@ -10,9 +10,6 @@ inputs:
   update_type:
     description: 'One of MAJOR, MINOR, BUILD, PATCH'
     required: true
-  mixed_mode_results:
-    description: 'Rendered mixed mode results'
-    required: true
 
 runs:
   using: "composite"
