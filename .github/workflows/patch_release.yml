@@ -9,6 +9,8 @@ on:
 
 jobs:
   no-op:
-    - name: Show message
-      shell: bash
-      run: echo "Patch releases are now done via the release job just against a non-main branch"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show message
+        shell: bash
+        run: echo "Patch releases are now done via the release job just against a non-main branch"
