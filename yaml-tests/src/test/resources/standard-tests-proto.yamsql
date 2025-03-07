@@ -59,20 +59,20 @@ test_block:
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 1}]
     -
-      # Copy of above query to simulate force continuations mode, which does not work prior to !current_version due to
+      # Copy of above query to simulate force continuations mode, which does not work prior to 4.1.9.0 due to
       # https://github.com/FoundationDB/fdb-record-layer/issues/3096. Can remove once we no longer with testing mixed-mode
-      # capabilities with versions older than !current_version
+      # capabilities with versions older than 4.1.9.0
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{!l 1}]
       - result: [{!l 0}]
       - result: [{!l 1}]
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.1.9.0
       - result: [{!l 1}]
       - result: []
     -

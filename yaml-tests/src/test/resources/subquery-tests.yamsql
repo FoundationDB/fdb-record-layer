@@ -64,70 +64,70 @@ test_block:
     -
       # correlations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
       - result: [{1}, {2}, {3}]
     -
-      # Copy of above to simulate force_continuations with versions older than !current_version
+      # Copy of above to simulate force_continuations with versions older than 4.1.9.0
       # Can remove when we no longer care about mixed mode compatibility with older versions
       - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{1}]
       - result: [{2}]
       - error: 'XX000' # Fails to deserialize due to https://github.com/FoundationDB/fdb-record-layer/issues/3214
-      - initialVersionAtLeast: !current_version # Handled in previous query
+      - initialVersionAtLeast: 4.1.9.0 # Handled in previous query
     -
       # correlations are allowed inside a nested subquery with group by, not necessarily qualified
       - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
       - result: [{1}, {2}, {3}]
     -
-      # Copy of above to simulate force_continuations with versions older than !current_version
+      # Copy of above to simulate force_continuations with versions older than 4.1.9.0
       # Can remove when we no longer care about mixed mode compatibility with older versions
       - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{1}]
       - result: [{2}]
       - error: 'XX000' # Fails to deserialize due to https://github.com/FoundationDB/fdb-record-layer/issues/3214
-      - initialVersionAtLeast: !current_version # Handled in previous query
+      - initialVersionAtLeast: 4.1.9.0 # Handled in previous query
     -
       # correlations inside aggregations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
       - result: [{1}, {2}, {3}]
     -
-      # Copy of above to simulate force_continuations with versions older than !current_version
+      # Copy of above to simulate force_continuations with versions older than 4.1.9.0
       # Can remove when we no longer care about mixed mode compatibility with older versions
       - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{1}]
       - result: [{2}]
       - result: [{2}] # Repetition of previously returned result due to: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - result: [{3}]
       - result: [{3}]
       - result: []
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.1.9.0
     -
       # correlations inside aggregations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
       - result: [{1}, {2}, {3}]
     -
       # correlations inside aggregations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{1}]
       - result: [{2}]
       - result: [{2}] # Repetition of previously returned result due to: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - result: [{3}]
       - result: [{3}]
       - result: []
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.1.9.0
 ...

@@ -67,26 +67,26 @@ test_block:
     -
       # Get names of people working on a project
       - query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - unorderedResult: [{"Emily", "Martinez"},
                           {"Daniel", "Miller"},
                           {"Megan", "Miller"}]
     -
       # Version of above query to simulate force_continuations with older versions.
-      # Can remove once we do not care about cross-version compatibility before !current_version
+      # Can remove once we do not care about cross-version compatibility before 4.1.9.0
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{"Emily", "Martinez"}]
       - result: [{"Daniel", "Miller"}]
       - result: [{"Daniel", "Miller"}]
       - result: [{"Megan", "Miller"}]
       - result: [{"Megan", "Miller"}]
       - result: []
-      - initialVersionAtLeast: !current_version
-      # Covered by the previous query if the second server version is >= !current_version
-      # If the second server version is < !current_version, then this repeats the previous value when returned.
+      - initialVersionAtLeast: 4.1.9.0
+      # Covered by the previous query if the second server version is >= 4.1.9.0
+      # If the second server version is < 4.1.9.0, then this repeats the previous value when returned.
       # That behavior is checked by the other branch on individual responses.
     -
       # Get names of people working on a project in Sales department
@@ -94,23 +94,23 @@ test_block:
                   (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
                   dept
                where sq.dept_id = dept.id and dept.name = 'Sales';
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - unorderedResult: [{"Daniel", "Miller"}]
     -
       # Version of above query to simulate force_continuations with older versions.
-      # Can remove once we do not care about cross-version compatibility before !current_version
+      # Can remove once we do not care about cross-version compatibility before 4.1.9.0
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - query: select fname, lname from
                   (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
                   dept
                where sq.dept_id = dept.id and dept.name = 'Sales';
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{"Daniel", "Miller"}]
       - result: []
-      - initialVersionAtLeast: !current_version
-      # Covered by the previous query if the second server version is >= !current_version
-      # If the second server version is < !current_version, then this repeats the previous value when returned.
+      - initialVersionAtLeast: 4.1.9.0
+      # Covered by the previous query if the second server version is >= 4.1.9.0
+      # If the second server version is < 4.1.9.0, then this repeats the previous value when returned.
       # That behavior is checked by another query. As this returns a single row, the only thing we can test can
       # really validate is that the continuation is parsed correctly during up-level testing
     -

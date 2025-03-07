@@ -40,23 +40,23 @@ test_block:
   tests:
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }"
       - result: [{1}, {2}, {3}]
     -
       # Version of above query to simulate force_continuations with older versions.
-      # Can remove once we do not care about cross-version compatibility before !current_version
+      # Can remove once we do not care about cross-version compatibility before 4.1.9.0
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{1}]
       - result: [{2}]
       - result: [{2}]
       - result: [{3}]
       - result: [{3}]
       - result: []
-      - initialVersionAtLeast: !current_version # Handled by above query in force_continuations mode
+      - initialVersionAtLeast: 4.1.9.0 # Handled by above query in force_continuations mode
     -
       - query: select A.* from A;
       - result: [{A1: 1 , A2: 10, A3: 1}, {A1: 2, A2: 10, A3: 2}, {A1: 3, A2: 10, A3: 3}]
@@ -94,44 +94,44 @@ test_block:
       - error: "42803"
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }"
       - result: [{1}, {2}, {3}]
     -
       # Version of above query to simulate force_continuations with older versions.
-      # Can remove once we do not care about cross-version compatibility before !current_version
+      # Can remove once we do not care about cross-version compatibility before 4.1.9.0
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{1}]
       - result: [{2}]
       - result: [{2}]
       - result: [{3}]
       - result: [{3}]
       - result: []
-      - initialVersionAtLeast: !current_version # Handled by above query in force_continuations mode
+      - initialVersionAtLeast: 4.1.9.0 # Handled by above query in force_continuations mode
     -
       - query: select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);
-      - supported_version: !current_version
+      - supported_version: 4.1.9.0
       - explain: "SCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }"
       - result: [{1, 20, {4, 40}},
                  {2, 20, {5, 50}},
                  {3, 20, {6, 60}}]
     -
       # Version of above query to simulate force_continuations with older versions.
-      # Can remove once we do not care about cross-version compatibility before !current_version
+      # Can remove once we do not care about cross-version compatibility before 4.1.9.0
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - query: select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);
       - maxRows: 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.1.9.0
       - result: [{1, 20, {4, 40}}]
       - result: [{2, 20, {5, 50}}]
       - result: [{2, 20, {5, 50}}]
       - result: [{3, 20, {6, 60}}]
       - result: [{3, 20, {6, 60}}]
       - result: []
-      - initialVersionAtLeast: !current_version # Handled by above query in force_continuations mode
+      - initialVersionAtLeast: 4.1.9.0 # Handled by above query in force_continuations mode
     -
       # Not yet supported
       - query: select B.B3.* from B;
