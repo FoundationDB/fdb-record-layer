@@ -172,10 +172,21 @@ test_block:
       - result: [{S: 5}]
     -
       - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)
-      # Does not work in force continuations mode on prior versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
-      # Hard to write asserts for on older versions, but no unexpected mixed mode issues when running with older versions
+      # Does not work in force continuations mode on prior versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3219
       - supported_version: !current_version
       - result: [{1}, {2}, {6}, {7}]
+    -
+      # Copy of previous query that simulates force_continuations mode for versions less than !current_version.
+      # Can remove once we no longer care about the upgrade path there.
+      - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)
+      - maxRows: 1
+      - initialVersionLessThan: !current_version
+      - result: [{1}]
+      - result: [{2}]
+      - error: 'XXXXX'
+      - initialVersionAtLeast: !current_version
+      # If the second version is < !current_version, then the second response is a failure (as seen in other branch).
+      # If the second version is >= !current_version, then this is handled by the previous query.
     -
       - query: select col1, col2 from t1 union all select col1 from t1
       - error: "42F64"
