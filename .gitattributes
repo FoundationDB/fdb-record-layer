@@ -1,1 +1,1 @@
-**/*.metrics.binpb -text -merge
+**/*.metrics.binpb linguist-generated=true
