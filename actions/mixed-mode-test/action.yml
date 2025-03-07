@@ -17,6 +17,8 @@ runs:
       with:
         gradle_command: mixedModeTest
         gradle_args: -PreleaseBuild=false -PpublishBuild=false
+    # We don't commit the incremented version, but we use this to know the version when generating
+    # the resulting markdown
     - name: Increment version
       shell: bash
       run: python build/versionutils.py gradle.properties --increment -u ${{ inputs.update_type }}
@@ -34,11 +36,3 @@ runs:
     - name: Preview results
       shell: bash
       run: cat artifact/mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
-
-# TODO push results to release notes
-#       - name: Checkout Main
-#         run: git checkout main
-#       - name: Update release notes
-#         run: python build/publish-mixed-mode-results.py ${{ inputs.tag }} --release-notes docs/sphinx/source/ReleaseNotes.md --commit --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-#       - name: Push release notes update
-#         run: git push
