@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -174,6 +175,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
     }
 
+    @SuppressWarnings("ConstantValue")
     @Nonnull
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
@@ -198,19 +200,22 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             return Compensation.impossibleCompensation();
         }
 
+        boolean isCompensationImpossible = false;
         final ResultCompensationFunction resultCompensationFunction;
+        final Map<Value, Value> pulledUpMatchedAggregateValueMap;
         if (pullUp != null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            pulledUpMatchedAggregateValueMap = ImmutableMap.of();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
-            final var pulledUpResultValueOptional =
+            final var pulledUpTranslatedResultValueOptional =
                     rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
-            if (pulledUpResultValueOptional.isEmpty()) {
+            if (pulledUpTranslatedResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
 
-            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+            final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpResultValue,
                     rootPullUp.getNestingAlias())) {
@@ -219,6 +224,10 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                 resultCompensationFunction =
                         ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
             }
+            isCompensationImpossible |= resultCompensationFunction.isImpossible();
+
+            pulledUpMatchedAggregateValueMap =
+                    RegularMatchInfo.pullUpMatchedAggregateValueMap(partialMatch, Quantifier.current(), nestingAlias);
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
@@ -228,12 +237,13 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             return Compensation.noCompensation();
         }
 
-        return childCompensation.derived(false,
+        return childCompensation.derived(isCompensationImpossible,
                 new LinkedIdentityMap<>(),
                 getMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
-                resultCompensationFunction);
+                resultCompensationFunction,
+                pulledUpMatchedAggregateValueMap);
     }
 
     @Nonnull

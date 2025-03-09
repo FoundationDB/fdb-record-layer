@@ -20,10 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.google.common.collect.ImmutableList;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -32,11 +38,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /**
  * Map that maps from a {@link QueryPredicate} of a query to a {@link QueryPredicate} of a {@link MatchCandidate}.
@@ -84,6 +91,12 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
+                    public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
                     public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
@@ -103,6 +116,12 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
+                    public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
                     public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
@@ -114,10 +133,70 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
+        PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo);
+
+        @Nonnull
         Set<QueryPredicate> applyCompensationForPredicate(@Nonnull CorrelationIdentifier baseAlias);
 
         @Nonnull
-        static PredicateCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
+        static PredicateCompensationFunction ofPulledUpPredicate(@Nonnull final QueryPredicate pulledUpPredicate,
+                                                                 @Nonnull final BiFunction<QueryPredicate, CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
+            final var isImpossible = predicateContainsUnmatchedValues(pulledUpPredicate);
+
+            return new PredicateCompensationFunction() {
+                @Override
+                public boolean isNeeded() {
+                    return true;
+                }
+
+                @Override
+                public boolean isImpossible() {
+                    return isImpossible;
+                }
+
+                @Nonnull
+                @Override
+                public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    // TODO
+                    return ofPulledUpPredicate(pulledUpPredicate, compensationFunction);
+                }
+
+                @Nonnull
+                @Override
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                    return compensationFunction.apply(pulledUpPredicate, baseAlias);
+                }
+            };
+        }
+
+        private static boolean predicateContainsUnmatchedValues(final @Nonnull QueryPredicate pulledUpPredicate) {
+            if (pulledUpPredicate instanceof PredicateWithValue) {
+                final var value = Objects.requireNonNull(((PredicateWithValue)pulledUpPredicate).getValue());
+                if (value.preOrderStream()
+                        .anyMatch(v -> v instanceof MaxMatchMap.UnmatchedAggregateValue)) {
+                    return true;
+                }
+            }
+
+            if (pulledUpPredicate instanceof PredicateWithComparisons) {
+                final var comparisons = ((PredicateWithComparisons)pulledUpPredicate).getComparisons();
+                for (final var comparison : comparisons) {
+                    if (comparison instanceof Comparisons.ValueComparison) {
+                        final var comparisonValue = comparison.getValue();
+                        if (comparisonValue.preOrderStream()
+                                .anyMatch(v -> v instanceof MaxMatchMap.UnmatchedAggregateValue)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Nonnull
+        static PredicateCompensationFunction ofExistentialPredicate(@Nonnull final ExistsPredicate existsPredicate) {
+            final var result = LinkedIdentitySet.of((QueryPredicate)existsPredicate);
+
             return new PredicateCompensationFunction() {
                 @Override
                 public boolean isNeeded() {
@@ -131,8 +210,46 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
+                public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    return this;
+                }
+
+                @Nonnull
+                @Override
                 public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(baseAlias);
+                    return result;
+                }
+            };
+        }
+
+        @Nonnull
+        static PredicateCompensationFunction ofChildrenCompensationFunctions(@Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
+                                                                             @Nonnull final BiFunction<List<PredicateCompensationFunction>, CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
+            return new PredicateCompensationFunction() {
+                @Override
+                public boolean isNeeded() {
+                    return true;
+                }
+
+                @Override
+                public boolean isImpossible() {
+                    return childrenCompensationFunctions.stream().anyMatch(PredicateCompensationFunction::isImpossible);
+                }
+
+                @Nonnull
+                @Override
+                public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    final var amendedChildrenCompensationFunctions =
+                            childrenCompensationFunctions.stream()
+                                    .map(childrenCompensationFunction -> childrenCompensationFunction.amendWithOtherMatchInfo(matchInfo))
+                                    .collect(ImmutableList.toImmutableList());
+                    return ofChildrenCompensationFunctions(amendedChildrenCompensationFunctions, compensationFunction);
+                }
+
+                @Nonnull
+                @Override
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                    return compensationFunction.apply(childrenCompensationFunctions, baseAlias);
                 }
             };
         }
@@ -166,6 +283,12 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
+                    public ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
                     public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
@@ -185,6 +308,12 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
+                    public ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
                     public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
@@ -194,6 +323,9 @@ public class PredicateMultiMap {
         boolean isNeeded();
 
         boolean isImpossible();
+
+        @Nonnull
+        ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull MatchInfo matchInfo);
 
         @Nonnull
         Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
@@ -206,7 +338,10 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        static ResultCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Value> compensationFunction) {
+        static ResultCompensationFunction ofValue(@Nonnull final Value value,
+                                                  @Nonnull final BiFunction<Value, CorrelationIdentifier, Value> compensationFunction) {
+            final var isImpossible = valueContainsUnmatchedValues(value);
+
             return new ResultCompensationFunction() {
                 @Override
                 public boolean isNeeded() {
@@ -215,13 +350,20 @@ public class PredicateMultiMap {
 
                 @Override
                 public boolean isImpossible() {
-                    return false;
+                    return isImpossible;
+                }
+
+                @Nonnull
+                @Override
+                public ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    // TODO
+                    return ofValue(value, compensationFunction);
                 }
 
                 @Nonnull
                 @Override
                 public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(baseAlias);
+                    return compensationFunction.apply(value, baseAlias);
                 }
             };
         }
@@ -234,6 +376,11 @@ public class PredicateMultiMap {
         @Nonnull
         static ResultCompensationFunction impossibleCompensation() {
             return IMPOSSIBLE_COMPENSATION;
+        }
+
+        private static boolean valueContainsUnmatchedValues(final @Nonnull Value pulledUpValue) {
+            return pulledUpValue.preOrderStream()
+                    .anyMatch(v -> v instanceof MaxMatchMap.UnmatchedAggregateValue);
         }
     }
 

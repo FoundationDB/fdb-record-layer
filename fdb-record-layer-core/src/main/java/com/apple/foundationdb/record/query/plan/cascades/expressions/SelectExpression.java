@@ -862,18 +862,20 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         }
 
         final ResultCompensationFunction resultCompensationFunction;
+        final Map<Value, Value> pulledUpMatchedAggregateValueMap;
         if (pullUp != null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            pulledUpMatchedAggregateValueMap = ImmutableMap.of();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
-            final var pulledUpResultValueOptional =
+            final var pulledUpTranslatedResultValueOptional =
                     rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
-            if (pulledUpResultValueOptional.isEmpty()) {
+            if (pulledUpTranslatedResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
 
-            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+            final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpResultValue,
                     rootPullUp.getNestingAlias())) {
@@ -882,6 +884,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 resultCompensationFunction =
                         ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
             }
+            isAnyCompensationFunctionImpossible |= resultCompensationFunction.isImpossible();
+
+            pulledUpMatchedAggregateValueMap =
+                    RegularMatchInfo.pullUpMatchedAggregateValueMap(partialMatch, Quantifier.current(), nestingAlias);
         }
 
         final var isCompensationNeeded =
@@ -912,6 +918,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 getMatchedQuantifiers(partialMatch),
                 partialMatch.getUnmatchedQuantifiers(),
                 partialMatch.getCompensatedAliases(),
-                resultCompensationFunction);
+                resultCompensationFunction,
+                pulledUpMatchedAggregateValueMap);
     }
 }
