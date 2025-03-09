@@ -861,22 +861,29 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         }
 
         final ResultCompensationFunction resultCompensationFunction;
+        final Map<Value, Value> pulledUpMatchedAggregateValueMap;
         if (pullUp != null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            pulledUpMatchedAggregateValueMap = ImmutableMap.of();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
-            final var pulledUpResultValueOptional =
+            final var pulledUpTranslatedResultValueOptional =
                     rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
-            if (pulledUpResultValueOptional.isEmpty()) {
+            if (pulledUpTranslatedResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
 
-            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+            final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             resultCompensationFunction =
-                    ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+                    ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue,
+                            (value, baseAlias) -> value.translateCorrelations(
+                                    TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+            isAnyCompensationFunctionImpossible |= resultCompensationFunction.isImpossible();
+
+            pulledUpMatchedAggregateValueMap =
+                    RegularMatchInfo.pullUpMatchedAggregateValueMap(partialMatch, Quantifier.current(), nestingAlias);
         }
 
         final var isCompensationNeeded =
@@ -896,7 +903,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         //
         final var partialMatchMap = regularMatchInfo.getPartialMatchMap();
         if (quantifiers.stream()
-                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach && partialMatchMap.containsKeyUnwrapped(quantifier))
+                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
+                            partialMatchMap.containsKeyUnwrapped(quantifier))
                     .count() > 1) {
             return Compensation.impossibleCompensation();
         }
@@ -906,6 +914,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 getMatchedQuantifiers(partialMatch),
                 partialMatch.getUnmatchedQuantifiers(),
                 partialMatch.getCompensatedAliases(),
-                resultCompensationFunction);
+                resultCompensationFunction,
+                pulledUpMatchedAggregateValueMap);
     }
 }

@@ -337,18 +337,6 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(@Nonnull final Predicate<QueryPredicate> predicateFilter) {
-        final var interestingPredicates =
-                getAccumulatedPredicateMap().getMap()
-                        .keySet()
-                        .stream()
-                        .filter(predicateFilter)
-                        .collect(LinkedIdentitySet.toLinkedIdentitySet());
-
-        return getPulledUpPredicateMappings(interestingPredicates);
-    }
-
-    @Nonnull
     public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(@Nonnull final Set<QueryPredicate> interestingPredicates) {
         final var resultMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
         final var unmemoizedInterestingPredicates = new LinkedIdentitySet<QueryPredicate>();
