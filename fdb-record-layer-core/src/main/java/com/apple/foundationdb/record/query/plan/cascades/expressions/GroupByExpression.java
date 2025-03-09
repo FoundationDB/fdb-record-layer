@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedO
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -529,6 +529,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 innerQuantifier.getCorrelatedTo());
     }
 
+    @SuppressWarnings("ConstantValue")
     @Nonnull
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
@@ -564,23 +565,31 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return Compensation.impossibleCompensation();
         }
 
-        final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        boolean isCompensationImpossible = false;
+        final ResultCompensationFunction resultCompensationFunction;
+        final Map<Value, Value> pulledUpMatchedAggregateValueMap;
         if (pullUp != null) {
-            resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+            resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            pulledUpMatchedAggregateValueMap = ImmutableMap.of();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
-            final var pulledUpResultValueOptional =
+            final var pulledUpTranslatedResultValueOptional =
                     rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
-            if (pulledUpResultValueOptional.isEmpty()) {
+            if (pulledUpTranslatedResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
 
-            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+            final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             resultCompensationFunction =
-                    PredicateMultiMap.ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+                    ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue,
+                            (value, baseAlias) -> value.translateCorrelations(
+                                    TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+            isCompensationImpossible |= resultCompensationFunction.isImpossible();
+
+            pulledUpMatchedAggregateValueMap =
+                    RegularMatchInfo.pullUpMatchedAggregateValueMap(partialMatch, Quantifier.current(), nestingAlias);
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
@@ -590,12 +599,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return Compensation.noCompensation();
         }
 
-        return childCompensation.derived(false,
+        return childCompensation.derived(isCompensationImpossible,
                 new LinkedIdentityMap<>(),
                 getMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
-                resultCompensationFunction);
+                resultCompensationFunction,
+                pulledUpMatchedAggregateValueMap);
     }
 
     @Nonnull
