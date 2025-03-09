@@ -369,41 +369,57 @@ public interface MatchInfo {
             final var matchedAggregateValueMapBuilder = ImmutableMap.<Value, Value>builder();
             matchedAggregateValueMapBuilder.putAll(additionalMatchedAggregateValueMap);
             for (final var partialMatchMapEntry : partialMatchMap.entrySet()) {
-                final var quantifier = partialMatchMapEntry.getKey().get();
+                final var partialMatchMapEntryKey = partialMatchMapEntry.getKey();
+                final var quantifier = partialMatchMapEntryKey.get();
                 if (quantifier instanceof Quantifier.ForEach) {
                     final var partialMatch = partialMatchMapEntry.getValue().get();
-                    final var matchInfo = partialMatch.getMatchInfo();
-                    final var matchedAggregateValueMap = matchInfo.getMatchedAggregateValueMap();
-                    for (final var matchedAggregateValueMapEntry : matchedAggregateValueMap.entrySet()) {
-                        final var queryAggregateValue = matchedAggregateValueMapEntry.getKey();
-                        final var lowerQueryExpression = partialMatch.getQueryExpression();
-                        final var lowerResultValue = lowerQueryExpression.getResultValue();
-                        final var pullUpMap =
-                                lowerResultValue.pullUp(ImmutableList.of(queryAggregateValue), AliasMap.emptyMap(),
-                                        Sets.difference(queryAggregateValue.getCorrelatedToWithoutChildren(),
-                                                lowerQueryExpression.getCorrelatedTo()), quantifier.getAlias());
-                        final var pulledUpQueryAggregateValue = pullUpMap.get(queryAggregateValue);
-                        if (pulledUpQueryAggregateValue == null) {
-                            return ImmutableMap.of();
-                        }
-                        final var candidateAggregateValue = matchedAggregateValueMapEntry.getValue();
-                        final var candidateLowerExpression =
-                                Iterables.getOnlyElement(partialMatch.getCandidateRef().getMembers());
-                        final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
-                        final var candidatePullUpMap =
-                                candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
-                                        AliasMap.emptyMap(),
-                                        Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
-                                                candidateLowerExpression.getCorrelatedTo()),
-                                        Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
-                        final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
-                        if (pulledUpCandidateAggregateValue == null) {
-                            return ImmutableMap.of();
-                        }
-                        matchedAggregateValueMapBuilder.put(pulledUpQueryAggregateValue, pulledUpCandidateAggregateValue);
-                    }
+                    final var pulledUpMatchedAggregateValueMap =
+                            pullUpMatchedAggregateValueMap(partialMatch,
+                                    quantifier.getAlias(),
+                                    Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
+
+                    matchedAggregateValueMapBuilder.putAll(pulledUpMatchedAggregateValueMap);
                 }
             }
+            return matchedAggregateValueMapBuilder.build();
+        }
+
+        @Nonnull
+        public static Map<Value, Value> pullUpMatchedAggregateValueMap(@Nonnull final PartialMatch partialMatch,
+                                                                       @Nonnull final CorrelationIdentifier queryAlias,
+                                                                       @Nonnull final CorrelationIdentifier candidateAlias) {
+            final var matchInfo = partialMatch.getMatchInfo();
+            final var queryExpression = partialMatch.getQueryExpression();
+            final var resultValue = queryExpression.getResultValue();
+            final var matchedAggregateValueMapBuilder = ImmutableMap.<Value, Value>builder();
+            final var matchedAggregateValueMap = matchInfo.getMatchedAggregateValueMap();
+            for (final var matchedAggregateValueMapEntry : matchedAggregateValueMap.entrySet()) {
+                final var queryAggregateValue = matchedAggregateValueMapEntry.getKey();
+                final var pullUpMap =
+                        resultValue.pullUp(ImmutableList.of(queryAggregateValue), AliasMap.emptyMap(),
+                                Sets.difference(queryAggregateValue.getCorrelatedToWithoutChildren(),
+                                        queryExpression.getCorrelatedTo()), queryAlias);
+                final var pulledUpQueryAggregateValue = pullUpMap.get(queryAggregateValue);
+                if (pulledUpQueryAggregateValue == null) {
+                    return ImmutableMap.of();
+                }
+                final var candidateAggregateValue = matchedAggregateValueMapEntry.getValue();
+                final var candidateLowerExpression =
+                        Iterables.getOnlyElement(partialMatch.getCandidateRef().getMembers());
+                final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
+                final var candidatePullUpMap =
+                        candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
+                                AliasMap.emptyMap(),
+                                Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
+                                        candidateLowerExpression.getCorrelatedTo()),
+                                candidateAlias);
+                final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
+                if (pulledUpCandidateAggregateValue == null) {
+                    return ImmutableMap.of();
+                }
+                matchedAggregateValueMapBuilder.put(pulledUpQueryAggregateValue, pulledUpCandidateAggregateValue);
+            }
+
             return matchedAggregateValueMapBuilder.build();
         }
     }
