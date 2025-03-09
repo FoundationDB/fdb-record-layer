@@ -149,18 +149,19 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
                                                                      @Nonnull final PullUp pullUp) {
-        Verify.verify(childrenResults.size() == 1);
-        final var predicateCompensationFunction = Iterables.getOnlyElement(childrenResults);
+        Verify.verify(childrenCompensationFunctions.size() == 1);
+        final var predicateCompensationFunction = Iterables.getOnlyElement(childrenCompensationFunctions);
         if (!predicateCompensationFunction.isNeeded()) {
             return PredicateCompensationFunction.noCompensationNeeded();
         }
 
-        return PredicateCompensationFunction.of(baseAlias -> {
-            final var childPredicates = predicateCompensationFunction.applyCompensationForPredicate(baseAlias);
-            return LinkedIdentitySet.of(not(AndPredicate.and(childPredicates)));
-        });
+        return PredicateCompensationFunction.ofChildrenCompensationFunctions(childrenCompensationFunctions,
+                (functions, baseAlias) -> {
+                    final var childPredicates = Iterables.getOnlyElement(functions).applyCompensationForPredicate(baseAlias);
+                    return LinkedIdentitySet.of(not(AndPredicate.and(childPredicates)));
+                });
     }
 
     @Nonnull
