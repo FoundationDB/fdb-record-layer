@@ -85,7 +85,10 @@ public class SupportedVersionTest {
                 "lower-at-block",
                 "lower-at-query",
                 "late-query-supported-version",
-                "late-file-options"
+                "late-file-options",
+                "illegal-version-at-file",
+                "illegal-version-at-block",
+                "illegal-version-at-query"
         );
     }
 
