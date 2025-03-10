@@ -39,7 +39,7 @@ layer on which more complex systems can be constructed.
 
 ## Documentation
 
-* [Documentation Home](docs/sphinx/source/index.md)
+* [Documentation Home](https://foundationdb.github.io/fdb-record-layer/)
 * [Contributing](CONTRIBUTING.md)
 * [Code of Conduct](CODE_OF_CONDUCT.md)
 * [License](LICENSE)
