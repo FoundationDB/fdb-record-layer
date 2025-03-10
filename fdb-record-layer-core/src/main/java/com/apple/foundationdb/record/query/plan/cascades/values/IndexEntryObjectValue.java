@@ -79,7 +79,7 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
                                  @Nonnull final TupleSource source,
                                  @Nonnull final ImmutableIntArray ordinalPath,
                                  @Nonnull final Type resultType) {
-        Verify.verify(resultType.isPrimitive() || resultType.isEnum());
+        Verify.verify(resultType.isPrimitive() || resultType.isEnum() || resultType.isUuid());
         this.indexEntryAlias = alias;
         this.source = source;
         this.ordinalPath = ordinalPath;

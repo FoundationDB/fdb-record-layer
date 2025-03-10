@@ -253,4 +253,9 @@ public class YamlIntegrationTests {
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }
+
+    @TestTemplate
+    public void uuidTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid.yamsql");
+    }
 }
