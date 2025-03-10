@@ -314,6 +314,11 @@ public class LuceneIndexTestDataModel {
         return validator;
     }
 
+    public void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey,
+                                        Set<Tuple> expectedPrimaryKeys, final String universalSearch, FDBRecordStore store) throws IOException {
+        LuceneIndexTestValidator.validateDocsInPartition(store, index, partitionId, groupingKey, expectedPrimaryKeys, universalSearch);
+    }
+
     @Nonnull
     static Index addIndex(final boolean isSynthetic, final KeyExpression rootExpression,
                           final Map<String, String> options, final RecordMetaDataBuilder metaDataBuilder) {
