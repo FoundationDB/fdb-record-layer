@@ -379,12 +379,12 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
             @Nullable
             @Override
-            public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext) {
+            public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
                 List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
                 for (Accumulator accumulator: childAccumulators) {
                     // (TODO): check groupingKeyValues are the same here
-                    if (accumulator.getPartialAggregationResult(groupingKey, serializationContext) != null) {
-                        accumulatorStates.addAll(accumulator.getPartialAggregationResult(groupingKey, serializationContext).getAccumulatorStatesList());
+                    if (accumulator.getPartialAggregationResult(groupingKey) != null) {
+                        accumulatorStates.addAll(accumulator.getPartialAggregationResult(groupingKey).getAccumulatorStatesList());
                     }
                 }
                 if (accumulatorStates.isEmpty()) {

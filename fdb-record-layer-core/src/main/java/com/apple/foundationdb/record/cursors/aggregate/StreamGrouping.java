@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -31,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -90,10 +87,6 @@ public class StreamGrouping<M extends Message> {
     private final CorrelationIdentifier aggregateAlias;
     @Nonnull
     private final Value completeResultValue;
-
-    @Nonnull
-    private static PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-            PlanHashable.CURRENT_FOR_CONTINUATION);
 
     /**
      * Create a new group aggregator.
@@ -220,6 +213,10 @@ public class StreamGrouping<M extends Message> {
 
     @Nullable
     public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
-        return accumulator.getPartialAggregationResult(groupingKey, serializationContext);
+        return accumulator.getPartialAggregationResult(groupingKey);
+    }
+
+    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
+        return accumulator.getPartialAggregationResult((Message)currentGroup);
     }
 }

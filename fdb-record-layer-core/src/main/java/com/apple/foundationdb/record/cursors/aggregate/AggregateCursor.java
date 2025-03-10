@@ -22,17 +22,14 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -58,6 +55,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
+    @Nullable
+    // when previousResult = row x, lastResult = row (x-1); when previousResult = null, lastResult = null
+    private RecordCursorResult<QueryResult> lastResult;
     // Previous non-empty record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
@@ -86,18 +86,17 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }
 
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
+            lastResult = previousResult;
             previousResult = innerResult;
-            System.out.println("scan innerResult hasNext:" + innerResult.hasNext());
             if (!innerResult.hasNext()) {
-                System.out.println("cursor noNextReason:" + innerResult.getNoNextReason());
-                //if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
-                    // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
-                    partialAggregationResult = streamGrouping.finalizeGroup();
-                //}
+                if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
+                // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
+                // (TODO)
+                partialAggregationResult = streamGrouping.finalizeGroup();
+                }
                 return false;
             } else {
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
-                System.out.println("inner result:" + innerResult.get().getMessage());
                 boolean groupBreak = streamGrouping.apply(queryResult);
                 if (!groupBreak) {
                     // previousValidResult is the last row before group break, it sets the continuation
@@ -149,7 +148,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     }
                 } else {
                     // stopped in the middle of a group
-                    RecordCursorContinuation currentContinuation = new AggregateCursorContinuation(previousValidResult.getContinuation(), partialAggregationResult);
+                    RecordCursorContinuation currentContinuation = new AggregateCursorContinuation(lastResult.getContinuation(), partialAggregationResult);
                     previousValidResult = previousResult;
                     return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
                 }
@@ -157,8 +156,10 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         });
     }
 
+
+
     private boolean isNoRecords() {
-        return ((previousValidResult == null) && (!Verify.verifyNotNull(previousResult).hasNext()));
+        return ((previousValidResult == null) && (!Verify.verifyNotNull(previousResult).hasNext()) && (streamGrouping.getPartialAggregationResult() == null));
     }
 
     @Override

@@ -349,7 +349,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nullable
         @Override
-        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext) {
+        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
             if (state ==  null) {
                 return null;
             }

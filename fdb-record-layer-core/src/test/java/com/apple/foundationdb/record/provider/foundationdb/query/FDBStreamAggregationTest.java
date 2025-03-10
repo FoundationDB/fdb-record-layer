@@ -387,9 +387,11 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                 return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, executeProperties);
             } else {
                 RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(continuation);
-                System.out.println("partialAggregationResult:" + continuationProto.getPartialAggregationResults());
-                System.out.println("plan class:" + plan.getClass());
-                return plan.executePlan(recordStore, EvaluationContext.forBindingsAndTypeRepositoryAndPartialAggregationResult(Bindings.EMPTY_BINDINGS, typeRepository, continuationProto.getPartialAggregationResults()), continuationProto.getContinuation().toByteArray(), executeProperties);
+                if (continuationProto.hasPartialAggregationResults()) {
+                    return plan.executePlan(recordStore, EvaluationContext.forBindingsAndTypeRepositoryAndPartialAggregationResult(Bindings.EMPTY_BINDINGS, typeRepository, continuationProto.getPartialAggregationResults()), continuationProto.getContinuation().toByteArray(), executeProperties);
+                } else {
+                    return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuationProto.getContinuation().toByteArray(), executeProperties);
+                }
             }
         } catch (final Throwable t) {
             throw Assertions.<RuntimeException>fail(t);
@@ -397,7 +399,6 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?> expectedResult) {
-        System.out.println("executePlanWithRecordScanLimit called with recordScanLimit:" + recordScanLimit + " expectedResult:" + expectedResult);
         List<QueryResult> queryResults = new LinkedList<>();
         RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation);
         RecordCursorResult<QueryResult> currentCursorResult;
@@ -405,13 +406,10 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         while (true) {
             currentCursorResult = currentCursor.getNext();
             cursorContinuation = currentCursorResult.getContinuation();
-            System.out.println("cursor hasNext:" + currentCursorResult.hasNext());
             if (!currentCursorResult.hasNext()) {
-                System.out.println("cursor NoNextReason:" +  currentCursorResult.getNoNextReason());
                 break;
             }
             queryResults.add(currentCursorResult.get());
-            System.out.println("queryResults size:" + queryResults.size() + " new added:" + currentCursorResult.get().getMessage());
         }
         if (expectedResult == null) {
             Assertions.assertTrue(queryResults.isEmpty());
@@ -435,7 +433,6 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                 }
                 queryResults.add(currentCursorResult.get());
             }
-            System.out.println("getNoNextReason:" + currentCursorResult.getNoNextReason());
             if (currentCursorResult.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
                 break;
             }

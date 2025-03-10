@@ -867,7 +867,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nullable
         @Override
-        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey, PlanSerializationContext serializationContext) {
+        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
             if (state ==  null) {
                 return null;
             }
