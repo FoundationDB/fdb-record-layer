@@ -109,6 +109,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     @Nonnull
     protected CompletableFuture<TimeWindowLeaderboardDirectory> loadDirectory() {
         final Subspace extraSubspace = getSecondarySubspace();
+        // TimeWindow Leaderboard sets secondary subspace directly via `subspace.pack()`
         return state.transaction.get(extraSubspace.pack()).thenApply(bytes -> {
             if (bytes == null) {
                 return null;
