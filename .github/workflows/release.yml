@@ -3,14 +3,110 @@ name: Release
 on:
   workflow_dispatch:
 
+
 jobs:
-  gradle:
+  # 1. We look at the target branch and figure out whether this should be a BUILD
+  # release or a patch release
+  get-update-type:
+    # If the context.ref is refs/heads/main we want to do a standard release
+    # If the context.ref is refs/heads/* we want to do a patch release
+    # If the context.ref is some other ref, we want to fail
+    # Selecting a tag github.ref becomes e.g.: refs/tags/4.1.9.0
     runs-on: ubuntu-latest
     permissions:
-      checks: write
+      contents: read
+    outputs: # This means this can later be referenced with needs.get-update-type.outputs.update-type
+      update-type: ${{ steps.update-type.outputs.result }}
+    steps:
+      - name: Calculate update type
+        uses: actions/github-script@v7
+        id: update-type
+        with:
+          script: |
+            if (context.ref == "refs/heads/main") {
+                return "BUILD";
+            } else if (context.ref.startsWith("refs/heads/")) {
+                return "PATCH";
+            } else {
+                throw new Error("Target must be a patch branch or main, but was: " + context.ref);
+            }
+          result-encoding: string
+      - name: Print update type
+        shell: bash
+        run: echo "${{steps.update-type.outputs.result}}"
+
+  # 2. In parallel, we run:
+  #   a) all the tests
+  #   b) the mixed-mode tests
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        id: setup-base
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_args: -PreleaseBuild=true -PpublishBuild=true
+
+  # 2. b) We run the mixed mode tests
+  mixed-mode-test:
+    needs: [get-update-type]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: mixedModeTest
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false
+      # We don't commit the incremented version, but we use this to know the version when generating
+      # the resulting markdown
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
+      - name: Get new version
+        id: get_new_version
+        shell: bash
+        run: |
+          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+      - name: Create markdown
+        shell: bash
+        run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --output mixed-mode-results.md
+      - name: Preview results
+        shell: bash
+        run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
+      # I think this _needs_ to be done at this level, rather than in the action
+      # so that "mixed-mode-results" gets passed around correctly
+      - name: Upload mixed mode results
+        id: mixed_mode_results
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: mixed-mode-results
+          path: mixed-mode-results.md
+
+  # 3. Update the version in the repo, update the release notes, tag the commit
+  #    and publish the artifacts, and if this is a BUILD release generate the documentation
+  publish:
+    needs: [test, mixed-mode-test, get-update-type]
+    runs-on: ubuntu-latest
+    permissions:
       contents: write
       packages: write
-      pull-requests: write
+      pull-requests: write # We create a pull request if committing the release notes updates fails
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
@@ -20,46 +116,145 @@ jobs:
           # fetch all the history to make sure that we have the last release
           # I tried fetching part of the history, but I just couldn't get it to work, and fetching all still takes like 5s
           fetch-depth: 0
-      - name: Setup Base Environment
-        id: setup-base
-        uses: ./actions/setup-base-env
-      - name: Setup FDB
-        uses: ./actions/setup-fdb
+
       - name: Configure git
+        shell: bash
         run: |
           git config --global user.name 'FoundationDB CI'
           git config --global user.email 'foundationdb_ci@apple.com'
-
-      - name: Build and publish
-        uses: ./actions/release-build-publish
+  
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Get old version
+        id: get_old_version
+        shell: bash
+        run: |
+          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+      # Push a version bump back to main. There are failure scenarios that can result
+      # in published artifacts but an erroneous build, so it's safer to bump the version
+      # at the beginning
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment --commit -u ${{ needs.get-update-type.outputs.update-type }}
+      - name: Get new version
+        id: get_new_version
+        shell: bash
+        run: |
+          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
+      # We also want to push the tag, because that will be used for the next release's release notes
+      - name: Create tag
+        shell: bash
+        run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
+  
+      # We want to do this before anything else, because if the later steps fail, we want to make sure that the full
+      # change log includes all changes, even if they reference a release that was never actually published.
+      - name: Download mixed mode results
+        uses: actions/download-artifact@v4
         with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          update_type: BUILD
+          name: mixed-mode-results
+      - name: echo results
+        shell: bash
+        run: cat mixed-mode-results.md || ls
+      - name: Update release notes
+        shell: bash
+        run: |
+          python ./build/create_release_notes.py \
+          --config ./build/release-notes-config.json \
+          --release-notes-md docs/sphinx/source/ReleaseNotes.md \
+          --skip-commit $(git log -n 1 --format=%H HEAD) \
+          --repository ${{ github.repository }} \
+          --commit \
+          --mixed-mode-results mixed-mode-results.md \
+          ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
         env:
+          GH_TOKEN: ${{ github.token }}
+      # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
+      # release notes
+      - name: Move tag to HEAD
+        shell: bash
+        run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
+  
+      # push the changes to gradle.properties, the release notes, and the tag as one operation, so if it fails,
+      # it will be as if the release never did anything
+      - name: Push Version Update
+        shell: bash
+        run: git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
+  
+      - name: Publish Artifacts
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+        env:
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+  
+      # Post release: Update various files which reference version
+      # Updating the yaml files has to be done after the tests complete, or it will mark tests as failing that aren't
+      # supported by the previous version.
+      - name: Update YAML test file versions
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: updateYamsql -PreleaseBuild=true
+      - name: Commit YAML updates
+        shell: bash
+        run: python ./build/commit_yamsql_updates.py "${{ steps.get_new_version.outputs.version }}"
+      - name: Push Updates
+        id: push_updates
+        shell: bash
+        run: git push origin
+        # Continue the build (including downstream steps). If the push fails, we'll create a PR
+        continue-on-error: true
+      - name: Create Merge PR if conflict
+        # Only create the PR if we've otherwise been successful, but the push failed. Note that
+        # we're checking the .outcome of the push step, which is applied before continue-on-error.
+        if: success() && steps.push_updates.outcome == 'failure'
+        uses: peter-evans/create-pull-request@bb88e27d3f9cc69c8bc689eba126096c6fe3dded
+        id: pr_on_conflict
+        with:
+          branch: release-build
+          branch-suffix: timestamp
+          title: "Updates for ${{ steps.get_new_version.outputs.version }} release"
+          sign-commits: true
+          body: |
+            Updates from release for version ${{ steps.get_new_version.outputs.version }}. Conflicts during the build prevented automatic updating. Please resolve conflicts by checking out the current branch, merging, and then deleting this branch.
+  
+      # Creating the PR can change the current branch. Explicitly check out the tag here for downstream builds
+      - name: Revert to tag
+        shell: bash
+        run: git checkout "${{ steps.get_new_version.outputs.version }}"
 
-      # Build documentation.
+      # Build documentation (We don't do any of the remaining steps for patch releases)
+      - name: LOG update type
+        shell: bash
+        run: echo "${{ needs.get-update-type.outputs.update-type }}"
       - name: Cache Python Environment
+        if: needs.get-update-type.outputs.update-type == 'BUILD'
         uses: actions/cache@v4
         with:
           path: docs/sphinx/.venv
           key: ${{ runner.os }}-sphinx-python-${{ steps.setup-base.outputs.python-version }}-${{ hashFiles('docs/sphinx/requirements.txt') }}
       - name: Build Documentation Site
+        if: needs.get-update-type.outputs.update-type == 'BUILD'
         uses: ./actions/run-gradle
         with:
           gradle_command: documentationSite -PreleaseBuild=true
       - name: Upload Documentation
+        if: needs.get-update-type.outputs.update-type == 'BUILD'
         id: doc_upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/sphinx/.out/html/
 
+  # 4. We deploy the documentation from (3) to github pages, unless this is a patch release 
+  # deploy_docs is a separate job so that it can run with different permissions from
+  # everything else, but it depends on publish so, it will always run last
   deploy_docs:
     runs-on: ubuntu-latest
-    needs: gradle
+    needs: [publish]
+    if: needs.get-update-type.outputs.update-type == 'BUILD'
     permissions:
       pages: write
       id-token: write
@@ -67,5 +262,8 @@ jobs:
       name: github-pages
       url: ${{ steps.doc_upload.outputs.page_url }}
     steps:
+      - name: LOG update type
+        shell: bash
+        run: echo "${{ needs.get-update-type.outputs.update-type }}"
       - name: Deploy Documentation
         uses: actions/deploy-pages@v4
