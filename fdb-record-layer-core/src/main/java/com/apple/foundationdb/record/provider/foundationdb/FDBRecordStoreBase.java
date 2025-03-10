@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -865,6 +866,20 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                  @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint,
                                                  @Nullable byte[] continuation,
                                                  @Nonnull ScanProperties scanProperties);
+
+    /**
+     * Scan the records in the database in a key range.
+     *
+     * @param range key range
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     *
+     * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
+     */
+    @Nonnull
+    RecordCursor<FDBStoredRecord<M>> scanRecordsKeyRange(@Nonnull KeyRange range,
+                                                         @Nullable byte[] continuation,
+                                                         @Nonnull ScanProperties scanProperties);
 
     /**
      * Count the number of records in the database in a range.
