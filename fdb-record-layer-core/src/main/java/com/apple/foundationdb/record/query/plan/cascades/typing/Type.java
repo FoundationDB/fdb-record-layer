@@ -1138,6 +1138,16 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 return Null.fromProto(serializationContext, nullTypeProto);
             }
         }
+
+        @Override
+        public int hashCode() {
+            return getTypeCode().name().hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof Null;
+        }
     }
 
     /**
@@ -1226,6 +1236,16 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                   @Nonnull final PNoneType noneTypeProto) {
                 return None.fromProto(serializationContext, noneTypeProto);
             }
+        }
+
+        @Override
+        public int hashCode() {
+            return getTypeCode().name().hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof None;
         }
     }
 

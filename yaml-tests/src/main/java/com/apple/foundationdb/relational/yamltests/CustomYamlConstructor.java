@@ -76,6 +76,8 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_PLAN_HASH);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_MAX_ROWS);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST);
     }
 
     @Override
@@ -130,6 +132,11 @@ public class CustomYamlConstructor extends SafeConstructor {
         public static LinedObject cast(@Nonnull Object obj, @Nonnull Supplier<String> msg) {
             Assert.thatUnchecked(obj instanceof LinedObject, ErrorCode.INTERNAL_ERROR, msg);
             return (LinedObject) obj;
+        }
+
+        @Override
+        public String toString() {
+            return object + "@line:" + lineNumber;
         }
     }
 

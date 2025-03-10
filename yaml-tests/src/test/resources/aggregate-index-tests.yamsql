@@ -132,8 +132,20 @@ test_block:
        # At some point, should be able to roll up values from the aggregate index. However, even
        # controlling for that, it can still use the index
        - query: select max(col2) from T1 use index (mv8);
+       - supported_version: 4.1.9.0
        - explain: "ISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
        - result: [{!l 13}]
+    -
+       - query: select max(col2) from T1 use index (mv8);
+       - maxRows: 1
+       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+       # (Extra values being produced after exhausting source of an aggregate cursor)
+       # Can remove once we do not care about backwards compatibility before 4.1.9.0
+       - initialVersionLessThan: 4.1.9.0
+       # Different (incorrect) behavior for different past versions
+       - initialVersionAtLeast: 4.1.9.0
+       - result: [{!l 13}]
+       - result: []
     -
        # Min/max indexes need keep what amounts to a standard value index on their keys (in order to properly look up
        # the min/max). That index should be usable for normal queries just like a value index. Note that the scan is
@@ -147,14 +159,43 @@ test_block:
        - result: [{!l 5}, {!l 4}, {!l 3}, {!l 2}, {!l 1}]
     -
       - query: select min(col3) from T2 group by col1, col2;
+      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._1._0 AS _0)"
       - result: [{!l 1}, {!l 2}, {!l 3}]
+    -
+      - query: select min(col3) from T2 group by col1, col2;
+       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+       # (Extra values being produced after exhausting source of an aggregate cursor)
+       # Can remove once we do not care about backwards compatibility before 4.1.9.0
+      - maxRows: 1
+      - initialVersionLessThan: 4.1.9.0
+       # Different (incorrect) behavior for different past versions
+      - initialVersionAtLeast: 4.1.9.0
+      - result: [{!l 1}]
+      - result: [{!l 2}]
+      - result: [{!l 3}]
+      - result: []
     -
       # this should use the aggregate index in the future, for now, it is using streaming aggregate
       # over base table scan.
       - query: select max(col2) from t2;
+      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 2}]
+    -
+      - query: select max(col2) from t2;
+       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+       # (Extra values being produced after exhausting source of an aggregate cursor)
+       # Can remove once we do not care about backwards compatibility before 4.1.9.0
+      - supported_version: 4.1.9.0
+      - maxRows: 1
+      - initialVersionLessThan: 4.1.9.0
+      - result: [{!l 2}]
+      - result: [{!null _}]
+      - result: [{!l 2}] # ad infinitum
+      - initialVersionAtLeast: 4.1.9.0
+      - result: [{!l 2}]
+      - result: []
     -
       - query: select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
       - explain: "ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)"
@@ -208,11 +249,27 @@ test_block:
     -
       # Permuted max index can also be used to evaluate other aggregate functions via aggregation and roll-up
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
+      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV9 [EQUALS promote(@c20 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
       - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
     -
+      - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
+      # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      # (Extra values being produced after exhausting source of an aggregate cursor)
+      # Can remove once we do not care about backwards compatibility before 4.1.9.0
+      - maxRows: 0
+      - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
+    -
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
+      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV9 [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
+      - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
+    -
+      - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
+      # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
+      # (Extra values being produced after exhausting source of an aggregate cursor)
+      # Can remove once we do not care about backwards compatibility before 4.1.9.0
+      - maxRows: 0
       - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
 #    -
 #      # grouping by constant is not yet supported.
@@ -230,28 +287,31 @@ test_block:
       - result: [{!l 100}, {!l 200}, {!l 400}]
     -
       - query: select min_ever(col3) from t2
+       # Cannot enable FORCE_CONTINUATIONS with ungrouped aggregate scan because of: https://github.com/FoundationDB/fdb-record-layer/issues/3206
+      - maxRows: 0
+      - explain: "AISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 1}]
     -
       - query: select min_ever(col3) from t2
       - explain: "AISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
     -
       - query: select col1, max_ever(col2) from T1 group by col1;
-      - result: [{!l 10, !l 5}, {!l 20, !l 13}]
       - explain: "AISCAN(MV6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)"
+      - result: [{!l 10, !l 5}, {!l 20, !l 13}]
     -
       - query: select col1, min_ever(col2) from T1 group by col1;
-      - result: [{!l 10, !l 1}, {!l 20, !l 6}]
       - explain: "AISCAN(MV12 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)"
+      - result: [{!l 10, !l 1}, {!l 20, !l 6}]
     -
       # TODO, check how this aligns with COLLATION support
       - query: select col2, max_ever(col1) from T4 group by col2;
-      - result: [{!l 10, 'value4'}, {!l 20, 'valueZ'}]
       - explain: "AISCAN(MV15 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL2, _._1 AS _1)"
+      - result: [{!l 10, 'value4'}, {!l 20, 'valueZ'}]
     -
       # TODO, check how this aligns with COLLATION support
       - query: select col2, min_ever(col1) from T4 group by col2;
-      - result: [{!l 10, 'value1'}, {!l 20, 'valueA'}]
       - explain: "AISCAN(MV14 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL2, _._1 AS _1)"
+      - result: [{!l 10, 'value1'}, {!l 20, 'valueA'}]
     -
       - query: select col1, sum(col2) from T1 where col1 > 15 group by col1;
       - explain: "AISCAN(MV1 [[GREATER_THAN promote(@c13 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)"

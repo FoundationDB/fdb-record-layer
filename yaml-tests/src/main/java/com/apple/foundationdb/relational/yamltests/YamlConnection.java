@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,11 +36,6 @@ import java.util.List;
  * A wrapper around {@link java.sql.Connection} to support yaml tests.
  */
 public interface YamlConnection extends AutoCloseable {
-    /**
-     * String for representing the current version of the code.
-     */
-    String CURRENT_VERSION = "!currentVersion";
-
     /**
      * Close this connection.
      * @throws SQLException if there was an issue closing the underlying connection(s).
@@ -91,5 +87,18 @@ public interface YamlConnection extends AutoCloseable {
      * @return the ordered list of versions
      */
     @Nonnull
-    List<String> getVersions();
+    List<SemanticVersion> getVersions();
+
+    /**
+     * Return the initial version returned by this connection. If this connection
+     * wraps multiple versions, it may return different underlying connections
+     * with every call to {@link #createStatement()}. This returns the version
+     * associated with the first such call, which can impact the set of results
+     * that we expect to return as that is also the connection that should be
+     * used for query planning.
+     *
+     * @return the first version that an underlying connection will represent
+     */
+    @Nonnull
+    SemanticVersion getInitialVersion();
 }

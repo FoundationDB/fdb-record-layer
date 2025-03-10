@@ -33,7 +33,22 @@ test_block:
       - error: "23505"
     -
       - query: SELECT COUNT(*) FROM T1
+      - supported_version: 4.1.4.0
+      - explain: "SCAN(<,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{0}]
+    -
+      # Copy of above query to simulate force_continuations on versions before 4.1.4.0
+      # Older versions did not correctly handle enforcing the limit due to: https://github.com/FoundationDB/fdb-record-layer/issues/3093
+      # Can be removed once we no longer care about upgrading from versions before 4.1.4.0
+      - query: SELECT COUNT(*) FROM T1
+      - supported_version: 4.1.4.0
+      - maxRows: 1
+      - initialVersionLessThan: 4.1.4.0
+      - result: [{0}]
+      - result: [{0}]
+      - initialVersionAtLeast: 4.1.4.0
+      - result: [{0}]
+      - result: []
     -
       - query: INSERT INTO T1
           VALUES ((1, 2, 3, 4), 5),
