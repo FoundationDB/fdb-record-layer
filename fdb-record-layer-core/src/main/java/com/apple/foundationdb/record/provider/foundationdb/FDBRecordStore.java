@@ -4706,6 +4706,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     void clearIndexData(@Nonnull Index index) {
         context.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
+        // clearIndexData clears the secondary index with:
         context.clear(indexSecondarySubspace(index).range());
         IndexingRangeSet.forIndexBuild(this, index).clear();
         // clear even if non-unique in case the index was previously unique
