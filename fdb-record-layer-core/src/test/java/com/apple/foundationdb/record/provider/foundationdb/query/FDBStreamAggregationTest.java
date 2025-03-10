@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
@@ -48,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
-import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -338,7 +338,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // (TODO): return exhausted, but not result, probably when finish scan x row, needs to return (x-1) to avoid this from happening
             RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 12));
 
-            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation4);
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
     }
 
@@ -386,9 +386,10 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             if (continuation == null) {
                 return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, executeProperties);
             } else {
-                ContinuationProto continuationProto = ContinuationProto.parseFrom(continuation);
+                RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(continuation);
                 System.out.println("partialAggregationResult:" + continuationProto.getPartialAggregationResults());
-                return plan.executePlan(recordStore, EvaluationContext.forBindingsAndTypeRepositoryAndPartialAggregationResult(Bindings.EMPTY_BINDINGS, typeRepository, continuationProto.getPartialAggregationResults()), continuationProto.getExecutionState().toByteArray(), executeProperties);
+                System.out.println("plan class:" + plan.getClass());
+                return plan.executePlan(recordStore, EvaluationContext.forBindingsAndTypeRepositoryAndPartialAggregationResult(Bindings.EMPTY_BINDINGS, typeRepository, continuationProto.getPartialAggregationResults()), continuationProto.getContinuation().toByteArray(), executeProperties);
             }
         } catch (final Throwable t) {
             throw Assertions.<RuntimeException>fail(t);
@@ -434,6 +435,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                 }
                 queryResults.add(currentCursorResult.get());
             }
+            System.out.println("getNoNextReason:" + currentCursorResult.getNoNextReason());
             if (currentCursorResult.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
                 break;
             }

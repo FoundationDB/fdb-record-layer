@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
@@ -72,11 +71,6 @@ public interface RecordCursorContinuation {
     default ByteString toByteString() {
         final byte[] bytes = toBytes();
         return bytes == null ? ByteString.EMPTY : ByteString.copyFrom(bytes);
-    }
-
-    @Nullable
-    default PartialAggregationResult getPartialAggregationResult() {
-        return null;
     }
 
     /**

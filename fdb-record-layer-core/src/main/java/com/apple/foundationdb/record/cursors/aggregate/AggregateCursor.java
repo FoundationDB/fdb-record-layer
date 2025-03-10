@@ -22,15 +22,17 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.ByteArrayContinuation;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.base.Verify;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -59,11 +61,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // Previous non-empty record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
-    // last row in last group, is null if the current group is the first group
     @Nullable
-    private RecordCursorResult<QueryResult> lastInLastGroup;
-    @Nullable
-    private PartialAggregationResult partialAggregationResult;
+    private RecordCursorProto.PartialAggregationResult partialAggregationResult;
     @Nullable
     byte[] continuation;
 
@@ -82,7 +81,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         if (previousResult != null && !previousResult.hasNext()) {
             // we are done
-            return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(previousResult.getContinuation(),
+            return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(new AggregateCursorContinuation(previousResult.getContinuation()),
                     previousResult.getNoNextReason()));
         }
 
@@ -91,18 +90,16 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             System.out.println("scan innerResult hasNext:" + innerResult.hasNext());
             if (!innerResult.hasNext()) {
                 System.out.println("cursor noNextReason:" + innerResult.getNoNextReason());
-                if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
+                //if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
                     // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
                     partialAggregationResult = streamGrouping.finalizeGroup();
-                }
+                //}
                 return false;
             } else {
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
                 System.out.println("inner result:" + innerResult.get().getMessage());
                 boolean groupBreak = streamGrouping.apply(queryResult);
-                if (groupBreak) {
-                    lastInLastGroup = previousValidResult;
-                } else {
+                if (!groupBreak) {
                     // previousValidResult is the last row before group break, it sets the continuation
                     previousValidResult = innerResult;
                 }
@@ -113,7 +110,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             if (Verify.verifyNotNull(previousResult).hasNext()) {
                 // in this case groupBreak = true, return aggregated result and continuation, partialAggregationResult = null
                 // previousValidResult = null happens when 1st row of current scan != last row of last scan, results in groupBreak = true and previousValidResult = null
-                RecordCursorContinuation c = previousValidResult == null ? ByteArrayContinuation.fromNullable(continuation) : previousValidResult.getContinuation();
+                RecordCursorContinuation c = previousValidResult == null ? new AggregateCursorContinuation(continuation, false) : new AggregateCursorContinuation(previousValidResult.getContinuation());
 
                 /*
                 * Update the previousValidResult to the next continuation even though it hasn't been returned. This is to return the correct continuation when there are single-element groups.
@@ -143,27 +140,16 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 // innerResult.hasNext() = false, might stop in the middle of a group
                 if (Verify.verifyNotNull(previousResult).getNoNextReason() == NoNextReason.SOURCE_EXHAUSTED) {
                     // exhausted
-                    if (previousValidResult == null) {
+                    if (previousValidResult == null && partialAggregationResult == null) {
                         return RecordCursorResult.exhausted();
                     } else {
-                        RecordCursorContinuation continuation = previousValidResult.getContinuation();
+                        RecordCursorContinuation c = previousValidResult == null ? new AggregateCursorContinuation(continuation, false) : new AggregateCursorContinuation(previousValidResult.getContinuation());
                         previousValidResult = previousResult;
-                        return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), continuation);
+                        return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), c);
                     }
                 } else {
                     // stopped in the middle of a group
-                    /*
-                    RecordCursorContinuation currentContinuation;
-                    // in the current scan, if current group is the first group, set the continuation to the start of the current scan
-                    // otherwise set the continuation to the last row in the last group
-                    if (lastInLastGroup == null) {
-                        currentContinuation = continuation == null ? RecordCursorStartContinuation.START : ByteArrayContinuation.fromNullable(continuation);
-                    } else {
-                        currentContinuation = lastInLastGroup.getContinuation();
-                    }
-
-                     */
-                    RecordCursorContinuation currentContinuation = ((KeyValueCursorBase.Continuation) previousValidResult.getContinuation()).withPartialAggregationResult(partialAggregationResult);
+                    RecordCursorContinuation currentContinuation = new AggregateCursorContinuation(previousValidResult.getContinuation(), partialAggregationResult);
                     previousValidResult = previousResult;
                     return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
                 }
@@ -197,5 +183,73 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             inner.accept(visitor);
         }
         return visitor.visitLeave(this);
+    }
+
+    private static class AggregateCursorContinuation implements RecordCursorContinuation {
+        @Nullable
+        private final ByteString innerContinuation;
+
+        @Nullable
+        private final RecordCursorProto.PartialAggregationResult partialAggregationResult;
+
+        @Nullable
+        private RecordCursorProto.AggregateCursorContinuation cachedProto;
+
+        private final boolean isEnd;
+
+        public AggregateCursorContinuation(@Nonnull RecordCursorContinuation other) {
+            this(other.toBytes(), other.isEnd());
+        }
+
+        public AggregateCursorContinuation(@Nonnull RecordCursorContinuation other, @Nullable RecordCursorProto.PartialAggregationResult partialAggregationResult) {
+            this.isEnd = other.isEnd();
+            this.innerContinuation = other.toByteString();
+            this.partialAggregationResult = partialAggregationResult;
+        }
+
+        public AggregateCursorContinuation(@Nullable byte[] innerContinuation, boolean isEnd) {
+            this.isEnd = isEnd;
+            this.innerContinuation = innerContinuation == null ? null : ByteString.copyFrom(innerContinuation);
+            this.partialAggregationResult = null;
+        }
+
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            if (isEnd()) {
+                return ByteString.EMPTY;
+            } else {
+                return toProto().toByteString();
+            }
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (isEnd()) {
+                return null;
+            }
+            return toProto().toByteArray();
+        }
+
+        @Override
+        public boolean isEnd() {
+            return isEnd;
+        }
+
+        @Nonnull
+        private RecordCursorProto.AggregateCursorContinuation toProto() {
+            if (cachedProto == null) {
+                RecordCursorProto.AggregateCursorContinuation.Builder cachedProtoBuilder = RecordCursorProto.AggregateCursorContinuation.newBuilder();
+                if (partialAggregationResult != null) {
+                    cachedProtoBuilder.setPartialAggregationResults(partialAggregationResult);
+                }
+                if (innerContinuation != null) {
+                    cachedProtoBuilder.setContinuation(innerContinuation);
+                }
+                cachedProto = cachedProtoBuilder.build();
+            }
+            return cachedProto;
+        }
     }
 }

@@ -1782,14 +1782,3 @@ message PRecursiveUnionQueryPlan {
   optional string initialTempTableAlias = 3;
   optional string recursiveTempTableAlias = 4;
 }
-
-message PartialAggregationResult {
-  optional bytes group_key = 1;
-  optional string group_key_alias = 2;
-  repeated AccumulatorState accumulator_states = 3;
-}
-
-message AccumulatorState {
-  optional string physical_operator_name = 1;
-  repeated string state = 2; // 2 for avg
-}

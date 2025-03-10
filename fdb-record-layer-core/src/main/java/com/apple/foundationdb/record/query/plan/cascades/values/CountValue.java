@@ -28,12 +28,11 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.planprotos.AccumulatorState;
 import com.apple.foundationdb.record.planprotos.PCountValue;
 import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -47,7 +46,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -351,20 +349,20 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nullable
         @Override
-        public PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext) {
+        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext) {
             if (state ==  null) {
                 return null;
             }
-            return PartialAggregationResult.newBuilder()
+            return RecordCursorProto.PartialAggregationResult.newBuilder()
                     .setGroupKey(groupingKey.toByteString())
-                    .addAccumulatorStates(AccumulatorState.newBuilder()
+                    .addAccumulatorStates(RecordCursorProto.AccumulatorState.newBuilder()
                             .setPhysicalOperatorName(physicalOperator.name())
                             .addState(String.valueOf(state)))
                     .build();
         }
 
         @Override
-        public void setInitialState(@Nonnull List<AccumulatorState> accumulatorStates) {
+        public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
             // check physical operator name are the same
             // check this.state == null
             this.state = Long.parseLong(accumulatorStates.get(0).getState(0));

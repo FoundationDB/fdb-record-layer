@@ -46,7 +46,6 @@ message ContinuationProto {
   // The serialized package
   optional CompiledStatement compiled_statement = 5;
   optional Reason reason = 6;
-  com.apple.foundationdb.record.planprotos.PartialAggregationResult partial_aggregation_results = 7;
 }
 
 message TypedQueryArgument {

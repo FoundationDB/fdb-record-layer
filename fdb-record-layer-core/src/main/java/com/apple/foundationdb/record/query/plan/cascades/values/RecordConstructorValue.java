@@ -27,10 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.AccumulatorState;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -51,7 +50,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import com.google.protobuf.Any;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -62,7 +60,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -382,8 +379,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
             @Nullable
             @Override
-            public PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext) {
-                List<AccumulatorState> accumulatorStates = new ArrayList<>();
+            public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext) {
+                List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
                 for (Accumulator accumulator: childAccumulators) {
                     // (TODO): check groupingKeyValues are the same here
                     if (accumulator.getPartialAggregationResult(groupingKey, serializationContext) != null) {
@@ -393,14 +390,14 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 if (accumulatorStates.isEmpty()) {
                     return null;
                 }
-                return PartialAggregationResult.newBuilder()
+                return RecordCursorProto.PartialAggregationResult.newBuilder()
                         .setGroupKey(groupingKey.toByteString())
                         .addAllAccumulatorStates(accumulatorStates)
                         .build();
             }
 
             @Override
-            public void setInitialState(@Nonnull List<AccumulatorState> accumulatorStates) {
+            public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
                 for (int i = 0; i < accumulatorStates.size(); i++) {
                     childAccumulators.get(i).setInitialState(List.of(accumulatorStates.get(i)));
                 }

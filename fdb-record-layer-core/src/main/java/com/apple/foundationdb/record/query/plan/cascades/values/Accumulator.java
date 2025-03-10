@@ -21,9 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.planprotos.AccumulatorState;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -39,7 +37,7 @@ public interface Accumulator {
     @Nullable Object finish();
 
     @Nullable
-    PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext);
+    RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey, PlanSerializationContext serializationContext);
 
-    void setInitialState(@Nonnull List<AccumulatorState> accumulatorStates);
+    void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates);
 }

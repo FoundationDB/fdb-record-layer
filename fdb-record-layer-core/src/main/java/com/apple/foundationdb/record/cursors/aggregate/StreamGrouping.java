@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
@@ -120,6 +120,11 @@ public class StreamGrouping<M extends Message> {
         this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
         if (context.getPartialAggregationResult() != null) {
             this.accumulator.setInitialState(context.getPartialAggregationResult().getAccumulatorStatesList());
+            try {
+                this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), context.getPartialAggregationResult().getGroupKey().toByteArray());
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
         }
         this.store = store;
         this.context = context;
@@ -174,32 +179,24 @@ public class StreamGrouping<M extends Message> {
 
     private boolean isGroupBreak(final Object currentGroup, final Object nextGroup) {
         if (currentGroup == null) {
-            if (context.getPartialAggregationResult() != null) {
-                try {
-                    this.currentGroup = DynamicMessage.parseFrom(((Message) nextGroup).getDescriptorForType(), context.getPartialAggregationResult().getGroupKey());
-                    return (!this.currentGroup.equals(nextGroup));
-                } catch (InvalidProtocolBufferException e) {
-                    throw new RuntimeException(e);
-                }
-            }
             return false;
         } else {
             return (!currentGroup.equals(nextGroup));
         }
     }
 
-    public PartialAggregationResult finalizeGroup() {
+    public RecordCursorProto.PartialAggregationResult finalizeGroup() {
         return finalizeGroup(null);
     }
 
-    private PartialAggregationResult finalizeGroup(Object nextGroup) {
+    private RecordCursorProto.PartialAggregationResult finalizeGroup(Object nextGroup) {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
-        PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult((Message) currentGroup);
+        RecordCursorProto.PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult((Message) currentGroup);
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
@@ -222,7 +219,7 @@ public class StreamGrouping<M extends Message> {
     }
 
     @Nullable
-    public PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
+    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
         return accumulator.getPartialAggregationResult(groupingKey, serializationContext);
     }
 }

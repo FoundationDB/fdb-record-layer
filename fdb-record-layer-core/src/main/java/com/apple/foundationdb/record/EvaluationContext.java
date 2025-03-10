@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,7 +47,7 @@ public class EvaluationContext {
     private final TypeRepository typeRepository;
 
     @Nullable
-    private final PartialAggregationResult partialAggregationResultProto;
+    private final RecordCursorProto.PartialAggregationResult partialAggregationResultProto;
 
     public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA);
 
@@ -65,7 +64,7 @@ public class EvaluationContext {
         this(bindings, typeRepository, null);
     }
 
-    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository, @Nullable PartialAggregationResult proto) {
+    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository, @Nullable RecordCursorProto.PartialAggregationResult proto) {
         this.bindings = bindings;
         this.typeRepository = typeRepository;
         this.partialAggregationResultProto = proto;
@@ -100,7 +99,7 @@ public class EvaluationContext {
     }
 
     @Nonnull
-    public static EvaluationContext forBindingsAndTypeRepositoryAndPartialAggregationResult(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository, @Nullable PartialAggregationResult proto) {
+    public static EvaluationContext forBindingsAndTypeRepositoryAndPartialAggregationResult(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository, @Nullable RecordCursorProto.PartialAggregationResult proto) {
         return new EvaluationContext(bindings, typeRepository, proto);
     }
 
@@ -117,7 +116,7 @@ public class EvaluationContext {
     }
 
     @Nullable
-    public PartialAggregationResult getPartialAggregationResult() {
+    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
         return partialAggregationResultProto;
     }
 

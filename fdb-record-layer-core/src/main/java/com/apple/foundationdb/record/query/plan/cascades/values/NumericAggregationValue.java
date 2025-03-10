@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.planprotos.AccumulatorState;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PBitmapConstructAgg;
@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMin;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PSum;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.planprotos.PartialAggregationResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -60,7 +59,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -869,11 +867,11 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nullable
         @Override
-        public PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey, PlanSerializationContext serializationContext) {
+        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey, PlanSerializationContext serializationContext) {
             if (state ==  null) {
                 return null;
             }
-            AccumulatorState.Builder builder = AccumulatorState.newBuilder().setPhysicalOperatorName(physicalOperator.name());
+            RecordCursorProto.AccumulatorState.Builder builder = RecordCursorProto.AccumulatorState.newBuilder().setPhysicalOperatorName(physicalOperator.name());
             switch (physicalOperator) {
                 case SUM_I:
                 case MAX_I:
@@ -904,14 +902,14 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                     break;
 
             }
-            return PartialAggregationResult.newBuilder()
+            return RecordCursorProto.PartialAggregationResult.newBuilder()
                     .setGroupKey(groupingKey.toByteString())
                     .addAccumulatorStates(builder)
                     .build();
         }
 
         @Override
-        public void setInitialState(@Nonnull List<AccumulatorState> accumulatorStates) {
+        public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
             // check physical operator name are the same
             // check this.state == null
             switch (physicalOperator) {
