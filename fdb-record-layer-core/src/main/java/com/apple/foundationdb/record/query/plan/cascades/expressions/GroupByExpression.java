@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -32,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateMappings;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
@@ -49,21 +52,27 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -330,7 +339,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return ImmutableList.of();
         }
         final var otherPrimitiveAggregateValue = Iterables.getOnlyElement(otherAggregateValues);
-        final var matchedAggregateValueMapBuilder = ImmutableMap.<Value, Value>builder();
+        final var matchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
+        final var unmatchedAggregateMapBuilder =
+                ImmutableBiMap.<CorrelationIdentifier, Value>builder();
+        final var unmatchedTranslatedAggregateValueMapBuilder =
+                ImmutableMap.<Value, CorrelationIdentifier>builder();
         var subsumedAggregations = BooleanWithConstraint.alwaysTrue();
         for (final var primitiveAggregateValue : aggregateValues) {
             final var translatedPrimitiveAggregateValue =
@@ -339,9 +352,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             final var semanticEquals =
                     translatedPrimitiveAggregateValue.semanticEquals(otherPrimitiveAggregateValue, valueEquivalence);
             if (semanticEquals.isTrue()) {
-                matchedAggregateValueMapBuilder.put(primitiveAggregateValue, otherPrimitiveAggregateValue);
+                matchedAggregateMapBuilder.put(primitiveAggregateValue, otherPrimitiveAggregateValue);
                 subsumedAggregations = semanticEquals;
-                break;
+            } else {
+                final var unmatchedId = UnmatchedAggregateValue.uniqueId();
+                unmatchedAggregateMapBuilder.put(unmatchedId, primitiveAggregateValue);
+                unmatchedTranslatedAggregateValueMapBuilder.put(translatedPrimitiveAggregateValue, unmatchedId);
             }
         }
 
@@ -355,17 +371,32 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return ImmutableList.of();
         }
 
+        final var unmatchedTranslatedAggregateValueMap =
+                unmatchedTranslatedAggregateValueMapBuilder.buildKeepingLast();
         final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
         final var maxMatchMap =
                 MaxMatchMap.compute(translatedResultValue, candidateExpression.getResultValue(),
-                        Quantifiers.aliases(candidateExpression.getQuantifiers()), valueEquivalence);
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()), valueEquivalence,
+                        translatedUnmatchedValue -> onUnmatchedValue(unmatchedTranslatedAggregateValueMap, translatedUnmatchedValue));
         final var queryPlanConstraint =
                 subsumedGroupings.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 
         return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                        maxMatchMap, matchedAggregateValueMapBuilder.build(), queryPlanConstraint)
+                        maxMatchMap,
+                        AggregateMappings.of(matchedAggregateMapBuilder.build(), unmatchedAggregateMapBuilder.build()),
+                        queryPlanConstraint)
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
+    }
+
+    @Nonnull
+    private Optional<Value> onUnmatchedValue(@Nonnull final Map<Value, CorrelationIdentifier> unmatchedTranslatedAggregateValueMap,
+                                             @Nonnull final Value translatedUnmatchedValue) {
+        final var unmatchedId = unmatchedTranslatedAggregateValueMap.get(translatedUnmatchedValue);
+        if (unmatchedId == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new UnmatchedAggregateValue(unmatchedId));
     }
 
     @Nonnull
@@ -536,12 +567,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+                                   @Nonnull final CorrelationIdentifier candidateAlias) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
-        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, nestingAlias);
+        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, candidateAlias);
         // if the match requires, for the moment, any, compensation, we reject it.
         final Optional<Compensation> childCompensationOptional =
                 regularMatchInfo.getChildPartialMatchMaybe(quantifier)
@@ -568,10 +599,10 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         boolean isCompensationImpossible = false;
         final ResultCompensationFunction resultCompensationFunction;
-        final Map<Value, Value> pulledUpMatchedAggregateValueMap;
+        final AggregateMappings pulledUpAggregateMappings;
         if (pullUp != null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
-            pulledUpMatchedAggregateValueMap = ImmutableMap.of();
+            pulledUpAggregateMappings = AggregateMappings.empty();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
@@ -588,12 +619,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
+                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getCandidateAlias());
             }
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
-            pulledUpMatchedAggregateValueMap =
-                    RegularMatchInfo.pullUpMatchedAggregateValueMap(partialMatch, Quantifier.current(), nestingAlias);
+            pulledUpAggregateMappings =
+                    RegularMatchInfo.pullUpAggregateMappings(partialMatch, candidateAlias);
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
@@ -609,7 +640,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
                 resultCompensationFunction,
-                pulledUpMatchedAggregateValueMap);
+                pulledUpAggregateMappings);
     }
 
     @Nonnull
@@ -656,5 +687,73 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var rcv = RecordConstructorValue.ofUnnamed(valuesBuilder.build());
         return rcv.simplify(EvaluationContext.empty(),
                 AliasMap.identitiesFor(rcv.getCorrelatedTo()), ImmutableSet.of());
+    }
+
+    public static class UnmatchedAggregateValue extends AbstractValue implements Value.NonEvaluableValue, IndexableAggregateValue {
+        @Nonnull
+        private final CorrelationIdentifier unmatchedId;
+
+        public UnmatchedAggregateValue(@Nonnull final CorrelationIdentifier unmatchedId) {
+            this.unmatchedId = unmatchedId;
+        }
+
+        @Nonnull
+        public CorrelationIdentifier getUnmatchedId() {
+            return unmatchedId;
+        }
+
+        @Nonnull
+        @Override
+        protected Iterable<? extends Value> computeChildren() {
+            return ImmutableList.of();
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+            Verify.verify(Iterables.isEmpty(explainSuppliers));
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("unmatched",
+                    new ExplainTokens().addIdentifier(unmatchedId.getId())));
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Nonnull
+        @Override
+        public Value withChildren(final Iterable<? extends Value> newChildren) {
+            Verify.verify(Iterables.isEmpty(newChildren));
+            return new UnmatchedAggregateValue(getUnmatchedId());
+        }
+
+        @Nonnull
+        public static CorrelationIdentifier uniqueId() {
+            return CorrelationIdentifier.uniqueId(UnmatchedAggregateValue.class);
+        }
     }
 }

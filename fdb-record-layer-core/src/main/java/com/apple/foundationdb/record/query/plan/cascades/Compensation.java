@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilt
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -392,7 +391,7 @@ public interface Compensation {
                              @Nonnull final Set<? extends Quantifier> unmatchedQuantifiers,
                              @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
                              @Nonnull final ResultCompensationFunction resultCompensationFunction,
-                             @Nonnull final Map<Value, Value> matchedAggregateValueMap) {
+                             @Nonnull final AggregateMappings aggregateMappings) {
         //
         // At least one of these conditions must be true:
         // - it is an impossible compensation (in which case the predicate compensation map may be empty)
@@ -405,7 +404,7 @@ public interface Compensation {
                 !predicateCompensationMap.isEmpty() || resultCompensationFunction.isNeeded() || isNeededForFiltering());
 
         return new ForMatch(isImpossible, this, predicateCompensationMap, matchedQuantifiers,
-                unmatchedQuantifiers, compensatedAliases, resultCompensationFunction, matchedAggregateValueMap);
+                unmatchedQuantifiers, compensatedAliases, resultCompensationFunction, aggregateMappings);
     }
 
     /**
@@ -456,7 +455,7 @@ public interface Compensation {
         ResultCompensationFunction getResultCompensationFunction();
 
         @Nonnull
-        Map<Value, Value> getMatchedAggregateValueMap();
+        AggregateMappings getAggregateMappings();
 
         /**
          * Specific implementation of union-ing two compensations both of type {@link WithSelectCompensation}.
@@ -495,6 +494,11 @@ public interface Compensation {
                 return impossibleCompensation();
             }
 
+            final Compensation unionedChildCompensation = getChildCompensation().union(otherWithSelectCompensation.getChildCompensation());
+            if (unionedChildCompensation.isImpossible() || !unionedChildCompensation.canBeDeferred()) {
+                return Compensation.impossibleCompensation();
+            }
+
             final ResultCompensationFunction newResultResultCompensationFunction;
             final var resultCompensationFunction = getResultCompensationFunction();
             final var otherResultCompensationFunction = otherWithSelectCompensation.getResultCompensationFunction();
@@ -508,7 +512,8 @@ public interface Compensation {
                 newResultResultCompensationFunction = resultCompensationFunction;
             }
 
-            final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
+            final var otherCompensationMap =
+                    otherWithSelectCompensation.getPredicateCompensationMap();
             final var combinedPredicateMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
 
             combinedPredicateMap.putAll(getPredicateCompensationMap());
@@ -531,11 +536,6 @@ public interface Compensation {
                 combinedPredicateMap.put(otherEntry.getKey(), otherEntry.getValue());
             }
 
-            final Compensation unionedChildCompensation = getChildCompensation().union(otherWithSelectCompensation.getChildCompensation());
-            if (unionedChildCompensation.isImpossible() || !unionedChildCompensation.canBeDeferred()) {
-                return Compensation.impossibleCompensation();
-            }
-
             if (!unionedChildCompensation.isNeededForFiltering() &&
                     !newResultResultCompensationFunction.isNeeded() && combinedPredicateMap.isEmpty()) {
                 return Compensation.noCompensation();
@@ -551,7 +551,7 @@ public interface Compensation {
                     ImmutableSet.of(),
                     Sets.union(getCompensatedAliases(), otherWithSelectCompensation.getCompensatedAliases()),
                     newResultResultCompensationFunction,
-                    ImmutableMap.of());
+                    AggregateMappings.empty());
         }
 
         /**
@@ -571,6 +571,23 @@ public interface Compensation {
                 return otherCompensation.intersect(this);
             }
             final var otherWithSelectCompensation = (WithSelectCompensation)otherCompensation;
+
+            final Compensation childCompensation = getChildCompensation();
+            Verify.verify(!(childCompensation instanceof WithSelectCompensation) ||
+                    ((WithSelectCompensation)childCompensation).getUnmatchedForEachQuantifiers().isEmpty());
+
+            final Compensation intersectedChildCompensation =
+                    childCompensation.intersect(otherWithSelectCompensation.getChildCompensation());
+            if (intersectedChildCompensation.isImpossible() || !intersectedChildCompensation.canBeDeferred()) {
+                return Compensation.impossibleCompensation();
+            }
+
+            final var newMatchedAggregateMap =
+                    Stream.concat(getAggregateMappings().getMatchedAggregateMap().entrySet().stream(),
+                                    otherWithSelectCompensation.getAggregateMappings().getMatchedAggregateMap().entrySet().stream())
+                            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey,
+                                    Map.Entry::getValue,
+                                    (l, r) -> l));
 
             final ResultCompensationFunction newResultResultCompensationFunction;
             final var resultCompensationFunction = getResultCompensationFunction();
@@ -600,16 +617,6 @@ public interface Compensation {
                 }
             }
 
-            final Compensation childCompensation = getChildCompensation();
-            Verify.verify(!(childCompensation instanceof WithSelectCompensation) ||
-                          ((WithSelectCompensation)childCompensation).getUnmatchedForEachQuantifiers().isEmpty());
-
-            final Compensation intersectedChildCompensation =
-                    childCompensation.intersect(otherWithSelectCompensation.getChildCompensation());
-            if (intersectedChildCompensation.isImpossible() || !intersectedChildCompensation.canBeDeferred()) {
-                return Compensation.impossibleCompensation();
-            }
-
             if (!intersectedChildCompensation.isNeededForFiltering() &&
                     !newResultResultCompensationFunction.isNeeded() && combinedPredicateMap.isEmpty()) {
                 return Compensation.noCompensation();
@@ -618,13 +625,6 @@ public interface Compensation {
             if (!newResultResultCompensationFunction.isNeeded() && combinedPredicateMap.isEmpty()) {
                 return intersectedChildCompensation;
             }
-
-            final var newMatchedAggregateValueMap =
-                    Stream.concat(getMatchedAggregateValueMap().entrySet().stream(),
-                            otherWithSelectCompensation.getMatchedAggregateValueMap().entrySet().stream())
-                            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey,
-                                    Map.Entry::getValue,
-                                    (l, r) -> l));
 
             // Note that at the current time each side can only contribute at most one foreach quantifier, thus the
             // intersection should also only contain at most one for each quantifier.
@@ -647,7 +647,7 @@ public interface Compensation {
                     intersectedUnmatchedQuantifiers,
                     getCompensatedAliases(), // both compensated aliases must be identical, but too expensive to check
                     newResultResultCompensationFunction,
-                    newMatchedAggregateValueMap);
+                    AggregateMappings.empty());
         }
     }
 
@@ -677,7 +677,7 @@ public interface Compensation {
         @Nonnull
         private final ResultCompensationFunction resultCompensationFunction;
         @Nonnull
-        private final Map<Value, Value> matchedAggregateValueMap;
+        private final AggregateMappings aggregateMappings;
 
         @Nonnull
         private final Supplier<Set<Quantifier>> unmatchedForEachQuantifiersSupplier;
@@ -689,7 +689,7 @@ public interface Compensation {
                          @Nonnull final Collection<? extends Quantifier> unmatchedQuantifiers,
                          @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
                          @Nonnull final ResultCompensationFunction resultCompensationFunction,
-                         @Nonnull final Map<Value, Value> matchedAggregateValueMap) {
+                         @Nonnull final AggregateMappings aggregateMappings) {
             this.isImpossible = isImpossible;
             this.childCompensation = childCompensation;
             this.predicateCompensationMap = new LinkedIdentityMap<>();
@@ -700,7 +700,7 @@ public interface Compensation {
             this.unmatchedQuantifiers.addAll(unmatchedQuantifiers);
             this.compensatedAliases = ImmutableSet.copyOf(compensatedAliases);
             this.resultCompensationFunction = resultCompensationFunction;
-            this.matchedAggregateValueMap = ImmutableMap.copyOf(matchedAggregateValueMap);
+            this.aggregateMappings = aggregateMappings;
             this.unmatchedForEachQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedForEachQuantifiers);
         }
 
@@ -720,7 +720,6 @@ public interface Compensation {
         public Set<Quantifier> getMatchedQuantifiers() {
             return matchedQuantifiers;
         }
-
 
         @Nonnull
         @Override
@@ -761,8 +760,8 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public Map<Value, Value> getMatchedAggregateValueMap() {
-            return matchedAggregateValueMap;
+        public AggregateMappings getAggregateMappings() {
+            return aggregateMappings;
         }
 
         /**

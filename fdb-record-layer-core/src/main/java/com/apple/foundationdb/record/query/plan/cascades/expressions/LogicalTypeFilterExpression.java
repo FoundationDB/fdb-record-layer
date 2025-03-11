@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateMappings;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
@@ -181,10 +182,10 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+                                   @Nonnull final CorrelationIdentifier candidateAlias) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
-        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, nestingAlias);
+        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, candidateAlias);
         final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
 
         final PartialMatch childPartialMatch =
@@ -202,10 +203,10 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
         boolean isCompensationImpossible = false;
         final ResultCompensationFunction resultCompensationFunction;
-        final Map<Value, Value> pulledUpMatchedAggregateValueMap;
+        final AggregateMappings aggregateMappings;
         if (pullUp != null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
-            pulledUpMatchedAggregateValueMap = ImmutableMap.of();
+            aggregateMappings = AggregateMappings.empty();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
@@ -222,12 +223,12 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
+                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getCandidateAlias());
             }
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
-            pulledUpMatchedAggregateValueMap =
-                    RegularMatchInfo.pullUpMatchedAggregateValueMap(partialMatch, Quantifier.current(), nestingAlias);
+            aggregateMappings =
+                    RegularMatchInfo.pullUpAggregateMappings(partialMatch, candidateAlias);
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
@@ -243,7 +244,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
                 resultCompensationFunction,
-                pulledUpMatchedAggregateValueMap);
+                aggregateMappings);
     }
 
     @Nonnull

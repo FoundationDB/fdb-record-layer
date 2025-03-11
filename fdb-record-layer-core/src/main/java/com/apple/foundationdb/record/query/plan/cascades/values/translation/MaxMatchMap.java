@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
@@ -51,7 +49,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -323,6 +320,15 @@ public class MaxMatchMap {
                 ValueEquivalence.empty());
     }
 
+    @Nonnull
+    public static MaxMatchMap compute(@Nonnull final Value queryValue,
+                                      @Nonnull final Value candidateValue,
+                                      @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
+                                      @Nonnull final ValueEquivalence valueEquivalence) {
+        return compute(queryValue, candidateValue, rangedOverAliases, valueEquivalence,
+                ignored -> Optional.empty());
+    }
+
     /**
      * Computes the maximum sub-{@link Value}s in {@code queryValue} that have an exact match in the
      * {@code candidateValue}.
@@ -334,6 +340,8 @@ public class MaxMatchMap {
      * @param candidateValue the candidate result {@code Value} we want to search for maximum matches
      * @param rangedOverAliases a set of aliases that should be considered constant
      * @param valueEquivalence an {@link ValueEquivalence} that informs the logic about equivalent value subtrees
+     * @param unmatchedHandlerFunction function that is invoked if a match between a query {@link Value} and a candidate
+     *        {@link Value} cannot be established
      * @return a {@link  MaxMatchMap} of all maximum matches. Note that the returned {@link MaxMatchMap} always exists,
      *         it is possible, however, that it might not contain all necessary mappings to perform a pull-up when it
      *         is used.
@@ -342,7 +350,8 @@ public class MaxMatchMap {
     public static MaxMatchMap compute(@Nonnull final Value queryValue,
                                       @Nonnull final Value candidateValue,
                                       @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
-                                      @Nonnull final ValueEquivalence valueEquivalence) {
+                                      @Nonnull final ValueEquivalence valueEquivalence,
+                                      @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction) {
         if (logger.isTraceEnabled()) {
             logger.trace("calculate begin queryValue={}, candidateValue={}", queryValue, candidateValue);
         }
@@ -360,8 +369,8 @@ public class MaxMatchMap {
             //
             final var resultsMap =
                     recurseQueryResultValue(queryValue, candidateValue, rangedOverAliases,
-                            valueEquivalence, new IdentityHashMap<>(), -1, new ArrayDeque<>(),
-                            Integer.MAX_VALUE, new HashSet<>());
+                            valueEquivalence, unmatchedHandlerFunction, new IdentityHashMap<>(), -1,
+                            new ArrayDeque<>(), Integer.MAX_VALUE, new HashSet<>());
 
             //
             // Pick a match which has the minimum max depth among all the matches.
@@ -492,6 +501,7 @@ public class MaxMatchMap {
                                                                    @Nonnull final Value candidateValue,
                                                                    @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
                                                                    @Nonnull final ValueEquivalence valueEquivalence,
+                                                                   @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction,
                                                                    @Nonnull final IdentityHashMap<Value, Map<Value, MatchResult>> knownValueMap,
                                                                    final int descendOrdinal,
                                                                    @Nonnull final Deque<IncrementalValueMatcher> matchers,
@@ -549,7 +559,7 @@ public class MaxMatchMap {
         if (Iterables.isEmpty(children)) {
             final var resultForCurrent =
                     computeForCurrent(maxDepthBound, currentQueryValue, candidateValue, rangedOverAliases,
-                            valueEquivalence, ImmutableList.of());
+                            valueEquivalence, unmatchedHandlerFunction, ImmutableList.of());
             bestMatches.put(currentQueryValue, resultForCurrent);
         } else {
             final ConstrainedBoolean isFound;
@@ -562,7 +572,8 @@ public class MaxMatchMap {
                 final var matchingPair =
                         findMatchingReachableCandidateValue(currentQueryValue,
                                 candidateValue,
-                                valueEquivalence);
+                                valueEquivalence,
+                                unmatchedHandlerFunction);
                 isFound = Objects.requireNonNull(matchingPair.getLeft());
                 if  (isFound.isTrue()) {
                     bestMatches.put(currentQueryValue, MatchResult.of(ImmutableMap.of(currentQueryValue,
@@ -597,7 +608,8 @@ public class MaxMatchMap {
                     }
                     final var childrenResultsMap =
                             recurseQueryResultValue(child, candidateValue, rangedOverAliases, valueEquivalence,
-                                    knownValueMap, i, localMatchers, childrenMaxDepthBound, expandedValues);
+                                    unmatchedHandlerFunction, knownValueMap, i, localMatchers, childrenMaxDepthBound,
+                                    expandedValues);
 
                     childrenResultsBuilder.add(childrenResultsMap.entrySet());
                 }
@@ -627,8 +639,8 @@ public class MaxMatchMap {
                     }
 
                     final var resultForCurrent =
-                            computeForCurrent(maxDepthBound, resultQueryValue, candidateValue,
-                                    rangedOverAliases, valueEquivalence, childrenResultEntries);
+                            computeForCurrent(maxDepthBound, resultQueryValue, candidateValue, rangedOverAliases,
+                                    valueEquivalence, unmatchedHandlerFunction, childrenResultEntries);
                     bestMatches.put(resultQueryValue, resultForCurrent);
                 }
             }
@@ -667,10 +679,8 @@ public class MaxMatchMap {
 
                     final var expandedResultsMap =
                             recurseQueryResultValue(expandedCurrentQueryValue, candidateValue,
-                                    rangedOverAliases, valueEquivalence, knownValueMap, descendOrdinal,
-                                    matchers,
-                                    currentMaxDepthBound,
-                                    expandedValues);
+                                    rangedOverAliases, valueEquivalence, unmatchedHandlerFunction, knownValueMap,
+                                    descendOrdinal, matchers, currentMaxDepthBound, expandedValues);
                     for (final var expandedResultsEntry : expandedResultsMap.entrySet()) {
                         bestMatches.put(expandedResultsEntry.getKey(), expandedResultsEntry.getValue());
                     }
@@ -713,13 +723,15 @@ public class MaxMatchMap {
                                                  @Nonnull final Value candidateValue,
                                                  @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
                                                  @Nonnull final ValueEquivalence valueEquivalence,
+                                                 @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction,
                                                  @Nonnull final List<Map.Entry<Value, MatchResult>> childrenResultEntries) {
         Verify.verify(maxDepthBound > 0);
 
         final var matchingPair =
                 findMatchingReachableCandidateValue(resultQueryValue,
                         candidateValue,
-                        valueEquivalence);
+                        valueEquivalence,
+                        unmatchedHandlerFunction);
         final var isFound = Objects.requireNonNull(matchingPair.getLeft());
         if (isFound.isTrue()) {
             return MatchResult.of(ImmutableMap.of(resultQueryValue,
@@ -760,7 +772,8 @@ public class MaxMatchMap {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Pair<ConstrainedBoolean, Value> findMatchingReachableCandidateValue(@Nonnull final Value currentQueryValue,
                                                                                        @Nonnull final Value candidateValue,
-                                                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+                                                                                       @Nonnull final ValueEquivalence valueEquivalence,
+                                                                                          @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction) {
         for (final var currentCandidateValue : candidateValue
                 // when traversing the candidate in pre-order, only descend into structures that can be referenced
                 // from the top expression. For example, rcv's components can be referenced however an arithmetic
@@ -780,11 +793,13 @@ public class MaxMatchMap {
             }
         }
 
-        if (currentQueryValue instanceof IndexableAggregateValue) {
-            return Pair.of(BooleanWithConstraint.alwaysTrue(), new UnmatchedAggregateValue(ImmutableList.of()));
-        }
+        final var unmatchedHandlerResult = unmatchedHandlerFunction.apply(currentQueryValue);
+        return unmatchedHandlerResult.map(value -> Pair.of(BooleanWithConstraint.alwaysTrue(), value))
+                .orElseGet(() -> Pair.of(BooleanWithConstraint.falseValue(), null));
 
-        return Pair.of(ConstrainedBoolean.falseValue(), null);
+//        if (currentQueryValue instanceof IndexableAggregateValue) {
+//            return Pair.of(ConstrainedBoolean.alwaysTrue(), new UnmatchedAggregateValue(ImmutableList.of()));
+//        }
     }
 
     /**
@@ -1070,62 +1085,6 @@ public class MaxMatchMap {
 
         public static MatchResult notMatched() {
             return NOT_MATCHED;
-        }
-    }
-
-    public static class UnmatchedAggregateValue extends AbstractValue implements Value.NonEvaluableValue, IndexableAggregateValue {
-        @Nonnull
-        private final List<Value> children;
-
-        public UnmatchedAggregateValue(@Nonnull final Iterable<? extends Value> children) {
-            this.children = ImmutableList.copyOf(children);
-        }
-
-        @Nonnull
-        @Override
-        protected Iterable<? extends Value> computeChildren() {
-            return children;
-        }
-
-        @Nonnull
-        @Override
-        public String getIndexTypeName() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Nonnull
-        @Override
-        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
-            return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("unmatched",
-                    Value.explainFunctionArguments(explainSuppliers)));
-        }
-
-        @Override
-        public int hashCodeWithoutChildren() {
-            return 0;
-        }
-
-        @Nonnull
-        @Override
-        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
-            return 0;
-        }
-
-        @Nonnull
-        @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Nonnull
-        @Override
-        public Value withChildren(final Iterable<? extends Value> newChildren) {
-            return new UnmatchedAggregateValue(newChildren);
         }
     }
 }

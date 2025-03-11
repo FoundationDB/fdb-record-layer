@@ -22,13 +22,14 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.Multimaps;
@@ -62,6 +63,24 @@ public class PredicateMultiMap {
     @Nonnull
     private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
+    @Nonnull
+    private static Value amendValue(final @Nonnull AggregateMappings aggregateMappings, final Value rootValue) {
+        return Objects.requireNonNull(rootValue.replace(currentValue -> {
+            if (currentValue instanceof GroupByExpression.UnmatchedAggregateValue) {
+                final var unmatchedId =
+                        ((GroupByExpression.UnmatchedAggregateValue)currentValue).getUnmatchedId();
+                final var queryValue =
+                        Objects.requireNonNull(aggregateMappings.getUnmatchedAggregateMap().get(unmatchedId));
+                final var translatedQueryValue =
+                        aggregateMappings.getMatchedAggregateMap().get(queryValue);
+                if (translatedQueryValue != null) {
+                    return translatedQueryValue;
+                }
+            }
+            return currentValue;
+        }));
+    }
+
     /**
      * Functional interface to reapply a predicate if necessary.
      */
@@ -91,7 +110,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
                         return this;
                     }
 
@@ -116,7 +135,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
                         return this;
                     }
 
@@ -133,15 +152,15 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
-        PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo);
+        PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings);
 
         @Nonnull
         Set<QueryPredicate> applyCompensationForPredicate(@Nonnull CorrelationIdentifier baseAlias);
 
         @Nonnull
-        static PredicateCompensationFunction ofPulledUpPredicate(@Nonnull final QueryPredicate pulledUpPredicate,
-                                                                 @Nonnull final BiFunction<QueryPredicate, CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
-            final var isImpossible = predicateContainsUnmatchedValues(pulledUpPredicate);
+        static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate,
+                                                         @Nonnull final BiFunction<QueryPredicate, CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
+            final var isImpossible = predicateContainsUnmatchedValues(predicate);
 
             return new PredicateCompensationFunction() {
                 @Override
@@ -156,15 +175,18 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
-                    // TODO
-                    return ofPulledUpPredicate(pulledUpPredicate, compensationFunction);
+                public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                    final var amendedTranslatedPredicateOptional =
+                            predicate.replaceValuesMaybe(rootValue ->
+                                    Optional.of(amendValue(aggregateMappings, rootValue)));
+                    Verify.verify(amendedTranslatedPredicateOptional.isPresent());
+                    return ofPredicate(amendedTranslatedPredicateOptional.get(), compensationFunction);
                 }
 
                 @Nonnull
                 @Override
                 public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(pulledUpPredicate, baseAlias);
+                    return compensationFunction.apply(predicate, baseAlias);
                 }
             };
         }
@@ -173,7 +195,7 @@ public class PredicateMultiMap {
             if (pulledUpPredicate instanceof PredicateWithValue) {
                 final var value = Objects.requireNonNull(((PredicateWithValue)pulledUpPredicate).getValue());
                 if (value.preOrderStream()
-                        .anyMatch(v -> v instanceof MaxMatchMap.UnmatchedAggregateValue)) {
+                        .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue)) {
                     return true;
                 }
             }
@@ -184,7 +206,7 @@ public class PredicateMultiMap {
                     if (comparison instanceof Comparisons.ValueComparison) {
                         final var comparisonValue = comparison.getValue();
                         if (comparisonValue.preOrderStream()
-                                .anyMatch(v -> v instanceof MaxMatchMap.UnmatchedAggregateValue)) {
+                                .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue)) {
                             return true;
                         }
                     }
@@ -210,7 +232,7 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
                     return this;
                 }
 
@@ -238,10 +260,10 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public PredicateCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
                     final var amendedChildrenCompensationFunctions =
                             childrenCompensationFunctions.stream()
-                                    .map(childrenCompensationFunction -> childrenCompensationFunction.amendWithOtherMatchInfo(matchInfo))
+                                    .map(childrenCompensationFunction -> childrenCompensationFunction.amend(aggregateMappings))
                                     .collect(ImmutableList.toImmutableList());
                     return ofChildrenCompensationFunctions(amendedChildrenCompensationFunctions, compensationFunction);
                 }
@@ -283,7 +305,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    public ResultCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
                         return this;
                     }
 
@@ -308,7 +330,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
+                    public ResultCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
                         return this;
                     }
 
@@ -325,7 +347,7 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
-        ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull MatchInfo matchInfo);
+        ResultCompensationFunction amend(@Nonnull AggregateMappings aggregateMappings);
 
         @Nonnull
         Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
@@ -355,9 +377,11 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public ResultCompensationFunction amendWithOtherMatchInfo(@Nonnull final MatchInfo matchInfo) {
-                    // TODO
-                    return ofValue(value, compensationFunction);
+                public ResultCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                    final var amendedTranslatedQueryValue =
+                            amendValue(aggregateMappings, value);
+
+                    return ofValue(amendedTranslatedQueryValue, compensationFunction);
                 }
 
                 @Nonnull
@@ -380,7 +404,7 @@ public class PredicateMultiMap {
 
         private static boolean valueContainsUnmatchedValues(final @Nonnull Value pulledUpValue) {
             return pulledUpValue.preOrderStream()
-                    .anyMatch(v -> v instanceof MaxMatchMap.UnmatchedAggregateValue);
+                    .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue);
         }
     }
 

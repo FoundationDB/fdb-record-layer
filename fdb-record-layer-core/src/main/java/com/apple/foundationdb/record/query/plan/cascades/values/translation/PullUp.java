@@ -45,7 +45,7 @@ public class PullUp {
     @Nullable
     private final PullUp parentPullUp;
     @Nonnull
-    private final CorrelationIdentifier nestingAlias;
+    private final CorrelationIdentifier candidateAlias;
     @Nonnull
     private final Value pullThroughValue;
     @Nonnull
@@ -55,11 +55,11 @@ public class PullUp {
     private final PullUp rootPullUp;
 
     private PullUp(@Nullable final PullUp parentPullUp,
-                   @Nonnull final CorrelationIdentifier nestingAlias,
+                   @Nonnull final CorrelationIdentifier candidateAlias,
                    @Nonnull final Value pullThroughValue,
                    @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
         this.parentPullUp = parentPullUp;
-        this.nestingAlias = nestingAlias;
+        this.candidateAlias = candidateAlias;
         this.pullThroughValue = pullThroughValue;
         this.rangedOverAliases = ImmutableSet.copyOf(rangedOverAliases);
         this.rootPullUp = parentPullUp == null ? this : parentPullUp.getRootPullUp();
@@ -76,8 +76,8 @@ public class PullUp {
     }
 
     @Nonnull
-    public CorrelationIdentifier getNestingAlias() {
-        return nestingAlias;
+    public CorrelationIdentifier getCandidateAlias() {
+        return candidateAlias;
     }
 
     public boolean isRoot() {
@@ -96,25 +96,25 @@ public class PullUp {
 
     @Nonnull
     public CorrelationIdentifier getTopAlias() {
-        return getRootPullUp().getNestingAlias();
+        return getRootPullUp().getCandidateAlias();
     }
 
     @Nonnull
     private static PullUp of(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier nestingAlias,
+                             @Nonnull final CorrelationIdentifier candidateAlias,
                              @Nonnull final CorrelationIdentifier lowerAlias,
                              @Nonnull final Type lowerType,
                              @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
-        return of(parentPullUp, nestingAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
+        return of(parentPullUp, candidateAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
                 rangedOverAliases);
     }
 
     @Nonnull
     private static PullUp of(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier nestingAlias,
+                             @Nonnull final CorrelationIdentifier candidateAlias,
                              @Nonnull final Value lowerPullThroughValue,
                              @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
-        return new PullUp(parentPullUp, nestingAlias, lowerPullThroughValue, rangedOverAliases);
+        return new PullUp(parentPullUp, candidateAlias, lowerPullThroughValue, rangedOverAliases);
     }
 
     /**
@@ -142,7 +142,7 @@ public class PullUp {
                     MaxMatchMap.compute(currentValue, currentPullUp.getPullThroughValue(),
                             currentPullUp.getRangedOverAliases());
             final var currentValueOptional =
-                    maxMatchMap.translateQueryValueMaybe(currentPullUp.getNestingAlias());
+                    maxMatchMap.translateQueryValueMaybe(currentPullUp.getCandidateAlias());
             if (currentValueOptional.isEmpty()) {
                 return Optional.empty();
             }
@@ -157,26 +157,26 @@ public class PullUp {
 
     @Nonnull
     public static RelationalExpressionVisitor<PullUp> visitor(@Nullable final PullUp parentPullUp,
-                                                              @Nonnull final CorrelationIdentifier nestingAlias) {
-        return new PullUpVisitor(parentPullUp, nestingAlias);
+                                                              @Nonnull final CorrelationIdentifier candidateAlias) {
+        return new PullUpVisitor(parentPullUp, candidateAlias);
     }
 
     private static class PullUpVisitor implements RelationalExpressionVisitorWithDefaults<PullUp> {
         @Nullable
         private final PullUp parentPullUp;
         @Nonnull
-        private final CorrelationIdentifier nestingAlias;
+        private final CorrelationIdentifier candidateAlias;
 
         public PullUpVisitor(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier nestingAlias) {
+                             @Nonnull final CorrelationIdentifier candidateAlias) {
             this.parentPullUp = parentPullUp;
-            this.nestingAlias = nestingAlias;
+            this.candidateAlias = candidateAlias;
         }
 
         @Nonnull
         @Override
         public PullUp visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
-            return of(parentPullUp, nestingAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
+            return of(parentPullUp, candidateAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
                     logicalTypeFilterExpression.getInnerQuantifier().getFlowedObjectType(),
                     Quantifiers.aliases(logicalTypeFilterExpression.getQuantifiers()));
         }
@@ -184,7 +184,7 @@ public class PullUp {
         @Nonnull
         @Override
         public PullUp visitDefault(@Nonnull final RelationalExpression relationalExpression) {
-            return of(parentPullUp, nestingAlias, relationalExpression.getResultValue(),
+            return of(parentPullUp, candidateAlias, relationalExpression.getResultValue(),
                     Quantifiers.aliases(relationalExpression.getQuantifiers()));
         }
     }

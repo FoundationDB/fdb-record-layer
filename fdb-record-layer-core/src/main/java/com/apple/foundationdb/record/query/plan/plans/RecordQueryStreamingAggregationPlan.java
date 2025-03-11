@@ -468,8 +468,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                          @Nullable final Value groupingKeyValue,
                                                          @Nonnull final AggregateValue aggregateValue,
                                                          @Nonnull final BiFunction<Value, Value, Value> resultValueFunction) {
-        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
-        final var aggregateAlias = CorrelationIdentifier.uniqueID();
+        final var groupingKeyAlias = CorrelationIdentifier.uniqueId();
+        final var aggregateAlias = CorrelationIdentifier.uniqueId();
 
         final var referencedGroupingKeyValue =
                 groupingKeyValue == null
