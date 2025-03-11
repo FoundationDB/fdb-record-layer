@@ -93,7 +93,7 @@ if (ext.publishLibrary) {
                 GenerateMavenPom pomTask = tasks.generatePomFileForLibraryPublication
                 Jar jarTask = tasks.jar
                 if (filename == pomTask.destination.name) {
-                    jarTask.archiveName.replace "jar", "pom"
+                    jarTask.archiveFileName.map { archive -> archive.replace("jar", "pom") }
                 } else {
                     filename
                 }

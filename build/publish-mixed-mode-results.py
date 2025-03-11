@@ -66,46 +66,21 @@ def generate_markdown(version, results, header_size):
     return header_size + " Mixed Mode Test Results\n\nMixed mode testing run against the following previous versions:\n\n" + \
         ', '.join([emoji(results[version]) + '`' + version + '`' for version in sorted_keys])
 
-def update_release_notes_file(markdown, version, filename):
-    with open(filename, 'r') as fin:
-        lines = fin.read().split('\n')
-    i = 0
-    target = '<!-- MIXED_MODE_RESULTS ' + version + ' PLACEHOLDER -->'
-    while i < len(lines) and not lines[i].startswith(target):
-        i+= 1
-    if i == len(lines):
-        raise Exception('Could not find placeholder in release notes file')
-    return '\n'.join(lines[:i]
-                     + [markdown]
-                     + lines[i+1:])
-
-def commit_updates(filename, version):
-    subprocess.run(['git', 'commit', '-m', "Recording " + version + "mixed mode test results in release notes", filename],
-                           check=True)
-
 def main(argv):
     '''Process the output of a mixedModeTest run and convert it into a short markdown'''
     parser = argparse.ArgumentParser()
     parser.add_argument('--results-path', help='Path to the results', default='.out/reports/mixed-mode-results.log')
-    parser.add_argument('--release-notes', help='If provided, the results will be injected into this file')
     parser.add_argument('--header-size', help='Markdown header level (e.g. # or ##)', default='####')
     parser.add_argument('--run-link', help='A link to the test run that generated the results')
-    parser.add_argument('--commit', action='store_true', default=False, help='Commit the updates to the release notes')
+    parser.add_argument('--output', required=True, help='Output to print the markdown to')
     parser.add_argument('version', help='Version of the server that was tested')
     args = parser.parse_args(argv)
 
     markdown = generate_markdown(args.version, get_results(args.results_path), args.header_size)
     if args.run_link is not None:
-        markdown = markdown + "\n\n[See full test run](" + args.run_link +")"
-    if args.release_notes is None:
-        print(markdown)
-    else:
-        new_content = update_release_notes_file(markdown, args.version, args.release_notes)
-        with open(args.release_notes, 'w') as fout:
-            fout.write(new_content)
-        if args.commit:
-            commit_updates(args.release_notes, args.version)
-        print(f'Updated {args.release_notes} with test results for {args.version}')
+        markdown = markdown + "\n\n[See full test run](" + args.run_link +")\n"
+    with open(args.output, mode='w') as fout:
+        fout.write(markdown)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
