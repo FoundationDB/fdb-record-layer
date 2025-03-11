@@ -86,3 +86,6 @@ run/
 
 # Token files required for parsing Antlr files correctly in the IDE
 fdb-relational-core/src/main/antlr/*.tokens
+
+# output during release build process
+/mixed-mode-results.md
