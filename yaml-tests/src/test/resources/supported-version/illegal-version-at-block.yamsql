@@ -1,5 +1,5 @@
 #
-# current-version-at-block.yamsql
+# illegal-version-at-block.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass
+# This test should fail
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
@@ -27,5 +27,5 @@ test_block:
     supported_version: illegal-version
   tests:
     -
-      - query: SHOULD ERROR WHEN RUN;
+      - query: SELECT * FROM t1;
       - result: []
