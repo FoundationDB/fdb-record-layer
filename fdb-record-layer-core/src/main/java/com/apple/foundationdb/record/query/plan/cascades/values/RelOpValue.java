@@ -69,6 +69,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -276,7 +277,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         Verify.verify(arguments.size() == 1 || arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
-        SemanticException.check(res0.isPrimitive() || res0.isEnum(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
+        SemanticException.check(res0.isPrimitive() || res0.isEnum() || res0.isUuid(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
         if (arguments.size() == 1) {
             final UnaryPhysicalOperator physicalOperator =
                     getUnaryOperatorMap().get(new UnaryComparisonSignature(comparisonType, res0.getTypeCode()));
@@ -290,7 +291,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         } else {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
-            SemanticException.check(res1.isPrimitive() || res1.isEnum(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
+            SemanticException.check(res1.isPrimitive() || res1.isEnum() || res1.isUuid(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final BinaryPhysicalOperator physicalOperator =
                     getBinaryOperatorMap().get(new BinaryComparisonSignature(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
@@ -732,7 +733,39 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         }),
         GTE_EU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_UE(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.ENUM, (l, r) -> null),
+
+        EQ_IDID(Comparisons.Type.EQUALS, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.EQUALS, l, r)),
+        EQ_IDS(Comparisons.Type.EQUALS, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.EQUALS, l, UUID.fromString((String) r))),
+        EQ_SID(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.EQUALS, UUID.fromString((String) l), r)),
+        EQ_UID(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UUID, (l, r) -> null),
+        EQ_IDU(Comparisons.Type.EQUALS, Type.TypeCode.UUID, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        NEQ_IDID(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, r)),
+        NEQ_IDS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, UUID.fromString((String) r))),
+        NEQ_SID(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, UUID.fromString((String) l), r)),
+        NEQ_UID(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UUID, (l, r) -> null),
+        NEQ_IDU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UUID, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LT_IDID(Comparisons.Type.LESS_THAN, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN, l, r)),
+        LT_IDS(Comparisons.Type.LESS_THAN, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN, l, UUID.fromString((String) r))),
+        LT_SID(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN, UUID.fromString((String) l), r)),
+        LT_UID(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.UUID, (l, r) -> null),
+        LT_IDU(Comparisons.Type.LESS_THAN, Type.TypeCode.UUID, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LTE_IDID(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, l, r)),
+        LTE_IDS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, l, UUID.fromString((String) r))),
+        LTE_SID(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, UUID.fromString((String) l), r)),
+        LTE_UID(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UUID, (l, r) -> null),
+        LTE_IDU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GT_IDID(Comparisons.Type.GREATER_THAN, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, l, r)),
+        GT_IDS(Comparisons.Type.GREATER_THAN, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, l, UUID.fromString((String) r))),
+        GT_SID(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, UUID.fromString((String) l), r)),
+        GT_UID(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.UUID, (l, r) -> null),
+        GT_IDU(Comparisons.Type.GREATER_THAN, Type.TypeCode.UUID, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GTE_IDID(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, l, r)),
+        GTE_IDS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, l, UUID.fromString((String) r))),
+        GTE_SID(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, UUID.fromString((String) l), r)),
+        GTE_UID(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UUID, (l, r) -> null),
+        GTE_IDU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.UNKNOWN, (l, r) -> null),
         ;
+        // We can pass down UUID or String till here.
 
         @Nonnull
         private static final Supplier<BiMap<BinaryPhysicalOperator, PBinaryPhysicalOperator>> protoEnumBiMapSupplier =
@@ -824,7 +857,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NOT_NULL_BY(Comparisons.Type.NOT_NULL, Type.TypeCode.BYTES, Objects::nonNull),
 
         IS_NULL_EI(Comparisons.Type.IS_NULL, Type.TypeCode.ENUM, Objects::isNull),
-        IS_NOT_NULL_EI(Comparisons.Type.NOT_NULL, Type.TypeCode.ENUM, Objects::nonNull);
+        IS_NOT_NULL_EI(Comparisons.Type.NOT_NULL, Type.TypeCode.ENUM, Objects::nonNull),
+
+        IS_NULL_ID(Comparisons.Type.IS_NULL, Type.TypeCode.UUID, Objects::isNull),
+        IS_NOT_NULL_ID(Comparisons.Type.NOT_NULL, Type.TypeCode.UUID, Objects::nonNull);
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =
