@@ -251,7 +251,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return toResidualPredicate()
                 .replaceValuesMaybe(pullUp::pullUpMaybe)
                 .map(queryPredicate ->
-                        PredicateCompensationFunction.ofPulledUpPredicate(queryPredicate,
+                        PredicateCompensationFunction.ofPredicate(queryPredicate,
                                 (pulledUpPredicate, baseAlias) ->
                                         LinkedIdentitySet.of(pulledUpPredicate.translateCorrelations(
                                                 TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
