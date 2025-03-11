@@ -73,7 +73,8 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
      * Create a time window update operation.
      * @param updateTimestamp a timestamp to be recorded if any changes are made
      * @param highScoreFirst if <code>true</code>, numerically higher scores come first in the index
-     * @param deleteBefore delete any time windows ending at this time or before
+     * @param deleteBefore delete any time windows ending at this time or before;
+     * this will not delete the all-time leaderboard, if there is one
      * @param allTime include an all-time leaderboard
      * @param specs specifications for time windows to create
      * @param rebuild completely rebuild the index using the new time windows by scanning all existing records

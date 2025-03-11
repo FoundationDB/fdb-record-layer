@@ -88,6 +88,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -176,22 +177,31 @@ public class LeaderboardIndexTest {
 
         protected abstract Message buildRecord(String name, String gameId);
 
+        public TimeWindowLeaderboardDirectory getDirectory() {
+            return ((TimeWindowLeaderboardDirectoryResult)
+                            (recordStore.performIndexOperation("LeaderboardIndex", new TimeWindowLeaderboardDirectoryOperation())))
+                    .getDirectory();
+        }
+
         public TimeWindowLeaderboardWindowUpdateResult updateWindows(boolean highScoreFirst, long baseTimestamp) {
             return updateWindows(highScoreFirst, baseTimestamp, TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED);
         }
 
         public TimeWindowLeaderboardWindowUpdateResult updateWindows(boolean highScoreFirst, long baseTimestamp,
                                                                      TimeWindowLeaderboardWindowUpdate.Rebuild rebuild) {
+            return updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), highScoreFirst,
+                    baseTimestamp,
+                    true,
+                    Arrays.asList(
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, baseTimestamp, 5, 10, 20),
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, baseTimestamp, 1, 5, 10)
+                    ),
+                    rebuild));
+        }
+
+        public TimeWindowLeaderboardWindowUpdateResult updateWindows(final TimeWindowLeaderboardWindowUpdate operation) {
             return (TimeWindowLeaderboardWindowUpdateResult)
-                    recordStore.performIndexOperation("LeaderboardIndex",
-                            new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), highScoreFirst,
-                                    baseTimestamp,
-                                    true,
-                                    Arrays.asList(
-                                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, baseTimestamp, 5, 10, 20),
-                                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, baseTimestamp, 1, 5, 10)
-                                    ),
-                                    rebuild));
+                    recordStore.performIndexOperation("LeaderboardIndex", operation);
         }
 
         public RecordCursor<Message> scanIndexByRank(TupleRange range) {
@@ -1110,6 +1120,47 @@ public class LeaderboardIndexTest {
 
             // NOTE: no commit.
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void deleteAllButAllTime(boolean requestAllTimeExist) {
+        // Note: This covers the behavior where you specify `false` for the allTime, and it keeps allTime around
+        // at the time of writing it is unclear whether that is a bug, and we want to change it, or we want a new option
+        // to drop the allTime leaderboard
+        final Leaderboards leaderboards = new GroupedNestedLeaderboards();
+        basicSetup(leaderboards, true);
+
+        final Consumer<Integer> assertAllTimeWorks = expectedLeaderboardCount -> {
+            try (FDBRecordContext context = openContext()) {
+                leaderboards.openRecordStore(context, false);
+                final FDBStoredRecord<Message> rec = leaderboards.findByName("hector");
+                assertEquals(3L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
+                final TimeWindowLeaderboardDirectory directory = leaderboards.getDirectory();
+                assertNotNull(directory.getLeaderboards().get(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE));
+                assertEquals(expectedLeaderboardCount, directory.getLeaderboards().size());
+            }
+        };
+        assertAllTimeWorks.accept(3);
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            metrics.reset();
+            TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(
+                    System.currentTimeMillis(),
+                    true,
+                    Long.MAX_VALUE,
+                    requestAllTimeExist,
+                    List.of(),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+            assertTrue(result.isChanged());
+            assertFalse(result.isRebuilt());
+            assertEquals(0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            context.commit();
+        }
+
+        assertAllTimeWorks.accept(1);
     }
 
     @Test
