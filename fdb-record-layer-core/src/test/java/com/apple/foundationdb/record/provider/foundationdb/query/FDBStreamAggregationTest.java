@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -315,7 +316,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    void aggregateHitScanLimitReached() {
+    void partialAggregateSum() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -333,10 +334,72 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 3));
             // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
             RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
-            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), return 2nd group aggregated result
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
             RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
-            // (TODO): return exhausted, but not result, probably when finish scan x row, needs to return (x-1) to avoid this from happening
+            // return the aggregated result of the second group
             RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 12));
+
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
+        }
+    }
+
+    @Test
+    void partialAggregateAvg() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 1.0));
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            // return the aggregated result of the second group
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 4.0));
+
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
+        }
+    }
+
+    @Test
+    void partialAggregateBitmap() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.BitmapConstructAgg(NumericAggregationValue.PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, value))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
+            byte[] first = new byte[1250];
+            // first[0] = b'00000111
+            first[0] = 7;
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", ByteString.copyFrom(first)));
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            // return the aggregated result of the second group
+            byte[] second = new byte[1250];
+            // second[0] = b'00111000
+            second[0] = 56;
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", ByteString.copyFrom(second)));
 
             Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
