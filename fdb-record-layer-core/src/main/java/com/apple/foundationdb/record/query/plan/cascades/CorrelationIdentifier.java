@@ -61,8 +61,8 @@ public class CorrelationIdentifier {
      * @return a new unique {@link CorrelationIdentifier}
      */
     @Nonnull
-    public static CorrelationIdentifier uniqueID() {
-        return uniqueID(CorrelationIdentifier.class);
+    public static CorrelationIdentifier uniqueId() {
+        return uniqueId(CorrelationIdentifier.class);
     }
 
     /**
@@ -73,8 +73,8 @@ public class CorrelationIdentifier {
      * @return a new unique {@link CorrelationIdentifier}
      */
     @Nonnull
-    public static CorrelationIdentifier uniqueID(@Nonnull final Class<?> clazz) {
-        return uniqueID(clazz, clazz.getSimpleName().substring(0, 1).toLowerCase(Locale.ROOT));
+    public static CorrelationIdentifier uniqueId(@Nonnull final Class<?> clazz) {
+        return uniqueId(clazz, clazz.getSimpleName().substring(0, 1).toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -86,7 +86,7 @@ public class CorrelationIdentifier {
      * @return a new unique {@link CorrelationIdentifier}
      */
     @Nonnull
-    public static CorrelationIdentifier uniqueID(@Nonnull final Class<?> clazz, @Nonnull final String prefix) {
+    public static CorrelationIdentifier uniqueId(@Nonnull final Class<?> clazz, @Nonnull final String prefix) {
         final CorrelationIdentifier id =
                 Debugger.getIndexOptional(clazz)
                         .map(i -> CorrelationIdentifier.of(prefix + i))

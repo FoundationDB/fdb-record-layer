@@ -822,7 +822,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     @Nonnull
     public static CorrelationIdentifier uniqueID() {
-        return CorrelationIdentifier.uniqueID(Quantifier.class);
+        return CorrelationIdentifier.uniqueId(Quantifier.class);
     }
 
     @Nonnull

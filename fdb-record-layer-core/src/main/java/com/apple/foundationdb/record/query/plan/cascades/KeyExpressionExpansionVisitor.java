@@ -404,7 +404,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      *         a unique alias based on an increasing number that is human-readable otherwise.
      */
     protected static CorrelationIdentifier newParameterAlias() {
-        return CorrelationIdentifier.uniqueID(PredicateWithValueAndRanges.class);
+        return CorrelationIdentifier.uniqueId(PredicateWithValueAndRanges.class);
     }
 
     /**
