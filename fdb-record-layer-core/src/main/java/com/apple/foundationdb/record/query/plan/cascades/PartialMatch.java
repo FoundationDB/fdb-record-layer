@@ -304,7 +304,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier nestingAlias,
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier candidateAlias,
                                                                 @Nonnull final Predicate<QueryPredicate> predicateFilter) {
         final var interestingPredicates =
                 getAccumulatedPredicateMap().getMap()
@@ -313,17 +313,17 @@ public class PartialMatch {
                         .filter(predicateFilter)
                         .collect(LinkedIdentitySet.toLinkedIdentitySet());
 
-        return pullUpToParent(nestingAlias, interestingPredicates);
+        return pullUpToParent(candidateAlias, interestingPredicates);
     }
 
     @Nonnull
-    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier nestingAlias,
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier candidateAlias,
                                                                 @Nonnull final Set<QueryPredicate> interestingPredicates) {
         final var childPredicateMappings =
                 getPulledUpPredicateMappings(interestingPredicates);
 
         final var resultsMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
-        final var pullUp = pullUp(nestingAlias);
+        final var pullUp = pullUp(candidateAlias);
         for (final var childPredicateMappingEntry : childPredicateMappings.entrySet()) {
             final var originalQueryPredicate = childPredicateMappingEntry.getKey();
             final var childPredicateMapping = childPredicateMappingEntry.getValue();
@@ -375,8 +375,8 @@ public class PartialMatch {
     @Nonnull
     public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nonnull final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
-        return queryExpression.compensate(this, boundParameterPrefixMap, pullUp, nestingAlias);
+                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+        return queryExpression.compensate(this, boundParameterPrefixMap, pullUp, candidateAlias);
     }
 
     @Nonnull
@@ -385,19 +385,19 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public PullUp pullUp(@Nonnull final CorrelationIdentifier nestingAlias) {
-        return nestPullUp(null, nestingAlias);
+    public PullUp pullUp(@Nonnull final CorrelationIdentifier candidateAlias) {
+        return nestPullUp(null, candidateAlias);
     }
 
     @Nonnull
-    public PullUp nestPullUp(@Nullable final PullUp pullUp, @Nonnull final CorrelationIdentifier nestingAlias) {
+    public PullUp nestPullUp(@Nullable final PullUp pullUp, @Nonnull final CorrelationIdentifier candidateAlias) {
         var currentMatchInfo = getMatchInfo();
         var currentCandidateRef = candidateRef;
         var currentPullUp = pullUp;
-        var currentNestingAlias = nestingAlias;
+        var currentCandidateAlias = candidateAlias;
         while (true) {
             final var nestingVisitor =
-                    PullUp.visitor(currentPullUp, currentNestingAlias);
+                    PullUp.visitor(currentPullUp, currentCandidateAlias);
             final var currentCandidateExpression = currentCandidateRef.get();
             currentPullUp = nestingVisitor.visit(currentCandidateRef.get());
             if (!currentMatchInfo.isAdjusted()) {
@@ -407,7 +407,7 @@ public class PartialMatch {
             final List<? extends Quantifier> currentQuantifiers = currentCandidateExpression.getQuantifiers();
             Verify.verify(currentQuantifiers.size() == 1);
             final Quantifier currentQuantifier = currentQuantifiers.get(0);
-            currentNestingAlias = currentQuantifier.getAlias();
+            currentCandidateAlias = currentQuantifier.getAlias();
             currentCandidateRef = currentQuantifier.getRangesOver();
 
             currentMatchInfo = ((MatchInfo.AdjustedMatchInfo)currentMatchInfo).getUnderlying();

@@ -84,7 +84,7 @@ public interface LeafQueryPredicate extends QueryPredicate {
         return toResidualPredicate()
                 .replaceValuesMaybe(pullUp::pullUpMaybe)
                 .map(queryPredicate ->
-                        PredicateMultiMap.PredicateCompensationFunction.ofPulledUpPredicate(queryPredicate,
+                        PredicateMultiMap.PredicateCompensationFunction.ofPredicate(queryPredicate,
                                 (pulledUpPredicate, baseAlias) ->
                                         LinkedIdentitySet.of(pulledUpPredicate.translateCorrelations(
                                                 TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
