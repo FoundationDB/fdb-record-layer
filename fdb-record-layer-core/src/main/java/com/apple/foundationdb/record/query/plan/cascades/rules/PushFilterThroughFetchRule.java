@@ -169,7 +169,7 @@ public class PushFilterThroughFetchRule extends ImplementationCascadesRule<Recor
         final ImmutableList.Builder<QueryPredicate> pushedPredicatesBuilder = ImmutableList.builder();
         final ImmutableList.Builder<QueryPredicate> residualPredicatesBuilder = ImmutableList.builder();
 
-        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
+        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueId();
 
         for (final QueryPredicate queryPredicate : queryPredicates) {
             final Optional<QueryPredicate> pushedPredicateOptional =

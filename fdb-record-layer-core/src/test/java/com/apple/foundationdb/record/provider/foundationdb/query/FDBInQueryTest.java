@@ -648,7 +648,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         Assumptions.assumeTrue(useCascadesPlanner);
         complexQuerySetup(NO_HOOK);
 
-        final ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        final ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         planner.setConfiguration(planner.getConfiguration().asBuilder()
                 .setAttemptFailedInJoinAsUnionMaxSize(100)
                 .build());

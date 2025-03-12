@@ -143,7 +143,7 @@ public class PushMapThroughFetchRule extends ImplementationCascadesRule<RecordQu
         final var resultValue = mapPlan.getResultValue();
 
         // try to push these field values
-        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
+        final CorrelationIdentifier newInnerAlias = Quantifier.uniqueId();
         final var pushedResultValueOptional =
                 fetchPlan.pushValue(resultValue, quantifierOverFetch.getAlias(), newInnerAlias);
         if (pushedResultValueOptional.isEmpty()) {
