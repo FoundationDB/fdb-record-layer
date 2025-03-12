@@ -323,7 +323,7 @@ public interface Compensation {
             @Override
             public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
                                                    @Nonnull final RelationalExpression relationalExpression) {
-                return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
+                return Compensation.this.applyFinal(memoizer, otherCompensation.applyFinal(memoizer, relationalExpression));
             }
         };
     }
@@ -352,8 +352,8 @@ public interface Compensation {
             @Override
             public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
                                                    @Nonnull final RelationalExpression relationalExpression) {
-                return Compensation.this.apply(memoizer,
-                        otherCompensation.apply(memoizer, relationalExpression));
+                return Compensation.this.applyFinal(memoizer,
+                        otherCompensation.applyFinal(memoizer, relationalExpression));
             }
         };
     }
@@ -587,7 +587,8 @@ public interface Compensation {
                                     (l, r) -> l));
             final var newUnmatchedAggregateMapBuilder =
                     ImmutableBiMap.<CorrelationIdentifier, Value>builder();
-            for (final var entry : getAggregateMappings().getUnmatchedAggregateMap().entrySet()) {
+            final var unmatchedAggregateMap = getAggregateMappings().getUnmatchedAggregateMap();
+            for (final var entry : unmatchedAggregateMap.entrySet()) {
                 if (!newMatchedAggregateMap.containsKey(entry.getValue())) {
                     newUnmatchedAggregateMapBuilder.put(entry);
                 }
@@ -609,10 +610,12 @@ public interface Compensation {
                 Verify.verify(resultCompensationFunction.isNeeded());
                 Verify.verify(otherResultCompensationFunction.isNeeded());
                 // pick the one from this side -- it does not matter as both candidates have the same shape
-                newResultResultCompensationFunction = resultCompensationFunction.amend(newAggregateMappings);
+                newResultResultCompensationFunction =
+                        resultCompensationFunction.amend(unmatchedAggregateMap, newMatchedAggregateMap);
             }
 
-            final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
+            final var otherCompensationMap =
+                    otherWithSelectCompensation.getPredicateCompensationMap();
             final var combinedPredicateMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
             for (final var entry : getPredicateCompensationMap().entrySet()) {
                 // if the other side does not have compensation for this key, we don't need compensation
@@ -624,7 +627,7 @@ public interface Compensation {
                     // figure out which one wins.
                     // We just pick one side here.
                     combinedPredicateMap.put(entry.getKey(),
-                            entry.getValue().amend(newAggregateMappings));
+                            entry.getValue().amend(unmatchedAggregateMap, newMatchedAggregateMap));
                 }
             }
 
