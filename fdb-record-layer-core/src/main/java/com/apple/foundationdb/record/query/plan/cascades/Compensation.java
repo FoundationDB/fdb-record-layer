@@ -27,8 +27,10 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilt
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -588,6 +590,19 @@ public interface Compensation {
                             .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey,
                                     Map.Entry::getValue,
                                     (l, r) -> l));
+            final var newUnmatchedAggregateMapBuilder =
+                    ImmutableBiMap.<CorrelationIdentifier, Value>builder();
+            for (final var entry : getAggregateMappings().getUnmatchedAggregateMap().entrySet()) {
+                if (!newMatchedAggregateMap.containsKey(entry.getValue())) {
+                    newUnmatchedAggregateMapBuilder.put(entry);
+                }
+            }
+            for (final var entry : otherWithSelectCompensation.getAggregateMappings().getUnmatchedAggregateMap().entrySet()) {
+                if (!newMatchedAggregateMap.containsKey(entry.getValue())) {
+                    newUnmatchedAggregateMapBuilder.put(entry);
+                }
+            }
+            final var newAggregateMappings = AggregateMappings.of(newMatchedAggregateMap, newUnmatchedAggregateMapBuilder.build());
 
             final ResultCompensationFunction newResultResultCompensationFunction;
             final var resultCompensationFunction = getResultCompensationFunction();
@@ -599,7 +614,7 @@ public interface Compensation {
                 Verify.verify(resultCompensationFunction.isNeeded());
                 Verify.verify(otherResultCompensationFunction.isNeeded());
                 // pick the one from this side -- it does not matter as both candidates have the same shape
-                newResultResultCompensationFunction = resultCompensationFunction;
+                newResultResultCompensationFunction = resultCompensationFunction.amend(newAggregateMappings);
             }
 
             final var otherCompensationMap = otherWithSelectCompensation.getPredicateCompensationMap();
@@ -613,7 +628,8 @@ public interface Compensation {
                     // reapplication we need to generate plan variants with either compensation and let the planner
                     // figure out which one wins.
                     // We just pick one side here.
-                    combinedPredicateMap.put(entry.getKey(), entry.getValue());
+                    combinedPredicateMap.put(entry.getKey(),
+                            entry.getValue().amend(newAggregateMappings));
                 }
             }
 
@@ -647,7 +663,7 @@ public interface Compensation {
                     intersectedUnmatchedQuantifiers,
                     getCompensatedAliases(), // both compensated aliases must be identical, but too expensive to check
                     newResultResultCompensationFunction,
-                    AggregateMappings.empty());
+                    newAggregateMappings);
         }
     }
 
@@ -909,6 +925,23 @@ public interface Compensation {
                     .addQuantifier(newBaseQuantifier)
                     .build()
                     .buildSelectWithResultValue(resultValue);
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            final var result = new StringBuilder();
+            if (isNeeded()) {
+                result.append("needed; ");
+            } else {
+                result.append("not needed; ");
+            }
+            if (isImpossible()) {
+                result.append("impossible");
+            } else {
+                result.append("possible");
+            }
+            return result.toString();
         }
     }
 }
