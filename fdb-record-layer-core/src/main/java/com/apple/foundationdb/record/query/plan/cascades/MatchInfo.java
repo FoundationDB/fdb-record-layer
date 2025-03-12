@@ -85,7 +85,7 @@ public interface MatchInfo {
     @Nonnull
     default AggregateMappings adjustAggregateMappings(@Nonnull final PartialMatch partialMatch,
                                                       @Nonnull final Quantifier candidateQuantifier) {
-        final var adjustedMatchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
+        final var adjustedMatchedAggregateMapBuilder = ImmutableMap.<Value, Value>builder();
         final var aggregateMappings = getAggregateMappings();
         final var matchedAggregateMap = aggregateMappings.getMatchedAggregateMap();
         for (final var matchedAggregateMapEntry : matchedAggregateMap.entrySet()) {
@@ -370,7 +370,7 @@ public interface MatchInfo {
         private static AggregateMappings pullUpAndMergeAggregateMappings(@Nonnull final AliasMap bindingAliasMap,
                                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                                          @Nonnull final AggregateMappings additionalAggregateMappings) {
-            final var matchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            final var matchedAggregateMapBuilder = ImmutableMap.<Value, Value>builder();
             matchedAggregateMapBuilder.putAll(additionalAggregateMappings.getMatchedAggregateMap());
             final var unatchedAggregateMapBuilder = ImmutableBiMap.<CorrelationIdentifier, Value>builder();
             unatchedAggregateMapBuilder.putAll(additionalAggregateMappings.getUnmatchedAggregateMap());
@@ -405,7 +405,7 @@ public interface MatchInfo {
             final var queryExpression = partialMatch.getQueryExpression();
             final var resultValue = queryExpression.getResultValue();
             final var aggregateMappings = matchInfo.getAggregateMappings();
-            final var matchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            final var matchedAggregateMapBuilder = ImmutableMap.<Value, Value>builder();
             for (final var matchedAggregateMapEntry : aggregateMappings.getMatchedAggregateMap().entrySet()) {
                 final var queryAggregateValue = matchedAggregateMapEntry.getKey();
                 final Value pulledUpQueryAggregateValue;
