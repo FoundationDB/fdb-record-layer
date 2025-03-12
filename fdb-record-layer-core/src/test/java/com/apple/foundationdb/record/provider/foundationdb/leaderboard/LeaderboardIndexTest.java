@@ -1069,6 +1069,8 @@ public class LeaderboardIndexTest {
 
     @Test
     public void rebuildOverlapping() {
+        // Warning: rebuilding tries to rebuild the entire index transactionally, so if this is done on a reasonably
+        // sized record store it will always fail
         updateOverlapping(true);
     }        
 
