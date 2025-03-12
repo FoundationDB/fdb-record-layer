@@ -112,7 +112,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
-    private final Set<UserDefinedFunction> userDefinedFunctions;
+    private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -148,7 +148,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
         evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
         syntheticRecordTypes = new HashMap<>();
-        userDefinedFunctions = new HashSet<>();
+        userDefinedFunctionMap = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -232,7 +232,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         for (RecordMetaDataProto.UserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
             UserDefinedFunction func = UserDefinedFunction.fromProto(serializationContext, function);
             if (func != null) {
-                userDefinedFunctions.add(func);
+                userDefinedFunctionMap.put(func.getFunctionName(), func);
             }
         }
         if (metaDataProto.hasSplitLongRecords()) {
@@ -1193,11 +1193,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void addUserDefinedFunction(@Nonnull UserDefinedFunction userDefinedFunction) {
-        userDefinedFunctions.add(userDefinedFunction);
+        userDefinedFunctionMap.put(userDefinedFunction.getFunctionName(), userDefinedFunction);
     }
 
     public void addUserDefinedFunctions(@Nonnull Iterable<? extends UserDefinedFunction> functions) {
-        functions.forEach(this.userDefinedFunctions::add);
+        functions.forEach(this::addUserDefinedFunction);
     }
 
     public boolean isSplitLongRecords() {
@@ -1441,7 +1441,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, userDefinedFunctions,
+                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

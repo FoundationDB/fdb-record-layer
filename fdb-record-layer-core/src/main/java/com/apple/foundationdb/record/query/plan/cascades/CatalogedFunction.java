@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.base.Verify;
@@ -30,20 +31,26 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Main interface for defining all functions that can be evaluated against a number of arguments.
+ * Two major sub interfaces inherit this interface: {@link BuiltInFunction} and {@link UserDefinedFunction}
+ * {@link BuiltInFunction} represents all functions that are built-in, and stored in code, while {@link UserDefinedFunction} represents all functions defined by users, and stored in {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
+ */
+@API(API.Status.EXPERIMENTAL)
 public abstract class CatalogedFunction {
     @Nonnull
-    final String functionName;
+    protected final String functionName;
 
     @Nonnull
-    final List<Type> parameterTypes;
+    protected final List<Type> parameterTypes;
 
     /**
      * The type of the function's variadic parameters (if any).
      */
     @Nullable
-    final Type variadicSuffixType;
+    private final Type variadicSuffixType;
 
-    public CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType) {
+    protected CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType) {
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
         this.variadicSuffixType = variadicSuffixType;

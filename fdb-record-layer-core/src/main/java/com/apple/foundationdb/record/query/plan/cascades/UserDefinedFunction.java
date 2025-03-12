@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -29,8 +30,10 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * User defined functions that are serialized in MetaData.
+ * Functions that are 1) can be evaluated against a number of arguments; 2) defined by users; 3) serialized to {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
+ * Right now we don't have namespacing rules to separate UserDefinedFunction and BuiltInFunction, so theoretically there could be a naming collision
  */
+@API(API.Status.EXPERIMENTAL)
 public abstract class UserDefinedFunction extends CatalogedFunction {
 
     public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
@@ -42,7 +45,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
         if (proto.hasMacroFunction()) {
             return MacroFunction.fromProto(serializationContext, proto);
         } else {
-            return null;
+            throw new RuntimeException("Invalid UserDefinedFunction protobuf.");
         }
     }
 
