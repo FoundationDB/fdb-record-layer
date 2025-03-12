@@ -173,7 +173,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         Verify.verify(quantifiersOverFetches.size() == fetchPlans.size());
         Verify.verify(fetchPlans.size() == dependentFunctions.size());
 
-        final CorrelationIdentifier sourceAlias = Quantifier.uniqueID();
+        final CorrelationIdentifier sourceAlias = Quantifier.uniqueId();
 
         final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(sourceAlias, Quantifiers.getFlowedTypeForSetOperation(quantifiersOverFetches));
         final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues, sourceAlias);
