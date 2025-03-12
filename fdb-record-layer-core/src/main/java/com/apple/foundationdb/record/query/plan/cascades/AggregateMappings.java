@@ -55,7 +55,7 @@ public class AggregateMappings {
     }
 
     @Nonnull
-    public static AggregateMappings of(@Nonnull final BiMap<Value, Value> matchedAggregateMap,
+    public static AggregateMappings of(@Nonnull final Map<Value, Value> matchedAggregateMap,
                                        @Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap) {
         return new AggregateMappings(ImmutableMap.copyOf(matchedAggregateMap), ImmutableBiMap.copyOf(unmatchedAggregateMap));
     }
