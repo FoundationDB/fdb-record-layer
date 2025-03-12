@@ -344,7 +344,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 ImmutableBiMap.<CorrelationIdentifier, Value>builder();
         final var unmatchedTranslatedAggregateValueMapBuilder =
                 ImmutableMap.<Value, CorrelationIdentifier>builder();
-        var subsumedAggregations = BooleanWithConstraint.alwaysTrue();
+        var subsumedAggregations = BooleanWithConstraint.falseValue();
         for (final var primitiveAggregateValue : aggregateValues) {
             final var translatedPrimitiveAggregateValue =
                     primitiveAggregateValue.translateCorrelations(translationMap, true);
