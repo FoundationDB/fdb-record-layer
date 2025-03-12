@@ -123,7 +123,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                         .map(Quantifier::getAlias)
                         .collect(Collectors.toSet());
 
-        final CorrelationIdentifier targetAlias = Quantifier.uniqueID();
+        final CorrelationIdentifier targetAlias = Quantifier.uniqueId();
 
         for (final Value value : values) {
             final AliasMap equivalencesMap = AliasMap.emptyMap();

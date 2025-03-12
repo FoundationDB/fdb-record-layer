@@ -552,11 +552,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
                     scanDirection == ScanDirection.BOTH);
 
-            final var compensation = partialMatch.compensateCompleteMatch();
+            final var candidateTopAlias = Quantifier.uniqueId();
+            final var compensation = partialMatch.compensateCompleteMatch(candidateTopAlias);
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        false, satisfyingOrderingsPair.getRight()));
+                        candidateTopAlias, false, satisfyingOrderingsPair.getRight()));
             }
 
             //
@@ -569,7 +570,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             //
             if (scanDirection == ScanDirection.REVERSE /* || scanDirection == ScanDirection.BOTH */) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        true, satisfyingOrderingsPair.getRight()));
+                        candidateTopAlias, true, satisfyingOrderingsPair.getRight()));
             }
         }
 
@@ -1145,16 +1146,20 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         private final PartialMatch partialMatch;
         @Nonnull
         private final Compensation compensation;
+        @Nonnull
+        private CorrelationIdentifier candidateTopAlias;
         private final boolean reverseScanOrder;
         @Nonnull
         private final Set<RequestedOrdering> satisfyingRequestedOrderings;
 
         public SingleMatchedAccess(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Compensation compensation,
+                                   @Nonnull final CorrelationIdentifier candidateTopAlias,
                                    final boolean reverseScanOrder,
                                    @Nonnull final Set<RequestedOrdering> satisfyingRequestedOrderings) {
             this.partialMatch = partialMatch;
             this.compensation = compensation;
+            this.candidateTopAlias = candidateTopAlias;
             this.reverseScanOrder = reverseScanOrder;
             this.satisfyingRequestedOrderings = ImmutableSet.copyOf(satisfyingRequestedOrderings);
         }
@@ -1167,6 +1172,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         @Nonnull
         public Compensation getCompensation() {
             return compensation;
+        }
+
+        @Nonnull
+        public CorrelationIdentifier getCandidateTopAlias() {
+            return candidateTopAlias;
         }
 
         public boolean isReverseScanOrder() {
