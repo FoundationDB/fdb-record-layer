@@ -51,6 +51,6 @@ test_block:
     #  - result: []
     -
       - query: select sum(col2) / count(col2) from T2 group by col1;
-      - explain: "AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (unmatched() / _._1 AS _0)"
+      - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0._0) | MAP (_._1 / ?q92?._1 AS _0)"
       - result: []
 ...

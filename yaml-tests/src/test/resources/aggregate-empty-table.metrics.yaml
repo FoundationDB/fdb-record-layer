@@ -1,12 +1,13 @@
 agg-empty-table-tests:
 -   query: EXPLAIN select sum(col2) / count(col2) from T2 group by col1;
-    explain: 'AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (unmatched()
-        / _._1 AS _0)'
-    task_count: 463
-    task_total_time_ms: 218399
-    transform_count: 170
-    transform_time_ms: 218356
-    transform_yield_count: 66
-    insert_time_ms: 2
-    insert_new_count: 32
+    explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4
+        <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0._0) | MAP (_._1
+        / ?q92?._1 AS _0)'
+    task_count: 319
+    task_total_time_ms: 131
+    transform_count: 117
+    transform_time_ms: 101
+    transform_yield_count: 51
+    insert_time_ms: 1
+    insert_new_count: 16
     insert_reused_count: 0

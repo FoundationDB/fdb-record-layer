@@ -35,7 +35,8 @@ public class AggregateMappings {
     @Nonnull
     private final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap;
 
-    private AggregateMappings(@Nonnull final Map<Value, Value> matchedAggregateMap, @Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap) {
+    private AggregateMappings(@Nonnull final Map<Value, Value> matchedAggregateMap,
+                              @Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap) {
         this.matchedAggregateMap = matchedAggregateMap;
         this.unmatchedAggregateMap = unmatchedAggregateMap;
     }
