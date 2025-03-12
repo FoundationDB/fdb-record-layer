@@ -98,6 +98,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class LeaderboardIndexTest {
+    private static final String INDEX_NAME = "LeaderboardIndex";
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
@@ -179,7 +180,7 @@ public class LeaderboardIndexTest {
 
         public TimeWindowLeaderboardDirectory getDirectory() {
             return ((TimeWindowLeaderboardDirectoryResult)
-                            (recordStore.performIndexOperation("LeaderboardIndex", new TimeWindowLeaderboardDirectoryOperation())))
+                            (recordStore.performIndexOperation(INDEX_NAME, new TimeWindowLeaderboardDirectoryOperation())))
                     .getDirectory();
         }
 
@@ -201,27 +202,27 @@ public class LeaderboardIndexTest {
 
         public TimeWindowLeaderboardWindowUpdateResult updateWindows(final TimeWindowLeaderboardWindowUpdate operation) {
             return (TimeWindowLeaderboardWindowUpdateResult)
-                    recordStore.performIndexOperation("LeaderboardIndex", operation);
+                    recordStore.performIndexOperation(INDEX_NAME, operation);
         }
 
         public RecordCursor<Message> scanIndexByRank(TupleRange range) {
-            return recordStore.scanIndexRecords("LeaderboardIndex", IndexScanType.BY_RANK, range, null, ScanProperties.FORWARD_SCAN).map(FDBIndexedRecord::getRecord);
+            return recordStore.scanIndexRecords(INDEX_NAME, IndexScanType.BY_RANK, range, null, ScanProperties.FORWARD_SCAN).map(FDBIndexedRecord::getRecord);
         }
 
         public RecordCursor<Message> scanIndexByScore(TupleRange range, boolean reverse) {
-            return recordStore.scanIndexRecords("LeaderboardIndex", IndexScanType.BY_VALUE, range, null,
+            return recordStore.scanIndexRecords(INDEX_NAME, IndexScanType.BY_VALUE, range, null,
                             new ScanProperties(ExecuteProperties.SERIAL_EXECUTE, reverse))
                     .map(FDBIndexedRecord::getRecord);
         }
 
         public RecordCursor<Message> scanIndexByTimeWindow(TimeWindowScanRange range) {
-            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex("LeaderboardIndex"), range, null, ScanProperties.FORWARD_SCAN),
+            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex(INDEX_NAME), range, null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR)
                     .map(FDBIndexedRecord::getRecord);
         }
 
         public RecordCursor<Message> scanIndexByTimeWindowWithLimit(TimeWindowScanRange range, int limit) {
-            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex("LeaderboardIndex"), range, null,
+            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex(INDEX_NAME), range, null,
                                     new ScanProperties(ExecuteProperties.newBuilder()
                                             .setReturnedRowLimit(limit)
                                             .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -233,7 +234,7 @@ public class LeaderboardIndexTest {
         public abstract GroupingKeyExpression getKeyExpression();
 
         public String getRecordType() {
-            return metaData.recordTypesForIndex(metaData.getIndex("LeaderboardIndex")).iterator().next().getName();
+            return metaData.recordTypesForIndex(metaData.getIndex(INDEX_NAME)).iterator().next().getName();
         }
 
         public RecordQueryPlan planQuery(RecordQuery query) {
@@ -292,18 +293,18 @@ public class LeaderboardIndexTest {
         }
 
         public List<Key.Evaluated> getScores(FDBRecord<Message> record) {
-            return metaData.getIndex("LeaderboardIndex").getRootExpression().evaluate(record);
+            return metaData.getIndex(INDEX_NAME).getRootExpression().evaluate(record);
         }
 
         public Collection<Tuple> trim(Collection<Key.Evaluated> untrimmed) {
             List<Tuple> untrimmedKeys = untrimmed.stream().map(Key.Evaluated::toTuple).collect(Collectors.toList());
-            return ((TimeWindowLeaderboardScoreTrimResult)recordStore.performIndexOperation("LeaderboardIndex",
+            return ((TimeWindowLeaderboardScoreTrimResult)recordStore.performIndexOperation(INDEX_NAME,
                     new TimeWindowLeaderboardScoreTrim(untrimmedKeys, true))).getScores();
         }
 
         public TimeWindowLeaderboardSubDirectory setGroupHighScoreFirst(Tuple group, boolean highScoreFirst) {
             return ((TimeWindowLeaderboardSubDirectoryResult)
-                            recordStore.performIndexOperation("LeaderboardIndex",
+                            recordStore.performIndexOperation(INDEX_NAME,
                                     new TimeWindowLeaderboardSaveSubDirectory(new TimeWindowLeaderboardSubDirectory(group, highScoreFirst)))).getSubDirectory();
         }
     }
@@ -354,7 +355,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index(INDEX_NAME, keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
         }
     }
 
@@ -373,7 +374,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD,
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index(INDEX_NAME, keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD,
                     Collections.singletonMap(IndexOptions.RANK_HASH_FUNCTION, RankedSetHashFunctions.MURMUR3)));
         }
     }
@@ -390,7 +391,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("FlatLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("FlatLeaderboardRecord", new Index(INDEX_NAME, keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
         }
 
         @Override
@@ -724,7 +725,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan plan1 = leaderboards.planQuery(query1);
-            assertEquals("ISCAN(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", plan1.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " [[game-1, 1],[game-1, 2]] BY_RANK)", plan1.toString());
             assertEquals(Arrays.asList("hecuba", "achilles"),
                     leaderboards.executeQuery(plan1).map(leaderboards::getName).asList().join());
 
@@ -735,7 +736,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryTimeWindowRank("l1", "l2").lessThanOrEquals(2L)))
                     .build();
             RecordQueryPlan plan2 = leaderboards.planQuery(query2);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]]@$l1,$l2 BY_TIME_WINDOW)", plan2.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, null],[game-1, 2]]@$l1,$l2 BY_TIME_WINDOW)", plan2.toString());
 
             final EvaluationContext evaluationContext1 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
@@ -769,7 +770,7 @@ public class LeaderboardIndexTest {
                         .setSort(leaderboards.getKeyExpression())
                         .build();
                 final RecordQueryPlan plan = leaderboards.planQuery(query);
-                assertEquals("ISCAN(LeaderboardIndex [[game-1],[game-1]] BY_RANK)", plan.toString());
+                assertEquals("ISCAN(" + INDEX_NAME + " [[game-1],[game-1]] BY_RANK)", plan.toString());
                 assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
                         leaderboards.executeQuery(plan).map(leaderboards::getName).asList().join());
             }
@@ -781,7 +782,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().greaterThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planGreaterEqual = leaderboards.planQuery(queryGreaterEqual);
-            assertEquals("ISCAN(LeaderboardIndex [[game-1, 2],[game-1]] BY_RANK)", planGreaterEqual.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " [[game-1, 2],[game-1]] BY_RANK)", planGreaterEqual.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterEqual).map(leaderboards::getName).asList().join());
 
@@ -792,7 +793,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().greaterThan(1L)))
                     .build();
             final RecordQueryPlan planGreaterThan = leaderboards.planQuery(queryGreaterThan);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, 1],[game-1]] BY_RANK)", planGreaterThan.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, 1],[game-1]] BY_RANK)", planGreaterThan.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterThan).map(leaderboards::getName).asList().join());
 
@@ -803,7 +804,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planLessEqual = leaderboards.planQuery(queryLessEqual);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]] BY_RANK)", planLessEqual.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, null],[game-1, 2]] BY_RANK)", planLessEqual.toString());
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles"),
                     leaderboards.executeQuery(planLessEqual).map(leaderboards::getName).asList().join());
 
@@ -814,7 +815,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThan(2L)))
                     .build();
             final RecordQueryPlan planLessThan = leaderboards.planQuery(queryLessThan);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]) BY_RANK)", planLessThan.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, null],[game-1, 2]) BY_RANK)", planLessThan.toString());
             assertEquals(Arrays.asList("patroclus", "hecuba"),
                     leaderboards.executeQuery(planLessThan).map(leaderboards::getName).asList().join());
 
@@ -826,7 +827,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planGreaterEqualAndLessEqual = leaderboards.planQuery(queryGreaterEqualAndLessEqual);
-            assertEquals("ISCAN(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", planGreaterEqualAndLessEqual.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " [[game-1, 1],[game-1, 2]] BY_RANK)", planGreaterEqualAndLessEqual.toString());
             assertEquals(Arrays.asList("hecuba", "achilles"),
                     leaderboards.executeQuery(planGreaterEqualAndLessEqual).map(leaderboards::getName).asList().join());
 
@@ -838,7 +839,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThan(4L)))
                     .build();
             final RecordQueryPlan planGreaterThanAndLessThan = leaderboards.planQuery(queryGreaterThanAndLessThan);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, 1],[game-1, 4]) BY_RANK)", planGreaterThanAndLessThan.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, 1],[game-1, 4]) BY_RANK)", planGreaterThanAndLessThan.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterThanAndLessThan).map(leaderboards::getName).asList().join());
         }
@@ -1035,7 +1036,7 @@ public class LeaderboardIndexTest {
         leaderboards.buildMetaData();
         try (FDBRecordContext context = openContext()) {
             leaderboards.openRecordStore(context, true);
-            leaderboards.recordStore.performIndexOperation("LeaderboardIndex",
+            leaderboards.recordStore.performIndexOperation(INDEX_NAME,
                     new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
                             10100,
                             false, // No allTime.
@@ -1361,7 +1362,7 @@ public class LeaderboardIndexTest {
                     .build();
             final RecordQueryPlan plan = leaderboards.planQuery(query);
             assertTrue(leaderboards.executeQuery(plan).map(leaderboards::getName).asList().join().contains("diomedes"), "should have player without scores");
-            assertFalse(plan.hasIndexScan("LeaderboardIndex"), "should not use leaderboard");
+            assertFalse(plan.hasIndexScan(INDEX_NAME), "should not use leaderboard");
         }
     }
 
