@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 /**
  * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
-public class MacroFunction extends UserDefinedFunction {
+public class MacroFunction extends SerializedUserDefinedFunction {
     @Nonnull
     private final Value bodyValue;
     @Nonnull
@@ -76,7 +76,6 @@ public class MacroFunction extends UserDefinedFunction {
                         .setFunctionName(functionName)
                         .setBody(bodyValue.toValueProto(serializationContext)))
                 .build();
-
     }
 
     @Nonnull

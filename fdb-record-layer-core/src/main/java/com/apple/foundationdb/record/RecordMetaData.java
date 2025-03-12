@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.SerializedUserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -85,7 +85,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
+    private final Map<String, SerializedUserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -136,7 +136,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
+                             @Nonnull Map<String, SerializedUserDefinedFunction> userDefinedFunctionMap,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,

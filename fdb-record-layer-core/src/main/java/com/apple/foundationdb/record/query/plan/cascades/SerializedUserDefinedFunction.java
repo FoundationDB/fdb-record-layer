@@ -1,5 +1,5 @@
 /*
- * UserDefinedFunction.java
+ * SerializedUserDefinedFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,27 +26,17 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 
 /**
  * Functions that are 1) can be evaluated against a number of arguments; 2) defined by users; 3) serialized to {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
- * Right now we don't have namespacing rules to separate UserDefinedFunction and BuiltInFunction, so theoretically there could be a naming collision
+ * Right now we don't have namespacing rules to separate UserDefinedFunction and BuiltInFunction, so theoretically there could be a naming collision.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class UserDefinedFunction extends CatalogedFunction {
+public abstract class SerializedUserDefinedFunction extends CatalogedFunction {
 
-    public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
+    public SerializedUserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
         super(functionName, parameterTypes, null);
-    }
-
-    @Nullable
-    public static UserDefinedFunction fromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull RecordMetaDataProto.UserDefinedFunction proto) {
-        if (proto.hasMacroFunction()) {
-            return MacroFunction.fromProto(serializationContext, proto);
-        } else {
-            throw new RuntimeException("Invalid UserDefinedFunction protobuf.");
-        }
     }
 
     @Nonnull
