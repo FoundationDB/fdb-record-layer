@@ -368,8 +368,8 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Compensation compensateCompleteMatch() {
-        return queryExpression.compensate(this, getBoundParameterPrefixMap(), null, Quantifier.uniqueID());
+    public Compensation compensateCompleteMatch(@Nonnull final CorrelationIdentifier candidateTopAlias) {
+        return queryExpression.compensate(this, getBoundParameterPrefixMap(), null, candidateTopAlias);
     }
 
     @Nonnull
@@ -381,7 +381,7 @@ public class PartialMatch {
 
     @Nonnull
     public Compensation compensateExistential(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueID());
+        return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueId());
     }
 
     @Nonnull

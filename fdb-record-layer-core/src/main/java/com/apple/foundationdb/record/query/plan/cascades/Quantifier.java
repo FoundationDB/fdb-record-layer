@@ -171,7 +171,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             @Nonnull
             @Override
             public ForEach build(@Nonnull final Reference rangesOver) {
-                return new ForEach(alias == null ? Quantifier.uniqueID() : alias, rangesOver, isNullOnEmpty);
+                return new ForEach(alias == null ? Quantifier.uniqueId() : alias, rangesOver, isNullOnEmpty);
             }
         }
 
@@ -360,7 +360,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             @Override
             @Nonnull
             public Existential build(@Nonnull final Reference rangesOver) {
-                return new Existential(alias == null ? Quantifier.uniqueID() : alias,
+                return new Existential(alias == null ? Quantifier.uniqueId() : alias,
                         rangesOver);
             }
         }
@@ -471,7 +471,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             @Nonnull
             @Override
             public Physical build(@Nonnull final Reference rangesOver) {
-                return new Physical(alias == null ? Quantifier.uniqueID() : alias, rangesOver);
+                return new Physical(alias == null ? Quantifier.uniqueId() : alias, rangesOver);
             }
 
             /**
@@ -821,7 +821,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @Nonnull
-    public static CorrelationIdentifier uniqueID() {
+    public static CorrelationIdentifier uniqueId() {
         return CorrelationIdentifier.uniqueId(Quantifier.class);
     }
 

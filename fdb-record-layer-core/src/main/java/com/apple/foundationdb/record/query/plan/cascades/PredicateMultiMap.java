@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.Multimaps;
@@ -64,15 +65,17 @@ public class PredicateMultiMap {
     private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
     @Nonnull
-    private static Value amendValue(final @Nonnull AggregateMappings aggregateMappings, final Value rootValue) {
+    private static Value amendValue(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                    @Nonnull final Map<Value, Value> amendedMatchedAggregateMap,
+                                    @Nonnull final Value rootValue) {
         return Objects.requireNonNull(rootValue.replace(currentValue -> {
             if (currentValue instanceof GroupByExpression.UnmatchedAggregateValue) {
                 final var unmatchedId =
                         ((GroupByExpression.UnmatchedAggregateValue)currentValue).getUnmatchedId();
                 final var queryValue =
-                        Objects.requireNonNull(aggregateMappings.getUnmatchedAggregateMap().get(unmatchedId));
+                        Objects.requireNonNull(unmatchedAggregateMap.get(unmatchedId));
                 final var translatedQueryValue =
-                        aggregateMappings.getMatchedAggregateMap().get(queryValue);
+                        amendedMatchedAggregateMap.get(queryValue);
                 if (translatedQueryValue != null) {
                     return translatedQueryValue;
                 }
@@ -110,7 +113,8 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                    public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                               @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
@@ -135,7 +139,8 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                    public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                               @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
@@ -152,7 +157,8 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
-        PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings);
+        PredicateCompensationFunction amend(@Nonnull BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                            @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
 
         @Nonnull
         Set<QueryPredicate> applyCompensationForPredicate(@Nonnull CorrelationIdentifier baseAlias);
@@ -175,10 +181,12 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedTranslatedPredicateOptional =
                             predicate.replaceValuesMaybe(rootValue ->
-                                    Optional.of(amendValue(aggregateMappings, rootValue)));
+                                    Optional.of(amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap,
+                                            rootValue)));
                     Verify.verify(amendedTranslatedPredicateOptional.isPresent());
                     return ofPredicate(amendedTranslatedPredicateOptional.get(), compensationFunction);
                 }
@@ -232,7 +240,8 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                     return this;
                 }
 
@@ -260,10 +269,13 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public PredicateCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedChildrenCompensationFunctions =
                             childrenCompensationFunctions.stream()
-                                    .map(childrenCompensationFunction -> childrenCompensationFunction.amend(aggregateMappings))
+                                    .map(childrenCompensationFunction ->
+                                            childrenCompensationFunction.amend(unmatchedAggregateMap,
+                                                    amendedMatchedAggregateMap))
                                     .collect(ImmutableList.toImmutableList());
                     return ofChildrenCompensationFunctions(amendedChildrenCompensationFunctions, compensationFunction);
                 }
@@ -305,7 +317,8 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public ResultCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                    public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                            @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
@@ -330,7 +343,8 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public ResultCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                    public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                            @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
@@ -347,7 +361,8 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
-        ResultCompensationFunction amend(@Nonnull AggregateMappings aggregateMappings);
+        ResultCompensationFunction amend(@Nonnull BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                         @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
 
         @Nonnull
         Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
@@ -377,9 +392,10 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public ResultCompensationFunction amend(@Nonnull final AggregateMappings aggregateMappings) {
+                public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                        @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedTranslatedQueryValue =
-                            amendValue(aggregateMappings, value);
+                            amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap, value);
 
                     return ofValue(amendedTranslatedQueryValue, compensationFunction);
                 }
