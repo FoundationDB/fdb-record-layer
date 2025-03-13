@@ -66,6 +66,8 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
 import com.google.protobuf.Message;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.SoftAssertions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -78,12 +80,16 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -431,6 +437,7 @@ public class LeaderboardIndexTest {
     }
 
     protected void addInitialScores(Leaderboards leaderboards) {
+        // Each "row" of scores is [score, timestamp, context]
         // Before the default range.
         leaderboards.addScores("patroclus", "game-1",
                 1000, 11001, 111);
@@ -666,6 +673,166 @@ public class LeaderboardIndexTest {
             final IndexAggregateFunction count2 = leaderboards.timeWindowCount(TEN_UNITS, 10100);
             assertEquals((Long)2L, leaderboards.evaluateAggregateFunction(count2, Tuple.from("game-1")).get(0));
         }
+    }
+
+    @Test
+    void specBoundaries() {
+        final Leaderboards leaderboards = new UngroupedNestedLeaderboards();
+        leaderboards.buildMetaData();
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, true);
+            final TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
+                    10100,
+                    true,
+                    Arrays.asList(
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, 10100, 5, 10, 3),
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, 10100, 1, 5, 3)
+                    ),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+            assertTrue(result.isChanged());
+
+            // add 5 on either side, they should never be found
+            addMoreScores(leaderboards, 10100, -5, 5 * 3 + 10 + 5);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            assertLeaderboardResults(leaderboards, 3, TEN_UNITS, 10100, 5, 10, 0);
+            assertLeaderboardResults(leaderboards, 3, FIVE_UNITS,  10100, 1, 5, 0);
+        }
+    }
+
+    @Test
+    void deleteBefore() {
+        final Leaderboards leaderboards = new UngroupedNestedLeaderboards();
+        leaderboards.buildMetaData();
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, true);
+            final TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
+                    10100,
+                    true,
+                    Arrays.asList(
+                            // We are not inserting all the data for the fourth TEN_UNITS, but have it there so that we
+                            // don't have to create any leaderboards before 10110
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, 10100, 5, 10, 5),
+                            // We need to have all leaderboards that overlap with 10125 to avoid rebuilds during the
+                            // delete step
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, 10100, 1, 5, 25)
+                    ),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+            assertTrue(result.isChanged());
+            assertTimestamps(leaderboards, TEN_UNITS,
+                    LongStream.range(0, 5).map(i -> i * 5 + 10100).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 5).map(i -> i * 5 + 10110).boxed().collect(Collectors.toList()));
+            assertTimestamps(leaderboards, FIVE_UNITS,
+                    LongStream.range(0, 25).map(i -> i + 10100).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 25).map(i -> i + 10100 + 5).boxed().collect(Collectors.toList()));
+
+            addMoreScores(leaderboards, 10100, 0, 5 * 3 + 10);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            assertLeaderboardResults(leaderboards, 3, TEN_UNITS, 10100, 5, 10, 0);
+            assertLeaderboardResults(leaderboards, 15, FIVE_UNITS,  10100, 1, 5, 0);
+        }
+
+        final int deleteBefore = 10100 + 10;
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+            final TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
+                    deleteBefore, // Delete the first TEN_UNITS, and the first 10 FIVE_UNITS
+                    true,
+                    Arrays.asList(
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, 10125, 5, 10, 3),
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, 10125, 1, 5, 20)
+                    ),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+
+            assertTimestamps(leaderboards, TEN_UNITS,
+                    LongStream.range(0, 7).map(i -> i * 5 + 10105).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 7).map(i -> i * 5 + 10105 + 10).boxed().collect(Collectors.toList()));
+            assertTimestamps(leaderboards, FIVE_UNITS,
+                    LongStream.range(0, 39).map(i -> i + 10106).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 39).map(i -> i + 10106 + 5).boxed().collect(Collectors.toList()));
+            assertTrue(result.isChanged());
+            assertFalse(result.isRebuilt());
+
+
+            addMoreScores(leaderboards, 10100, 5 * 3 + 10, 2 * (5 * 3 + 10));
+            context.commit();
+        }
+
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+            final TimeWindowLeaderboardDirectory directory = leaderboards.getDirectory();
+            Assertions.assertThat(directory.getLeaderboards().get(TEN_UNITS))
+                    .hasSize(7)// 3 kept, 3 new
+                    .allSatisfy(leaderboard -> {
+                        Assertions.assertThat(leaderboard.getEndTimestamp()).isGreaterThan(deleteBefore);
+                    });
+            Assertions.assertThat(directory.getLeaderboards().get(FIVE_UNITS))
+                    .hasSize(20 /* new */ + 19 /* kept */)
+                    .allSatisfy(leaderboard -> {
+                        Assertions.assertThat(leaderboard.getEndTimestamp()).isGreaterThan(deleteBefore);
+                    });
+            assertLeaderboardResults(leaderboards, 5, TEN_UNITS, 10105, 5, 10, 5);
+            assertLeaderboardResults(leaderboards, 25, FIVE_UNITS,  10106, 1, 5, 6);
+        }
+    }
+
+    private static void assertTimestamps(final Leaderboards leaderboards, final int type,
+                                         final List<Long> startTimestamps, final List<Long> endTimestamps) {
+        final Collection<TimeWindowLeaderboard> leaderboard = leaderboards.getDirectory().getLeaderboards().get(type);
+        assertEquals(startTimestamps,
+                leaderboard.stream().map(TimeWindowLeaderboard::getStartTimestamp).collect(Collectors.toList()));
+        assertEquals(endTimestamps,
+                leaderboard.stream().map(TimeWindowLeaderboard::getEndTimestamp).collect(Collectors.toList()));
+    }
+
+    private static void addMoreScores(final Leaderboards leaderboards, final int initialTimestamp, final int start, final int end) {
+        // Each "row" of scores is [score, timestamp, context]
+        for (int i = start; i < end; i++) {
+            leaderboards.addScores("winner" + i, "game-1",
+                    1000 + i, initialTimestamp + i, 111);
+            leaderboards.addScores("loser" + i, "game-1",
+                    900 + i, initialTimestamp + i, 111);
+        }
+    }
+
+    private static void assertLeaderboardResults(final Leaderboards leaderboards,
+                                                 final int leaderboardCount, final int leaderboardType,
+                                                 final int initialValue, final int startIncrement, final int duration, final Integer initialName) {
+        SoftAssertions.assertSoftly(softly -> {
+            // The leaderboard will be the oldest that overlaps, so if we have:
+            // leaderboard0: [0, 10)
+            // leaderboard1: [5, 15)
+            // Scanning the leaderboard at 8 will scan leaderboard0, and 10 will scan leadeboard1
+            int lookup = 0;
+            for (int i = 0; i < leaderboardCount; i++) {
+                final int startTimestamp = i * startIncrement;
+                final int endTimestamp = startTimestamp + duration;
+                for (; lookup < endTimestamp; lookup++) {
+                    softly.assertThat(
+                                    leaderboards.scanIndexByTimeWindow(new TimeWindowScanRange(leaderboardType, lookup + initialValue, TupleRange.ALL))
+                                            .map(leaderboards::getName).asList().join())
+                            .as("Leaderboard timestamp: " + (lookup + initialValue) + "(i=" + i + ")")
+                            .isEqualTo(Stream.concat(
+                                            IntStream.range(startTimestamp, endTimestamp).boxed()
+                                                    .sorted(Comparator.reverseOrder())
+                                                    .map(k -> "winner" + (k + initialName)),
+                                            IntStream.range(startTimestamp, endTimestamp).boxed()
+                                                    .sorted(Comparator.reverseOrder())
+                                                    .map(k -> "loser" + (k + initialName)))
+                                    .collect(Collectors.toList()));
+                }
+            }
+        });
     }
 
     @Test
