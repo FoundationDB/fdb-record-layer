@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
-import com.apple.foundationdb.record.query.plan.cascades.SerializedUserDefinedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
@@ -113,7 +113,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
-    private final Map<String, SerializedUserDefinedFunction> userDefinedFunctionMap;
+    private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -228,10 +228,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
             }
         }
-        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                PlanHashable.CURRENT_FOR_CONTINUATION);
-        for (RecordMetaDataProto.UserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
-            SerializedUserDefinedFunction func = (SerializedUserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(serializationContext, function);
+        for (RecordMetaDataProto.PUserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
+            UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                    PlanHashable.CURRENT_FOR_CONTINUATION), function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
         }
         if (metaDataProto.hasSplitLongRecords()) {
@@ -1191,11 +1190,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(formerIndex);
     }
 
-    public void addUserDefinedFunction(@Nonnull SerializedUserDefinedFunction userDefinedFunction) {
+    public void addUserDefinedFunction(@Nonnull UserDefinedFunction userDefinedFunction) {
         userDefinedFunctionMap.put(userDefinedFunction.getFunctionName(), userDefinedFunction);
     }
 
-    public void addUserDefinedFunctions(@Nonnull Iterable<? extends SerializedUserDefinedFunction> functions) {
+    public void addUserDefinedFunctions(@Nonnull Iterable<? extends UserDefinedFunction> functions) {
         functions.forEach(this::addUserDefinedFunction);
     }
 

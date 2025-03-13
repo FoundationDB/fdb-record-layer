@@ -1,5 +1,5 @@
 /*
- * SerializedUserDefinedFunction.java
+ * UserDefinedFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -33,12 +33,12 @@ import java.util.List;
  * Right now we don't have namespacing rules to separate UserDefinedFunction and BuiltInFunction, so theoretically there could be a naming collision.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class SerializedUserDefinedFunction extends CatalogedFunction {
+public abstract class UserDefinedFunction extends CatalogedFunction {
 
-    public SerializedUserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
+    public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
         super(functionName, parameterTypes, null);
     }
 
     @Nonnull
-    public abstract RecordMetaDataProto.UserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
+    public abstract RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
 }

@@ -33,8 +33,8 @@ import java.util.stream.Collectors;
 
 /**
  * Main interface for defining all functions that can be evaluated against a number of arguments.
- * Two major sub interfaces inherit this interface: {@link BuiltInFunction} and {@link SerializedUserDefinedFunction}
- * {@link BuiltInFunction} represents all functions that are built-in, and stored in code, while {@link SerializedUserDefinedFunction} represents all functions defined by users, and stored in {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
+ * Two major sub interfaces inherit this interface: {@link BuiltInFunction} and {@link UserDefinedFunction}
+ * {@link BuiltInFunction} represents all functions that are built-in, and stored in code, while {@link UserDefinedFunction} represents all functions defined by users, and stored in {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class CatalogedFunction {
