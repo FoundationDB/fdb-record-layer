@@ -1161,7 +1161,6 @@ public class LeaderboardIndexTest {
         }
     }
 
-
     @Test
     void deleteBefore() {
         final Leaderboards leaderboards = new UngroupedNestedLeaderboards();
@@ -1230,7 +1229,7 @@ public class LeaderboardIndexTest {
             leaderboards.openRecordStore(context, false);
             final TimeWindowLeaderboardDirectory directory = leaderboards.getDirectory();
             Assertions.assertThat(directory.getLeaderboards().get(TEN_UNITS))
-                    .hasSize(7)// 3 kept, 3 new
+                    .hasSize(7)// 4 kept, 3 new
                     .allSatisfy(leaderboard -> {
                         Assertions.assertThat(leaderboard.getEndTimestamp()).isGreaterThan(deleteBefore);
                     });
