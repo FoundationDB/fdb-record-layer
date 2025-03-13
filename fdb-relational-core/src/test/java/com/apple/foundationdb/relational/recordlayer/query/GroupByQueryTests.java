@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.util.Base64;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
 
@@ -44,6 +47,47 @@ public class GroupByQueryTests {
 
     public GroupByQueryTests() {
         Utils.enableCascadesDebugger();
+    }
+
+    @Test
+    void groupByWithScanLimit() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
+                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var conn = ddl.setSchemaAndGetConnection()) {
+                conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2);
+                try (var statement = conn.createStatement()) {
+                    insertT1Record(statement, 2, 1, 1, 20);
+                    insertT1Record(statement, 3, 1, 2, 5);
+                    insertT1Record(statement, 4, 1, 2, 15);
+                    insertT1Record(statement, 5, 1, 2, 5);
+                    insertT1Record(statement, 6, 2, 1, 10);
+                    insertT1Record(statement, 7, 2, 1, 40);
+                    insertT1Record(statement, 8, 2, 1, 20);
+                    insertT1Record(statement, 9, 2, 1, 90);
+
+                    String query = "SELECT a AS OK, b, MAX(c) FROM T1 GROUP BY a, b";
+                    Continuation continuation = null;
+                    // scan 1st and 2nd rows
+                    Assertions.assertTrue(statement.execute(query), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(1L, 1L, 20L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                    // scan 3rd and 4th rows
+                    String postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(1L, 2L, 15);
+                        continuation = resultSet.getContinuation();
+                    }
+                }
+            }
+        }
     }
 
     @Test
