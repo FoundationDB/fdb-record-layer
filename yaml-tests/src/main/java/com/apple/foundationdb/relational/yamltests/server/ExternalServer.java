@@ -48,24 +48,18 @@ public class ExternalServer {
     private final int httpPort;
     private SemanticVersion version;
     private Process serverProcess;
-
-    /**
-     * Create a new instance that will run latest released version of the server, as downloaded by gradle.
-     * This assumes only one server exists in the download directory.
-     */
-    public ExternalServer(final int grpcPort, final int httpPort) {
-        this(null, grpcPort, httpPort);
-    }
+    private String clusterFile;
 
     /**
      * Create a new instance that will run a specific jar.
      *
      * @param serverJar the path to the jar to run
      */
-    public ExternalServer(File serverJar, final int grpcPort, final int httpPort) {
+    public ExternalServer(File serverJar, final int grpcPort, final int httpPort, final String clusterFile) {
         this.serverJar = serverJar;
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
+        this.clusterFile = clusterFile;
     }
 
     static {
@@ -129,6 +123,7 @@ public class ExternalServer {
                                       ProcessBuilder.Redirect.DISCARD;
         processBuilder.redirectOutput(out);
         processBuilder.redirectError(err);
+        processBuilder.environment().put("FDB_CLUSTER_FILE", clusterFile);
 
         if (!startServer(processBuilder)) {
             Assertions.fail("Failed to start the external server");

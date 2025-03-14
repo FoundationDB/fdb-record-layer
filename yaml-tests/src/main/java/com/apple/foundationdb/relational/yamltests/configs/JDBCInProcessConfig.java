@@ -34,11 +34,17 @@ import javax.annotation.Nullable;
 public class JDBCInProcessConfig implements YamlTestConfig {
     @Nullable
     private InProcessRelationalServer server;
+    @Nullable
+    private final String clusterFile;
+
+    public JDBCInProcessConfig(@Nullable final String clusterFile) {
+        this.clusterFile = clusterFile;
+    }
 
     @Override
     public void beforeAll() throws Exception {
         try {
-            server = new InProcessRelationalServer().start();
+            server = new InProcessRelationalServer(clusterFile).start();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

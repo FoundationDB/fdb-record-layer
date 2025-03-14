@@ -64,11 +64,20 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
     private List<ExternalServer> servers;
+    private final String clusterFile;
+
+    public YamlTestExtension() {
+        this.clusterFile = System.getenv("FDB_CLUSTER_FILE");
+    }
+
+    public YamlTestExtension(final String clusterFile) {
+        this.clusterFile = clusterFile;
+    }
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
-            testConfigs = List.of(new EmbeddedConfig());
+            testConfigs = List.of(new EmbeddedConfig(clusterFile));
             maintainConfigs = List.of();
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);
@@ -78,7 +87,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
             // not a likely scenario.
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
-            servers = jars.stream().map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement())).collect(Collectors.toList());
+            servers = jars.stream()
+                    .map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement(), clusterFile))
+                    .collect(Collectors.toList());
             for (ExternalServer server : servers) {
                 server.start();
             }
@@ -94,10 +105,10 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     externalServerConfigs).collect(Collectors.toList());
 
             maintainConfigs = List.of(
-                    new CorrectExplains(new EmbeddedConfig()),
-                    new CorrectMetrics(new EmbeddedConfig()),
-                    new CorrectExplainsAndMetrics(new EmbeddedConfig()),
-                    new ShowPlanOnDiff(new EmbeddedConfig())
+                    new CorrectExplains(new EmbeddedConfig(clusterFile)),
+                    new CorrectMetrics(new EmbeddedConfig(clusterFile)),
+                    new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
+                    new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
             );
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
@@ -109,7 +120,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (mixedModeOnly || singleExternalVersionOnly) {
             return Stream.of();
         } else {
-            return Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig());
+            return Stream.of(new EmbeddedConfig(clusterFile), new JDBCInProcessConfig(clusterFile));
         }
     }
 
@@ -124,10 +135,10 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         } else {
             return servers.stream().flatMap(server ->
                     // (4 configs for each server available)
-                    Stream.of(new JDBCMultiServerConfig(0, server),
-                            new ForceContinuations(new JDBCMultiServerConfig(0, server)),
-                            new JDBCMultiServerConfig(1, server),
-                            new ForceContinuations(new JDBCMultiServerConfig(1, server))));
+                    Stream.of(new JDBCMultiServerConfig(0, server, clusterFile),
+                            new ForceContinuations(new JDBCMultiServerConfig(0, server, clusterFile)),
+                            new JDBCMultiServerConfig(1, server, clusterFile),
+                            new ForceContinuations(new JDBCMultiServerConfig(1, server, clusterFile))));
         }
     }
 

@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class InitialVersionTest {
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
-    private static final EmbeddedConfig config = new EmbeddedConfig();
+    private static final EmbeddedConfig config = new EmbeddedConfig(null);
 
     @BeforeAll
     static void beforeAll() throws Exception {

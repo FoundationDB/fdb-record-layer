@@ -83,12 +83,12 @@ public class FRL implements AutoCloseable {
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
     public FRL() throws RelationalException {
-        this(Options.NONE);
+        this(Options.NONE, null);
     }
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
-    public FRL(@Nonnull Options options) throws RelationalException {
-        final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+    public FRL(@Nonnull Options options, @Nullable String clusterFile) throws RelationalException {
+        final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final Long asyncToSyncTimeout = options.getOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS);
         if (asyncToSyncTimeout > 0) {
             fdbDb.setAsyncToSyncTimeout(asyncToSyncTimeout, TimeUnit.MILLISECONDS);
