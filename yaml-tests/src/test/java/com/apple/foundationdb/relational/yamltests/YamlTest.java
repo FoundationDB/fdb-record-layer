@@ -1,5 +1,5 @@
 /*
- * ExcludeYamlTestConfig.java
+ * YamlTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,23 +20,19 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Mark specific {@link YamlTestConfig} that are designated test maintenance helper configs as enabled for the current
- * test in an {@link YamlTestExtension} test class.
- * <p>
- *     Any config in {@link #value()} will be included for the annotated test. Any config not included will be skipped.
- * </p>
+ * An annotation for adding the {@link YamlTestExtension} and running in Mixed Mode.
  */
 @Retention(RetentionPolicy.RUNTIME)
-public @interface MaintainYamlTestConfig {
-    /**
-     * Any {@code YamlTestConfig} class in this list will run
-     * {@link org.junit.jupiter.api.TestTemplate} test.
-     */
-    YamlTestConfigFilters value();
+@ExtendWith(YamlTestExtension.class)
+// Right now these are the only tests that have the capability to run in mixed mode, but if we create other tests, this
+// should be moved to a shared static location
+@Tag("MixedMode")
+public @interface YamlTest {
 }

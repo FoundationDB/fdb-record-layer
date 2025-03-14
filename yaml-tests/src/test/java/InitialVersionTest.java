@@ -65,7 +65,8 @@ public class InitialVersionTest {
     }
 
     private void doRun(String testName, YamlConnectionFactory connectionFactory) throws Exception {
-        new YamlRunner("initial-version/" + testName + ".yamsql", connectionFactory, YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
+        new YamlRunner(connectionFactory, YamlExecutionContext.ContextOptions.EMPTY_OPTIONS)
+                .runYamsql("initial-version/" + testName + ".yamsql");
     }
 
     YamlConnectionFactory createConnectionFactory() {

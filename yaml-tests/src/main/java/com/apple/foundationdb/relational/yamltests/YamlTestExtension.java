@@ -35,7 +35,6 @@ import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.Extension;
@@ -57,7 +56,20 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Extension that backs {@link YamlTest}.
+ * An extension for test classes that run {@code .yamsql} files.
+ * <p>
+ *     Test classes extended with this should have all their tests annotated with
+ *     {@link org.junit.jupiter.api.TestTemplate}, instead of {@link org.junit.jupiter.api.Test}.
+ *     Note: This doesn't work with {@link org.junit.jupiter.params.ParameterizedTest}.
+ *     Each {@link org.junit.jupiter.api.TestTemplate} will be run with each of the varying
+ *     {@link com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig}, and passed in a parameter:
+ *     {@link YamlRunner} to run the {@code .yamsql} file.
+ * </p>
+ * <p>
+ *     If a specific test cannot be run with a specific config due to a bug, it can be ignored by adding the
+ *     annotation {@link ExcludeYamlTestConfig}. Ideally, these are short lived, primarily to support adding a config,
+ *     and then fixing some tests that may fail with that config.
+ * </p>
  */
 public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
@@ -233,7 +245,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     }
 
     /**
-     * Parameter resolver for the class when injecting the {@link YamlTest.Runner}.
+     * Parameter resolver for the class when injecting the {@link YamlRunner}.
      */
     private static final class ClassParameterResolver implements ParameterResolver {
 
@@ -254,27 +266,12 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
         @Override
         public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
-            return parameterContext.getParameter().getType().equals(YamlTest.Runner.class);
+            return parameterContext.getParameter().getType().equals(YamlRunner.class);
         }
 
         @Override
         public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
-            return new YamlTest.Runner() {
-                @Override
-                public void runYamsql(final String fileName) throws Exception {
-                    if (filters != null) {
-                        Assumptions.assumeTrue(filters.filter(config), excludedReason);
-                    }
-                    var yamlRunner = new YamlRunner(fileName, config.createConnectionFactory(),
-                            config.getRunnerOptions());
-                    try {
-                        yamlRunner.run();
-                    } catch (Exception e) {
-                        logger.error("‼️ running test file '{}' was not successful", fileName, e);
-                        throw e;
-                    }
-                }
-            };
+            return new YamlRunner(config.createConnectionFactory(), config.getRunnerOptions());
         }
     }
 }

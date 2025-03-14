@@ -56,18 +56,18 @@ public final class YamlRunner {
     static final String TEST_NIGHTLY_REPETITION = "tests.yaml.iterations";
 
     @Nonnull
-    private final String resourcePath;
-
+    private final YamlConnectionFactory factory;
     @Nonnull
-    private final YamlExecutionContext executionContext;
+    private final YamlExecutionContext.ContextOptions additionalOptions;
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
-        this.resourcePath = resourcePath;
-        this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
+    public YamlRunner(@Nonnull YamlConnectionFactory factory,
+                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) {
+        this.factory = factory;
+        this.additionalOptions = additionalOptions;
     }
 
-    public void run() throws Exception {
+    public void runYamsql(@Nonnull String resourcePath) throws Exception {
+        YamlExecutionContext executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
         try {
             LoaderOptions loaderOptions = new LoaderOptions();
             loaderOptions.setAllowDuplicateKeys(true);
@@ -92,16 +92,16 @@ public final class YamlRunner {
                 block.execute();
             }
 
-            evaluateTestBlockResults(testBlocks);
-            replaceTestFileIfRequired();
-            replaceMetricsFileIfRequired();
+            evaluateTestBlockResults(testBlocks, resourcePath);
+            replaceTestFileIfRequired(executionContext);
+            replaceMetricsFileIfRequired(executionContext);
         } catch (RelationalException | IOException e) {
             logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
             throw e;
         }
     }
 
-    private void evaluateTestBlockResults(List<TestBlock> testBlocks) {
+    private void evaluateTestBlockResults(List<TestBlock> testBlocks, final String resourcePath) {
         logger.info("");
         logger.info("");
         logger.info("--------------------------------------------------------------------------------------------------------------");
@@ -140,24 +140,24 @@ public final class YamlRunner {
         return inputStream;
     }
 
-    private void replaceTestFileIfRequired() {
+    private void replaceTestFileIfRequired(final YamlExecutionContext executionContext) {
         if (executionContext.getEditedFileStream() == null || !executionContext.isDirty()) {
             return;
         }
         try {
-            try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resourcePath)).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
+            try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", executionContext.resourcePath)).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
                 for (var line : executionContext.getEditedFileStream()) {
                     writer.println(line);
                 }
             }
-            logger.info("🟢 Source file {} replaced.", resourcePath);
+            logger.info("🟢 Source file {} replaced.", executionContext.resourcePath);
         } catch (IOException e) {
-            logger.error("⚠️ Source file {} could not be replaced with corrected file.", resourcePath);
+            logger.error("⚠️ Source file {} could not be replaced with corrected file.", executionContext.resourcePath);
             Assertions.fail(e);
         }
     }
 
-    private void replaceMetricsFileIfRequired() throws RelationalException {
+    private void replaceMetricsFileIfRequired(final YamlExecutionContext executionContext) throws RelationalException {
         if (!executionContext.isDirtyMetrics()) {
             return;
         }
