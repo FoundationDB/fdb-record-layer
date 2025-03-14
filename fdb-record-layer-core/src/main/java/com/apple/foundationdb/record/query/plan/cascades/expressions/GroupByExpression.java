@@ -614,12 +614,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
             final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
-            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpResultValue,
-                    rootPullUp.getNestingAlias())) {
+            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpTranslatedResultValue,
+                    rootPullUp.getCandidateAlias())) {
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getCandidateAlias());
+                        ResultCompensationFunction.ofTranslation(pulledUpTranslatedResultValue, rootPullUp.getCandidateAlias());
             }
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
