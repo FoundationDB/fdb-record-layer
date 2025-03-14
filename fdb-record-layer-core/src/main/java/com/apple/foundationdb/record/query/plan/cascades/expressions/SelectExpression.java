@@ -880,8 +880,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
             resultCompensationFunction =
                     ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue,
-                            (value, baseAlias) -> value.translateCorrelations(
-                                    TranslationMap.ofAliases(rootPullUp.getCandidateAlias(), baseAlias), false));
+                            (value, translationMap) -> value.translateCorrelations(translationMap,
+                                    false));
             isAnyCompensationFunctionImpossible |= resultCompensationFunction.isImpossible();
 
             aggregateMappings =
