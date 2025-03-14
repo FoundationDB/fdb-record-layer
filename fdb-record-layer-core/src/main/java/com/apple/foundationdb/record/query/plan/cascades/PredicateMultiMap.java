@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -120,7 +121,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -146,7 +147,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -161,11 +162,11 @@ public class PredicateMultiMap {
                                             @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
 
         @Nonnull
-        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull CorrelationIdentifier baseAlias);
+        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull TranslationMap translationMap);
 
         @Nonnull
         static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate,
-                                                         @Nonnull final BiFunction<QueryPredicate, CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
+                                                         @Nonnull final BiFunction<QueryPredicate, TranslationMap, Set<QueryPredicate>> compensationFunction) {
             final var isImpossible = predicateContainsUnmatchedValues(predicate);
 
             return new PredicateCompensationFunction() {
@@ -193,8 +194,8 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(predicate, baseAlias);
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    return compensationFunction.apply(predicate, translationMap);
                 }
             };
         }
@@ -247,7 +248,7 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
                     return result;
                 }
             };
@@ -255,7 +256,7 @@ public class PredicateMultiMap {
 
         @Nonnull
         static PredicateCompensationFunction ofChildrenCompensationFunctions(@Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
-                                                                             @Nonnull final BiFunction<List<PredicateCompensationFunction>, CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
+                                                                             @Nonnull final BiFunction<List<PredicateCompensationFunction>, TranslationMap, Set<QueryPredicate>> compensationFunction) {
             return new PredicateCompensationFunction() {
                 @Override
                 public boolean isNeeded() {
@@ -282,8 +283,8 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(childrenCompensationFunctions, baseAlias);
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    return compensationFunction.apply(childrenCompensationFunctions, translationMap);
                 }
             };
         }
@@ -324,7 +325,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -350,7 +351,7 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -365,7 +366,7 @@ public class PredicateMultiMap {
                                          @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
 
         @Nonnull
-        Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
+        Value applyCompensationForResult(@Nonnull TranslationMap translationMap);
 
         @Nonnull
         static ResultCompensationFunction ofTranslation(@Nonnull final Value resultValue,
@@ -376,7 +377,7 @@ public class PredicateMultiMap {
 
         @Nonnull
         static ResultCompensationFunction ofValue(@Nonnull final Value value,
-                                                  @Nonnull final BiFunction<Value, CorrelationIdentifier, Value> compensationFunction) {
+                                                  @Nonnull final BiFunction<Value, TranslationMap, Value> compensationFunction) {
             final var isImpossible = valueContainsUnmatchedValues(value);
 
             return new ResultCompensationFunction() {
@@ -402,8 +403,8 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(value, baseAlias);
+                public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
+                    return compensationFunction.apply(value, translationMap);
                 }
             };
         }

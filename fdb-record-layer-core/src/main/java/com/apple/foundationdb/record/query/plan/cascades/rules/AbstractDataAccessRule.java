@@ -54,9 +54,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
@@ -781,11 +780,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         if (compensation.isImpossible()) {
             return Optional.empty();
         }
-        return Optional.of(compensation.applyAllNeededCompensations(memoizer, plan));
+        return Optional.of(compensation.applyAllNeededCompensations(memoizer, plan,
+                realizedAlias ->
+                        TranslationMap.ofAliases(singleMatchedAccess.getCandidateTopAlias(), realizedAlias)));
     }
     
     /**
-     * Private helper method to plan an intersection and subsequently compensate it using the partial match structures
+     * Protected helper method to plan an intersection and subsequently compensate it using the partial match structures
      * kept for all participating data accesses.
      * Planning the data access and its compensation for a given match is a two-step approach as we compute
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
@@ -801,88 +802,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *         realized data access and its compensation.
      */
     @Nonnull
-    private static IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
-                                                                        @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                        @Nonnull final List<Value> commonPrimaryKeyValues,
-                                                                        @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
-                                                                        @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                        @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        final var partitionOrderings =
-                partition.stream()
-                        .map(Vectored::getElement)
-                        .map(AbstractDataAccessRule::adjustMatchedOrderingParts)
-                        .collect(ImmutableList.toImmutableList());
-        final var intersectionOrdering = intersectOrderings(partitionOrderings);
+    protected abstract IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
+                                                                            @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                                            @Nonnull final List<Value> commonPrimaryKeyValues,
+                                                                            @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
+                                                                            @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                            @Nonnull final Set<RequestedOrdering> requestedOrderings);
 
-        final var equalityBoundKeyValues =
-                partitionOrderings
-                        .stream()
-                        .flatMap(orderingPartsPair ->
-                                orderingPartsPair.getKey()
-                                        .stream()
-                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() ==
-                                                ComparisonRange.Type.EQUALITY)
-                                        .map(MatchedOrderingPart::getValue))
-                        .collect(ImmutableSet.toImmutableSet());
-
-        final var isPartitionRedundant =
-                isPartitionRedundant(intersectionInfoMap, partition, equalityBoundKeyValues);
-        if (isPartitionRedundant) {
-            return IntersectionResult.noCommonOrdering();
-        }
-
-        final var compensation =
-                partition
-                        .stream()
-                        .map(pair -> pair.getElement().getCompensation())
-                        .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
-
-        boolean hasCommonOrdering = false;
-        final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
-        for (final var requestedOrdering : requestedOrderings) {
-            final var comparisonKeyValuesIterable =
-                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
-            for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
-                if (!isCompatibleComparisonKey(comparisonKeyValues,
-                        commonPrimaryKeyValues,
-                        equalityBoundKeyValues)) {
-                    continue;
-                }
-
-                hasCommonOrdering = true;
-                if (!compensation.isImpossible()) {
-                    var comparisonOrderingParts =
-                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
-                                    OrderingPart.ProvidedSortOrder.FIXED);
-                    final var comparisonIsReverse =
-                            RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
-                    comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
-
-                    final var newQuantifiers =
-                            partition
-                                    .stream()
-                                    .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
-                                    .map(memoizer::memoizePlan)
-                                    .map(Quantifier::physical)
-                                    .collect(ImmutableList.toImmutableList());
-
-                    final var intersectionPlan =
-                            RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
-                                    comparisonOrderingParts, comparisonIsReverse);
-                    final var compensatedIntersection =
-                            compensation.applyAllNeededCompensations(memoizer, intersectionPlan);
-                    expressionsBuilder.add(compensatedIntersection);
-                }
-            }
-        }
-
-        return IntersectionResult.of(hasCommonOrdering ? intersectionOrdering : null, compensation,
-                expressionsBuilder.build());
-    }
-
-    private static boolean isPartitionRedundant(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                @Nonnull final ImmutableSet<Value> equalityBoundKeyValues) {
+    protected static boolean isPartitionRedundant(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                  @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                  @Nonnull final ImmutableSet<Value> equalityBoundKeyValues) {
         // if one of the single accesses has a max cardinality of 0 or 1 it is not useful to create this intersection
         for (final var singleMatchedAccessWithIndex : partition) {
             final var infoKey = intersectionInfoKey(singleMatchedAccessWithIndex);
@@ -985,7 +914,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *         computed from
      */
     @Nonnull
-    private static NonnullPair<List<MatchedOrderingPart>, Boolean> adjustMatchedOrderingParts(@Nonnull final SingleMatchedAccess singleMatchedAccess) {
+    protected static NonnullPair<List<MatchedOrderingPart>, Boolean> adjustMatchedOrderingParts(@Nonnull final SingleMatchedAccess singleMatchedAccess) {
         final var partialMatch = singleMatchedAccess.getPartialMatch();
         final var boundParametersPrefixMap =
                 partialMatch.getBoundParameterPrefixMap();
@@ -1008,7 +937,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static Ordering.Intersection intersectOrderings(@Nonnull final List<NonnullPair<List<MatchedOrderingPart>, Boolean>> partitionOrderingPairs) {
+    protected static Ordering.Intersection intersectOrderings(@Nonnull final List<NonnullPair<List<MatchedOrderingPart>, Boolean>> partitionOrderingPairs) {
         final var orderings =
                 partitionOrderingPairs
                         .stream()
@@ -1050,9 +979,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * @param equalityBoundKeyValues  a set of equality-bound key parts
      * @return a boolean that indicates if the list of values passed in can be used as comparison key
      */
-    private static boolean isCompatibleComparisonKey(@Nonnull Collection<Value> comparisonKeyValues,
-                                                     @Nonnull List<Value> commonPrimaryKeyValues,
-                                                     @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
+    protected static boolean isCompatibleComparisonKey(@Nonnull Collection<Value> comparisonKeyValues,
+                                                       @Nonnull List<Value> commonPrimaryKeyValues,
+                                                       @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
         if (comparisonKeyValues.isEmpty()) {
             // everything is in one row
             return true;
@@ -1140,13 +1069,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         return intersectionInfoKey;
     }
 
-    private static class SingleMatchedAccess {
+    protected static class SingleMatchedAccess {
         @Nonnull
         private final PartialMatch partialMatch;
         @Nonnull
         private final Compensation compensation;
         @Nonnull
-        private CorrelationIdentifier candidateTopAlias;
+        private final CorrelationIdentifier candidateTopAlias;
         private final boolean reverseScanOrder;
         @Nonnull
         private final Set<RequestedOrdering> satisfyingRequestedOrderings;
@@ -1188,7 +1117,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
     }
 
-    private static class Vectored<T> {
+    protected static class Vectored<T> {
         @Nonnull
         private final T element;
         final int position;
@@ -1234,7 +1163,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
     }
 
-    private static class IntersectionResult {
+    protected static class IntersectionResult {
         @Nullable
         private final Ordering.Intersection commonIntersectionOrdering;
         @Nonnull
@@ -1290,13 +1219,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
     }
 
-    private enum ScanDirection {
+    protected enum ScanDirection {
         FORWARD,
         REVERSE,
         BOTH
     }
 
-    private static class IntersectionInfo {
+    protected static class IntersectionInfo {
         @Nonnull
         private final Ordering intersectionOrdering;
         @Nonnull

@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -85,9 +84,9 @@ public interface LeafQueryPredicate extends QueryPredicate {
                 .replaceValuesMaybe(pullUp::pullUpMaybe)
                 .map(queryPredicate ->
                         PredicateMultiMap.PredicateCompensationFunction.ofPredicate(queryPredicate,
-                                (pulledUpPredicate, baseAlias) ->
-                                        LinkedIdentitySet.of(pulledUpPredicate.translateCorrelations(
-                                                TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
+                                (pulledUpPredicate, translationMap) ->
+                                        LinkedIdentitySet.of(pulledUpPredicate.translateCorrelations(translationMap,
+                                                false))))
                 .orElse(PredicateMultiMap.PredicateCompensationFunction.impossibleCompensation());
     }
 }
