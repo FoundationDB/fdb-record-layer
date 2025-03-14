@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.snakeyaml)
 
     testImplementation(libs.bundles.test.impl)
+    testImplementation project(path: coreProject, configuration: 'tests') // to get the cascades debugger
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation project(":fdb-relational-server")

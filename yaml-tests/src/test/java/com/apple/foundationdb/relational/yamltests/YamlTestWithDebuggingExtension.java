@@ -1,5 +1,5 @@
 /*
- * YamlTest.java
+ * YamlTestWithDebuggingExtension.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,19 +20,19 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.extension.ExtendWith;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.relational.util.Environment;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+public class YamlTestWithDebuggingExtension extends YamlTestExtension {
 
-/**
- * An annotation for adding the {@link YamlTestExtension} and running in Mixed Mode.
- */
-@Retention(RetentionPolicy.RUNTIME)
-@ExtendWith(YamlTestWithDebuggingExtension.class)
-// Right now these are the only tests that have the capability to run in mixed mode, but if we create other tests, this
-// should be moved to a shared static location
-@Tag("MixedMode")
-public @interface YamlTest {
+    @Override
+    public void beforeAll(final ExtensionContext context) throws Exception {
+        if (Debugger.getDebugger() == null && Environment.isDebug()) {
+            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
+        }
+        Debugger.setup();
+        super.beforeAll(context);
+    }
 }
