@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -47,16 +49,21 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Sort;
+import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -64,6 +71,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -846,6 +854,46 @@ public class LuceneIndexTestUtils {
                 throw e;
             }
         }
+    }
+
+    public static List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
+                                                                                      Tuple groupingKey,
+                                                                                      FDBRecordStore store) {
+        LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(index);
+        return indexMaintainer.getPartitioner().getAllPartitionMetaInfo(groupingKey).join();
+    }
+
+    public static StoreTimer.Counter getCounter(@Nonnull final FDBRecordContext recordContext, @Nonnull final StoreTimer.Event event) {
+        return Verify.verifyNotNull(recordContext.getTimer()).getCounter(event);
+    }
+
+    public static Map<Integer, Integer> getSegmentCounts(Index index,
+                                                         Tuple groupingKey,
+                                                         FDBRecordStore store) {
+        final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionMeta = getPartitionMeta(index, groupingKey, store);
+        return partitionMeta.stream()
+                .collect(Collectors.toMap(
+                        LucenePartitionInfoProto.LucenePartitionInfo::getId,
+                        partitionInfo -> Assertions.assertDoesNotThrow(() ->
+                                getIndexReader(index, groupingKey, partitionInfo.getId(), store).getContext().leaves().size())
+                ));
+    }
+
+    public static IndexReader getIndexReader(final Index index,
+                                             final Tuple groupingKey,
+                                             final int partitionId,
+                                             FDBRecordStore store) throws IOException {
+        final FDBDirectoryManager manager = getDirectoryManager(index, store);
+        return manager.getIndexReader(groupingKey, partitionId);
+    }
+
+    public static FDBDirectoryManager getDirectoryManager(final Index index, final FDBRecordStore store) {
+        return getIndexMaintainer(index, store).getDirectoryManager();
+    }
+
+    @Nonnull
+    public static LuceneIndexMaintainer getIndexMaintainer(final Index index, final FDBRecordStore store) {
+        return (LuceneIndexMaintainer)store.getIndexMaintainer(index);
     }
 
     /**
