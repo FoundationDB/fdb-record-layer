@@ -53,7 +53,6 @@ configurations {
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     implementation project(coreProject)
-    implementation project(path: coreProject, configuration: 'tests')
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-core")
     implementation project(":fdb-relational-jdbc")

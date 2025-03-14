@@ -20,14 +20,10 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
@@ -151,7 +147,6 @@ public final class QueryCommand extends Command {
 
     private void executeInternal(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
             throws SQLException, RelationalException {
-        enableCascadesDebugger();
         boolean shouldExecute = true;
         boolean queryIsRunning = false;
         Continuation continuation = null;
@@ -179,13 +174,13 @@ public final class QueryCommand extends Command {
                 // can result in the explain plan being put into the plan cache, so running without the debugger
                 // can pollute cache and thus interfere with the explain's results
                 Integer finalMaxRows = maxRows;
-                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
+                executor.execute(connection, null, queryConfig, checkCache, finalMaxRows);
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
                 Integer finalMaxRows1 = maxRows;
-                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
+                executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1);
             } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
                 // Do nothing for noop execution.
                 continue;
@@ -232,32 +227,5 @@ public final class QueryCommand extends Command {
         } else {
             Assertions.fail(message, throwable);
         }
-    }
-
-    private static void runWithDebugger(@Nonnull TestHelpers.DangerousRunnable r) throws SQLException {
-        final var savedDebugger = Debugger.getDebugger();
-        try {
-            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
-            Debugger.setup();
-            r.run();
-        } catch (Exception t) {
-            throw ExceptionUtil.toRelationalException(t).toSqlException();
-        } finally {
-            Debugger.setDebugger(savedDebugger);
-        }
-    }
-
-    /**
-     * Enables internal Cascades debugger which, among other things, sets plan identifiers in a stable fashion making
-     * it easier to view plans and reproduce planning steps.
-     *
-     * @implNote
-     * This is copied from fdb-relational-core:test subproject to avoid having a dependency just for getting access to it.
-     */
-    private static void enableCascadesDebugger() {
-        if (Debugger.getDebugger() == null && Environment.isDebug()) {
-            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
-        }
-        Debugger.setup();
     }
 }
