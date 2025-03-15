@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexP
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -422,6 +423,23 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return IndexTypes.BITMAP_VALUE.equals(index.getType())
                ? keyExpressionGroupingCount + 1
                : keyExpressionGroupingCount;
+    }
+
+    @Nonnull
+    public NonnullPair<List<Value>, Value> getGroupingAndAggregateAccessors() {
+        final var selectHavingResultValue = selectHavingExpression.getResultValue();
+        final var selectHavingResultType = (Type.Record)selectHavingResultValue.getResultType();
+        final var unbasedResultValue =
+                QuantifiedObjectValue.of(Quantifier.current(), selectHavingResultType);
+
+        final var groupingCount = getGroupingCount();
+        Verify.verify(selectHavingResultType.getFields().size() >= groupingCount);
+
+        final var deconstructedRecord = Values.deconstructRecord(unbasedResultValue);
+        final var groupingAccessorValues =
+                ImmutableList.copyOf(deconstructedRecord.subList(0, groupingCount));
+        final var aggregateAccessorValue = deconstructedRecord.get(groupingCount);
+        return NonnullPair.of(groupingAccessorValues, aggregateAccessorValue);
     }
 
     /**
