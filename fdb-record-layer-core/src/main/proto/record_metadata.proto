@@ -21,6 +21,8 @@ syntax = "proto2";
 
 package com.apple.foundationdb.record;
 import "google/protobuf/descriptor.proto";
+import "record_key_expression.proto";
+import "record_query_plan.proto";
 
 option java_outer_classname = "RecordMetaDataProto";
 
@@ -28,7 +30,7 @@ message DataStoreInfo {
   optional int32 formatVersion = 1;
   optional int32 metaDataversion = 2;
   optional int32 userVersion = 3;
-  optional KeyExpression record_count_key = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression record_count_key = 4;
   optional uint64 lastUpdateTime = 5;
   optional bool omit_unsplit_record_suffix = 6;
   optional bool cacheable = 7;
@@ -51,11 +53,11 @@ message Index {
   repeated string record_type = 1;
   optional Type index_type = 2 [deprecated = true]; // Use type.
   optional string name = 3;
-  optional KeyExpression root_expression = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression root_expression = 4;
   optional bytes subspace_key = 5;
   optional int32 last_modified_version = 6;
   // value_expression should now be expressed as a KeyWithValue() root expression
-  optional KeyExpression value_expression = 7 [deprecated = true];
+  optional com.apple.foundationdb.record.expressions.KeyExpression value_expression = 7 [deprecated = true];
   optional string type = 8;
   repeated Option options = 9;
   message Option {
@@ -69,9 +71,9 @@ message Index {
 
 message RecordType {
   required string name = 1;
-  optional KeyExpression primary_key = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression primary_key = 2;
   optional int32 since_version = 3;
-  optional Value explicit_key = 4;
+  optional com.apple.foundationdb.record.expressions.Value explicit_key = 4;
   extensions 1000 to 2000;
 }
 
@@ -90,111 +92,26 @@ message MetaData {
   optional bool split_long_records = 4;
   optional int32 version = 5;
   repeated FormerIndex former_indexes = 6;
-  optional KeyExpression record_count_key = 7 [deprecated = true];
+  optional com.apple.foundationdb.record.expressions.KeyExpression record_count_key = 7 [deprecated = true];
   optional bool store_record_versions = 8;
   repeated google.protobuf.FileDescriptorProto dependencies = 9;
   optional int64 subspace_key_counter = 10;
   optional bool uses_subspace_key_counter = 11;
   repeated JoinedRecordType joined_record_types = 12;
   repeated UnnestedRecordType unnested_record_types = 13;
+  repeated PUserDefinedFunction user_defined_functions = 14;
   extensions 1000 to 2000;
 }
 
-message Then {
-  repeated KeyExpression child = 1;
-}
-
-message List {
-  repeated KeyExpression child = 1;
-}
-
-message Field {
-  required string field_name = 1;
-  required FanType fan_type = 2;
-  enum FanType {
-    SCALAR = 1;
-    FAN_OUT = 2;
-    CONCATENATE = 3;
+message PUserDefinedFunction {
+  oneof specific_function {
+    com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
   }
-  optional NullInterpretation nullInterpretation = 3 [default = NOT_UNIQUE];
-  enum NullInterpretation {
-    NOT_UNIQUE = 1; // Missing values allowed multiple times in unique index
-    UNIQUE = 2;     // Missing values treated like null value in unique index
-    NOT_NULL = 3;   // Missing values are the default for the type, not null
-  }
-}
-
-message Nesting {
-  optional Field parent = 1;
-  optional KeyExpression child = 2;
-}
-
-message Grouping {
-  required KeyExpression whole_key = 1;
-  optional int32 grouped_count = 3 [default = 1];
-}
-
-message Dimensions {
-  required KeyExpression whole_key = 1;
-  optional int32 prefix_size = 2;
-  optional int32 dimensions_size = 3;
-}
-
-message KeyWithValue {
-  required KeyExpression inner_key = 1;
-  optional int32 split_point = 2 [default = 1];
-}
-
-message Split {
-  required KeyExpression joined = 1;
-  optional int32 split_size = 2;
-}
-
-message Empty {
-}
-
-message Version {
-}
-
-message RecordTypeKey {
-}
-
-message Value {
-  // TODO: This should be a oneof {}
-  optional double double_value = 1;
-  optional float float_value = 2;
-  optional int64 long_value = 3;
-  optional bool bool_value = 4;
-  optional string string_value = 5;
-  optional bytes bytes_value = 6;
-  optional int32 int_value = 7;
-}
-
-message Function {
-  required string name = 1;
-  required KeyExpression arguments = 2;
-}
-
-message KeyExpression {
-  // Exactly one of the following:
-  optional Then then = 1;
-  optional Nesting nesting = 2;
-  optional Field field = 3;
-  optional Grouping grouping = 4;
-  optional Empty empty = 5;
-  optional Split split = 6;
-  optional Version version = 7;
-  optional Value value = 8;
-  optional Function function = 9;
-  optional KeyWithValue key_with_value = 10;
-  optional RecordTypeKey record_type_key = 11;
-  optional List list = 12;
-  optional Dimensions dimensions = 13;
 }
 
 message JoinedRecordType {
   optional string name = 1;
-  optional Value record_type_key = 4;
+  optional com.apple.foundationdb.record.expressions.Value record_type_key = 4;
 
   message JoinConstituent {
     optional string name = 1;
@@ -204,9 +121,9 @@ message JoinedRecordType {
 
   message Join {
     optional string left = 1;
-    optional KeyExpression left_expression = 2;
+    optional com.apple.foundationdb.record.expressions.KeyExpression left_expression = 2;
     optional string right = 3;
-    optional KeyExpression right_expression = 4;
+    optional com.apple.foundationdb.record.expressions.KeyExpression right_expression = 4;
   }
 
   repeated JoinConstituent join_constituents = 10;
@@ -215,13 +132,13 @@ message JoinedRecordType {
 
 message UnnestedRecordType {
   optional string name = 1;
-  optional Value record_type_key = 2;
+  optional com.apple.foundationdb.record.expressions.Value record_type_key = 2;
 
   message NestedConstituent {
     optional string name = 1;
     optional string parent = 2;
     optional string type_name = 3;
-    optional KeyExpression nesting_expression = 4;
+    optional com.apple.foundationdb.record.expressions.KeyExpression nesting_expression = 4;
   }
 
   repeated NestedConstituent nested_constituents = 3;
@@ -243,7 +160,7 @@ enum ComparisonType {
 
 message SimpleComparison {
   optional ComparisonType type = 1;
-  optional Value operand = 2;
+  optional com.apple.foundationdb.record.expressions.Value operand = 2;
 }
 
 // in Comparisons.Comparison we have a special NullComparison that takes care of comparing

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -155,7 +156,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             Stream<Row> rows = schemaInfo.getRecordTypesList().stream()
                     .filter(type -> type.getName().equals(table))
                     .map(type -> {
-                        RecordMetaDataProto.KeyExpression ke = type.getPrimaryKey();
+                        RecordKeyExpressionProto.KeyExpression ke = type.getPrimaryKey();
                         return new AbstractMap.SimpleEntry<>(type.getName(), keyExpressionToPrimaryKey(ke));
                     }).flatMap(pks -> IntStream.range(0, pks.getValue().length)
                     .mapToObj(pos -> new ArrayRow(database,
@@ -347,12 +348,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     }
 
     //the position in the array is the key sequence, the value is the name of the column
-    private String[] keyExpressionToPrimaryKey(RecordMetaDataProto.KeyExpression ke) throws UncheckedRelationalException {
+    private String[] keyExpressionToPrimaryKey(RecordKeyExpressionProto.KeyExpression ke) throws UncheckedRelationalException {
         if (ke.hasThen()) {
-            final List<RecordMetaDataProto.KeyExpression> childList = ke.getThen().getChildList();
+            final List<RecordKeyExpressionProto.KeyExpression> childList = ke.getThen().getChildList();
             String[] fields = new String[childList.size()];
             int pos = 0;
-            for (RecordMetaDataProto.KeyExpression childKe : childList) {
+            for (RecordKeyExpressionProto.KeyExpression childKe : childList) {
                 //skip record type keys
                 if (!childKe.hasRecordTypeKey()) {
                     if (childKe.hasField()) {

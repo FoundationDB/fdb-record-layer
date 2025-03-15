@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
@@ -770,7 +771,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals("µs", recordStore.getHeaderUserField("foo").toStringUtf8());
             ByteString bazValue = recordStore.getHeaderUserField("baz");
             assertNotNull(bazValue);
-            KeyExpression expr = KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(bazValue));
+            KeyExpression expr = KeyExpression.fromProto(RecordKeyExpressionProto.KeyExpression.parseFrom(bazValue));
             assertEquals(field("baz"), expr);
 
             // Add in a new field
