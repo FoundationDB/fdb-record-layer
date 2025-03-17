@@ -953,5 +953,5 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                     break;
             }
         }
-     }
+    }
 }

@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
@@ -69,7 +71,7 @@ public class GroupByQueryTests {
 
                     String query = "SELECT a AS OK, b, MAX(c) FROM T1 GROUP BY a, b";
                     Continuation continuation = null;
-                    // scan 1st and 2nd rows
+                    // scan pk = 2 and pk = 3 and hit SCAN_LIMIT_REACHED
                     Assertions.assertTrue(statement.execute(query), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
                         ResultSetAssert.assertThat(resultSet).hasNextRow()
@@ -77,14 +79,40 @@ public class GroupByQueryTests {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
-                    // scan 3rd and 4th rows
+                    // scan pk = 5 and pk = 4 rows, hit SCAN_LIMIT_REACHED
                     String postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
                     Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                        ResultSetAssert.assertThat(resultSet).hasNextRow()
-                                .isRowExactly(1L, 2L, 15);
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
+                    // scan pk = 6 and pk = 8 rows, hit SCAN_LIMIT_REACHED
+                    postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(1L, 2L, 15L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                    // scan pk = 7 and pk = 9 rows, hit SCAN_LIMIT_REACHED
+                    postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                    // hit SOURCE_EXHAUSTED
+                    postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(2L, 1L, 90L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                    Assertions.assertTrue(continuation.atEnd());
                 }
             }
         }

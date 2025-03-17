@@ -90,9 +90,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
                 if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
-                // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
-                // (TODO)
-                partialAggregationResult = streamGrouping.finalizeGroup();
+                    // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
+                    partialAggregationResult = streamGrouping.finalizeGroup();
                 }
                 return false;
             } else {
@@ -157,7 +156,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     }
 
 
-
     private boolean isNoRecords() {
         return ((previousValidResult == null) && (!Verify.verifyNotNull(previousResult).hasNext()) && (streamGrouping.getPartialAggregationResult() == null));
     }
@@ -186,7 +184,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return visitor.visitLeave(this);
     }
 
-    private static class AggregateCursorContinuation implements RecordCursorContinuation {
+    public static class AggregateCursorContinuation implements RecordCursorContinuation {
         @Nullable
         private final ByteString innerContinuation;
 
@@ -208,10 +206,14 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             this.partialAggregationResult = partialAggregationResult;
         }
 
-        public AggregateCursorContinuation(@Nullable byte[] innerContinuation, boolean isEnd) {
+        public AggregateCursorContinuation(@Nullable byte[] innerContinuation, boolean isEnd, @Nullable RecordCursorProto.PartialAggregationResult partialAggregationResult) {
             this.isEnd = isEnd;
             this.innerContinuation = innerContinuation == null ? null : ByteString.copyFrom(innerContinuation);
-            this.partialAggregationResult = null;
+            this.partialAggregationResult = partialAggregationResult;
+        }
+
+        public AggregateCursorContinuation(@Nullable byte[] innerContinuation, boolean isEnd) {
+            this(innerContinuation, isEnd, null);
         }
 
         @Nonnull
@@ -238,6 +240,16 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             return isEnd;
         }
 
+        @Nullable
+        public byte[] getInnerContinuation() {
+            return innerContinuation == null ? null : innerContinuation.toByteArray();
+        }
+
+        @Nullable
+        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
+            return partialAggregationResult;
+        }
+
         @Nonnull
         private RecordCursorProto.AggregateCursorContinuation toProto() {
             if (cachedProto == null) {
@@ -251,6 +263,24 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 cachedProto = cachedProtoBuilder.build();
             }
             return cachedProto;
+        }
+
+        public static AggregateCursorContinuation fromRawBytes(@Nullable byte[] rawBytes) {
+            if (rawBytes == null) {
+                return new AggregateCursorContinuation(null, true);
+            }
+            try {
+                RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(rawBytes);
+                if (!continuationProto.hasContinuation()) {
+                    return new AggregateCursorContinuation(null, true);
+                } else if (continuationProto.hasPartialAggregationResults()) {
+                    return new AggregateCursorContinuation(continuationProto.getContinuation().toByteArray(), false, continuationProto.getPartialAggregationResults());
+                } else {
+                    return new AggregateCursorContinuation(continuationProto.getContinuation().toByteArray(), false);
+                }
+            } catch (final Exception ex) {
+                throw new RuntimeException(ex);
+            }
         }
     }
 }

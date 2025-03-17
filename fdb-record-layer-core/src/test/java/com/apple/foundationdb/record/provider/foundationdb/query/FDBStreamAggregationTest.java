@@ -445,20 +445,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
         ExecuteProperties executeProperties = ExecuteProperties.SERIAL_EXECUTE;
         executeProperties = executeProperties.setReturnedRowLimit(rowLimit).setState(executeState);
-        try {
-            if (continuation == null) {
-                return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, executeProperties);
-            } else {
-                RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(continuation);
-                if (continuationProto.hasPartialAggregationResults()) {
-                    return plan.executePlan(recordStore, EvaluationContext.forBindingsAndTypeRepositoryAndPartialAggregationResult(Bindings.EMPTY_BINDINGS, typeRepository, continuationProto.getPartialAggregationResults()), continuationProto.getContinuation().toByteArray(), executeProperties);
-                } else {
-                    return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuationProto.getContinuation().toByteArray(), executeProperties);
-                }
-            }
-        } catch (final Throwable t) {
-            throw Assertions.<RuntimeException>fail(t);
-        }
+        return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
     }
 
     private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?> expectedResult) {

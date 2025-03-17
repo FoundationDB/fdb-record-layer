@@ -137,7 +137,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        final var innerCursor = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
+        AggregateCursor.AggregateCursorContinuation aggregateCursorContinuation = AggregateCursor.AggregateCursorContinuation.fromRawBytes(continuation);
+        final var innerCursor = getInnerPlan().executePlan(store, context, aggregateCursorContinuation.getInnerContinuation(), executeProperties.clearSkipAndLimit());
 
         final var streamGrouping =
                 new StreamGrouping<>(groupingKeyValue,
@@ -147,8 +148,11 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         aggregateAlias,
                         (FDBRecordStoreBase<Message>)store,
                         context,
-                        inner.getAlias());
-        return new AggregateCursor<>(innerCursor, streamGrouping, isCreateDefaultOnEmpty, continuation)
+                        inner.getAlias(),
+                        aggregateCursorContinuation.getPartialAggregationResult()
+                        );
+
+        return new AggregateCursor<>(innerCursor, streamGrouping, isCreateDefaultOnEmpty, aggregateCursorContinuation.getInnerContinuation())
                 .skipThenLimit(executeProperties.getSkip(),
                         executeProperties.getReturnedRowLimit());
     }

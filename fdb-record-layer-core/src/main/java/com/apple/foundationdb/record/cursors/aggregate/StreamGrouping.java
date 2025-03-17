@@ -107,14 +107,15 @@ public class StreamGrouping<M extends Message> {
                           @Nonnull final CorrelationIdentifier aggregateAlias,
                           @Nonnull final FDBRecordStoreBase<M> store,
                           @Nonnull final EvaluationContext context,
-                          @Nonnull final CorrelationIdentifier alias) {
+                          @Nonnull final CorrelationIdentifier alias,
+                          @Nullable final RecordCursorProto.PartialAggregationResult partialAggregationResult) {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
         this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
-        if (context.getPartialAggregationResult() != null) {
-            this.accumulator.setInitialState(context.getPartialAggregationResult().getAccumulatorStatesList());
+        if (partialAggregationResult != null) {
+            this.accumulator.setInitialState(partialAggregationResult.getAccumulatorStatesList());
             try {
-                this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), context.getPartialAggregationResult().getGroupKey().toByteArray());
+                this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), partialAggregationResult.getGroupKey().toByteArray());
             } catch (InvalidProtocolBufferException e) {
                 throw new RuntimeException(e);
             }
