@@ -25,6 +25,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -43,18 +44,22 @@ public class ExternalServer {
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     private static final boolean SAVE_SERVER_OUTPUT = false;
 
+    @Nullable
     private final File serverJar;
     private final int grpcPort;
     private final int httpPort;
     private SemanticVersion version;
     private Process serverProcess;
+    @Nullable
+    private final String clusterFile;
 
     /**
-     * Create a new instance that will run latest released version of the server, as downloaded by gradle.
-     * This assumes only one server exists in the download directory.
+     * Create a new instance that will run a specific jar.
+     *
+     * @param serverJar the path to the jar to run
      */
-    public ExternalServer(final int grpcPort, final int httpPort) {
-        this(null, grpcPort, httpPort);
+    public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort) {
+        this(serverJar, grpcPort, httpPort, null);
     }
 
     /**
@@ -62,10 +67,12 @@ public class ExternalServer {
      *
      * @param serverJar the path to the jar to run
      */
-    public ExternalServer(File serverJar, final int grpcPort, final int httpPort) {
+    public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort,
+                          @Nullable final String clusterFile) {
         this.serverJar = serverJar;
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
+        this.clusterFile = clusterFile;
     }
 
     static {
@@ -129,6 +136,9 @@ public class ExternalServer {
                                       ProcessBuilder.Redirect.DISCARD;
         processBuilder.redirectOutput(out);
         processBuilder.redirectError(err);
+        if (clusterFile != null) {
+            processBuilder.environment().put("FDB_CLUSTER_FILE", clusterFile);
+        }
 
         if (!startServer(processBuilder)) {
             Assertions.fail("Failed to start the external server");
