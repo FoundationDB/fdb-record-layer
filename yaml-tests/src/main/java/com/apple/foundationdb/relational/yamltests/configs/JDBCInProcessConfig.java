@@ -37,6 +37,10 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     @Nullable
     private final String clusterFile;
 
+    public JDBCInProcessConfig() {
+        this(null);
+    }
+
     public JDBCInProcessConfig(@Nullable final String clusterFile) {
         this.clusterFile = clusterFile;
     }

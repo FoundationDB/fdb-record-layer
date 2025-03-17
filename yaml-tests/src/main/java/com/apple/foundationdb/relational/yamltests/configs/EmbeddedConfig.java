@@ -27,15 +27,21 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Run directly against an instance of {@link FRL}.
  */
 public class EmbeddedConfig implements YamlTestConfig {
     private FRL frl;
+    @Nullable
     private final String clusterFile;
 
-    public EmbeddedConfig(final String clusterFile) {
+    public EmbeddedConfig() {
+        this(null);
+    }
+
+    public EmbeddedConfig(@Nullable final String clusterFile) {
         this.clusterFile = clusterFile;
     }
 

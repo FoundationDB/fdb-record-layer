@@ -58,6 +58,15 @@ public class ExternalServer {
      *
      * @param serverJar the path to the jar to run
      */
+    public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort) {
+        this(serverJar, grpcPort, httpPort, null);
+    }
+
+    /**
+     * Create a new instance that will run a specific jar.
+     *
+     * @param serverJar the path to the jar to run
+     */
     public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort,
                           @Nullable final String clusterFile) {
         this.serverJar = serverJar;
