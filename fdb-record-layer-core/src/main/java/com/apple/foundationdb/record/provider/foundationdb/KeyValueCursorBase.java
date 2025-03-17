@@ -341,7 +341,9 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
          */
         protected int calculatePrefixLength() {
             int prefixLength = subspace.pack().length;
-            while ((prefixLength < lowBytes.length) && (prefixLength < highBytes.length) && (lowBytes[prefixLength] == highBytes[prefixLength])) {
+            while ((prefixLength < lowBytes.length) &&
+                    (prefixLength < highBytes.length) &&
+                    (lowBytes[prefixLength] == highBytes[prefixLength])) {
                 prefixLength++;
             }
             return prefixLength;
