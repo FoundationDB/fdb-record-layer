@@ -910,8 +910,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Override
         public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
-            // check physical operator name are the same
-            // check this.state == null
+            Verify.verify(state == null);
+            Verify.verify(accumulatorStates.size() == 1);
+            Verify.verify(physicalOperator.name().equals(accumulatorStates.get(0).getPhysicalOperatorName()));
+
             switch (physicalOperator) {
                 case SUM_I:
                 case MAX_I:

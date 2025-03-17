@@ -363,8 +363,9 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Override
         public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
-            // check physical operator name are the same
-            // check this.state == null
+            Verify.verify(this.state == null);
+            Verify.verify(accumulatorStates.size() == 1);
+            Verify.verify(physicalOperator.name().equals(accumulatorStates.get(0).getPhysicalOperatorName()));
             this.state = Long.parseLong(accumulatorStates.get(0).getState(0));
         }
     }

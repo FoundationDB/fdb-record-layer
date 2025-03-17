@@ -45,9 +45,6 @@ public class EvaluationContext {
     @Nonnull
     private final TypeRepository typeRepository;
 
-    @Nullable
-    private final RecordCursorProto.PartialAggregationResult partialAggregationResultProto;
-
     public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA);
 
     /**
@@ -60,13 +57,8 @@ public class EvaluationContext {
     }
 
     private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
-        this(bindings, typeRepository, null);
-    }
-
-    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository, @Nullable RecordCursorProto.PartialAggregationResult proto) {
         this.bindings = bindings;
         this.typeRepository = typeRepository;
-        this.partialAggregationResultProto = proto;
     }
 
     /**
@@ -97,11 +89,6 @@ public class EvaluationContext {
         return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository);
     }
 
-    @Nonnull
-    public static EvaluationContext forBindingsAndTypeRepositoryAndPartialAggregationResult(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository, @Nullable RecordCursorProto.PartialAggregationResult proto) {
-        return new EvaluationContext(bindings, typeRepository, proto);
-    }
-
     /**
      * Create a new <code>EvaluationContext</code> with a single binding.
      *
@@ -112,11 +99,6 @@ public class EvaluationContext {
     @Nonnull
     public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
         return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA);
-    }
-
-    @Nullable
-    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
-        return partialAggregationResultProto;
     }
 
     /**

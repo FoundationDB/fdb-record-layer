@@ -246,7 +246,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         executionContext.metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
                         throw ExceptionUtil.toRelationalException(ipbe);
                     }
-
                     if (queryExecutionParameters.isForExplain()) {
                         return executeExplain(parsedContinuation);
                     } else {

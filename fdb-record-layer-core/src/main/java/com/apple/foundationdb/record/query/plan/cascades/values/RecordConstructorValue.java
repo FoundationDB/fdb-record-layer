@@ -382,7 +382,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
                 List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
                 for (Accumulator accumulator: childAccumulators) {
-                    // (TODO): check groupingKeyValues are the same here
                     if (accumulator.getPartialAggregationResult(groupingKey) != null) {
                         accumulatorStates.addAll(accumulator.getPartialAggregationResult(groupingKey).getAccumulatorStatesList());
                     }
