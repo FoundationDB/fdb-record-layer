@@ -771,14 +771,17 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 Tuple directoryKey = Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE, 0);
                 IndexMaintainerState state = new IndexMaintainerState(recordStore, index, IndexMaintenanceFilter.NORMAL);
 
+                final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
+                LuceneAnalyzerCombinationProvider indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance()
+                        .getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
+
                 // custom test directory that returns a lucene lock that's never valid (Lock.ensureValid() throws IOException)
                 FDBDirectory fdbDirectory = new InvalidLockTestFDBDirectory(recordStore.indexSubspace(index).subspace(directoryKey), context, options, failurePercentage);
-                FDBDirectoryWrapper fdbDirectoryWrapper = new FDBDirectoryWrapper(state, fdbDirectory, directoryKey, 1, AgilityContext.agile(context, 1L, 1L));
+                FDBDirectoryWrapper fdbDirectoryWrapper = new FDBDirectoryWrapper(state, fdbDirectory, directoryKey,
+                        1, AgilityContext.agile(context, 1L, 1L),
+                        indexAnalyzerSelector.provideIndexAnalyzer());
 
-                final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
-                LuceneAnalyzerCombinationProvider indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
-
-                assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(), new Exception()), "invalid lock");
+                assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(new Exception()), "invalid lock");
                 commit(context);
             }
         }

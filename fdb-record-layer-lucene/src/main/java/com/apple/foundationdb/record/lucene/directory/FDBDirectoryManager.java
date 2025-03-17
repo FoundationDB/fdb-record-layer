@@ -84,7 +84,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     private final Map<Tuple, FDBDirectoryWrapper> createdDirectories;
     private final int mergeDirectoryCount;
     private final Exception exceptionAtCreation;
-    private final LuceneAnalyzerWrapper writerAnalyzer;
+    protected final LuceneAnalyzerWrapper writerAnalyzer;
 
     protected FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
@@ -196,7 +196,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                                       @Nonnull final AgilityContext agilityContext) {
         try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
             try {
-                directoryWrapper.mergeIndex(writerAnalyzer, exceptionAtCreation);
+                directoryWrapper.mergeIndex(exceptionAtCreation);
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
                             LuceneLogMessageKeys.GROUP, groupingKey,
@@ -302,7 +302,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     protected @Nonnull FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
+        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer);
     }
 
     private int getBlockCacheMaximumSize() {
@@ -357,7 +357,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     @Nonnull
     public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
-        return getDirectoryWrapper(groupingKey, partitionId).getWriter(writerAnalyzer, exceptionAtCreation);
+        return getDirectoryWrapper(groupingKey, partitionId).getWriter(exceptionAtCreation);
     }
 
     public DirectoryReader getDirectoryReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId) throws IOException {
