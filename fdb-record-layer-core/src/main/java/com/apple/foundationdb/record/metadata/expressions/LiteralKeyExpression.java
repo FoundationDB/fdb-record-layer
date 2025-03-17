@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -57,14 +57,14 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     @Nonnull
     private final List<Key.Evaluated> evaluated;
     @Nonnull
-    private final RecordMetaDataProto.Value proto;
+    private final RecordKeyExpressionProto.Value proto;
 
     public LiteralKeyExpression(@Nullable T value) {
         // getProto() performs validation that it is a type we can serialize
         this(value, toProtoValue(value));
     }
 
-    private LiteralKeyExpression(@Nullable T value, @Nonnull RecordMetaDataProto.Value proto) {
+    private LiteralKeyExpression(@Nullable T value, @Nonnull RecordKeyExpressionProto.Value proto) {
         this.value = value;
         this.evaluated = ImmutableList.of(value == null ? Key.Evaluated.NULL : Key.Evaluated.scalar(value));
         this.proto = proto;
@@ -98,7 +98,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Value toProto() throws SerializationException {
+    public RecordKeyExpressionProto.Value toProto() throws SerializationException {
         return proto;
     }
 
@@ -117,8 +117,8 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setValue(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setValue(toProto()).build();
     }
 
     @Override
@@ -127,12 +127,12 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Nonnull
-    public static LiteralKeyExpression<?> fromProto(RecordMetaDataProto.Value proto) {
+    public static LiteralKeyExpression<?> fromProto(RecordKeyExpressionProto.Value proto) {
         return new LiteralKeyExpression<>(fromProtoValue(proto), proto);
     }
 
     @Nullable
-    public static Object fromProtoValue(RecordMetaDataProto.Value proto) {
+    public static Object fromProtoValue(RecordKeyExpressionProto.Value proto) {
         int found = 0;
         Object value = null;
         if (proto.hasDoubleValue()) {
@@ -174,8 +174,8 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Nonnull
-    public static RecordMetaDataProto.Value toProtoValue(@Nullable Object value) {
-        RecordMetaDataProto.Value.Builder builder = RecordMetaDataProto.Value.newBuilder();
+    public static RecordKeyExpressionProto.Value toProtoValue(@Nullable Object value) {
+        RecordKeyExpressionProto.Value.Builder builder = RecordKeyExpressionProto.Value.newBuilder();
         if (value instanceof Double) {
             builder.setDoubleValue((Double) value);
         } else if (value instanceof Float) {

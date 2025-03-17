@@ -15,6 +15,41 @@ Builds and releases have been moved to a new CI system. This includes the resump
 
 Users performing online updates are encouraged to update from [4.0.559.4](#405594). The continuations of some queries have changed in ways that may break if continued on other 4.0 builds. See: [Issue #3093](https://github.com/FoundationDB/fdb-record-layer/issues/3093), [PR #3092](https://github.com/FoundationDB/fdb-record-layer/pull/3092) fixing the issue, and [PR #3108](https://github.com/FoundationDB/fdb-record-layer/issues/3108) preparing 4.0.559.4 to accept newer continuations.
 
+### 4.1.10.0
+
+<h4> Bug Fixes </h4>
+
+* Do not drop AllTime leaderboard if deleteBefore is Long.Max_VALUE - [PR #3241](https://github.com/FoundationDB/fdb-record-layer/pull/3241)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation Improvements (click to expand) </h4>
+
+</summary>
+
+* Add illegal version tests to SupportedVersionTest - [PR #3239](https://github.com/FoundationDB/fdb-record-layer/pull/3239)
+* Add --warning-mode all to all our builds - [PR #3243](https://github.com/FoundationDB/fdb-record-layer/pull/3243)
+* Run Mixed Mode Tests during the release parallel to the other tests - [PR #3233](https://github.com/FoundationDB/fdb-record-layer/pull/3233)
+* Change documentation link in readme to point to github pages - [PR #3236](https://github.com/FoundationDB/fdb-record-layer/pull/3236)
+* Fix gradle warnings in prb - [PR #3225](https://github.com/FoundationDB/fdb-record-layer/pull/3225)
+* Fix path to FDB logo in README.md - [PR #3235](https://github.com/FoundationDB/fdb-record-layer/pull/3235)
+
+</details>
+
+
+**[Full Changelog (4.1.9.0...4.1.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.9.0...4.1.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.559.1`, ❌`4.0.559.2`, ❌`4.0.559.3`, ✅`4.0.559.4`, ✅`4.0.559.6`, ❌`4.0.561.0`, ❌`4.0.562.0`, ❌`4.0.564.0`, ❌`4.0.565.0`, ❌`4.0.566.0`, ❌`4.0.567.0`, ❌`4.0.568.0`, ❌`4.0.569.0`, ❌`4.0.570.0`, ❌`4.0.571.0`, ❌`4.0.572.0`, ❌`4.0.573.0`, ❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/13861613630)
+
+
+
 ### 4.1.9.0
 
 <h4> New Features </h4>
