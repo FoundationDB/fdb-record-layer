@@ -264,7 +264,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void deserializationNestedTypesPreservesNamesCorrectly() throws Exception {
+    public void deserializationNestedTypesPreservesNamesCorrectly() {
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
@@ -291,7 +291,7 @@ public class SchemaTemplateSerDeTests {
         final var column = deserializedTableType.get().getColumns().stream().findFirst();
         Assertions.assertTrue(column.isPresent());
         final var type = column.get().getDatatype();
-        Assertions.assertTrue(type instanceof DataType.StructType);
+        Assertions.assertInstanceOf(DataType.StructType.class, type);
         final var typeName = ((DataType.StructType) type).getName();
         Assertions.assertEquals("Subtype", typeName);
     }
