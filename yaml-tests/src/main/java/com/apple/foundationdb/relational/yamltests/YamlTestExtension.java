@@ -64,13 +64,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
     private List<ExternalServer> servers;
+    @Nullable
     private final String clusterFile;
 
     public YamlTestExtension() {
-        this.clusterFile = System.getenv("FDB_CLUSTER_FILE");
+        this.clusterFile = null; // it will get it from the environment
     }
 
-    public YamlTestExtension(final String clusterFile) {
+    public YamlTestExtension(@Nullable final String clusterFile) {
         this.clusterFile = clusterFile;
     }
 
