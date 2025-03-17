@@ -37,7 +37,7 @@ public abstract class YamlTestBase {
                 .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .build();
-        frl = new FRL(options);
+        frl = new FRL(options, null);
     }
 
     @AfterAll

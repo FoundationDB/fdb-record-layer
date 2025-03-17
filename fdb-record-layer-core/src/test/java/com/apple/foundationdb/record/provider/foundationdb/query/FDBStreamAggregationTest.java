@@ -432,7 +432,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan plan, final int rowLimit, final int recordScanLimit, final byte[] continuation) {
+    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan originalPlan, final int rowLimit, final int recordScanLimit, final byte[] continuation) {
+        final RecordQueryPlan plan = verifySerialization(originalPlan);
         final var types = plan.getDynamicTypes();
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
         ExecuteState executeState;

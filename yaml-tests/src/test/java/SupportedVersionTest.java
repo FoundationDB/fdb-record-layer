@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,8 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class SupportedVersionTest {
 
-    private static final String VERSION = "3.0.18.0";
-    private static final EmbeddedConfig config = new EmbeddedConfig();
+    private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
+    private static final EmbeddedConfig config = new EmbeddedConfig(null);
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -68,7 +69,7 @@ public class SupportedVersionTest {
             }
 
             @Override
-            public Set<String> getVersionsUnderTest() {
+            public Set<SemanticVersion> getVersionsUnderTest() {
                 return Set.of(VERSION);
             }
         };
@@ -84,7 +85,10 @@ public class SupportedVersionTest {
                 "lower-at-block",
                 "lower-at-query",
                 "late-query-supported-version",
-                "late-file-options"
+                "late-file-options",
+                "illegal-version-at-file",
+                "illegal-version-at-block",
+                "illegal-version-at-query"
         );
     }
 

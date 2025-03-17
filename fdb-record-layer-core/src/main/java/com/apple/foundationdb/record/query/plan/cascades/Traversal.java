@@ -25,13 +25,14 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.graph.ElementOrder;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.MutableNetwork;
 import com.google.common.graph.NetworkBuilder;
+import com.google.common.graph.StableStandardMutableNetwork;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
@@ -172,15 +173,19 @@ public class Traversal {
      * @return a new traversal object
      */
     public static Traversal withRoot(final Reference rootRef) {
+        // This diverges from the standard construction of Guava network; it delegates the construction to a slightly
+        // modified version that guarantees a stable iteration order over the edges, which is required to guarantee a
+        // deterministic planning behavior.
         final MutableNetwork<Reference, ReferencePath> network =
-                NetworkBuilder.directed()
+                new StableStandardMutableNetwork<>(NetworkBuilder.directed()
                         .allowsParallelEdges(true)
                         .allowsSelfLoops(true)
-                        .build();
+                        .edgeOrder(ElementOrder.insertion())
+                        .nodeOrder(ElementOrder.insertion()));
 
         final SetMultimap<RelationalExpression, Reference> containedInMap =
-                Multimaps.newSetMultimap(Maps.newIdentityHashMap(), Sets::newHashSet);
-        final Set<Reference> leafRefs = Sets.newHashSet();
+                Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
+        final Set<Reference> leafRefs = new LinkedIdentitySet<>();
         collectNetwork(network, containedInMap, leafRefs, rootRef);
 
         return new Traversal(rootRef, network, containedInMap, leafRefs);

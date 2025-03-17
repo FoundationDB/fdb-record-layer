@@ -28,12 +28,10 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.cursors.FutureCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
@@ -47,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -96,10 +95,17 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        return new FutureCursor<>(store.getExecutor(),
-                getChild().executePlan(store, context, continuation, executeProperties).first()
-                        .thenApply(resultOptional ->
-                                resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))));
+        // Note that a null child continuation is always handed to the child cursor below.
+        // This is because the returned FutureCursor only ever returns a single value, and so if
+        // if that lambda is called, it indicates that the original continuation is null, and we
+        // are starting the plan from the beginning. That this doesn't handle the inner cursor
+        // halting with an out-of-band no-next-reasons, which currently is treated the same way
+        // as the inner cursor being empty.
+        // See: https://github.com/FoundationDB/fdb-record-layer/issues/3220
+        return RecordCursor.fromFuture(store.getExecutor(),
+                () -> getChild().executePlan(store, context, null, executeProperties).first()
+                        .thenApply(resultOptional -> resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))),
+                continuation);
     }
 
     @Override

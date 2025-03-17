@@ -24,9 +24,10 @@ import com.apple.foundationdb.relational.yamltests.configs.CorrectExplains;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplainsAndMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
+import com.apple.foundationdb.relational.yamltests.configs.ExternalMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ForceContinuations;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
-import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
+import com.apple.foundationdb.relational.yamltests.configs.JDBCMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
@@ -63,11 +64,21 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
     private List<ExternalServer> servers;
+    @Nullable
+    private final String clusterFile;
+
+    public YamlTestExtension() {
+        this.clusterFile = null; // it will get it from the environment
+    }
+
+    public YamlTestExtension(@Nullable final String clusterFile) {
+        this.clusterFile = clusterFile;
+    }
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
-            testConfigs = List.of(new EmbeddedConfig());
+            testConfigs = List.of(new EmbeddedConfig(clusterFile));
             maintainConfigs = List.of();
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);
@@ -77,34 +88,58 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
             // not a likely scenario.
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
-            servers = jars.stream().map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement())).collect(Collectors.toList());
+            servers = jars.stream()
+                    .map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement(), clusterFile))
+                    .collect(Collectors.toList());
             for (ExternalServer server : servers) {
                 server.start();
             }
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
-            final Stream<YamlTestConfig> localTestingConfigs = mixedModeOnly ?
-                                                               Stream.of() :
-                                                               Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig());
+            final boolean singleExternalVersionOnly = Boolean.parseBoolean(System.getProperty("tests.singleVersion", "false"));
+            Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
+            Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
+
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)
                     localTestingConfigs,
-                    // The configs for multi-server testing (4 configs for each server available)
-                    servers.stream().flatMap(server ->
-                            Stream.of(new MultiServerConfig(0, server),
-                                    new ForceContinuations(new MultiServerConfig(0, server)),
-                                    new MultiServerConfig(1, server),
-                                    new ForceContinuations(new MultiServerConfig(1, server)))
-                    )).collect(Collectors.toList());
+                    // The configs for multi-server testing
+                    externalServerConfigs).collect(Collectors.toList());
 
             maintainConfigs = List.of(
-                    new CorrectExplains(new EmbeddedConfig()),
-                    new CorrectMetrics(new EmbeddedConfig()),
-                    new CorrectExplainsAndMetrics(new EmbeddedConfig()),
-                    new ShowPlanOnDiff(new EmbeddedConfig())
+                    new CorrectExplains(new EmbeddedConfig(clusterFile)),
+                    new CorrectMetrics(new EmbeddedConfig(clusterFile)),
+                    new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
+                    new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
             );
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();
+        }
+    }
+
+    private Stream<YamlTestConfig> localConfigs(final boolean mixedModeOnly, final boolean singleExternalVersionOnly) {
+        if (mixedModeOnly || singleExternalVersionOnly) {
+            return Stream.of();
+        } else {
+            return Stream.of(new EmbeddedConfig(clusterFile), new JDBCInProcessConfig(clusterFile));
+        }
+    }
+
+    private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
+        if (singleExternalVersionOnly) {
+            return servers.stream()
+                    // Create an ExternalServer config with two servers of the same version for each server
+                    // (with and without forced continuations)
+                    .flatMap(server ->
+                            Stream.of(new ExternalMultiServerConfig(0, server, server),
+                                    new ForceContinuations(new ExternalMultiServerConfig(0, server, server))));
+        } else {
+            return servers.stream().flatMap(server ->
+                    // (4 configs for each server available)
+                    Stream.of(new JDBCMultiServerConfig(0, server, clusterFile),
+                            new ForceContinuations(new JDBCMultiServerConfig(0, server, clusterFile)),
+                            new JDBCMultiServerConfig(1, server, clusterFile),
+                            new ForceContinuations(new JDBCMultiServerConfig(1, server, clusterFile))));
         }
     }
 

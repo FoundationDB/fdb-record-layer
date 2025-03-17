@@ -20,35 +20,35 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
-import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
-import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
-import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Set;
 
 /**
  * Run against an embedded JDBC server.
  */
 public class JDBCInProcessConfig implements YamlTestConfig {
-    private static final Logger LOG = LogManager.getLogger(JDBCInProcessConfig.class);
-
     @Nullable
     private InProcessRelationalServer server;
+    @Nullable
+    private final String clusterFile;
+
+    public JDBCInProcessConfig() {
+        this(null);
+    }
+
+    public JDBCInProcessConfig(@Nullable final String clusterFile) {
+        this.clusterFile = clusterFile;
+    }
 
     @Override
     public void beforeAll() throws Exception {
         try {
-            server = new InProcessRelationalServer().start();
+            server = new InProcessRelationalServer(clusterFile).start();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -64,21 +64,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new YamlConnectionFactory() {
-            @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                // Add name of the in-process running server to the connectPath.
-                URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
-                String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
-                LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                return new SimpleYamlConnection(DriverManager.getConnection(uriStr), YamlConnection.CURRENT_VERSION);
-            }
-
-            @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of();
-            }
-        };
+        return new JDBCInProcessYamlConnectionFactory(server);
     }
 
     @Override

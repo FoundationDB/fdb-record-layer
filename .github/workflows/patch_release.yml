@@ -7,42 +7,10 @@ on:
         description: 'Branch to build off of'
         required: true
 
-
 jobs:
-  gradle:
+  no-op:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      contents: write
-      packages: write
-      pages: read
-      pull-requests: write
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4.2.2
-        with:
-          ref: ${{ inputs.branch }}
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
-          fetch-tags: true
-          # fetch all the history to make sure that we have the last release
-          # I tried fetching part of the history, but I just couldn't get it to work, and fetching all still takes like 5s
-          fetch-depth: 0
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      - name: Setup FDB
-        uses: ./actions/setup-fdb
-      - name: Configure Git
-        run: |
-          git config --global user.name 'FoundationDB CI'
-          git config --global user.email 'foundationdb_ci@apple.com'
-
-      - name: Build and publish release
-        uses: ./actions/release-build-publish
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          update_type: PATCH
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MAVEN_USER: ${{ secrets.MAVEN_USER }}
-          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+      - name: Show message
+        shell: bash
+        run: echo "Patch releases are now done via the release job just against a non-main branch"
