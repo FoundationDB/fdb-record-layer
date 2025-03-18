@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
@@ -311,6 +312,12 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Override
         public Optional<List<Value>> visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
             return primaryKeyFromSingleChild(inUnionOnKeyExpressionPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan element) {
+            return Optional.empty();
         }
 
         @Nonnull

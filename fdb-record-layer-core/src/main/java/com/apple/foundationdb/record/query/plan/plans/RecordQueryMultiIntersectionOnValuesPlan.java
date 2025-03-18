@@ -31,20 +31,22 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryMultiIntersectionOnV
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionMultiCursor;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -77,16 +79,6 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
         this.comparisonKeyOrderingParts = null;
         this.resultValue = Value.fromValueProto(serializationContext,
                 recordQueryMultiIntersectionOnValuesPlanProto.getResultValue());
-    }
-
-    private RecordQueryMultiIntersectionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                     @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                                     @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                     @Nonnull final List<Value> commonValues,
-                                                     @Nonnull final List<Value> pickupValues,
-                                                     final boolean reverse) {
-        this(quantifiers, comparisonKeyOrderingParts, comparisonKeyValues,
-                computeResultValue(quantifiers, commonValues, pickupValues), reverse);
     }
 
     private RecordQueryMultiIntersectionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
@@ -145,29 +137,6 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
     @Override
     protected Value computeResultValue() {
         return resultValue;
-    }
-
-    @Nonnull
-    private static Value computeResultValue(@Nonnull final List<? extends Quantifier> quantifiers,
-                                            @Nonnull final List<Value> commonValues,
-                                            @Nonnull final List<Value> pickupValues) {
-        final var columnBuilder = ImmutableList.<Column<? extends Value>>builder();
-
-        // grab the common values from the first quantifier
-        final var commonTranslationMap =
-                TranslationMap.ofAliases(Quantifier.current(), quantifiers.get(0).getAlias());
-        for (final var commonValue : commonValues) {
-            columnBuilder.add(Column.unnamedOf(commonValue.translateCorrelations(commonTranslationMap)));
-        }
-
-        for (int i = 0; i < quantifiers.size(); i++) {
-            final var quantifier = quantifiers.get(i);
-            final var pickUpTranslationMap =
-                    TranslationMap.ofAliases(Quantifier.current(), quantifier.getAlias());
-            columnBuilder.add(Column.unnamedOf(pickupValues.get(i).translateCorrelations(pickUpTranslationMap)));
-        }
-
-        return RecordConstructorValue.ofColumns(columnBuilder.build());
     }
 
     @Nonnull
@@ -250,6 +219,18 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
     }
 
     @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.INTERSECTION_OPERATOR,
+                        ImmutableList.of("COMPARE BY {{comparisonKeyFunction}}", "RESULT {{resultValue}}"),
+                        ImmutableMap.of("comparisonKeyFunction", Attribute.gml(getComparisonKeyFunction().toString()),
+                                "resultValue", Attribute.gml(resultValue.toString()))),
+                childGraphs);
+    }
+
+    @Nonnull
     public static RecordQueryMultiIntersectionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                      @Nonnull final PRecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlanProto) {
         return new RecordQueryMultiIntersectionOnValuesPlan(serializationContext, recordQueryMultiIntersectionOnValuesPlanProto);
@@ -258,14 +239,12 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
     @Nonnull
     public static RecordQueryMultiIntersectionOnValuesPlan intersection(@Nonnull final List<Quantifier.Physical> quantifiers,
                                                                         @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                                                        @Nonnull final List<Value> commonValues,
-                                                                        @Nonnull final List<Value> pickupValues,
+                                                                        @Nonnull final Value resultValue,
                                                                         final boolean isReverse) {
         return new RecordQueryMultiIntersectionOnValuesPlan(quantifiers,
                 comparisonKeyOrderingParts,
                 ProvidedOrderingPart.comparisonKeyValues(comparisonKeyOrderingParts, isReverse),
-                commonValues,
-                pickupValues,
+                resultValue,
                 isReverse);
     }
 

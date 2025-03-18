@@ -75,6 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
@@ -265,7 +266,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Nonnull
     @Override
     public Cardinalities visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
-        return weakenCardinalities(fromChildren(intersectionOnValuesPlan));
+        return intersectCardinalities(fromChildren(intersectionOnValuesPlan));
     }
 
     @Nonnull
@@ -404,6 +405,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         final var childCardinalities = fromChild(inUnionPlan);
 
         return inSourcesCardinalities.times(childCardinalities);
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlan) {
+        return intersectCardinalities(fromChildren(recordQueryMultiIntersectionOnValuesPlan));
     }
 
     @Nonnull
@@ -698,7 +705,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                 maxCardinality = cardinalities.getMaxCardinality();
             } else {
                 if (!cardinalities.getMaxCardinality().isUnknown()) {
-                    maxCardinality = Cardinality.ofCardinality(Math.min(maxCardinality.getCardinality(), cardinalities.getMaxCardinality().getCardinality()));
+                    maxCardinality = Cardinality.ofCardinality(Math.min(maxCardinality.getCardinality(),
+                            cardinalities.getMaxCardinality().getCardinality()));
                 } else {
                     maxCardinality = Cardinality.unknownCardinality();
                 }
