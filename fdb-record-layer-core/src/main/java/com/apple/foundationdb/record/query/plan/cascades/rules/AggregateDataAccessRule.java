@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -39,12 +41,18 @@ import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -62,8 +70,8 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.matchingAggregateIndexMatchCandidate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.completeMatch;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.matchingAggregateIndexMatchCandidate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
 
 /**
@@ -248,19 +256,31 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                             RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
                     comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
 
-                    final var newQuantifiers =
-                            partition
-                                    .stream()
-                                    .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
-                                    .map(memoizer::memoizePlans)
-                                    .map(Quantifier::physical)
-                                    .collect(ImmutableList.toImmutableList());
+                    final var newQuantifiersBuilder = ImmutableList.<Quantifier.Physical>builder();
+                    final var candidateTopAliasesBuilder = ImmutableList.<CorrelationIdentifier>builder();
+                    for (final var singleMatchedAccessWithIndex : partition) {
+                        final var singleMatchedAccess = singleMatchedAccessWithIndex.getElement();
+                        final var plan = Objects.requireNonNull(matchToPlanMap.get(
+                                singleMatchedAccess.getPartialMatch()));
+                        final var reference = memoizer.memoizePlans(plan);
+                        newQuantifiersBuilder.add(Quantifier.physical(reference));
+                        candidateTopAliasesBuilder.add(singleMatchedAccess.getCandidateTopAlias());
+                    }
 
+                    final var newQuantifiers = newQuantifiersBuilder.build();
+                    final var commonAndPickUpValues =
+                            computeCommonAndPickUpValues(partition, commonPrimaryKeyValues.size());
+                    final var intersectionResultValue =
+                            computeIntersectionResultValue(newQuantifiers, commonAndPickUpValues.getLeft(), commonAndPickUpValues.getRight());
                     final var intersectionPlan =
-                            RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
-                                    comparisonOrderingParts, comparisonIsReverse);
+                            RecordQueryMultiIntersectionOnValuesPlan.intersection(newQuantifiers,
+                                    comparisonOrderingParts, intersectionResultValue, comparisonIsReverse);
                     final var compensatedIntersection =
-                            compensation.applyAllNeededCompensations(memoizer, intersectionPlan);
+                            compensation.applyAllNeededCompensations(memoizer, intersectionPlan,
+                                    baseAlias -> computeTranslationMap(baseAlias,
+                                            newQuantifiers, candidateTopAliasesBuilder.build(),
+                                            (Type.Record)intersectionResultValue.getResultType(),
+                                            commonPrimaryKeyValues.size()));
                     expressionsBuilder.add(compensatedIntersection);
                 }
             }
@@ -268,5 +288,80 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
 
         return IntersectionResult.of(hasCommonOrdering ? intersectionOrdering : null, compensation,
                 expressionsBuilder.build());
+    }
+
+    @Nonnull
+    private static NonnullPair<List<Value>, List<Value>> computeCommonAndPickUpValues(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                                      final int numGrouped) {
+        final var commonValuesAndPickUpValueByAccess =
+                partition
+                        .stream()
+                        .map(singleMatchedAccessWithIndex ->
+                                singleMatchedAccessWithIndex.getElement()
+                                        .getPartialMatch()
+                                        .getMatchCandidate())
+                        .map(matchCandidate -> (AggregateIndexMatchCandidate)matchCandidate)
+                        .map(AggregateIndexMatchCandidate::getGroupingAndAggregateAccessors)
+                        .collect(ImmutableList.toImmutableList());
+
+        final var pickUpValuesBuilder = ImmutableList.<Value>builder();
+        for (int i = 0; i < commonValuesAndPickUpValueByAccess.size(); i++) {
+            final var commonAndPickUpValuePair = commonValuesAndPickUpValueByAccess.get(i);
+            final var commonValues = commonAndPickUpValuePair.getLeft();
+            Verify.verify(commonValues.size() == numGrouped);
+            final var pickUpValue = commonAndPickUpValuePair.getRight();
+            pickUpValuesBuilder.add(pickUpValue);
+        }
+        return NonnullPair.of(commonValuesAndPickUpValueByAccess.get(0).getLeft(), pickUpValuesBuilder.build());
+    }
+
+    @Nonnull
+    private static Value computeIntersectionResultValue(@Nonnull final List<? extends Quantifier> quantifiers,
+                                                        @Nonnull final List<Value> commonValues,
+                                                        @Nonnull final List<Value> pickUpValues) {
+        final var columnBuilder = ImmutableList.<Column<? extends Value>>builder();
+
+        // grab the common values from the first quantifier
+        final var commonTranslationMap =
+                TranslationMap.ofAliases(Quantifier.current(), quantifiers.get(0).getAlias());
+        for (final var commonValue : commonValues) {
+            columnBuilder.add(Column.unnamedOf(commonValue.translateCorrelations(commonTranslationMap)));
+        }
+
+        for (int i = 0; i < quantifiers.size(); i++) {
+            final var quantifier = quantifiers.get(i);
+            final var pickUpTranslationMap =
+                    TranslationMap.ofAliases(Quantifier.current(), quantifier.getAlias());
+            columnBuilder.add(Column.unnamedOf(pickUpValues.get(i).translateCorrelations(pickUpTranslationMap)));
+        }
+
+        return RecordConstructorValue.ofColumns(columnBuilder.build());
+    }
+
+    private static TranslationMap computeTranslationMap(@Nonnull final CorrelationIdentifier intersectionAlias,
+                                                        @Nonnull final List<? extends Quantifier> quantifiers,
+                                                        @Nonnull final List<CorrelationIdentifier> candidateTopAliases,
+                                                        @Nonnull final Type.Record intersectionResultType,
+                                                        final int numGrouped) {
+        final var builder = TranslationMap.builder();
+        final var deconstructedIntersectionValues =
+                Values.deconstructRecord(QuantifiedObjectValue.of(intersectionAlias, intersectionResultType));
+        for (int quantifierIndex = 0; quantifierIndex < quantifiers.size(); quantifierIndex++) {
+            final var quantifier = quantifiers.get(quantifierIndex);
+            final var quantifierFlowedObjectType = (Type.Record)quantifier.getFlowedObjectType();
+            final var quantifierFields = quantifierFlowedObjectType.getFields();
+            Verify.verify(quantifierFields.size() == numGrouped + 1);
+            final var columnBuilder =
+                    ImmutableList.<Column<? extends Value>>builder();
+            for (int columnIndex = 0; columnIndex < numGrouped; columnIndex++) {
+                columnBuilder.add(Column.of(quantifierFields.get(columnIndex), deconstructedIntersectionValues.get(columnIndex)));
+            }
+            columnBuilder.add(Column.of(quantifierFields.get(numGrouped),
+                    deconstructedIntersectionValues.get(numGrouped + quantifierIndex)));
+            builder.when(candidateTopAliases.get(quantifierIndex)).then((alias, leaf) ->
+                    RecordConstructorValue.ofColumns(columnBuilder.build()));
+        }
+
+        return builder.build();
     }
 }
