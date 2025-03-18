@@ -646,13 +646,15 @@ public interface Compensation {
             final var combinedPredicateMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
             for (final var entry : getPredicateCompensationMap().entrySet()) {
                 // if the other side does not have compensation for this key, we don't need compensation
-                if (otherCompensationMap.containsKey(entry.getKey())) {
+                final var otherPredicateCompensationFunction = otherCompensationMap.get(entry.getKey());
+                if (otherPredicateCompensationFunction != null) {
                     // Both compensations have a compensation for this particular predicate which is essentially
-                    // reapplying the predicate. At this point it doesn't matter which side we take as both create
-                    // the same compensating filter. If at any point in the future one data access has a better
-                    // reapplication we need to generate plan variants with either compensation and let the planner
-                    // figure out which one wins.
-                    // We just pick one side here.
+                    // reapplying the predicate. Three cases arise:
+                    // 1. Both predicate compensation functions are needed and possible. At this point it doesn't
+                    //    matter which side we take as both create the same compensating filter. If at any point in the
+                    //    future one data access has a better reapplication we need to generate plan variants with
+                    //    either compensation and let the planner figure out which one wins. We just pick one side here.
+                    // 2. TODO.
                     combinedPredicateMap.put(entry.getKey(),
                             entry.getValue().amend(unmatchedAggregateMap, newMatchedAggregateMap));
                 }

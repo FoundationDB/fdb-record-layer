@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
@@ -82,11 +81,7 @@ public interface LeafQueryPredicate extends QueryPredicate {
     default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunctionForLeaf(@Nonnull final PullUp pullUp) {
         return toResidualPredicate()
                 .replaceValuesMaybe(pullUp::pullUpMaybe)
-                .map(queryPredicate ->
-                        PredicateMultiMap.PredicateCompensationFunction.ofPredicate(queryPredicate,
-                                (pulledUpPredicate, translationMap) ->
-                                        LinkedIdentitySet.of(pulledUpPredicate.translateCorrelations(translationMap,
-                                                false))))
+                .map(PredicateMultiMap.PredicateCompensationFunction::ofPredicate)
                 .orElse(PredicateMultiMap.PredicateCompensationFunction.impossibleCompensation());
     }
 }

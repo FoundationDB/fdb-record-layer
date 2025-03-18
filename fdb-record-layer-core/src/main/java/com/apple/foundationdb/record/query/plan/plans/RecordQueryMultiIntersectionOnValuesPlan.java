@@ -48,6 +48,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -57,6 +58,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Intersection plan that compares using a {@link Value}.
@@ -128,7 +130,7 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return getComparisonKeyValues().stream()
+        return Streams.concat(getComparisonKeyValues().stream(), Stream.of(resultValue))
                 .flatMap(comparisonKeyValue ->
                         comparisonKeyValue.getDynamicTypes().stream()).collect(ImmutableSet.toImmutableSet());
     }

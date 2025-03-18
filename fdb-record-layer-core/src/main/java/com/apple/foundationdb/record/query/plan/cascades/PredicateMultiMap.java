@@ -165,8 +165,13 @@ public class PredicateMultiMap {
         Set<QueryPredicate> applyCompensationForPredicate(@Nonnull TranslationMap translationMap);
 
         @Nonnull
+        static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate) {
+            return ofPredicate(predicate, false);
+        }
+
+        @Nonnull
         static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate,
-                                                         @Nonnull final BiFunction<QueryPredicate, TranslationMap, Set<QueryPredicate>> compensationFunction) {
+                                                         final boolean shouldSimplifyValues) {
             final var isImpossible = predicateContainsUnmatchedValues(predicate);
 
             return new PredicateCompensationFunction() {
@@ -189,13 +194,13 @@ public class PredicateMultiMap {
                                     Optional.of(amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap,
                                             rootValue)));
                     Verify.verify(amendedTranslatedPredicateOptional.isPresent());
-                    return ofPredicate(amendedTranslatedPredicateOptional.get(), compensationFunction);
+                    return ofPredicate(amendedTranslatedPredicateOptional.get(), true);
                 }
 
                 @Nonnull
                 @Override
                 public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
-                    return compensationFunction.apply(predicate, translationMap);
+                    return LinkedIdentitySet.of(predicate.translateCorrelations(translationMap, shouldSimplifyValues));
                 }
             };
         }
@@ -376,8 +381,12 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        static ResultCompensationFunction ofValue(@Nonnull final Value value,
-                                                  @Nonnull final BiFunction<Value, TranslationMap, Value> compensationFunction) {
+        static ResultCompensationFunction ofValue(@Nonnull final Value value) {
+            return ofValue(value, false);
+        }
+
+        @Nonnull
+        static ResultCompensationFunction ofValue(@Nonnull final Value value, final boolean shouldSimplifyValue) {
             final var isImpossible = valueContainsUnmatchedValues(value);
 
             return new ResultCompensationFunction() {
@@ -397,14 +406,13 @@ public class PredicateMultiMap {
                                                         @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedTranslatedQueryValue =
                             amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap, value);
-
-                    return ofValue(amendedTranslatedQueryValue, compensationFunction);
+                    return ofValue(amendedTranslatedQueryValue, true);
                 }
 
                 @Nonnull
                 @Override
                 public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
-                    return compensationFunction.apply(value, translationMap);
+                    return value.translateCorrelations(translationMap, shouldSimplifyValue);
                 }
             };
         }
