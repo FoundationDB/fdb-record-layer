@@ -34,8 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensation;
@@ -48,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -250,11 +249,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
         return toResidualPredicate()
                 .replaceValuesMaybe(pullUp::pullUpMaybe)
-                .map(queryPredicate ->
-                        PredicateCompensationFunction.ofPredicate(queryPredicate,
-                                (pulledUpPredicate, translationMap) ->
-                                        LinkedIdentitySet.of(pulledUpPredicate.translateCorrelations(translationMap,
-                                                false))))
+                .map(PredicateCompensationFunction::ofPredicate)
                 .orElse(PredicateCompensationFunction.impossibleCompensation());
     }
 

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -82,6 +83,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -332,8 +334,26 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     @Nonnull
     @Override
-    public ExplainTokens visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan element) {
-        return new ExplainTokens().addToString("TODO"); // TODO
+    public ExplainTokens visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+        visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∩").addWhitespace(),
+                multiIntersectionOnValuesPlan.getChildren());
+        final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
+                .addWhitespace().addKeyword("BY").addWhitespace()
+                .addNested(multiIntersectionOnValuesPlan.getComparisonKeyFunction().explain().getExplainTokens());
+        addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
+
+        final List<? extends Quantifier> quantifiers = multiIntersectionOnValuesPlan.getQuantifiers();
+        final var withExplainTokens =
+                new ExplainTokens().addWhitespace().addKeyword("WITH").addWhitespace()
+                        .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                                () -> quantifiers.stream()
+                                        .map(quantifier -> new ExplainTokens()
+                                                .addAliasDefinition(quantifier.getAlias()))
+                                        .iterator());
+        addNested(ExplainLevel.SOME_DETAILS, withExplainTokens);
+        final var returnExplainTokens = new ExplainTokens().addWhitespace().addKeyword("RETURN")
+                .addWhitespace().addNested(multiIntersectionOnValuesPlan.getResultValue().explain().getExplainTokens());
+        return addNested(ExplainLevel.SOME_DETAILS, returnExplainTokens);
     }
 
     @Nonnull
@@ -443,10 +463,10 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     private ExplainTokens visitIntersectionPlan(@Nonnull final RecordQueryIntersectionPlan intersectionPlan) {
         visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∩").addWhitespace(),
                 intersectionPlan.getChildren());
-        final var comparyByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
+        final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
                 .addWhitespace().addKeyword("BY").addWhitespace()
                 .addNested(intersectionPlan.getComparisonKeyFunction().explain().getExplainTokens());
-        return addNested(ExplainLevel.SOME_DETAILS, comparyByExplainTokens);
+        return addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
     }
 
     @Nonnull
@@ -584,10 +604,10 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∪").addWhitespace(),
                 unionPlan.getChildren());
 
-        final var comparyByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
+        final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
                 .addWhitespace().addKeyword("BY").addWhitespace()
                 .addNested(unionPlan.getComparisonKeyFunction().explain().getExplainTokens());
-        return addNested(ExplainLevel.SOME_DETAILS, comparyByExplainTokens);
+        return addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
     }
 
     @Nonnull

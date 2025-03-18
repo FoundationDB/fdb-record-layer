@@ -614,9 +614,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             resultCompensationFunction =
-                    ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue,
-                            (value, translationMap) -> value.translateCorrelations(translationMap,
-                                    false));
+                    ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
             pulledUpAggregateMappings =
