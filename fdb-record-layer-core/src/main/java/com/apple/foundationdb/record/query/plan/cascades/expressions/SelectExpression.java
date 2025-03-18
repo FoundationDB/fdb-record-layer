@@ -842,11 +842,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         break;
                     }
 
+                    if (compensationFunction == null) {
+                        compensationFunction = compensationFunctionForCandidatePredicate;
+                    }
+
                     if (!compensationFunctionForCandidatePredicate.isImpossible()) {
                         isCompensationFunctionImpossible = false;
-                        if (compensationFunction == null) {
-                            compensationFunction = compensationFunctionForCandidatePredicate;
-                        }
                     }
                 }
 
@@ -854,9 +855,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     isAnyCompensationFunctionNeeded = true;
                     if (isCompensationFunctionImpossible) {
                         isAnyCompensationFunctionImpossible = true;
-                    } else {
-                        predicateCompensationMap.put(predicate, Objects.requireNonNull(compensationFunction));
                     }
+                    predicateCompensationMap.put(predicate, Objects.requireNonNull(compensationFunction));
                 }
             }
         }
@@ -877,10 +877,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
             final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
-            resultCompensationFunction =
-                    ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue,
-                            (value, translationMap) -> value.translateCorrelations(translationMap,
-                                    false));
+            resultCompensationFunction = ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             isAnyCompensationFunctionImpossible |= resultCompensationFunction.isImpossible();
 
             aggregateMappings =

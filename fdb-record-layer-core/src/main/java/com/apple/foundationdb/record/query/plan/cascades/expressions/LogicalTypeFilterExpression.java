@@ -219,10 +219,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
             final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
-            resultCompensationFunction =
-                    ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue,
-                            (value, translationMap) -> value.translateCorrelations(translationMap,
-                                    false));
+            resultCompensationFunction = ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
             aggregateMappings =
