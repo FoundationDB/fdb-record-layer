@@ -298,7 +298,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Nonnull
         @Override
         public Cardinalities visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
-            return weakenCardinalities(fromChildren(intersectionOnValuesPlan));
+            return intersectCardinalities(fromChildren(intersectionOnValuesPlan));
         }
 
         @Nonnull
@@ -440,6 +440,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         }
 
         @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlan) {
+        return intersectCardinalities(fromChildren(recordQueryMultiIntersectionOnValuesPlan));
+    }
+
+    @Nonnull
         @Override
         public Cardinalities visitRecordQueryInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan element) {
             return Cardinalities.unknownMaxCardinality();
@@ -713,7 +719,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     maxCardinality = cardinalities.getMaxCardinality();
                 } else {
                     if (!cardinalities.getMaxCardinality().isUnknown()) {
-                        maxCardinality = Cardinality.ofCardinality(Math.min(maxCardinality.getCardinality(), cardinalities.getMaxCardinality().getCardinality()));
+                        maxCardinality = Cardinality.ofCardinality(Math.min(maxCardinality.getCardinality(),
+                            cardinalities.getMaxCardinality().getCardinality()));
                     } else {
                         maxCardinality = Cardinality.unknownCardinality();
                     }
