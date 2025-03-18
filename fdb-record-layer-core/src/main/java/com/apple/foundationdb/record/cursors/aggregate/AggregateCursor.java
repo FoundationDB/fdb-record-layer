@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -89,12 +90,14 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             lastResult = previousResult;
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
+                System.out.println("innerResult noNextReason:" + innerResult.getNoNextReason());
                 if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
                     // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
                     partialAggregationResult = streamGrouping.finalizeGroup();
                 }
                 return false;
             } else {
+                System.out.println("innerResults:" + innerResult.get().getMessage());
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
                 boolean groupBreak = streamGrouping.apply(queryResult);
                 if (!groupBreak) {
@@ -232,7 +235,12 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             if (isEnd()) {
                 return null;
             }
-            return toProto().toByteArray();
+            if (false) {
+            //if (partialAggregationResult == null) {
+                return innerContinuation.toByteArray();
+            } else {
+                return toProto().toByteArray();
+            }
         }
 
         @Override
@@ -278,7 +286,11 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 } else {
                     return new AggregateCursorContinuation(continuationProto.getContinuation().toByteArray(), false);
                 }
-            } catch (final Exception ex) {
+            }
+            catch (final InvalidProtocolBufferException ipbe) {
+                return new AggregateCursorContinuation(rawBytes, false);
+            }
+            catch (final Exception ex) {
                 throw new RuntimeException(ex);
             }
         }

@@ -117,6 +117,52 @@ public class GroupByQueryTests {
     }
 
     @Test
+    void groupByWithRowLimit() throws Exception {
+        final String schemaTemplate =
+                "create table t1(pk bigint, a bigint, b bigint, c bigint, primary key(pk))\n" +
+                        "create index i1 as select a from t1";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var conn = ddl.setSchemaAndGetConnection()) {
+                conn.setOption(Options.Name.MAX_ROWS, 1);
+                try (var statement = conn.createStatement()) {
+                    insertT1Record(statement, 1, 10, 1, 20);
+                    insertT1Record(statement, 2, 10, 2, 20);
+                    insertT1Record(statement, 3, 10, 3, 5);
+                    insertT1Record(statement, 4, 10, 4, 15);
+                    insertT1Record(statement, 5, 10, 5, 5);
+                    insertT1Record(statement, 6, 20, 6, 10);
+                    insertT1Record(statement, 7, 20, 7, 40);
+                    insertT1Record(statement, 8, 20, 8, 20);
+                    insertT1Record(statement, 9, 20, 9, 90);
+                    insertT1Record(statement, 10, 20, 10, 10);
+                    insertT1Record(statement, 11, 20, 11, 40);
+                    insertT1Record(statement, 12, 20, 12, 20);
+                    insertT1Record(statement, 13, 20, 13, 90);
+
+                    String query = "select AVG(x.b) from (select a,b from t1) as x group by x.a";
+                    Continuation continuation = null;
+                    // scan pk = 2 and pk = 3 and hit SCAN_LIMIT_REACHED
+                    Assertions.assertTrue(statement.execute(query), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(3.0)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                    String postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(9.5)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void groupByClauseWithPredicateWorks() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
