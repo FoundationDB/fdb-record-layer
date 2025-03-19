@@ -1,4 +1,20 @@
 union-tests:
+-   query: EXPLAIN select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*)
+        as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x
+    explain: ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*)
+        AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l
+        AS LONG)) AS B) ⊎ SCAN(<,>) | TFILTER T2 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
+        AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
+        promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B)
+        AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
+    task_count: 831
+    task_total_time_ms: 46
+    transform_count: 269
+    transform_time_ms: 13
+    transform_yield_count: 54
+    insert_time_ms: 3
+    insert_new_count: 89
+    insert_reused_count: 6
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
         10 group by a union all select count(*) from t4) as X
     explain: 'AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
@@ -7,11 +23,11 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 676
-    task_total_time_ms: 15
+    task_total_time_ms: 92
     transform_count: 237
-    transform_time_ms: 4
+    transform_time_ms: 58
     transform_yield_count: 46
-    insert_time_ms: 0
+    insert_time_ms: 4
     insert_new_count: 55
     insert_reused_count: 3
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
@@ -23,11 +39,11 @@ union-tests:
         MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
         S)
     task_count: 873
-    task_total_time_ms: 32
+    task_total_time_ms: 107
     transform_count: 286
-    transform_time_ms: 9
+    transform_time_ms: 61
     transform_yield_count: 60
-    insert_time_ms: 1
+    insert_time_ms: 5
     insert_new_count: 91
     insert_reused_count: 6
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
@@ -38,10 +54,10 @@ union-tests:
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS
         _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 1026
-    task_total_time_ms: 40
+    task_total_time_ms: 51
     transform_count: 351
-    transform_time_ms: 12
+    transform_time_ms: 22
     transform_yield_count: 71
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 111
     insert_reused_count: 7

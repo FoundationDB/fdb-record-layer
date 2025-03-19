@@ -1,0 +1,118 @@
+/*
+ * record_key_expression.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.expressions;
+import "google/protobuf/descriptor.proto";
+
+option java_outer_classname = "RecordKeyExpressionProto";
+
+message Then {
+  repeated KeyExpression child = 1;
+}
+
+message List {
+  repeated KeyExpression child = 1;
+}
+
+message Field {
+  required string field_name = 1;
+  required FanType fan_type = 2;
+  enum FanType {
+    SCALAR = 1;
+    FAN_OUT = 2;
+    CONCATENATE = 3;
+  }
+  optional NullInterpretation nullInterpretation = 3 [default = NOT_UNIQUE];
+  enum NullInterpretation {
+    NOT_UNIQUE = 1; // Missing values allowed multiple times in unique index
+    UNIQUE = 2;     // Missing values treated like null value in unique index
+    NOT_NULL = 3;   // Missing values are the default for the type, not null
+  }
+}
+
+message Nesting {
+  optional Field parent = 1;
+  optional KeyExpression child = 2;
+}
+
+message Grouping {
+  required KeyExpression whole_key = 1;
+  optional int32 grouped_count = 3 [default = 1];
+}
+
+message Dimensions {
+  required KeyExpression whole_key = 1;
+  optional int32 prefix_size = 2;
+  optional int32 dimensions_size = 3;
+}
+
+message KeyWithValue {
+  required KeyExpression inner_key = 1;
+  optional int32 split_point = 2 [default = 1];
+}
+
+message Split {
+  required KeyExpression joined = 1;
+  optional int32 split_size = 2;
+}
+
+message Empty {
+}
+
+message Version {
+}
+
+message RecordTypeKey {
+}
+
+message Value {
+  // TODO: This should be a oneof {}
+  optional double double_value = 1;
+  optional float float_value = 2;
+  optional int64 long_value = 3;
+  optional bool bool_value = 4;
+  optional string string_value = 5;
+  optional bytes bytes_value = 6;
+  optional int32 int_value = 7;
+}
+
+
+message Function {
+  required string name = 1;
+  required KeyExpression arguments = 2;
+}
+
+message KeyExpression {
+  // Exactly one of the following:
+  optional Then then = 1;
+  optional Nesting nesting = 2;
+  optional Field field = 3;
+  optional Grouping grouping = 4;
+  optional Empty empty = 5;
+  optional Split split = 6;
+  optional Version version = 7;
+  optional Value value = 8;
+  optional Function function = 9;
+  optional KeyWithValue key_with_value = 10;
+  optional RecordTypeKey record_type_key = 11;
+  optional List list = 12;
+  optional Dimensions dimensions = 13;
+}

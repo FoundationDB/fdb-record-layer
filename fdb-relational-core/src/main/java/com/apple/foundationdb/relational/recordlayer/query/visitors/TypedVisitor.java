@@ -631,7 +631,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    NonnullPair<FieldValue.ResolvedAccessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx);
+    Object visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx);
 
     @Nonnull
     @Override

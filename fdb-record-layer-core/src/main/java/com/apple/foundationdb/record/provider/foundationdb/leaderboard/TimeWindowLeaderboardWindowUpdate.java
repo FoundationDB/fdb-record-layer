@@ -33,7 +33,32 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
      * When to completely rebuild an index.
      */
     public enum Rebuild {
-        ALWAYS, NEVER, IF_OVERLAPPING_CHANGED
+        /**
+         * Rebuild the index even if nothing has changed.
+         * <p>
+         *     Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
+         * </p>
+         */
+        ALWAYS,
+        /**
+         * Do not rebuild the index no matter what.
+         */
+        NEVER,
+        /**
+         * Rebuild the index if it is necessary to have the leaderboards contain the records they're supposed to.
+         * <p>
+         *     This can happen in a few situations:
+         *     <ul>
+         *         <li>If {@link #isHighScoreFirst()} is changed</li>
+         *         <li>If {@link #isAllTime()} is changed</li>
+         *         <li>If a record has been saved that has a timestamp greater than the earliest timestamp for one of
+         *         the provided specs</li>
+         *     </ul>
+         * <p>
+         *     Note: This rebuild happens in a single transaction, and thus, will fail if the store is sufficiently large.
+         * </p>
+         */
+        IF_OVERLAPPING_CHANGED
     }
 
     private final long updateTimestamp;
@@ -73,7 +98,8 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
      * Create a time window update operation.
      * @param updateTimestamp a timestamp to be recorded if any changes are made
      * @param highScoreFirst if <code>true</code>, numerically higher scores come first in the index
-     * @param deleteBefore delete any time windows ending at this time or before
+     * @param deleteBefore delete any time windows ending at this time or before;
+     * this will not delete the all-time leaderboard, if there is one
      * @param allTime include an all-time leaderboard
      * @param specs specifications for time windows to create
      * @param rebuild completely rebuild the index using the new time windows by scanning all existing records

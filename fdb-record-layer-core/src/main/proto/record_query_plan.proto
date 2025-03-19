@@ -22,8 +22,7 @@ syntax = "proto2";
 package com.apple.foundationdb.record.planprotos;
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/any.proto";
-import "record_query_runtime.proto";
-import "record_metadata.proto";
+import "record_key_expression.proto";
 
 option java_outer_classname = "RecordQueryPlanProto";
 option java_multiple_files = true;
@@ -244,8 +243,15 @@ message PValue {
     PCollateValue collate_value = 44;
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
     PQuantifiedRecordValue quantified_record_value = 46;
-    PRangeValue range_value = 47;
+    PMacroFunctionValue macro_function_value = 47;
+    PRangeValue range_value = 48;
   }
+}
+
+message PMacroFunctionValue {
+  optional string function_name = 1;
+  repeated PValue arguments = 2;
+  optional PValue body = 3;
 }
 
 message PAbstractArrayConstructorValue {
@@ -1017,7 +1023,7 @@ message PSimpleComparison {
 message PConversionSimpleComparison {
   optional PComparison.PComparisonType type = 1;
   optional PComparableObject object = 2;
-  optional KeyExpression conversion = 3;
+  optional com.apple.foundationdb.record.expressions.KeyExpression conversion = 3;
 }
 
 message PParameterComparison {
@@ -1037,7 +1043,7 @@ message PConversionParameterComparison {
   optional PComparison.PComparisonType type = 1;
   optional string parameter = 2;
   optional PParameterComparison.PBindingKind internal = 3;
-  optional KeyExpression conversion = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression conversion = 4;
 }
 
 message PValueComparison {
@@ -1063,7 +1069,7 @@ message PMultiColumnComparison {
 }
 
 message PInvertedFunctionComparison {
-  optional Function function = 1;
+  optional com.apple.foundationdb.record.expressions.Function function = 1;
   optional PComparison original_comparison = 2;
   optional PComparison.PComparisonType type = 3;
 }
@@ -1389,7 +1395,7 @@ message PRecordQueryFlatMapPlan {
 //
 message PRecordQueryIndexPlan {
   optional string index_name = 1;
-  optional KeyExpression common_primary_key = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression common_primary_key = 2;
   optional PIndexScanParameters scan_parameters = 3;
   optional PIndexFetchMethod index_fetch_method = 4;
   optional PFetchIndexRecords fetch_index_records = 5;
@@ -1558,7 +1564,7 @@ message PRecordQueryIntersectionPlan {
 
 message PComparisonKeyFunction {
   message POnKeyExpression {
-    optional KeyExpression comparison_key_expression = 1;
+    optional com.apple.foundationdb.record.expressions.KeyExpression comparison_key_expression = 1;
   }
   message POnValues {
     optional string base_alias = 1;
@@ -1649,7 +1655,7 @@ message PRecordQuerySortPlan {
 }
 
 message PRecordQuerySortKey {
-  optional KeyExpression key = 1;
+  optional com.apple.foundationdb.record.expressions.KeyExpression key = 1;
   optional bool reverse = 2;
 }
 
@@ -1660,7 +1666,7 @@ message PRecordQueryScanPlan {
   optional bool has_record_types = 1;
   repeated string record_types = 2;
   optional PType flowed_type = 3;
-  optional KeyExpression common_primary_key = 4;
+  optional com.apple.foundationdb.record.expressions.KeyExpression common_primary_key = 4;
   optional PScanComparisons comparisons = 5;
   optional bool reverse = 6;
   optional bool strictly_sorted = 7;
@@ -1694,7 +1700,7 @@ message PScoreForRank {
 
 message PIndexAggregateFunction {
   optional string name = 1;
-  optional KeyExpression operand = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression operand = 2;
   optional string index = 3;
 }
 
@@ -1748,7 +1754,7 @@ message PRecordQueryUnionPlan {
 //
 message PRecordQueryUnorderedDistinctPlan {
   optional PPhysicalQuantifier inner = 1;
-  optional KeyExpression comparison_key = 2;
+  optional com.apple.foundationdb.record.expressions.KeyExpression comparison_key = 2;
 }
 
 //
@@ -1778,6 +1784,30 @@ message PRecordQueryUnionPlanBase {
 //
 message PRecordQueryUpdatePlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+message PEnumLightValue {
+  optional string name = 1;
+  optional int32 number = 2;
+}
+
+message PUUID {
+  optional uint64 mostSigBits = 1;
+  optional uint64 leastSigBits = 2;
+}
+
+message PFDBRecordVersion {
+  optional bytes raw_bytes = 1;
+}
+
+message PComparableObject {
+  oneof specific_object {
+    com.apple.foundationdb.record.expressions.Value primitive_object = 1;
+    PEnumLightValue enum_object = 2;
+    PUUID uuid = 3;
+    PFDBRecordVersion fdb_record_version = 4;
+    bytes bytes_as_byte_string = 5;
+  }
 }
 
 //

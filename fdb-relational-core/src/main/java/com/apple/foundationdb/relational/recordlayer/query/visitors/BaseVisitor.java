@@ -1092,8 +1092,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public NonnullPair<FieldValue.ResolvedAccessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
-        return expressionVisitor.visitUidWithNestings(ctx);
+    public Object visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
+        return visitChildren(ctx);
     }
 
     @Nonnull

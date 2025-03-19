@@ -648,37 +648,28 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull final RelationalParser.UidListWithNestingsInParensContext ctx) {
         return visitUidListWithNestings(ctx.uidListWithNestings());
     }
 
     @Nonnull
     @Override
-    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
-        final var uidMap =
-                Streams.mapWithIndex(ctx.uidWithNestings().stream(), (uidWithNesting, index) -> visitUidWithNestingsWithFieldOrdinal(uidWithNesting, (int)index))
-                        .collect(ImmutableMap.toImmutableMap(pair -> Assert.notNullUnchecked(pair).getLeft(),
-                                pair -> Assert.notNullUnchecked(pair).getRight(),
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull final RelationalParser.UidListWithNestingsContext ctx) {
+        final var uidMap = Streams.mapWithIndex(ctx.uidWithNestings().stream(),
+                                (ctxWithNesting, index) -> {
+                                    final var uid = visitUid(ctxWithNesting.uid());
+                                    final var accessor = FieldValue.ResolvedAccessor.of(uid.getName(), (int)index, Type.any());
+                                    if (ctxWithNesting.uidListWithNestingsInParens() == null) {
+                                        return NonnullPair.of(accessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
+                                    } else {
+                                        return NonnullPair.of(accessor, visitUidListWithNestingsInParens(ctxWithNesting.uidListWithNestingsInParens()));
+                                    }
+                                })
+                        .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
                                 (l, r) -> {
-                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column");
+                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column '" + l + "'");
                                 }));
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
-    }
-
-    @Nonnull
-    public NonnullPair<FieldValue.ResolvedAccessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitUidWithNestingsWithFieldOrdinal(@Nonnull RelationalParser.UidWithNestingsContext ctx, int fieldOrdinal) {
-        final var uid = visitUid(ctx.uid());
-        if (ctx.uidListWithNestingsInParens() == null) {
-            return NonnullPair.of(FieldValue.ResolvedAccessor.of(uid.getName(), fieldOrdinal, Type.any()), CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
-        } else {
-            return NonnullPair.of(FieldValue.ResolvedAccessor.of(uid.getName(), fieldOrdinal, Type.any()), visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens()));
-        }
-    }
-
-    @Nonnull
-    @Override
-    public NonnullPair<FieldValue.ResolvedAccessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
-        throw new RuntimeException("should never been called");
     }
 
     @Nonnull

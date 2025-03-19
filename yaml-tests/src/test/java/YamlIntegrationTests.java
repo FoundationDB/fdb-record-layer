@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.ExcludeYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
@@ -39,43 +38,31 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void groupByTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("groupby-tests.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void standardTestsWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-proto.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-metadata.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     public void nullOperator(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("null-operator-tests.yamsql");
     }
@@ -97,22 +84,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void joinTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void subqueryTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("subquery-tests.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }
@@ -134,8 +115,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void aggregateEmptyTable(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-empty-table.yamsql");
     }
@@ -196,8 +175,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     void catalog(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("catalog.yamsql");
     }
@@ -208,15 +185,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "maxRows ignored on update (https://github.com/FoundationDB/fdb-record-layer/issues/3100)")
     public void updateDeleteReturning(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("update-delete-returning.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Like continuation failure (https://github.com/FoundationDB/fdb-record-layer/issues/3099)")
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
     }
@@ -227,8 +200,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Continuation verification (https://github.com/FoundationDB/fdb-record-layer/issues/3096)")
     void createDrop(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("create-drop.yamsql");
     }
@@ -254,15 +225,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void union(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union.yamsql");
     }
 
     @TestTemplate
-    @ExcludeYamlTestConfig(value = YamlTestConfigFilters.DO_NOT_FORCE_CONTINUATIONS,
-            reason = "Infinite continuation loop (https://github.com/FoundationDB/fdb-record-layer/issues/3095)")
     public void unionEmptyTables(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union-empty-tables.yamsql");
     }

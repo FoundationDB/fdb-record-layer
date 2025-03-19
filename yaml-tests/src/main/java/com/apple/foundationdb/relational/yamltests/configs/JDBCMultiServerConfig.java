@@ -20,30 +20,29 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
-import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
-import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
-import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
-import javax.annotation.Nonnull;
-import java.net.URI;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
  */
-public class MultiServerConfig extends JDBCInProcessConfig {
+public class JDBCMultiServerConfig extends JDBCInProcessConfig {
 
     private final ExternalServer externalServer;
     private final int initialConnection;
 
-    public MultiServerConfig(final int initialConnection, ExternalServer externalServer) {
-        super();
+    public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer) {
+        this(initialConnection, externalServer, null);
+    }
+
+    public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer,
+                                 @Nullable final String clusterFile) {
+        super(clusterFile);
         this.initialConnection = initialConnection;
         this.externalServer = externalServer;
     }
@@ -59,23 +58,7 @@ public class MultiServerConfig extends JDBCInProcessConfig {
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
                 super.createConnectionFactory(),
-                List.of(createExternalServerConnection()));
-    }
-
-    YamlConnectionFactory createExternalServerConnection() {
-        return new YamlConnectionFactory() {
-            @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
-                return new SimpleYamlConnection(DriverManager.getConnection(uriStr), externalServer.getVersion());
-            }
-
-            @Override
-            public Set<SemanticVersion> getVersionsUnderTest() {
-                return Set.of(externalServer.getVersion());
-            }
-
-        };
+                List.of(new ExternalServerYamlConnectionFactory(externalServer)));
     }
 
     @Override
