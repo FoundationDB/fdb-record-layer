@@ -53,7 +53,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
@@ -92,9 +91,13 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Optional<PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull final UnaryOperator<Value> valueTranslator,
+    public Optional<PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull final Function<Value, Optional<Value>> valueTranslator,
                                                                           @Nonnull final Function<Comparison, Optional<Comparison>> comparisonTranslator) {
-        final var newValue = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
+        final var newValueOptional = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
+        if (newValueOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        final var newValue = newValueOptional.get();
         return comparisonTranslator.apply(comparison)
                 .flatMap(newComparison -> {
                     if (newValue == value && newComparison == comparison) {
@@ -134,11 +137,11 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        final var translatedValue = value.translateCorrelations(translationMap);
+    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+        final var translatedValue = value.translateCorrelations(translationMap, shouldSimplifyValues);
         final Comparison newComparison;
         if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
-            newComparison = comparison.translateCorrelations(translationMap);
+            newComparison = comparison.translateCorrelations(translationMap, shouldSimplifyValues);
         } else {
             newComparison = comparison;
         }

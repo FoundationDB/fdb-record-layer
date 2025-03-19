@@ -1,0 +1,11 @@
+Diagram(
+    Terminal('DELETE'),
+    Terminal('FROM'),
+    NonTerminal('tableName'),
+    Optional(
+        Sequence(
+            Terminal('WHERE'),
+            NonTerminal('predicate')
+        )
+    )
+)

@@ -40,6 +40,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public class SystemCatalogQueryTest {
@@ -79,15 +80,15 @@ public class SystemCatalogQueryTest {
     }
 
     private static void createDb(@Nonnull final String dbName) throws Exception {
-        runDdl(String.format("CREATE DATABASE %s", dbName));
+        runDdl(String.format(Locale.ROOT, "CREATE DATABASE %s", dbName));
     }
 
     private static void createSchema(@Nonnull final String dbName, @Nonnull final String schemaName) throws Exception {
-        runDdl(String.format("CREATE SCHEMA %s%s WITH TEMPLATE st", dbName, schemaName));
+        runDdl(String.format(Locale.ROOT, "CREATE SCHEMA %s%s WITH TEMPLATE st", dbName, schemaName));
     }
 
     private static void dropDb(@Nonnull final String dbName) throws Exception {
-        runDdl(String.format("DROP DATABASE %s", dbName));
+        runDdl(String.format(Locale.ROOT, "DROP DATABASE %s", dbName));
     }
 
     @Disabled // TODO (SystemCatalogQueryTest has fragile tests)

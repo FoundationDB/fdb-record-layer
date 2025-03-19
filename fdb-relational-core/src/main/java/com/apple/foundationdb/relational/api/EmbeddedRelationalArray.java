@@ -125,7 +125,7 @@ public interface EmbeddedRelationalArray extends RelationalArray {
                 Assert.that(this.metaData.getElementType() == Types.STRUCT, ErrorCode.DATATYPE_MISMATCH, "Expected array element to be of type:%s, but found type:STRUCT", this.metaData.getElementTypeName());
                 Assert.that(this.metaData.getElementStructMetaData().equals(metaData), ErrorCode.DATATYPE_MISMATCH, "Metadata of struct elements in array do not match!");
             } else {
-                this.metaData = RelationalArrayMetaData.ofStruct(metaData, DatabaseMetaData.columnNullable);
+                this.metaData = RelationalArrayMetaData.ofStruct(metaData, DatabaseMetaData.columnNoNulls);
             }
         }
 
@@ -133,7 +133,7 @@ public interface EmbeddedRelationalArray extends RelationalArray {
             if (this.metaData != null) {
                 Assert.that(this.metaData.getElementType() == sqlType, ErrorCode.DATATYPE_MISMATCH, "Expected array element to be of type:%s, but found type:%s", this.metaData.getElementTypeName(), SqlTypeNamesSupport.getSqlTypeName(sqlType));
             } else {
-                this.metaData = RelationalArrayMetaData.ofPrimitive(sqlType, DatabaseMetaData.columnNullable);
+                this.metaData = RelationalArrayMetaData.ofPrimitive(sqlType, DatabaseMetaData.columnNoNulls);
             }
         }
     }

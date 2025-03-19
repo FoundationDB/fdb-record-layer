@@ -87,7 +87,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * A scalar value type.
@@ -266,7 +265,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             return false;
         }
 
-        return preOrderStream().flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
+        return preOrderStream().filter(value -> value instanceof QuantifiedValue)
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
     }
 
@@ -280,9 +279,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nonnull
-    default Value translateCorrelationsAndSimplify(@Nonnull final TranslationMap translationMap) {
+    default Value translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
         final var newValue = translateCorrelations(translationMap);
-        return newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo());
+        return shouldSimplify ? newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo()) : newValue;
     }
 
     @Nonnull
@@ -465,7 +464,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     @Nonnull
     default Value simplify(@Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        return Simplification.simplify(this, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.ofSimplificationRules());
+        return Simplification.simplify(this, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.instance());
     }
 
     /**
@@ -648,13 +647,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                         Simplification.compute(this, orderingPartCreator, aliasMap, constantAliases,
                                 ruleSet));
         return resultPair.getValue();
-    }
-
-    @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
-        // delegate to semanticEquals()
-        return semanticEquals(other, valueEquivalence);
     }
 
     /**

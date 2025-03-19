@@ -71,7 +71,10 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         -1,
                         0,
                         false,
-                        true))));
+                        true))))
+                        .toBuilder()
+                        .removeAllResultColumns()
+                        .build();
 
         final var allExpansions =
                 GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansion);
@@ -79,7 +82,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
         final var parameters = allExpansions.getPlaceholderAliases();
 
         final var expression =
-                new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelect());
+                new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
 
         return new PrimaryScanMatchCandidate(
                 Traversal.withRoot(Reference.of(expression)),

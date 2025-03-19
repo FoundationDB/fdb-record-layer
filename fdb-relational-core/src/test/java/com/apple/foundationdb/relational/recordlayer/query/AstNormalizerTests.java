@@ -47,6 +47,7 @@ import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -238,7 +239,7 @@ public class AstNormalizerTests {
                 compareBindings(binding, expectedParameters);
             } else {
                 if (!expectedParameters.isEmpty()) {
-                    Assertions.fail(String.format("expected '%s' parameters, actual parameters is however empty", expectedParameters));
+                    Assertions.fail(String.format(Locale.ROOT, "expected '%s' parameters, actual parameters is however empty", expectedParameters));
                 }
             }
             if (expectedContinuation != null) {
@@ -278,7 +279,7 @@ public class AstNormalizerTests {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
                     PreparedParams.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
-            Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
+            Assertions.fail(String.format(Locale.ROOT, "expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
         }
@@ -606,39 +607,72 @@ public class AstNormalizerTests {
     }
 
     @Test
-    void parseDmlStatementWithDryRunSetDryRunFalse() throws Exception {
+    void parseUpdateStatementWithoutDryRunSetsDryRunOptionsToFalse() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DML_STATEMENT),
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT),
                 Map.of(Options.Name.DRY_RUN, false));
     }
 
     @Test
-    void parseDmlStatementWithDryRunSetDryRunTrue() throws Exception {
+    void parseUpdateStatementWithDryRunOptionSetsDryRunToTrue() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN)"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DML_STATEMENT),
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT),
                 Map.of(Options.Name.DRY_RUN, true));
     }
 
     @Test
-    void parseDmlStatementWithMultipleQueryOptions() throws Exception {
+    void parseUpdateStatementWithMultipleQueryOptions() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN, nocache, log query)"),
                 PreparedParams.empty(),
-                "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DML_STATEMENT, AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION),
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT, AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION),
                 Map.of(Options.Name.DRY_RUN, true, Options.Name.LOG_QUERY, true));
+    }
+
+    @Test
+    void parseUpdateStatementSetsQueryFlagCorrectly() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2"),
+                PreparedParams.empty(),
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                List.of(Map.of(constantId(5), 52, constantId(9), 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT));
+    }
+
+    @Test
+    void parseInsertStatementSetsQueryFlagCorrectly() throws Exception {
+        validate(List.of("insert into A values (42, 'foo')"),
+                PreparedParams.empty(),
+                "insert into \"A\" values ( ? , ? ) ",
+                List.of(Map.of(constantId(5), 42, constantId(7), "foo")),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_INSERT_STATEMENT));
+    }
+
+    @Test
+    void parseDeleteStatementSetsQueryFlagCorrectly() throws Exception {
+        validate(List.of("delete from A where x = 42"),
+                PreparedParams.empty(),
+                "delete from \"A\" where \"X\" = ? ",
+                List.of(Map.of(constantId(6), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DELETE_STATEMENT));
     }
 
     @Test

@@ -188,7 +188,7 @@ public class PatternForLikeValue extends AbstractValue {
     public static PatternForLikeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                 @Nonnull final PPatternForLikeValue patternForLikeValueProto) {
         return new PatternForLikeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())),
-                Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())));
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getEscapeChild())));
     }
 
     @Nonnull

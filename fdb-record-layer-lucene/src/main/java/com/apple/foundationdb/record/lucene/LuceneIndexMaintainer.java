@@ -58,6 +58,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -111,6 +112,7 @@ import java.util.stream.Stream;
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
 
+    @Nonnull
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
@@ -748,6 +750,22 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 // Not thread safe but OK as we may only log an extra message
                 serializerErrorLogged = true;
             }
+        }
+    }
+
+    @Nullable
+    @Override
+    public IndexScrubbingTools<?> getIndexScrubbingTools(final IndexScrubbingTools.ScrubbingType type) {
+        switch (type) {
+            case MISSING:
+                final Map<String, String> options = state.index.getOptions();
+                if (Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
+                        Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED))) {
+                    return new LuceneIndexScrubbingToolsMissing(partitioner, directoryManager, indexAnalyzerSelector);
+                }
+                return null;
+            default:
+                return null;
         }
     }
 }

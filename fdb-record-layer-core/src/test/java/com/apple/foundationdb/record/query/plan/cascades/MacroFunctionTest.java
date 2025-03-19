@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -39,40 +39,41 @@ import java.util.Optional;
 public class MacroFunctionTest {
     @Test
     void testColumnProjection() {
-        List<Type.Record.Field> fields = List.of(
+        ImmutableList<Type.Record.Field> fields = ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("id")));
         Type record = Type.Record.fromFields(false, fields);
         QuantifiedObjectValue param = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), record);
         FieldValue bodyValue = FieldValue.ofFieldName(param, "name");
-        MacroFunction macroFunction = new MacroFunction("getName", List.of(param), bodyValue);
+        MacroFunction macroFunction = new MacroFunction("getName", ImmutableList.of(param), bodyValue);
 
-        RecordConstructorValue testValue1 = RecordConstructorValue.ofColumns(List.of(
+        RecordConstructorValue testValue1 = RecordConstructorValue.ofColumns(ImmutableList.of(
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), "Rose")),
                 Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), 1L))
         ));
 
-        Assertions.assertEquals(FieldValue.ofFieldName(testValue1, "name"), macroFunction.encapsulate(List.of(testValue1)));
+        Assertions.assertEquals(FieldValue.ofFieldName(testValue1, "name"), macroFunction.encapsulate(ImmutableList.of(testValue1)));
     }
 
     @Test
     void testAdd() {
-        List<Type.Record.Field> fields = List.of(
+        ImmutableList<Type.Record.Field> fields = ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("id")));
         Type record = Type.Record.fromFields(false, fields);
         QuantifiedObjectValue param1 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), record);
         QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), record);
 
         ArithmeticValue bodyValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, param1, param2);
-        MacroFunction macroFunction = new MacroFunction("add", List.of(param1, param2), bodyValue);
 
-        RecordConstructorValue testValue1 = RecordConstructorValue.ofColumns(List.of(
+        MacroFunction macroFunction = new MacroFunction("add", ImmutableList.of(param1, param2), bodyValue);
+
+        RecordConstructorValue testValue1 = RecordConstructorValue.ofColumns(ImmutableList.of(
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), 1L))
         ));
-        RecordConstructorValue testValue2 = RecordConstructorValue.ofColumns(List.of(
+        RecordConstructorValue testValue2 = RecordConstructorValue.ofColumns(ImmutableList.of(
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), 2L))
         ));
 
-        Assertions.assertEquals(new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, testValue1, testValue2), macroFunction.encapsulate(List.of(testValue1, testValue2)));
+        Assertions.assertEquals(new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, testValue1, testValue2), macroFunction.encapsulate(ImmutableList.of(testValue1, testValue2)));
     }
 }

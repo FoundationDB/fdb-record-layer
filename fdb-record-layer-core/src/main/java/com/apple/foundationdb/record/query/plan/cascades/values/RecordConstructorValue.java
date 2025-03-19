@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -76,7 +77,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
-    private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns, @Nonnull final Type.Record resultType) {
+    private RecordConstructorValue(@Nonnull final Collection<Column<? extends Value>> columns,
+                                   @Nonnull final Type.Record resultType) {
         this.resultType = resultType;
         this.columns = ImmutableList.copyOf(columns);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
@@ -271,6 +273,32 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        if (hashCodeWithoutChildren() != other.hashCodeWithoutChildren()) { // as the hashcode is memoized
+            return BooleanWithConstraint.falseValue();
+        }
+
+        final var superEqualsWithoutChildren = super.equalsWithoutChildren(other);
+        if (superEqualsWithoutChildren.isFalse()) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        final var otherColumns = ((RecordConstructorValue)other).getColumns();
+        Verify.verify(columns.size() == otherColumns.size()); // guaranteed by the mechanics of semanticEquals
+
+        for (int i = 0; i < columns.size(); i++) {
+            final var column = columns.get(i);
+            final var otherColumn = otherColumns.get(i);
+            if (!column.getField().equals(otherColumn.getField())) {
+                return BooleanWithConstraint.falseValue();
+            }
+        }
+
+        return superEqualsWithoutChildren;
+    }
+
+    @Nonnull
+    @Override
     public RecordConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(columns.size() == Iterables.size(newChildren));
         //noinspection UnstableApiUsage
@@ -381,11 +409,12 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     }
 
     @Nonnull
-    private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns) {
+    private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                 final boolean isNullable) {
         final var fields = columns.stream()
                 .map(Column::getField)
                 .collect(ImmutableList.toImmutableList());
-        return Type.Record.fromFields(false, fields);
+        return Type.Record.fromFields(isNullable, fields);
     }
 
     @Nonnull
@@ -406,13 +435,24 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
-        final Type.Record resolvedResultType = computeResultType(columns);
-        return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, false));
     }
 
     @Nonnull
-    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns, @Nonnull final String name) {
-        final Type.Record resolvedResultType = computeResultType(columns).withName(name);
+    public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                   final boolean isNullable) {
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, isNullable));
+    }
+
+    @Nonnull
+    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                          @Nonnull final String name) {
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, false).withName(name));
+    }
+
+    @Nonnull
+    private static RecordConstructorValue ofColumnsAndResolvedType(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                                   @Nonnull final Type.Record resolvedResultType) {
         return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
     }
 

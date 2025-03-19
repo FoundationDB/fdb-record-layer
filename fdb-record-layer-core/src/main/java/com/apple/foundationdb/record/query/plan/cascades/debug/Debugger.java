@@ -46,12 +46,15 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTran
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTransformRuleCallEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTranslateCorrelationsEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -69,8 +72,8 @@ import java.util.function.IntUnaryOperator;
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
  *
- * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead clients
- * should use {@link #withDebugger} and {@link #mapDebugger}to invoke methods on the currently installed debugger.
+ * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
+ * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.
  * There is a guarantee that {@link #withDebugger} does not invoke any given action if there is no debugger currently
  * set for this thread. In this way, the planner implementation can freely call debug hooks which never will incur any
  * penalties (performance or otherwise) for a production deployment.
@@ -95,6 +98,12 @@ public interface Debugger {
     @Nullable
     static Debugger getDebugger() {
         return THREAD_LOCAL.get();
+    }
+
+    @Nonnull
+    static Optional<Debugger> getDebuggerMaybe() {
+        final var debugger = getDebugger();
+        return Optional.ofNullable(debugger);
     }
 
     /**
@@ -206,6 +215,9 @@ public interface Debugger {
 
     @SuppressWarnings("unused") // only used by debugger
     String showStats();
+
+    @Nonnull
+    Optional<StatsMaps> getStatsMaps();
 
     /**
      * Shorthands to identify a kind of event.
@@ -435,8 +447,9 @@ public interface Debugger {
 
         public ExecutingTaskEvent(@Nonnull final Reference rootReference,
                                   @Nonnull final Deque<Task> taskStack,
+                                  @Nonnull final Location location,
                                   @Nonnull final Task task) {
-            super(rootReference, taskStack, Location.COUNT);
+            super(rootReference, taskStack, location);
             this.task = task;
         }
 
@@ -909,11 +922,26 @@ public interface Debugger {
      * structures of the planner.
      */
     class InsertIntoMemoEvent implements Event {
+        @Nullable
+        private final RelationalExpression expression;
+
         @Nonnull
         private final Location location;
 
-        public InsertIntoMemoEvent(@Nonnull final Location location) {
+        @Nonnull
+        private final List<Reference> reusedExpressionReferences;
+
+        private InsertIntoMemoEvent(@Nonnull final Location location,
+                                    @Nullable final RelationalExpression expression,
+                                    @Nonnull final Collection<Reference> reusedExpressionReferences) {
+            if (expression != null) {
+                Debugger.registerExpression(expression);
+            }
+            this.expression = expression;
             this.location = location;
+            this.reusedExpressionReferences = ImmutableList.copyOf(reusedExpressionReferences);
+            // Call debugger hook to potentially register this new reference.
+            this.reusedExpressionReferences.forEach(Debugger::registerReference);
         }
 
         @Override
@@ -928,6 +956,16 @@ public interface Debugger {
             return Shorthand.INSERT_INTO_MEMO;
         }
 
+        @Nullable
+        public RelationalExpression getExpression() {
+            return expression;
+        }
+
+        @Nonnull
+        public Collection<Reference> getReusedExpressionReferences() {
+            return reusedExpressionReferences;
+        }
+
         @Nonnull
         @Override
         public Location getLocation() {
@@ -937,9 +975,15 @@ public interface Debugger {
         @Nonnull
         @Override
         public PInsertIntoMemoEvent toProto() {
-            return PInsertIntoMemoEvent.newBuilder()
+            final var builder = PInsertIntoMemoEvent.newBuilder()
                     .setLocation(getLocation().name())
-                    .build();
+                    .addAllReusedExpressionReferences(getReusedExpressionReferences().stream()
+                            .map(Event::toReferenceProto)
+                            .collect(ImmutableList.toImmutableList()));
+            if (expression != null) {
+                builder.setExpression(Event.toExpressionProto(expression));
+            }
+            return builder.build();
         }
 
         @Nonnull
@@ -947,6 +991,32 @@ public interface Debugger {
         public PEvent.Builder toEventBuilder() {
             return PEvent.newBuilder()
                     .setInsertIntoMemoEvent(toProto());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent begin() {
+            return new InsertIntoMemoEvent(Location.BEGIN, null, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent end() {
+            return new InsertIntoMemoEvent(Location.END, null, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent newExp(@Nonnull final RelationalExpression expression) {
+            return new InsertIntoMemoEvent(Location.NEW, expression, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent reusedExp(@Nonnull final RelationalExpression expression) {
+            return new InsertIntoMemoEvent(Location.REUSED, expression, ImmutableList.of());
+        }
+
+        @Nonnull
+        public static InsertIntoMemoEvent reusedExpWithReferences(@Nonnull final RelationalExpression expression,
+                                                                  @Nonnull final List<Reference> references) {
+            return new InsertIntoMemoEvent(Location.REUSED, expression, references);
         }
     }
 

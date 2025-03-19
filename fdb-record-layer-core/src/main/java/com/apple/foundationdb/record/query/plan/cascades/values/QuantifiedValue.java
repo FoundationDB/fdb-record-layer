@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -48,5 +53,29 @@ public interface QuantifiedValue extends LeafValue {
     default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> getAlias().equals(((QuantifiedValue)other).getAlias()));
+    }
+
+    @Nonnull
+    @Override
+    default Map<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
+                                     @Nonnull final AliasMap aliasMap,
+                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                     @Nonnull final CorrelationIdentifier upperBaseAlias) {
+        final var alias = getAlias();
+        final var areSimpleReferences =
+                Streams.stream(toBePulledUpValues)
+                        .flatMap(toBePulledUpValue -> toBePulledUpValue.getCorrelatedTo().stream())
+                        .noneMatch(a -> !alias.equals(a) && constantAliases.contains(a));
+        if (areSimpleReferences) {
+            final var translationMap =
+                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(alias, upperBaseAlias));
+            final var translatedMapBuilder = ImmutableMap.<Value, Value>builder();
+            for (final var toBePulledUpValue : toBePulledUpValues) {
+                translatedMapBuilder.put(toBePulledUpValue, toBePulledUpValue.translateCorrelations(translationMap));
+            }
+            return translatedMapBuilder.build();
+        }
+
+        return LeafValue.super.pullUp(toBePulledUpValues, aliasMap, constantAliases, upperBaseAlias);
     }
 }

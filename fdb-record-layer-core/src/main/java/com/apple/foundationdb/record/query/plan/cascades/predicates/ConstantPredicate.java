@@ -105,7 +105,7 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
 
     @Nonnull
     @Override
-    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
+    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         return this;
     }
 

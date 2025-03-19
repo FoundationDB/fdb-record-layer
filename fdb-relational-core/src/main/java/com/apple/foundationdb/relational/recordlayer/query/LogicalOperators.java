@@ -75,6 +75,10 @@ public class LogicalOperators implements Iterable<LogicalOperator> {
         return underlying.isEmpty();
     }
 
+    public int size() {
+        return  underlying.size();
+    }
+
     @Nonnull
     public Set<CorrelationIdentifier> getCorrelations() {
         return underlying.stream().map(operator -> operator.getQuantifier().getAlias()).collect(ImmutableSet.toImmutableSet());

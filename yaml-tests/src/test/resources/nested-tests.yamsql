@@ -35,6 +35,7 @@ setup:
               (10, 20, ((null, null), null))
 ---
 test_block:
+  name: nested-tests
   tests:
     -
       - query: select * from t1;

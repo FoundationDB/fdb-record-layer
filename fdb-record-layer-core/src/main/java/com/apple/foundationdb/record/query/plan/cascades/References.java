@@ -45,7 +45,8 @@ public class References {
     }
 
     public static List<? extends Reference> translateCorrelations(@Nonnull final List<? extends Reference> refs,
-                                                                  @Nonnull final TranslationMap translationMap) {
+                                                                  @Nonnull final TranslationMap translationMap,
+                                                                  final boolean shouldSimplifyValues) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
         }
@@ -95,13 +96,17 @@ public class References {
                         if (memberCorrelatedTo.stream().noneMatch(translationMap::containsSourceAlias)) {
                             translatedMember = member;
                         } else {
-                            translatedMember = member.translateCorrelations(translationMap, translatedQuantifiers);
-                            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TranslateCorrelationsEvent(translatedMember, Debugger.Location.COUNT)));
+                            translatedMember = member.translateCorrelations(translationMap, shouldSimplifyValues,
+                                    translatedQuantifiers);
+                            Debugger.withDebugger(debugger -> debugger.onEvent(
+                                    new Debugger.TranslateCorrelationsEvent(translatedMember, Debugger.Location.COUNT)));
                             allMembersSame = false;
                         }
                     } else {
-                        translatedMember = member.translateCorrelations(translationMap, translatedQuantifiers);
-                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TranslateCorrelationsEvent(translatedMember, Debugger.Location.COUNT)));
+                        translatedMember = member.translateCorrelations(translationMap, shouldSimplifyValues,
+                                translatedQuantifiers);
+                        Debugger.withDebugger(debugger -> debugger.onEvent(
+                                new Debugger.TranslateCorrelationsEvent(translatedMember, Debugger.Location.COUNT)));
                         allMembersSame = false;
                     }
                     translatedMembersBuilder.add(translatedMember);

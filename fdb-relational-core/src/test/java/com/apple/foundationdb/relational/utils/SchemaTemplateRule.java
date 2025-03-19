@@ -32,6 +32,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -127,7 +128,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
         }
 
         public String getOptionsString() {
-            return String.format(" WITH OPTIONS(ENABLE_LONG_ROWS=%s, INTERMINGLE_TABLES=%s) ",
+            return String.format(Locale.ROOT, " WITH OPTIONS(ENABLE_LONG_ROWS=%s, INTERMINGLE_TABLES=%s) ",
                     enableLongRows, intermingleTables);
         }
     }

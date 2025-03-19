@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 
@@ -33,7 +34,7 @@ import java.util.function.Function;
  * Contains a set of utility methods that are relevant for parsing the AST.
  */
 public enum PseudoColumn {
-    ROW_VERSION(qun -> new VersionValue(qun.getAlias())),
+    ROW_VERSION(qun -> new VersionValue(QuantifiedRecordValue.of(qun))),
     ;
 
     private static final String PREFIX = "__";

@@ -225,7 +225,7 @@ public class LuceneIndexTestValidator {
     }
 
     List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
-                                                                                Tuple groupingKey) {
+                                                                        Tuple groupingKey) {
         try (FDBRecordContext context = contextProvider.get()) {
             final FDBRecordStore recordStore = schemaSetup.apply(context);
             LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer) recordStore.getIndexMaintainer(index);

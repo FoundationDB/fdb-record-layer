@@ -45,12 +45,12 @@ public final class RelationalAssertions {
     }
 
     public static RelationalExceptionAssert assertThrows(ThrowableAssert.ThrowingCallable shouldThrow) {
-        RelationalException ve = Assertions.catchThrowableOfType(shouldThrow, RelationalException.class);
+        RelationalException ve = Assertions.catchThrowableOfType(RelationalException.class, shouldThrow);
         return new RelationalExceptionAssert(ve);
     }
 
     public static SQLExceptionAssert assertThrowsSqlException(ThrowableAssert.ThrowingCallable shouldThrow) {
-        SQLException se = Assertions.catchThrowableOfType(shouldThrow, SQLException.class);
+        SQLException se = Assertions.catchThrowableOfType(SQLException.class, shouldThrow);
         if (se == null) {
             Assertions.fail(String.format("expected an exception of type %s to be thrown, but no exception was thrown", SQLException.class.getSimpleName()));
         }

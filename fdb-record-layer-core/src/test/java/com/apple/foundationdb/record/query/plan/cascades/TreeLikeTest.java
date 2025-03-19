@@ -42,7 +42,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link TreeLike}.
  */
 public class TreeLikeTest {
-
     @Test
     void testPreOrder1() {
         final TreeNode t = node("a", node("b"), node("c"));

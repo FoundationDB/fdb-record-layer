@@ -73,6 +73,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -215,7 +216,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
             if (createDatabaseIfNecessary) {
                 createDatabase(recordStore, URI.create(schema.getDatabaseName()));
             } else {
-                throw new RelationalException(String.format("Cannot create schema %s because database %s does not exist.", schema.getName(), schema.getDatabaseName()),
+                throw new RelationalException(String.format(Locale.ROOT, "Cannot create schema %s because database %s does not exist.", schema.getName(), schema.getDatabaseName()),
                         ErrorCode.UNDEFINED_DATABASE);
             }
         }
@@ -223,7 +224,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         Assert.that(schemaTemplateCatalog.doesSchemaTemplateExist(txn, schema.getSchemaTemplate().getName(),
                         schema.getSchemaTemplate().getVersion()),
                 ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
-                () -> String.format("Cannot create schema %s because schema template %s version %d does not exist.",
+                () -> String.format(Locale.ROOT, "Cannot create schema %s because schema template %s version %d does not exist.",
                         schema.getName(), schema.getSchemaTemplate().getName(),
                         schema.getSchemaTemplate().getVersion()));
         try {

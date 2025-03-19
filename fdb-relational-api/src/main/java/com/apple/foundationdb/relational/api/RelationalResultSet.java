@@ -55,6 +55,7 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
 
     /**
      * A {@code Continuation} that can be used for retrieving the rest of the rows.
+     * Note: The continuation is only available once the result set has been exhausted.
      *
      * @return  A {@code Continuation} that can be used for retrieving the rest of the rows.
      * @throws SQLException if the continuation cannot be retrieved.

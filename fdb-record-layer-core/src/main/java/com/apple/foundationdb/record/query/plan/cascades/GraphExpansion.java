@@ -293,8 +293,6 @@ public class GraphExpansion {
         return graphExpansion.new Sealed();
     }
 
-
-
     @Nonnull
     public SelectExpression buildSelect() {
         return seal().buildSelect();
@@ -395,7 +393,6 @@ public class GraphExpansion {
      * A sealed version of {@link GraphExpansion} that has already reconciled duplicate placeholders.
      */
     public class Sealed {
-
         @Nonnull
         public SelectExpression buildSelect() {
             return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates());
@@ -456,26 +453,26 @@ public class GraphExpansion {
          * A list of columns representing the result of this expansion, if sealed and built.
          */
         @Nonnull
-        private final ImmutableList.Builder<Column<? extends Value>> resultColumns;
+        private ImmutableList.Builder<Column<? extends Value>> resultColumns;
 
         /**
          * A list of predicates that need to be applied when this expansion is built and sealed. The resulting filter
          * will use the logical conjunct of all predicates to filter the flowed records.
          */
         @Nonnull
-        private final ImmutableList.Builder<QueryPredicate> predicates;
+        private ImmutableList.Builder<QueryPredicate> predicates;
 
         /**
          * A list of quantifiers that the result of this expansion will range over.
          */
         @Nonnull
-        private final ImmutableList.Builder<Quantifier> quantifiers;
+        private ImmutableList.Builder<Quantifier> quantifiers;
 
         /**
          * A list of all placeholders added during the expansion of the associated {@link MatchCandidate}.
          */
         @Nonnull
-        private final ImmutableList.Builder<Placeholder> placeholders;
+        private ImmutableList.Builder<Placeholder> placeholders;
 
         private Builder() {
             resultColumns = new ImmutableList.Builder<>();
@@ -509,6 +506,12 @@ public class GraphExpansion {
         }
 
         @Nonnull
+        public Builder removeAllResultColumns() {
+            resultColumns = new ImmutableList.Builder<>();
+            return this;
+        }
+
+        @Nonnull
         public Builder addPredicate(@Nonnull final QueryPredicate predicate) {
             predicates.add(predicate);
             return this;
@@ -521,6 +524,12 @@ public class GraphExpansion {
         }
 
         @Nonnull
+        public Builder removeAllPredicates() {
+            predicates = new ImmutableList.Builder<>();
+            return this;
+        }
+
+        @Nonnull
         public Builder addQuantifier(@Nonnull final Quantifier quantifier) {
             quantifiers.add(quantifier);
             return this;
@@ -529,6 +538,12 @@ public class GraphExpansion {
         @Nonnull
         public Builder addAllQuantifiers(@Nonnull final Iterable<? extends Quantifier> addQuantifiers) {
             addQuantifiers.forEach(this::addQuantifier);
+            return this;
+        }
+
+        @Nonnull
+        public Builder removeAllQuantifiers() {
+            quantifiers = new ImmutableList.Builder<>();
             return this;
         }
 
@@ -560,6 +575,12 @@ public class GraphExpansion {
         @Nonnull
         public Builder addAllPlaceholders(@Nonnull final Iterable<? extends Placeholder> addPlaceholders) {
             placeholders.addAll(addPlaceholders);
+            return this;
+        }
+
+        @Nonnull
+        public Builder removeAllPlaceholders() {
+            placeholders = new ImmutableList.Builder<>();
             return this;
         }
 

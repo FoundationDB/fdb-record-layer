@@ -144,6 +144,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     @Override
     public RecordQueryDeletePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                       final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryDeletePlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));

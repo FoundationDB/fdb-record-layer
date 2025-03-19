@@ -24,20 +24,15 @@ dependencies {
     api(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
     }
-    api "org.foundationdb:fdb-java:${fdbVersion}"
-    implementation "com.google.guava:guava:${guavaVersion}"
-    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
-    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
+    api(libs.fdbJava)
+    implementation(libs.guava)
+    implementation(libs.slf4j.api)
+    compileOnly(libs.jsr305)
 
-    testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
-    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
-    testImplementation "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
-    testCompileOnly "com.google.auto.service:auto-service:undefined"
-    testAnnotationProcessor "com.google.auto.service:auto-service:undefined"
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    testAnnotationProcessor(libs.autoService)
 }
 
 publishing {

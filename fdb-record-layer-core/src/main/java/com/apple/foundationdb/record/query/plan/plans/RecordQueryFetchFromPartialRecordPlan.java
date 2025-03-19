@@ -179,8 +179,11 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Nonnull
     @Override
-    public RecordQueryFetchFromPartialRecordPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), Objects.requireNonNull(translateValueFunction), resultType, fetchIndexRecords);
+    public RecordQueryFetchFromPartialRecordPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                       final boolean shouldSimplifyValues,
+                                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+                Objects.requireNonNull(translateValueFunction), resultType, fetchIndexRecords);
     }
 
     @Nonnull

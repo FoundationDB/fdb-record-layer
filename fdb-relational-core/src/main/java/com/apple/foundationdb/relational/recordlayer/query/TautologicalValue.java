@@ -84,7 +84,7 @@ public final class TautologicalValue extends AbstractValue implements BooleanVal
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
         return true;
     }
 

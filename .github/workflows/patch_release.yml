@@ -1,0 +1,16 @@
+name: Patch Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build off of'
+        required: true
+
+jobs:
+  no-op:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show message
+        shell: bash
+        run: echo "Patch releases are now done via the release job just against a non-main branch"

@@ -265,7 +265,7 @@ class TypeTest {
                             List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()))), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))), false),
 
                     // DynamicMessage
-                    Arguments.of(actualMessage, Type.Record.fromFields(List.of(
+                    Arguments.of(actualMessage, Type.Record.fromFields(false, List.of(
                             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("start_date")),
                             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("school_name")),
                             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("hometown"))

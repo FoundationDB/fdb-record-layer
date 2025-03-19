@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import java.sql.Array;
+import java.sql.Struct;
 import java.sql.Types;
 
 /**
@@ -62,6 +64,8 @@ public final class SqlTypeNamesSupport {
                 return "NULL";
             case Types.OTHER:
                 return "OTHER";
+            case Types.BOOLEAN:
+                return "BOOLEAN";
             default:
                 throw new IllegalStateException("Unexpected sql type code :" + sqlTypeCode);
         }
@@ -87,8 +91,36 @@ public final class SqlTypeNamesSupport {
                 return Types.ARRAY;
             case "NULL":
                 return Types.NULL;
+            case "BOOLEAN":
+                return Types.BOOLEAN;
             default:
                 throw new IllegalStateException("Unexpected sql type name:" + sqlTypeName);
+        }
+    }
+
+    public static int getSqlTypeCodeFromObject(Object obj) {
+        if (obj == null) {
+            return Types.NULL;
+        } else if (obj instanceof Long) {
+            return Types.BIGINT;
+        } else if (obj instanceof Integer) {
+            return Types.INTEGER;
+        } else if (obj instanceof Boolean) {
+            return Types.BOOLEAN;
+        } else if (obj instanceof byte[]) {
+            return Types.BINARY;
+        } else if (obj instanceof Float) {
+            return Types.FLOAT;
+        } else if (obj instanceof Double) {
+            return Types.DOUBLE;
+        } else if (obj instanceof String) {
+            return Types.VARCHAR;
+        } else if (obj instanceof Array) {
+            return Types.ARRAY;
+        } else if (obj instanceof Struct) {
+            return Types.STRUCT;
+        } else {
+            throw new IllegalStateException("Unexpected object type: " + obj.getClass().getName());
         }
     }
 }

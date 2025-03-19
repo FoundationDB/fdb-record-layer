@@ -104,7 +104,7 @@ public final class NullableArrayUtils {
             for (final var child : keyExpression.getThen().getChildList()) {
                 newThenBuilder.addChild(wrapArrayInternal(child, parentDescriptor));
             }
-            return  RecordKeyExpressionProto.KeyExpression.newBuilder().setThen(newThenBuilder).build();
+            return RecordKeyExpressionProto.KeyExpression.newBuilder().setThen(newThenBuilder).build();
         }
 
         // handle nested field

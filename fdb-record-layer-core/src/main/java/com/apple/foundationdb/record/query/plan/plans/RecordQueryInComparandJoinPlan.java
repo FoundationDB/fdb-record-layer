@@ -98,7 +98,9 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInComparandJoinPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 inComparandSource(),
                 internal);

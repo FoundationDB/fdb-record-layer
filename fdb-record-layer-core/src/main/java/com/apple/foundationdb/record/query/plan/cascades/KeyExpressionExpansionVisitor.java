@@ -251,20 +251,19 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
-                final Quantifier.ForEach childBase = parent.explodeField(baseQuantifier, fieldNamePrefix);
+                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
-                        pop(child.expand(push(state.withBaseQuantifier(childBase).withFieldNamePrefix(ImmutableList.of()))));
+                        pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier).withFieldNamePrefix(ImmutableList.of()))));
                 final GraphExpansion baseAndChildExpansion;
                 if (state.isSelectStar()) {
                     final GraphExpansion baseExpansion =
                             GraphExpansion.builder()
-                                    .addQuantifier(childBase)
-                                    .addAllResultColumns(childExpansion.getResultColumns())
+                                    .pullUpQuantifier(childBaseQuantifier)
                                     .build();
                     baseAndChildExpansion = GraphExpansion.ofOthers(baseExpansion, childExpansion);
                 } else {
-                    baseAndChildExpansion = childExpansion.withBase(childBase);
+                    baseAndChildExpansion = childExpansion.withBase(childBaseQuantifier);
                 }
                 final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
                 final SelectExpression selectExpression =

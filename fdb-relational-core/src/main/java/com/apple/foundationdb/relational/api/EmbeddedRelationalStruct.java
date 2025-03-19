@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public interface EmbeddedRelationalStruct extends RelationalStruct {
 
@@ -88,7 +89,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
         public RelationalStructBuilder addObject(String fieldName, @Nullable Object obj, int targetSqlType) throws SQLException {
             if (targetSqlType == Types.STRUCT) {
                 if (!(obj instanceof RelationalStruct)) {
-                    throw new RelationalException(String.format("Expected object to be of type:STRUCT, but found type:%s",
+                    throw new RelationalException(String.format(Locale.ROOT, "Expected object to be of type:STRUCT, but found type:%s",
                                     obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
                             ErrorCode.DATATYPE_MISMATCH).toSqlException();
                 }
@@ -96,7 +97,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
             }
             if (targetSqlType == Types.ARRAY) {
                 if (!(obj instanceof RelationalArray)) {
-                    throw new RelationalException(String.format("Expected object to be of type:ARRAY, but found type:%s",
+                    throw new RelationalException(String.format(Locale.ROOT, "Expected object to be of type:ARRAY, but found type:%s",
                                     obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
                             ErrorCode.DATATYPE_MISMATCH).toSqlException();
                 }

@@ -21,14 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer.storage;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ResolverStateProto;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.cursors.FutureCursor;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -37,8 +37,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
-import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
@@ -50,7 +48,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.QueryPropertiesUtils;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
+import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -207,19 +206,24 @@ public final class BackingLocatableResolverStore implements BackingStore {
             throw new InternalErrorException("unsupported range");
         }
 
+        final byte[] continuationBytes = continuation == null ? null : continuation.getExecutionState();
+        final ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(options);
         if (type.getName().equals(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME)) {
-            CompletableFuture<FDBStoredRecord<Message>> future = locatableResolver.loadResolverState(context)
-                    .thenApply(state -> {
+            // todo: this does not use the scanProperties to track runtime information like rows scanned
+            // see: https://github.com/FoundationDB/fdb-record-layer/issues/3226
+            final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
+            return RecordCursor.fromFuture(context.getExecutor(),
+                    () -> locatableResolver.loadResolverState(context).thenApply(state -> {
                         Message msg = metaDataProvider.wrapResolverState(state);
                         return FDBStoredRecord.newBuilder(msg)
                                 .setRecordType(type)
                                 .setPrimaryKey(TupleHelpers.EMPTY)
                                 .build();
-                    });
-            return new FutureCursor<>(context.getExecutor(), future);
+                    }),
+                    continuationBytes
+            ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         } else if (type.getName().equals(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME)) {
-            byte[] continuationBytes = continuation == null ? null : continuation.getExecutionState();
-            return locatableResolver.scan(context, continuationBytes, QueryPropertiesUtils.getScanProperties(options))
+            return locatableResolver.scan(context, continuationBytes, scanProperties)
                     .map(resolverKeyValue -> {
                         Message msg = metaDataProvider.wrapResolverResult(resolverKeyValue.getKey(), resolverKeyValue.getValue());
                         return FDBStoredRecord.newBuilder(msg)

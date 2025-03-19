@@ -110,6 +110,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public RecordQueryUpdatePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                       final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUpdatePlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
@@ -117,7 +118,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetType(),
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap));
+                getComputationValue().translateCorrelations(translationMap, shouldSimplifyValues));
     }
 
     @Nullable

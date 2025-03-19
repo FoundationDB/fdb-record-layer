@@ -50,6 +50,15 @@ public class FutureCursor<T> implements RecordCursor<T> {
     @Nonnull
     private static final RecordCursorContinuation notDoneContinuation = ByteArrayContinuation.fromNullable(new byte[] {0});
 
+    /**
+     * Internal constructor. Users should generally call
+     * {@link RecordCursor#fromFuture(Executor, java.util.function.Supplier, byte[])}
+     * in order to ensure that continuations from this cursor are properly handled.
+     *
+     * @param executor the executor to associate with this cursor
+     * @param future a future that when completed will provide the single element returned by this cursor
+     */
+    @API(API.Status.INTERNAL)
     public FutureCursor(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future) {
         this.executor = executor;
         this.future = future;

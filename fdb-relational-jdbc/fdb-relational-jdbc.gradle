@@ -19,8 +19,8 @@
  */
 
 plugins {
-    id "com.github.harbby.gradle.serviceloader" version "1.1.8"
-    id 'com.github.johnrengelman.shadow' version "${shadowPluginVersion}"
+    alias(libs.plugins.serviceloader)
+    alias(libs.plugins.shadow)
 }
 
 
@@ -29,25 +29,22 @@ apply from: rootProject.file('gradle/publishing.gradle')
 dependencies {
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-grpc")
-    implementation "io.grpc:grpc-inprocess:${grpcVersion}"
-    implementation "io.grpc:grpc-netty:${grpcVersion}"
-    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
-    implementation "io.grpc:grpc-stub:${grpcVersion}"
-    implementation "io.grpc:grpc-services:${grpcVersion}"
-    testImplementation "io.grpc:grpc-testing:${grpcVersion}"
-    implementation "io.dropwizard.metrics:metrics-core:${dropwizardVersion}"
+    implementation(libs.grpc.inprocess)
+    implementation(libs.grpc.netty)
+    implementation(libs.grpc.protobuf)
+    implementation(libs.grpc.stub)
+    implementation(libs.grpc.services)
+    implementation(libs.dropwizard)
 
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
     // Server in the TEST context ONLY!!
     testImplementation project(":fdb-relational-server")
     testImplementation(testFixtures(project(":fdb-relational-server")))
     // FDB Relational core test fixture in the TEST context only -- not in main!!!!
     testImplementation(testFixtures(project(":fdb-relational-core")))
-    testImplementation "org.assertj:assertj-core:${assertjVersion}"
-    // slf4j binding. Allows RL dependencies to log to same place as the relational server
-    testRuntimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}")
-    testRuntimeOnly("org.apache.logging.log4j:log4j-core:${log4jVersion}")
+    testImplementation(libs.grpc.testing)
 }
 
 serviceLoader {

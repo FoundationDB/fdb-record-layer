@@ -42,9 +42,7 @@ class IteratorResultSetTest {
                 FieldDescription.primitive("testField", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
         };
         try (IteratorResultSet irs = new IteratorResultSet(new RelationalStructMetaData(fields), Collections.singleton((Row) (new ArrayRow(new Object[]{"test"}))).iterator(), 0)) {
-            Continuation shouldBeStart = irs.getContinuation();
-            Assertions.assertTrue(shouldBeStart.atBeginning(), "Is not at beginning!");
-            Assertions.assertNull(shouldBeStart.getExecutionState(), "Incorrect byte[] for continuation!");
+            Assertions.assertThrows(SQLException.class, () -> irs.getContinuation());
 
             //now iterate
             irs.next();

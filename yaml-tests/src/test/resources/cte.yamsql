@@ -31,6 +31,7 @@ setup:
                (7, 20, 7)
 ---
 test_block:
+  name: cte-tests
   preset: single_repetition_ordered
   tests:
     -
@@ -87,9 +88,6 @@ test_block:
       - query: with c1(w, z) as (select id, col1 from t1), c2(a, b) as (with c3(A, B) as (select id, col1 from c1 where id in (1, 2)) select * from c3) select * from c1,c2
       - error: "42F01"
     -
-      - query: with recursive c1(w, z) as (select id, col1 from t1) select * from c1
-      - error: "0AF00"
-    -
       - query: with c1(w, z, x1, x2, x3, x4) as (select id, col1 from t1) select * from c1
       - error: "42F10"
     -
@@ -122,4 +120,12 @@ test_block:
       # TODO (CTEs and subqueries are not fully optimized)
       - query: with c1(x, y) as (select col1, col2 from t1) select x from c1 where y < 3
       - explain: "SCAN(<,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | FILTER _.COL2 LESS_THAN promote(@c24 AS LONG) | MAP (_.COL1 AS X)"
+    -
+      - query: with c1 as (select col1, col2 from t1) select col1, col2 from c1
+      - maxRows: 1
+      - result: [{COL1: 10, COL2: 1}]
+      - result: [{COL1: 10, COL2: 2}]
+      - result: [{COL1: 20, COL2: 6}]
+      - result: [{COL1: 20, COL2: 7}]
+      - result: []
 ...

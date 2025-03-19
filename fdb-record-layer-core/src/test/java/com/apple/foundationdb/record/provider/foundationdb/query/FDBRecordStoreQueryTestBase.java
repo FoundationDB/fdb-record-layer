@@ -51,17 +51,19 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -99,6 +101,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -654,6 +657,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
         final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional,
                 IndexQueryabilityFilter.DEFAULT, EvaluationContext.forBindings(bindings));
+
+        final var planInfo = planResult.getPlanInfo();
+        assertTrue(planInfo.containsKey(QueryPlanInfoKeys.STATS_MAPS));
+        final var statsMaps = planInfo.get(QueryPlanInfoKeys.STATS_MAPS);
+        assertNotNull(statsMaps);
+        final var eventClassStatsMap = statsMaps.getEventClassStatsMap();
+        assertTrue(eventClassStatsMap.containsKey(Debugger.ExecutingTaskEvent.class));
+        assertTrue(eventClassStatsMap.get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN) > 0);
+
         final var plan = planResult.getPlan();
         System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plan) + "\n");
         return verifySerialization(plan);

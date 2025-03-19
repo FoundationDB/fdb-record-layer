@@ -45,8 +45,8 @@ import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
-import com.apple.foundationdb.relational.recordlayer.query.functions.FunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
 import com.apple.foundationdb.relational.util.Assert;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -160,8 +160,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Nonnull
-    public FunctionCatalog getFunctionCatalog() {
-        return SqlFunctionCatalog.instance();
+    public SqlFunctionCatalog getFunctionCatalog() {
+        return SqlFunctionCatalogImpl.instance();
     }
 
     @Nonnull
@@ -174,17 +174,17 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return currentPlanFragment.orElseThrow().getLogicalOperatorsIncludingOuter();
     }
 
-    boolean isTopLevel() {
+    public boolean isTopLevel() {
         return !(currentPlanFragment.isPresent() && currentPlanFragment.get().hasParent());
     }
 
     @Nonnull
-    LogicalPlanFragment pushPlanFragment() {
+    public LogicalPlanFragment pushPlanFragment() {
         currentPlanFragment = Optional.of(currentPlanFragment.map(LogicalPlanFragment::addChild).orElse(LogicalPlanFragment.ofRoot()));
         return currentPlanFragment.get();
     }
 
-    void popPlanFragment() {
+    public void popPlanFragment() {
         this.currentPlanFragment = currentPlanFragment.flatMap(LogicalPlanFragment::getParentMaybe);
     }
 

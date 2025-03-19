@@ -36,9 +36,10 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -57,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -214,10 +214,12 @@ public class OrPredicate extends AndOrPredicate {
      */
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
-                                                                @Nonnull final QueryPredicate candidatePredicate,
-                                                                @Nonnull final EvaluationContext evaluationContext) {
-        Optional<PredicateMapping> mappingsOptional = super.impliesCandidatePredicate(valueEquivalence, candidatePredicate, evaluationContext);
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final QueryPredicate candidatePredicate,
+                                                                     @Nonnull final EvaluationContext evaluationContext) {
+        Optional<PredicateMapping> mappingsOptional = super.impliesCandidatePredicateMaybe(valueEquivalence,
+                originalQueryPredicate, candidatePredicate, evaluationContext);
         if (mappingsOptional.isPresent()) {
             return mappingsOptional;
         }
@@ -231,8 +233,8 @@ public class OrPredicate extends AndOrPredicate {
                     candidatePredicate.toValueWithRangesMaybe(evaluationContext);
             if (candidateValueWithRangesOptional.isPresent()) {
                 final var rightValueWithRanges = candidateValueWithRangesOptional.get();
-                mappingsOptional = impliesWithValuesAndRanges(valueEquivalence, candidatePredicate, evaluationContext,
-                        leftValueWithRanges, rightValueWithRanges);
+                mappingsOptional = impliesWithValuesAndRanges(valueEquivalence, originalQueryPredicate,
+                        candidatePredicate, evaluationContext, leftValueWithRanges, rightValueWithRanges);
             }
         }
 
@@ -259,10 +261,11 @@ public class OrPredicate extends AndOrPredicate {
                 // special mapping.
                 //
                 return Optional.of(
-                        PredicateMapping.orTermMappingBuilder(this, new ConstantPredicate(true))
-                                .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
+                        PredicateMapping.orTermMappingBuilder(
+                                        originalQueryPredicate, this,
+                                        new ConstantPredicate(true))
+                                .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                                 .setConstraint(constraintOptional.get())
-                                .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
                                 .build());
             }
         }
@@ -272,6 +275,7 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nonnull
     private Optional<PredicateMapping> impliesWithValuesAndRanges(@Nonnull final ValueEquivalence valueEquivalence,
+                                                                  @Nonnull final QueryPredicate originalQueryPredicate,
                                                                   @Nonnull final QueryPredicate candidatePredicate,
                                                                   @Nonnull final EvaluationContext evaluationContext,
                                                                   @Nonnull final PredicateWithValueAndRanges leftValueWithRanges,
@@ -298,7 +302,7 @@ public class OrPredicate extends AndOrPredicate {
         final var matchPair = matchPairOptional.get();
         final var comparisonCompensation = matchPair.getLeft();
         final var compensatedLeftValueWithRangesOptional =
-                leftValueWithRanges.translateValueAndComparisonsMaybe(comparisonCompensation::applyToValue,
+                leftValueWithRanges.translateValueAndComparisonsMaybe(value -> Optional.of(comparisonCompensation.applyToValue(value)),
                         comparisonCompensation::applyToComparisonMaybe);
         if (compensatedLeftValueWithRangesOptional.isEmpty()) {
             return Optional.empty();
@@ -332,17 +336,14 @@ public class OrPredicate extends AndOrPredicate {
         // add this predicate as a residual on top.
         if (requiresCompensation) {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
-                            .setCompensatePredicateFunction((partialMatch, boundParameterPrefixMap) ->
-                                    Objects.requireNonNull(foldNullable(Function.identity(),
-                                            (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
-                                                    boundParameterPrefixMap,
-                                                    ImmutableList.copyOf(childFunctions)))))
-                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
+                                    candidatePredicate)
+                            .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                             .build());
         } else {
             return Optional.of(
-                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                    PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
+                                    candidatePredicate)
                             .setConstraint(matchPair.getRight())
                             .build());
         }
@@ -350,22 +351,29 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nonnull
     @Override
-    public Optional<PredicateMultiMap.ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
-                                                                                                  @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                                  @Nonnull final List<Optional<PredicateMultiMap.ExpandCompensationFunction>> childrenResults) {
-        final var childrenInjectCompensationFunctions =
-                childrenResults.stream()
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(ImmutableList.toImmutableList());
-        if (childrenInjectCompensationFunctions.isEmpty()) {
-            return Optional.empty();
+    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
+                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final PullUp pullUp) {
+        boolean isNeeded = false;
+        for (final var childPredicateCompensationFunction : childrenResults) {
+            isNeeded |= childPredicateCompensationFunction.isNeeded();
+            if (childPredicateCompensationFunction.isImpossible()) {
+                return PredicateCompensationFunction.impossibleCompensation();
+            }
         }
 
-        return Optional.of(translationMap -> {
-            final var childPredicatesList = childrenInjectCompensationFunctions.stream()
-                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap))
-                    .collect(ImmutableList.toImmutableList());
+        if (!isNeeded) {
+            return PredicateCompensationFunction.noCompensationNeeded();
+        }
+
+        return PredicateCompensationFunction.of(baseAlias -> {
+            final var childPredicatesList =
+                    childrenResults.stream()
+                            .filter(PredicateCompensationFunction::isNeeded)
+                            .map(predicateCompensationFunction -> predicateCompensationFunction.applyCompensationForPredicate(baseAlias))
+                            .collect(ImmutableList.toImmutableList());
             // take the predicates from each individual expansion, "and" them, and then "or" them
             final var predicates = LinkedIdentitySet.<QueryPredicate>of();
             for (final var childPredicates : childPredicatesList) {

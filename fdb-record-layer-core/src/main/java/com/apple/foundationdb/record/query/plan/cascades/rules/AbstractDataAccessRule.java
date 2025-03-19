@@ -550,7 +550,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
                     scanDirection == ScanDirection.BOTH);
 
-            final var compensation = partialMatch.compensate();
+            final var compensation = partialMatch.compensateCompleteMatch();
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
@@ -776,11 +776,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                                             @Nonnull final SingleMatchedAccess singleMatchedAccess,
                                                                                             @Nonnull final RecordQueryPlan plan) {
         final var compensation = singleMatchedAccess.getCompensation();
-        return compensation.isImpossible()
-               ? Optional.empty()
-               : Optional.of(compensation.isNeeded()
-                             ? compensation.apply(memoizer, plan)
-                             : plan);
+        if (compensation.isImpossible()) {
+            return Optional.empty();
+        }
+        return Optional.of(compensation.applyAllNeededCompensations(memoizer, plan));
     }
     
     /**
@@ -869,9 +868,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
                                     comparisonOrderingParts, comparisonIsReverse);
                     final var compensatedIntersection =
-                            compensation.isNeeded()
-                            ? compensation.apply(memoizer, intersectionPlan)
-                            : intersectionPlan;
+                            compensation.applyAllNeededCompensations(memoizer, intersectionPlan);
                     expressionsBuilder.add(compensatedIntersection);
                 }
             }

@@ -30,6 +30,7 @@ schema_template:
     create table F(pk integer, x U array, primary key(pk))
 ---
 test_block:
+  name: arrays-tests
   preset: single_repetition_ordered
   tests:
     -

@@ -131,7 +131,8 @@ public interface MatchCandidate {
      */
     default Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap(@Nonnull final MatchInfo matchInfo) {
         final var prefixMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
-        final var parameterBindingMap = matchInfo.getParameterBindingMap();
+        final var parameterBindingMap =
+                matchInfo.getRegularMatchInfo().getParameterBindingMap();
 
         final var parameters = getSargableAliases();
         for (final var parameter : parameters) {

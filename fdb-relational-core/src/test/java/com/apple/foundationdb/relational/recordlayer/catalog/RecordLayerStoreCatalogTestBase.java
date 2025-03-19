@@ -102,8 +102,8 @@ public abstract class RecordLayerStoreCatalogTestBase {
             Continuation continuation = ContinuationImpl.BEGIN;
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
-                    // to test continuation, only read 1 result at once
-                    if (result.next()) {
+                    // to test continuation, read all results and then continue with the continuation
+                    while (result.next()) {
                         fullSchemaNames.add(result.getString("DATABASE_ID") + "?schema=" + result.getString("SCHEMA_NAME"));
                     }
                     continuation = result.getContinuation();
@@ -122,7 +122,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
             Continuation continuation = ContinuationImpl.BEGIN;
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, URI.create("/TEST/test_database_id1"), continuation)) {
-                    if (result.next()) {
+                    while (result.next()) {
                         resultSet.add(result.getString("DATABASE_ID") + "?schema=" + result.getString("SCHEMA_NAME"));
                     }
                     continuation = result.getContinuation();

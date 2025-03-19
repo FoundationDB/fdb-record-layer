@@ -160,7 +160,9 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public RecordQuerySortPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RecordQuerySortPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                     final boolean shouldSimplifyValues,
+                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQuerySortPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers), key);
     }
 

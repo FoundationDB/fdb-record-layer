@@ -20,28 +20,31 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.planprotos.PMacroFunctionValue;
-import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Main interface for defining a user-defined function that can be evaluated against a number of arguments.
+ * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
-public class MacroFunction extends Function<Value> {
+public class MacroFunction extends UserDefinedFunction {
     @Nonnull
     private final Value bodyValue;
+    @Nonnull
     private final List<CorrelationIdentifier> parameterIdentifiers;
 
     public MacroFunction(@Nonnull final String functionName, @Nonnull final List<QuantifiedObjectValue> parameters, @Nonnull final Value bodyValue) {
-        super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(Collectors.toList()), null);
+        super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(Collectors.toUnmodifiableList()));
         this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(Collectors.toList());
         this.bodyValue = bodyValue;
     }
@@ -62,28 +65,43 @@ public class MacroFunction extends Function<Value> {
     }
 
     @Nonnull
-    public PMacroFunctionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    @Override
+    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
         PMacroFunctionValue.Builder builder = PMacroFunctionValue.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {
             builder.addArguments(QuantifiedObjectValue.of(parameterIdentifiers.get(i), parameterTypes.get(i)).toValueProto(serializationContext));
         }
-        return builder
-                .setFunctionName(functionName)
-                .setBody(bodyValue.toValueProto(serializationContext))
+        return RecordMetaDataProto.PUserDefinedFunction.newBuilder()
+                .setMacroFunction(builder
+                        .setFunctionName(functionName)
+                        .setBody(bodyValue.toValueProto(serializationContext)))
                 .build();
-    }
-
-
-    @Nonnull
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var specificValueProto = toProto(serializationContext);
-        return PValue.newBuilder().setMacroFunctionValue(specificValueProto).build();
     }
 
     @Nonnull
     public static MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMacroFunctionValue functionValue) {
-        return new MacroFunction(functionValue.getFunctionName(),
+        return new MacroFunction(
+                functionValue.getFunctionName(),
                 functionValue.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
                 Value.fromValueProto(serializationContext, functionValue.getBody()));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PMacroFunctionValue, MacroFunction> {
+        @Nonnull
+        @Override
+        public Class<PMacroFunctionValue> getProtoMessageClass() {
+            return PMacroFunctionValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public MacroFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PMacroFunctionValue macroFunctionValue) {
+            return MacroFunction.fromProto(serializationContext, macroFunctionValue);
+        }
     }
 }

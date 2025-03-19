@@ -31,7 +31,7 @@
 script_dir="$( dirname $0 )"
 success=0
 
-release_notes_file="${script_dir}/../docs/ReleaseNotes.md"
+release_notes_file="${script_dir}/../docs/sphinx/source/ReleaseNotes.md"
 
 if [[ -n "${GIT_BRANCH:-}" ]] ; then
     branch="${GIT_BRANCH#*/}"

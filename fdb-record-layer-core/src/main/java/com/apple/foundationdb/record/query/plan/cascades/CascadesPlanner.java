@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -318,6 +319,9 @@ public class CascadesPlanner implements QueryPlanner {
                 .put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount)
                 .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
                 .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
+                .put(QueryPlanInfoKeys.STATS_MAPS,
+                        Debugger.getDebuggerMaybe().flatMap(Debugger::getStatsMaps)
+                                .orElse(null))
                 .build();
         return new QueryPlanResult(plan, info);
     }
@@ -354,7 +358,13 @@ public class CascadesPlanner implements QueryPlanner {
                     evaluationContext);
             final var plan = resultOrFail();
             final var constraints = QueryPlanConstraint.collectConstraints(plan);
-            return new QueryPlanResult(plan, QueryPlanInfo.newBuilder().put(QueryPlanInfoKeys.CONSTRAINTS, constraints).build());
+            return new QueryPlanResult(plan,
+                    QueryPlanInfo.newBuilder()
+                            .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
+                            .put(QueryPlanInfoKeys.STATS_MAPS,
+                                    Debugger.getDebuggerMaybe()
+                                            .flatMap(Debugger::getStatsMaps).orElse(null))
+                            .build());
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
@@ -391,33 +401,44 @@ public class CascadesPlanner implements QueryPlanner {
         maxQueueSize = 0;
         while (!taskStack.isEmpty()) {
             try {
-                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
                 if (isTaskTotalCountExceeded(configuration, taskCount)) {
-                    throw new RecordQueryPlanComplexityException("Maximum number of tasks (" + configuration.getMaxTotalTaskCount() + ") was exceeded");
+                    throw new RecordQueryPlanComplexityException("Maximum number of tasks was exceeded")
+                            .addLogInfo(LogMessageKeys.MAX_TASK_COUNT, configuration.getMaxTotalTaskCount())
+                            .addLogInfo(LogMessageKeys.TASK_COUNT, taskCount);
                 }
                 taskCount++;
 
+                Debugger.withDebugger(debugger -> debugger.onEvent(
+                        new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Location.BEGIN,
+                                Objects.requireNonNull(taskStack.peek()))));
                 Task nextTask = taskStack.pop();
-                if (logger.isTraceEnabled()) {
-                    logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
-                }
-
-                Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                 try {
-                    nextTask.execute();
+                    if (logger.isTraceEnabled()) {
+                        logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
+                    }
+
+                    Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
+                    try {
+                        nextTask.execute();
+                    } finally {
+                        Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
+                    }
+
+                    if (logger.isTraceEnabled()) {
+                        logger.trace(KeyValueLogMessage.of("planner state",
+                                "taskStackSize", taskStack.size(),
+                                "memo", new ReferencePrinter(currentRoot)));
+                    }
+
+                    maxQueueSize = Math.max(maxQueueSize, taskStack.size());
+                    if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
+                        throw new RecordQueryPlanComplexityException("Maximum task queue size was exceeded")
+                                .addLogInfo(LogMessageKeys.MAX_TASK_QUEUE_SIZE, configuration.getMaxTaskQueueSize())
+                                .addLogInfo(LogMessageKeys.TASK_QUEUE_SIZE, taskStack.size());
+                    }
                 } finally {
-                    Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
-                }
-
-                if (logger.isTraceEnabled()) {
-                    logger.trace(KeyValueLogMessage.of("planner state",
-                            "taskStackSize", taskStack.size(),
-                            "memo", new ReferencePrinter(currentRoot)));
-                }
-
-                maxQueueSize = Math.max(maxQueueSize, taskStack.size());
-                if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
-                    throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
+                    Debugger.withDebugger(debugger -> debugger.onEvent(
+                            new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Location.END, nextTask)));
                 }
             } catch (final RestartException restartException) {
                 if (logger.isTraceEnabled()) {
@@ -862,8 +883,12 @@ public class CascadesPlanner implements QueryPlanner {
                     .bindMatches(getConfiguration(), initialBindings, getBindable())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, taskStack, bindings, evaluationContext))
                     .forEach(ruleCall -> {
-                        if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {
-                            throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call for " + rule + " of " + configuration.getMaxNumMatchesPerRuleCall() + " has been exceeded.");
+                        int ruleMatchesCount = numMatches.incrementAndGet();
+                        if (isMaxNumMatchesPerRuleCallExceeded(configuration, ruleMatchesCount)) {
+                            throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call has been exceeded")
+                                    .addLogInfo(LogMessageKeys.RULE, ruleCall)
+                                    .addLogInfo(LogMessageKeys.RULE_MATCHES_COUNT, ruleMatchesCount)
+                                    .addLogInfo(LogMessageKeys.MAX_RULE_MATCHES_COUNT, configuration.getMaxNumMatchesPerRuleCall());
                         }
                         // we notify the debugger (if installed) that the transform task is succeeding and
                         // about begin and end of the rule call event

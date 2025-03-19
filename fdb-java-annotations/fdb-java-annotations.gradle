@@ -26,9 +26,9 @@ dependencies {
     // an annotationProcessor dependency (e.g., they use @GenerateVisitor). Ideally,
     // we'd only include this as a dependency if it's being used in that case, but
     // barring that, we can exclude it as a transitive dependency when importing
-    implementation "com.squareup:javapoet:${javaPoetVersion}"
-    compileOnly "com.google.auto.service:auto-service:undefined"
-    annotationProcessor "com.google.auto.service:auto-service:undefined"
+    implementation(libs.javaPoet)
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
 }
 
 publishing {

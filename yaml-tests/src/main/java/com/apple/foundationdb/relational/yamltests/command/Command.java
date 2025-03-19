@@ -20,17 +20,24 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
@@ -40,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings({"PMD.AvoidCatchingThrowable"})
@@ -65,7 +73,7 @@ public abstract class Command {
     }
 
     @Nonnull
-    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var command = Matchers.notNull(Matchers.firstEntry(Matchers.arrayList(object, "command").get(0), "command"), "command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(command.getKey(), () -> "Invalid command key-value pair: " + command);
         final var lineNumber = linedObject.getLineNumber();
@@ -78,9 +86,9 @@ public abstract class Command {
                 case COMMAND_SET_SCHEMA_STATE:
                     return getSetSchemaStateCommand(lineNumber, executionContext, (String) value);
                 case COMMAND_QUERY:
-                    return QueryCommand.parse(object, executionContext);
+                    return QueryCommand.parse(object, blockName, executionContext);
                 default:
-                    Assert.failUnchecked(String.format("Could not find command '%s'", key));
+                    Assert.failUnchecked(String.format(Locale.ROOT, "Could not find command '%s'", key));
                     return null;
             }
         } catch (Exception e) {
@@ -88,66 +96,102 @@ public abstract class Command {
         }
     }
 
-    public final void execute(@Nonnull final RelationalConnection connection) {
+    public final void execute(@Nonnull final YamlConnection connection) {
         try {
             executeInternal(connection);
         } catch (Throwable e) {
-            throw executionContext.wrapContext(e, () -> "‼️ Error executing command at line " + getLineNumber(), "command", getLineNumber());
+            throw executionContext.wrapContext(e,
+                    () -> "‼️ Error executing command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
+                    "command", getLineNumber());
         }
     }
 
-    abstract void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException;
+    abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
+    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection, @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws SQLException, RelationalException {
+        StoreCatalog backingCatalog = connection.getBackingCatalog();
+        RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
+                .setRlConfig(rlConfig)
+                .setStoreCatalog(backingCatalog)
+                .build();
+        connection.setAutoCommit(false);
+        connection.createNewTransaction();
+        final var transaction = connection.getTransaction();
+        applyState.applyMetadataOperation(metadataOperationsFactory, transaction);
+        connection.commit();
+        connection.setAutoCommit(true);
+    }
+
+    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws RelationalException {
+        final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+        final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
+        keyspaceProvider.registerDomainIfNotExists("FRL");
+        KeySpace keySpace = keyspaceProvider.getKeySpace();
+        StoreCatalog backingCatalog;
+        try (Transaction txn = new RecordContextTransaction(fdbDb.openContext(FDBRecordContextConfig.newBuilder().build()))) {
+            backingCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+            txn.commit();
+        }
+        RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
+                .setRlConfig(rlConfig)
+                .setStoreCatalog(backingCatalog)
+                .build();
+        try (Transaction txn = new RecordContextTransaction(fdbDb.openContext(FDBRecordContextConfig.newBuilder().build()))) {
+            applyState.applyMetadataOperation(metadataOperationsFactory, txn);
+            txn.commit();
+        }
+    }
+
+    @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
     private static Command getLoadSchemaTemplateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
-            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Loading template '{}'", value);
                 // current connection should be __SYS/catalog
                 // save schema template
-                StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
-                RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                        .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
-                        .setRlConfig(RecordLayerConfig.getDefault())
-                        .setStoreCatalog(backingCatalog)
-                        .build();
-                final var embeddedConnection = (EmbeddedRelationalConnection) connection;
-                embeddedConnection.setAutoCommit(false);
-                embeddedConnection.createNewTransaction();
-                final var transaction = embeddedConnection.getTransaction();
-                metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(transaction);
-                embeddedConnection.commit();
-                embeddedConnection.setAutoCommit(true);
+                ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
+                    factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
+                };
+                final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
+                if (embedded != null) {
+                    Command.applyMetadataOperationEmbedded(embedded, RecordLayerConfig.getDefault(), applyState);
+                } else {
+                    Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState);
+                }
             }
         };
     }
 
+    @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
     private static Command getSetSchemaStateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(lineNumber, executionContext) {
             @Override
-            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Setting schema state '{}'", value);
-                StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
                 SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(value);
                 RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
                         .setIndexStateMap(CommandUtil.fromIndexStateProto(schemaInstance.getIndexStatesMap()))
                         .setFormatVersion(schemaInstance.getStoreInfo().getFormatVersion())
                         .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
                         .build();
-                RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                        .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
-                        .setRlConfig(rlConfig)
-                        .setStoreCatalog(backingCatalog)
-                        .build();
-
-                final var embeddedConnection = (EmbeddedRelationalConnection) connection;
-                embeddedConnection.setAutoCommit(false);
-                embeddedConnection.createNewTransaction();
-                final var transaction = embeddedConnection.getTransaction();
-                metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
-                embeddedConnection.commit();
-                embeddedConnection.setAutoCommit(true);
+                ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
+                    factory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(txn);
+                };
+                final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
+                if (embedded != null) {
+                    Command.applyMetadataOperationEmbedded(embedded, rlConfig, applyState);
+                } else {
+                    Command.applyMetadataOperationDirectly(rlConfig, applyState);
+                }
             }
         };
+    }
+
+    @FunctionalInterface
+    private interface ApplyState {
+        void applyMetadataOperation(RecordLayerMetadataOperationsFactory metadataOperationsFactory, Transaction transaction) throws RelationalException;
     }
 }

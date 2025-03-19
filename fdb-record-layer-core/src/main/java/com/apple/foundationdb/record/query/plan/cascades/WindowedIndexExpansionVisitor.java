@@ -105,8 +105,13 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         final var baseQuantifier = baseQuantifierSupplier.get();
 
+        final var baseExpansion =
+                GraphExpansion.builder()
+                        .pullUpQuantifier(baseQuantifier)
+                        .build();
+
         // add the value for the flow of records
-        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
+        allExpansionsBuilder.add(baseExpansion);
 
         final var baseAlias = baseQuantifier.getAlias();
 
@@ -159,7 +164,11 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                 0,
                                 false,
                                 false);
-                final var primaryKeyPartExpansion = pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
+                final var primaryKeyPartExpansion =
+                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)))
+                                .toBuilder()
+                                .removeAllResultColumns()
+                                .build();
                 allExpansionsBuilder.add(primaryKeyPartExpansion);
                 primaryKeyAliasesBuilder.addAll(primaryKeyPartExpansion.getPlaceholderAliases());
             }
@@ -250,14 +259,16 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
             }
 
             final var rebasedPlaceholder = (Placeholder)placeholder.rebase(AliasMap.ofAliases(innerBaseAlias, baseAlias));
-            expansions.add(GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(rebasedPlaceholder.getValue()), rebasedPlaceholder));
+            expansions.add(GraphExpansion.ofPlaceholder(rebasedPlaceholder));
         }
 
         return GraphExpansion.ofOthers(expansions);
     }
 
     @Nonnull
-    private GraphExpansion buildRankComparisonSelectExpression(@Nonnull final Quantifier baseQuantifier, @Nonnull final Quantifier.ForEach rankQuantifier, @Nonnull final FieldValue rankColumnValue) {
+    private GraphExpansion buildRankComparisonSelectExpression(@Nonnull final Quantifier baseQuantifier,
+                                                               @Nonnull final Quantifier.ForEach rankQuantifier,
+                                                               @Nonnull final FieldValue rankColumnValue) {
         // hold on to the placeholder for later
         final var rankPlaceholder = rankColumnValue.asPlaceholder(newParameterAlias());
 

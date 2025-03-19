@@ -57,6 +57,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -187,7 +188,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
         Assert.thatUnchecked(functionContext.aggregator == null || functionContext.aggregator.getText().equals(functionContext.ALL().getText()),
-                ErrorCode.UNSUPPORTED_QUERY, () -> String.format("Unsupported aggregator %s", functionContext.aggregator.getText()));
+                ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Unsupported aggregator %s", functionContext.aggregator.getText()));
         final var functionName = functionContext.functionName.getText();
         Optional<Expression> argumentMaybe = Optional.empty();
         if (functionContext.starArg != null) {
@@ -215,7 +216,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var classNameExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
                 final var result = visitFunctionArg(argumentNodes.get(0));
                 Assert.thatUnchecked(result.getUnderlying() instanceof LiteralValue,
-                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format("attempt to invoke java_call with incorrect Udf '%s'",
+                        ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, () -> String.format(Locale.ROOT, "attempt to invoke java_call with incorrect UDF '%s'",
                                 result.getUnderlying()));
                 return result;
             });
@@ -771,15 +772,21 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var targetTypeReorderings = ImmutableList.copyOf(Assert.notNullUnchecked(
                     state.getTargetTypeReorderings().get().getChildrenMap()).keySet());
             final var resultColumnsBuilder = ImmutableList.<Expression>builder();
-
+            Assert.thatUnchecked(targetTypeReorderings.size() >= providedColumnContexts.size(), ErrorCode.SYNTAX_ERROR, "Too many parameters");
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
-                final Expression currentFieldColumns;
-                if (index >= 0) {
+                Expression currentFieldColumns = null;
+                if (index >= 0 && index < providedColumnContexts.size()) {
                     currentFieldColumns = parseRecordField(providedColumnContexts.get(index), elementField);
+                } else if (index >= providedColumnContexts.size()) {
+                    // column is declared but the value is not provided
+                    Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
                 } else {
-                    currentFieldColumns = Expression.Utils.resolveDefaultValue(fieldType);
+                    // We do not yet support default values for any types, hence it makes to simply fail if the field type
+                    // expects non-null but no value is provided.
+                    Assert.thatUnchecked(fieldType.isNullable(), ErrorCode.NOT_NULL_VIOLATION, "null value in column \"" + elementField.getFieldName() + "\" violates not-null constraint");
+                    currentFieldColumns = Expression.fromUnderlying(new NullValue(fieldType));
                 }
                 resultColumnsBuilder.add(currentFieldColumns);
             }

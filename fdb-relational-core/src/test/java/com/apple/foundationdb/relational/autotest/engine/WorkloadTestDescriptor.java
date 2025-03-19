@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -344,7 +345,7 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
                 try (RelationalConnection ddlConn = connector.connect(URI.create("/__SYS"));
                         RelationalStatement ddlStatement = ddlConn.createStatement()) {
                     ddlConn.setSchema("CATALOG");
-                    String schemaCreateStatement = String.format("CREATE SCHEMA TEMPLATE \"%s\" %s",
+                    String schemaCreateStatement = String.format(Locale.ROOT, "CREATE SCHEMA TEMPLATE \"%s\" %s",
                             schema.getTemplateName(),
                             schema.getTemplateDescription());
                     ddlStatement.execute(schemaCreateStatement);

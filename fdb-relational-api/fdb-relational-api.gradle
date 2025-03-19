@@ -19,7 +19,7 @@
  */
 
 plugins {
-    id 'com.palantir.git-version' version '0.15.0'
+    alias(libs.plugins.gitversion)
     id 'java-test-fixtures'
 }
 
@@ -56,17 +56,15 @@ dependencies {
     api(project(':fdb-java-annotations')) {
         exclude(group: "com.squareup", module: "javapoet")
     }
-    api "com.google.protobuf:protobuf-java:${protobufVersion}"
-    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    implementation "com.google.guava:guava:${guavaVersion}"
+    api(libs.protobuf)
+    compileOnly(libs.jsr305)
+    implementation(libs.guava)
 
-    testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    testImplementation "org.assertj:assertj-core:${assertjVersion}"
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testImplementation(libs.bundles.test.impl)
+    testImplementation(libs.bundles.test.runtime)
+    testCompileOnly(libs.jsr305)
 
-    testFixturesImplementation "org.assertj:assertj-core:${assertjVersion}"
+    testFixturesImplementation(libs.assertj)
 }
 
 sourceSets {

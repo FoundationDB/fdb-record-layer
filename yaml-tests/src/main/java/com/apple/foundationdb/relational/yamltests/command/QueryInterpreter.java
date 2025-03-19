@@ -44,6 +44,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -74,9 +75,6 @@ import java.util.stream.Collectors;
  * Here, the parameter can randomly take different values between 2 and 9 in each binding.
  */
 public final class QueryInterpreter {
-    /**
-     * The original query string with embedded parameter injections.
-     */
     @Nonnull
     private final String query;
     private final int lineNumber;
@@ -203,6 +201,14 @@ public final class QueryInterpreter {
         this.executionContext = executionContext;
     }
 
+    /**
+     * The original query string with embedded parameter injections.
+     */
+    @Nonnull
+    String getQuery() {
+        return query;
+    }
+
     private List<Pair<String, Parameter>> getInjections(@Nonnull String query) {
 
         final var lst = new ArrayList<Pair<String, Parameter>>();
@@ -238,20 +244,21 @@ public final class QueryInterpreter {
     @Nonnull
     public QueryExecutor getExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         try {
+            final boolean forceContinuations = (boolean)executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
             if (random == null) {
                 // we do not allow prepared statements if the Random generator is not there
                 Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
-                return new QueryExecutor(query, lineNumber);
+                return new QueryExecutor(query, lineNumber, null, forceContinuations);
             } else {
                 var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
                 if (runAsPreparedStatement) {
-                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()));
+                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()), forceContinuations);
                 } else {
-                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), lineNumber);
+                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), lineNumber, null, forceContinuations);
                 }
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> String.format("‼️ Error initializing query executor for query %s at line %d", query, lineNumber), "query", lineNumber);
+            throw executionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at line %d", query, lineNumber), "query", lineNumber);
         }
     }
 

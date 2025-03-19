@@ -72,7 +72,20 @@ import java.util.stream.Stream;
  * </ul>
  */
 class BooleanValueTest {
+
+    private static final Type.Enum ENUM_TYPE_FOR_TEST = new Type.Enum(false, List.of(
+            new Type.Enum.EnumValue("SPADES", 0),
+            new Type.Enum.EnumValue("HEARTS", 1),
+            new Type.Enum.EnumValue("DIAMONDS", 2),
+            new Type.Enum.EnumValue("CLUBS", 3)
+    ), "enumTestType");
+
+    private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c")
+            .addTypeIfNeeded(ENUM_TYPE_FOR_TEST);
+
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f"))))), "f");
+    private static final FieldValue F_ENUM_1 = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(ENUM_TYPE_FOR_TEST, Optional.of("f_enum_1"))))), "f_enum_1");
+    private static final FieldValue F_ENUM_2 = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(ENUM_TYPE_FOR_TEST, Optional.of("f_enum_2"))))), "f_enum_2");
     private static final LiteralValue<Boolean> BOOL_TRUE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     private static final LiteralValue<Boolean> BOOL_FALSE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<Boolean> BOOL_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), null);
@@ -92,12 +105,13 @@ class BooleanValueTest {
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
     private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
+    private static final LiteralValue<String> ENUM_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "HEARTS");
+    private static final LiteralValue<String> ENUM_STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "DIAMONDS");
+
     private static final LiteralValue<byte[]> BYTES_1 = new LiteralValue<>("foo".getBytes(StandardCharsets.UTF_8));
     private static final LiteralValue<byte[]> BYTES_2 = new LiteralValue<>("bar".getBytes(StandardCharsets.UTF_8));
     private static final LiteralValue<byte[]> BYTES_3 = new LiteralValue<>("baz".getBytes(StandardCharsets.UTF_8));
     private static final ThrowsValue THROWS_VALUE = new ThrowsValue(Type.primitiveType(Type.TypeCode.INT));
-
-    private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
 
     private static final ArithmeticValue ADD_INTS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(INT_1, INT_2));
     private static final ArithmeticValue ADD_LONGS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(LONG_1, LONG_2));
@@ -395,6 +409,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_NULL, BOOL_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(BOOL_NULL, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+
+                    Arguments.of(List.of(F_ENUM_1, F_ENUM_2), new RelOpValue.EqualsFn(), new ValuePredicate(F_ENUM_1, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, F_ENUM_2))),
 
                     /* translation of predicates involving a field value, make sure field value is always LHS */
                     Arguments.of(List.of(F, INT_1), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),

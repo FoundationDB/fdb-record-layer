@@ -24,17 +24,13 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
-import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
-import java.sql.Types;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -83,71 +79,52 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
 
     @Override
     public void setBoolean(int parameterIndex, boolean b) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.BOOLEAN).setParameter(Column.newBuilder()
-                        .setBoolean(b).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofBoolean(b));
     }
 
     @Override
     public void setInt(int parameterIndex, int i) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.INTEGER).setParameter(Column.newBuilder()
-                        .setInteger(i).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofInt(i));
     }
 
     @Override
     public void setLong(int parameterIndex, long l) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.BIGINT).setParameter(Column.newBuilder()
-                        .setLong(l).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofLong(l));
     }
 
     @Override
     public void setFloat(int parameterIndex, float f) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.FLOAT).setParameter(Column.newBuilder()
-                        .setFloat(f).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofFloat(f));
     }
 
     @Override
     public void setDouble(int parameterIndex, double d) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.DOUBLE).setParameter(Column.newBuilder()
-                        .setDouble(d).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofDouble(d));
     }
 
     @Override
     public void setString(int parameterIndex, String s) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.VARCHAR).setParameter(Column.newBuilder()
-                        .setString(s).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofString(s));
     }
 
     @Override
     public void setBytes(int parameterIndex, byte[] bytes) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.BINARY).setParameter(Column.newBuilder()
-                        .setBinary(ByteString.copyFrom(bytes)).build()).build());
+        parameters.put(parameterIndex, ParameterHelper.ofBytes(bytes));
     }
 
     @Override
     public void setObject(int parameterIndex, Object x) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        parameters.put(parameterIndex, ParameterHelper.ofObject(x));
     }
 
     @Override
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
-        parameters.put(parameterIndex,
-                Parameter.newBuilder().setJavaSqlTypesCode(Types.NULL).build());
+        parameters.put(parameterIndex, ParameterHelper.ofNull(sqlType));
     }
 
     @Override
-    public void setArray(int parameterIndex, Array x) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    public void setArray(int parameterIndex, Array a) throws SQLException {
+        parameters.put(parameterIndex, ParameterHelper.ofArray(a));
     }
 
     @Override

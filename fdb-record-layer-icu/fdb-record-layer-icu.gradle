@@ -21,24 +21,18 @@
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)
-    implementation "com.ibm.icu:icu4j:${icuVersion}"
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
-    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    compileOnly "com.google.auto.service:auto-service:undefined"
-    annotationProcessor "com.google.auto.service:auto-service:undefined"
+    implementation(libs.icu)
+    implementation(libs.protobuf)
+    implementation(libs.slf4j.api)
+    compileOnly(libs.jsr305)
+    compileOnly(libs.autoService)
+    annotationProcessor(libs.autoService)
 
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation project(path: coreProject, configuration: 'tests')
-    testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
-    testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
-    testCompileOnly "com.google.auto.service:auto-service:undefined"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
-
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')

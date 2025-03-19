@@ -21,6 +21,7 @@
 apply plugin: 'antlr'
 
 generateGrammarSource {
+    outputDirectory = layout.buildDirectory.dir('generated-src/antlr/main/com/apple/foundationdb/relational/generated').get().asFile
     maxHeapSize = "128m"
     arguments += ['-package','com.apple.foundationdb.relational.generated', '-listener','-visitor', '-long-messages']
 }
@@ -28,4 +29,24 @@ generateGrammarSource {
 sourceSets.configureEach {
     var generateGrammarSource = tasks.named(getTaskName("generate", "GrammarSource"))
     java.srcDir(generateGrammarSource.map { files() })
+}
+
+generateGrammarSource.doLast {
+    final source = layout.buildDirectory.dir('generated-src/antlr/main/com/apple/foundationdb/relational/generated/')
+    final tokensFile = "*.tokens"
+    final dest = layout.projectDirectory.dir('src/main/antlr')
+    copy {
+        from source
+        include tokensFile
+        into dest
+    }
+}
+
+task cleanUpTokenFiles(type: Delete) {
+    final tokenFilesDir = layout.projectDirectory.dir('src/main/antlr')
+    delete fileTree(tokenFilesDir) { include '*.tokens' }
+}
+
+clean {
+    dependsOn "cleanUpTokenFiles"
 }

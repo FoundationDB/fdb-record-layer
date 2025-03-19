@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
@@ -40,12 +39,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
@@ -53,10 +51,9 @@ public final class YamlRunner {
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
-    static final String TEST_NIGHTLY = "yaml_testing_nightly";
-    static final String TEST_SEED = "yaml_testing_seed";
-    static final String TEST_NIGHTLY_REPETITION = "yaml_testing_nightly_repetition";
-    static final String TEST_MAX_THREADS = "yaml_testing_max_threads";
+    static final String TEST_NIGHTLY = "tests.nightly";
+    static final String TEST_SEED = "tests.yaml.seed";
+    static final String TEST_NIGHTLY_REPETITION = "tests.yaml.iterations";
 
     @Nonnull
     private final String resourcePath;
@@ -64,39 +61,44 @@ public final class YamlRunner {
     @Nonnull
     private final YamlExecutionContext executionContext;
 
-    public interface YamlConnectionFactory {
-        RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
-    }
-
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
+                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
         this.resourcePath = resourcePath;
-        this.executionContext = new YamlExecutionContext(resourcePath, factory, correctExplain);
+        this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
     }
 
     public void run() throws Exception {
-        LoaderOptions loaderOptions = new LoaderOptions();
-        loaderOptions.setAllowDuplicateKeys(true);
-        DumperOptions dumperOptions = new DumperOptions();
-        final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
+        try {
+            LoaderOptions loaderOptions = new LoaderOptions();
+            loaderOptions.setAllowDuplicateKeys(true);
+            DumperOptions dumperOptions = new DumperOptions();
+            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
 
-        final var testBlocks = new ArrayList<TestBlock>();
-        try (var inputStream = getInputStream(resourcePath)) {
-            for (var doc : yaml.loadAll(inputStream)) {
-                final var block = Block.parse(doc, executionContext);
-                logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
-                block.execute();
-                if (block instanceof TestBlock) {
-                    testBlocks.add((TestBlock) block);
+            final var testBlocks = new ArrayList<TestBlock>();
+            int blockNumber = 0;
+            try (var inputStream = getInputStream(resourcePath)) {
+                for (var doc : yaml.loadAll(inputStream)) {
+                    final var block = Block.parse(doc, blockNumber, executionContext);
+                    logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
+                    block.execute();
+                    if (block instanceof TestBlock) {
+                        testBlocks.add((TestBlock)block);
+                    }
+                    blockNumber++;
                 }
             }
-        }
-        for (var block : executionContext.getFinalizeBlocks()) {
-            logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
-            block.execute();
-        }
+            for (var block : executionContext.getFinalizeBlocks()) {
+                logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
+                block.execute();
+            }
 
-        evaluateTestBlockResults(testBlocks);
-        replaceTestFileIfRequired();
+            evaluateTestBlockResults(testBlocks);
+            replaceTestFileIfRequired();
+            replaceMetricsFileIfRequired();
+        } catch (RelationalException | IOException e) {
+            logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
+            throw e;
+        }
     }
 
     private void evaluateTestBlockResults(List<TestBlock> testBlocks) {
@@ -134,7 +136,7 @@ public final class YamlRunner {
     private static InputStream getInputStream(@Nonnull final String resourcePath) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
-        Assert.notNull(inputStream, String.format("could not find '%s' in resources bundle", resourcePath));
+        Assert.notNull(inputStream, String.format(Locale.ROOT, "could not find '%s' in resources bundle", resourcePath));
         return inputStream;
     }
 
@@ -153,5 +155,13 @@ public final class YamlRunner {
             logger.error("⚠️ Source file {} could not be replaced with corrected file.", resourcePath);
             Assertions.fail(e);
         }
+    }
+
+    private void replaceMetricsFileIfRequired() throws RelationalException {
+        if (!executionContext.isDirtyMetrics()) {
+            return;
+        }
+        executionContext.saveMetricsAsBinaryProto();
+        executionContext.saveMetricsAsYaml();
     }
 }

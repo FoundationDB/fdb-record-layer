@@ -230,7 +230,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                             @Nonnull final Memoizer memoizer,
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
-        final var matchInfo = partialMatch.getMatchInfo();
+        final var matchInfo = partialMatch.getRegularMatchInfo();
 
         final var baseRecordType =
                 Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
@@ -272,7 +272,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         false,
                         partialMatch.getMatchCandidate(),
                         baseRecordType,
-                        partialMatch.getMatchInfo().getConstraint());
+                        partialMatch.getRegularMatchInfo().getConstraint());
 
         final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 indexEntryToLogicalRecord.getQueriedRecordType().getName(),

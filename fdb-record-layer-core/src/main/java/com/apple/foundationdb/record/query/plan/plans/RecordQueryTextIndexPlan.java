@@ -164,6 +164,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     @Nonnull
     @Override
     public RecordQueryTextIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                          final boolean shouldSimplifyValues,
                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         // TODO make return this dependent on whether the index scan is correlated according to the translation map
         return this;

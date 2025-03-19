@@ -18,6 +18,10 @@
  * limitations under the License.
  */
 
+import java.util.concurrent.ThreadLocalRandom
+import java.util.jar.JarFile
+import java.util.regex.Matcher
+
 apply from: rootProject.file('gradle/proto.gradle')
 
 project.tasks.named("processResources") {
@@ -51,96 +55,156 @@ dependencies {
     implementation project(coreProject)
     implementation project(path: coreProject, configuration: 'tests')
     implementation project(":fdb-relational-api")
-    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
-    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "com.google.protobuf:protobuf-java-util:${protobufVersion}"
     implementation project(":fdb-relational-core")
-    implementation "org.yaml:snakeyaml:${snakeyamlVersion}"
-    implementation "com.google.code.findbugs:jsr305:${jsr305Version}"
-    implementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    implementation project(":fdb-relational-jdbc")
+    implementation project(":fdb-relational-server")
+    implementation(libs.asciitable)
+    implementation(libs.jsr305)
+    implementation(libs.junit.api)
+    implementation(libs.junit.params)
+    implementation(libs.log4j.api)
+    implementation(libs.protobuf)
+    implementation(libs.protobuf.util)
+    implementation(libs.snakeyaml)
 
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation project(":fdb-relational-server")
     testImplementation project(":fdb-relational-jdbc")
-    implementation "de.vandermeer:asciitable:${asciitableVersion}"
-    implementation "io.github.java-diff-utils:java-diff-utils:4.12"
-    // slf4j binding. Allows Record Layer dependencies to log to same place as Relational
-    testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    implementation(libs.diffutils)
 }
 
-ext.resolveOtherServer = { ->
+// This "method" resolves the latest shadowJar version of the relational-server, and returns the file reference to it
+// which can be used in `Copy` tasks.
+ext.resolveOtherServer = { Set<String> rejectedVersions ->
     def configurationName = "resolveArtifact-${UUID.randomUUID()}"
     return rootProject.with {
-        configurations.create(configurationName, {
-            resolutionStrategy {
-                failOnChangingVersions()
-                // Note: In the root of the project we set cacheChangingModulesFor and cacheDynamicVersionFor to 0
-                // We explicitly change that for changing modules, because we should reject those anyways.
-                cacheChangingModulesFor 1000, "days" // TTL for snapshots
-            }
-        })
-        // I tried setting the version to 'latest.release', but that causes it to download all of the snapshots
-        // every time you execute. This is because `latest.release` becomes `LatestVersionSelector` which
-        // `requiresMetadata`, because it looks at the metadata for the module to determine if it is a release.
-        // I also tried just setting it to `+`, but that causes it to fetch the latest snapshot, which isn't exactly
-        // what we want.
+        configurations.create(configurationName, { })
+        // If you're wondering why this doesn't just use `latest.release`:
+        // `latest.release` becomes `LatestVersionSelector` which `requiresMetadata` in order to determine if the
+        // version in question is a release. This means that it can't just look at the version listing, it has to
+        // download all of them, and reject them. This adds a frustrating amount of time to the build.
+        // Instead we specify `+` which does not require the metadata, and then reject a list of versions.
+        // Every time we get a version that has `-SNAPSHOT` we add it to the `rejectedVersions` list, and recurse
+        // until we find a version that doesn't have a `-SNAPSHOT`, and that's what we use.
         dependencies.add(configurationName,
                 ['group': 'org.foundationdb',
                  'name': 'fdb-relational-server',
-                 'version': '3.5-SNAPSHOT', // todo: will have to set to a known version once a build is published
                  // the all classifier specifies that we want to fetch the shadow jar, which includes all the
                  // dependencies
                  'classifier': 'all'],
                 {
+                    version {
+                        strictly '+'
+                        if (rejectedVersions.size() > 0) {
+                            reject rejectedVersions.toArray(new String[0])
+                        }
+                    }
                     // we don't want to take in any transitive dependencies.
                     // There shouldn't be any external dependencies, but commenting this out, this fails with a missing
                     // grpc dependency.
                     transitive=false
-                    changing=true
                 })
         def configuration = configurations.getByName(configurationName, { })
 
-        def resolution = configuration.resolve()[0]
-        System.out.println("Downloaded old external server: " + resolution.getName())
+        File resolution = configuration.resolve()[0]
+        Matcher versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
+        if (versionMatch.size() != 0) {
+            println("Rejecting old external server: " + resolution.getName())
+            def version = versionMatch[0][1]
+            // check that the version is new, to more obviously catch potential infinite loops
+            assert rejectedVersions.add(version)
+            return resolveOtherServer(rejectedVersions)
+        }
+        println("Downloaded old external server: " + resolution.getName())
         return resolution
     }
+}
+
+static def getAttributesFromJar(File file) {
+    try (JarFile jarFile = new JarFile(file)) {
+        java.util.jar.Manifest manifest = jarFile.getManifest()
+        java.util.jar.Attributes mainAttributes = manifest.getMainAttributes()
+        String version = mainAttributes.getValue("Specification-Version")
+        // It looks like `Build-Date` is not currently being included, if we had that we could guarantee the last
+        // x weeks of builds. There may need to be some ways to handle the fact that built date may not be consistent
+        // with the ordering of the versions
+        if (version != null) {
+            return [version: version]
+        } else {
+            throw new RuntimeException("Server does not specify a version in the manifest: " + file.getAbsolutePath())
+        }
+    }
+}
+
+ext.resolveManyServers = { ->
+    Set<File> selectedServers = new HashSet<>();
+    Set<String> rejectedVersions = new HashSet<>();
+    while (selectedServers.size() < 50) {
+        def serverFile = resolveOtherServer(rejectedVersions)
+        def attributes = getAttributesFromJar(serverFile)
+        // 4.0.559.0 is the first version that introduced the server, so we won't be able to find anything
+        // older than that. Eventually we can remove this check because we'll be long enough away in terms of versions
+        // and times.
+        if (attributes.version == "4.0.559.0") {
+            break
+        }
+        rejectedVersions.add(attributes.version)
+        selectedServers.add(serverFile)
+    }
+    println("Found ${selectedServers.size()} to test against")
+    return selectedServers
 }
 
 task cleanExternalServerDirectory(type: Delete) {
     delete project.layout.buildDirectory.dir('externalServer')
 }
 
-task downloadExternalServer(type: Copy) {
+task serverJars(type: Copy) {
+    dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
+    into project.layout.buildDirectory.dir('externalServer')
+    from resolveOtherServer(new HashSet<String>())
+    from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
+        include("*-SNAPSHOT-all.jar")
+    }
+}
+
+task downloadManyExternalServers(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
-    // todo: will be able to uncomment once other server has been published
-    // from resolveOtherServer()
+    from resolveManyServers()
     into project.layout.buildDirectory.dir('externalServer')
 }
 
-test {
-    dependsOn "downloadExternalServer"
+mixedModeTest {
+    dependsOn("downloadManyExternalServers")
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
-    // These are the system properties that are looked at by the YamlTesting framework to initialize the execution context
-    var isNightly = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY")
-    if (isNightly != null) {
-        systemProperty("yaml_testing_nightly", isNightly);
-    }
-    var seed = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_SEED")
-    if (seed != null) {
-        systemProperty("yaml_testing_seed", Long.parseLong(seed))
-    }
-    var maxThreads = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_MAX_THREADS")
-    if (maxThreads != null) {
-        systemProperty("yaml_testing_max_threads", Integer.parseInt(maxThreads))
+    // this is specified in testing.gradle, but it looks like it needs to be repeated here.
+    ignoreFailures = true
+}
+
+singleVersionTest {
+    dependsOn("downloadManyExternalServers")
+    systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
+}
+
+test {
+    dependsOn "serverJars"
+    systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
+    def seed
+    if (project.hasProperty('tests.yaml.seed')) {
+        seed = Long.parseLong(project.getProperty('tests.yaml.seed'))
     } else {
-        systemProperty("yaml_testing_max_threads", (int) (Runtime.runtime.availableProcessors() / 2))
+        seed = ThreadLocalRandom.current().nextLong();
     }
-    var nightlyRepetitions = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY_REPETITION")
-    if (nightlyRepetitions != null) {
-        systemProperty("yaml_testing_nightly_repetition", Integer.parseInt(nightlyRepetitions))
-    } else {
-        systemProperty("yaml_testing_nightly_repetition", 100)
+    println("Using seed for yaml-tests: ${seed}")
+    systemProperty('tests.yaml.seed', seed)
+    if (project.hasProperty('tests.yaml.iterations')) {
+        systemProperties['tests.yaml.iterations'] = project.getProperty('tests.yaml.iterations')
+    } else if (project.hasProperty('tests.iterations')) {
+        // The yaml tests are quite fast now, lets put a lot more repetition on the queries, if it gets larger
+        // we may want to decrease this multiplying factor.
+        systemProperties['tests.yaml.iterations'] = Integer.parseInt(project.getProperty('tests.iterations')) * 20
     }
 }
 

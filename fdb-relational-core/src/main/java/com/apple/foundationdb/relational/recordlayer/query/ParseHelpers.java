@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -29,13 +30,17 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.function.Supplier;
 
 /**
  * Contains a set of utility methods that are relevant for parsing the AST.
@@ -148,5 +153,57 @@ public final class ParseHelpers {
     public static boolean isNullsLast(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext, boolean isDescending) {
         return orderByExpressionContext.nulls == null ? isDescending :
                 (orderByExpressionContext.FIRST() == null) && (orderByExpressionContext.LAST() != null);
+    }
+
+    public static class ParseTreeLikeAdapter implements TreeLike<ParseTreeLikeAdapter> {
+
+        @Nonnull
+        private final ParseTree parseTree;
+
+        @Nonnull
+        private final Supplier<Iterable<? extends ParseTreeLikeAdapter>> children;
+
+        private ParseTreeLikeAdapter(@Nonnull final ParseTree parseTree) {
+            this.parseTree = parseTree;
+            this.children = Suppliers.memoize(this::computeChildren);
+        }
+
+        @Nonnull
+        @Override
+        public ParseTreeLikeAdapter getThis() {
+            return this;
+        }
+
+        @Nonnull
+        public ParseTree getParseTree() {
+            return parseTree;
+        }
+
+        @Nonnull
+        public Iterable<? extends ParseTreeLikeAdapter> computeChildren() {
+            final var result = ImmutableList.<ParseTreeLikeAdapter>builder();
+            for (int i = 0; i < parseTree.getChildCount(); i++) {
+                result.add(new ParseTreeLikeAdapter(parseTree.getChild(i)));
+            }
+            return result.build();
+        }
+
+
+        @Nonnull
+        @Override
+        public Iterable<? extends ParseTreeLikeAdapter> getChildren() {
+            return children.get();
+        }
+
+        @Nonnull
+        @Override
+        public ParseTreeLikeAdapter withChildren(Iterable<? extends ParseTreeLikeAdapter> iterable) {
+            throw new UnsupportedOperationException("adding children to parse tree is not supported");
+        }
+
+        @Nonnull
+        public static ParseTreeLikeAdapter from(@Nonnull final ParseTree parseTree) {
+            return new ParseTreeLikeAdapter(parseTree);
+        }
     }
 }

@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Tests of some basic operations in a store where each record's primary key is missing the record type key prefix,
@@ -138,7 +139,7 @@ public class IntermingledTablesTest {
         }
 
         for (int group = 0; group < groupCount; group++) {
-            try (RelationalResultSet resultSet = statement.executeQuery(String.format("SELECT * FROM t1 WHERE group = %d", group))) {
+            try (RelationalResultSet resultSet = statement.executeQuery(String.format(Locale.ROOT, "SELECT * FROM t1 WHERE group = %d", group))) {
                 ResultSetAssert.assertThat(resultSet).containsRowsExactly(List.of(
                         new Object[]{group, "t1_0", 0},
                         new Object[]{group, "t1_1", 10},
@@ -147,7 +148,7 @@ public class IntermingledTablesTest {
                         new Object[]{group, "t1_4", 40}
                 ));
             }
-            try (RelationalResultSet resultSet = statement.executeQuery(String.format("SELECT * FROM t2 WHERE group = %d", group))) {
+            try (RelationalResultSet resultSet = statement.executeQuery(String.format(Locale.ROOT, "SELECT * FROM t2 WHERE group = %d", group))) {
                 ResultSetAssert.assertThat(resultSet).containsRowsExactly(List.of(
                         new Object[]{group, "t2_0", "val=0"},
                         new Object[]{group, "t2_1", "val=10"},

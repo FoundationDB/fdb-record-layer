@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
@@ -228,8 +229,13 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        // TODO: Implement
-        return null;
+        int elementType = SqlTypeNamesSupport.getSqlTypeCode(typeName);
+        final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array.Builder builder = com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array.newBuilder();
+        builder.setElementType(elementType);
+        for (Object element: elements) {
+            builder.addElement(TypeConversion.toColumn(elementType, element));
+        }
+        return new JDBCArrayImpl(builder.build());
     }
 
     @Override

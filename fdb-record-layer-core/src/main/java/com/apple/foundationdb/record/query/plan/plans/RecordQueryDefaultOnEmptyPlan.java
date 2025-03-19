@@ -93,9 +93,10 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        return RecordCursor.orElse(cont -> getChild().executePlan(store, context, cont, executeProperties),
-                (executor, cont) -> RecordCursor.fromList(ImmutableList.of(QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))),
-                continuation);
+        return RecordCursor.orElse(cont -> getChild().executePlan(store, context, cont, executeProperties.clearSkipAndLimit()),
+                        (executor, cont) ->
+                                RecordCursor.fromList(executor, ImmutableList.of(QueryResult.ofComputed(onEmptyResultValue.eval(store, context))), cont), continuation)
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override
@@ -117,10 +118,13 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
 
     @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        final Value rebasedResultValues = onEmptyResultValue.translateCorrelations(translationMap);
-        return new RecordQueryDefaultOnEmptyPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
+        final Value rebasedResultValues = onEmptyResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        return new RecordQueryDefaultOnEmptyPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
     }
 
     @Override

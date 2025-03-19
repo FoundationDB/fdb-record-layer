@@ -73,6 +73,10 @@ class RelationalResultSetFacade implements RelationalResultSet {
         return ++rowIndex < rows;
     }
 
+    public boolean hasNext() {
+        return rowIndex < (rows - 1);
+    }
+
     @Override
     public boolean isClosed() throws SQLException {
         return this.closed;
@@ -265,9 +269,10 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Nonnull
     @SpotBugsSuppressWarnings("NP") // TODO: Will need to fix null handling
     public Continuation getContinuation() throws SQLException {
-        // Not implemented. We need to thread through the continuation from the query response, but for now,
-        // returning "null" is enough for the existing tests to pass.
-        return null;
+        if (hasNext()) {
+            throw new SQLException("Continuation can only be returned for the last row");
+        }
+        return new RelationalRpcContinuation(delegate.getContinuation());
     }
 
     @Override
@@ -315,6 +320,11 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
                 Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
                 return column == null || !column.hasBinary() ? null : column.getBinary().toByteArray();
+            case Types.OTHER:
+                // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
+                // thing which appears as OTHER
+                o = getString(oneBasedColumn);
+                break;
             default:
                 throw new SQLException("Unsupported type " + type);
         }

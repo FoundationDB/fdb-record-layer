@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -33,7 +35,9 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySetValue;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
@@ -41,7 +45,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.util.PositionalIndex;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
@@ -239,6 +242,129 @@ public class TypeConversion {
         return Struct.newBuilder().setColumns(listColumnBuilder.build()).build();
     }
 
+    /**
+     * Return the Java object stored within the proto.
+     * @param columnType the type of object in the column
+     * @param column the column to process
+     * @return the Java object from the Column representation
+     * @throws SQLException in case of an error
+     */
+    public static Object fromColumn(int columnType, Column column) throws SQLException {
+        switch (columnType) {
+            case Types.ARRAY:
+                checkColumnType(columnType, column.hasArray());
+                return fromArray(column.getArray());
+            case Types.BIGINT:
+                checkColumnType(columnType, column.hasLong());
+                return column.getLong();
+            case Types.INTEGER:
+                checkColumnType(columnType, column.hasInteger());
+                return column.getInteger();
+            case Types.BOOLEAN:
+                checkColumnType(columnType, column.hasBoolean());
+                return column.getBoolean();
+            case Types.VARCHAR:
+                checkColumnType(columnType, column.hasString());
+                return column.getString();
+            case Types.BINARY:
+                checkColumnType(columnType, column.hasBinary());
+                return column.getBinary().toByteArray();
+            case Types.DOUBLE:
+                checkColumnType(columnType, column.hasDouble());
+                return column.getDouble();
+            default:
+                // NULL (java.sql.Types value 0) is not a valid column type for an array and is likely the result of a default value for the
+                // (optional) array.getElementType() protobuf field.
+                throw new SQLException("java.sql.Type=" + columnType + " not supported", ErrorCode.ARRAY_ELEMENT_ERROR.getErrorCode());
+        }
+    }
+
+    private static void checkColumnType(final int expectedColumnType, final boolean columnHasType) throws SQLException {
+        if (!columnHasType) {
+            throw new SQLException("Column has wrong type (expected " + expectedColumnType + ")", ErrorCode.WRONG_OBJECT_TYPE.getErrorCode());
+        }
+    }
+
+    /**
+     * Return the Java array stored within the proto.
+     * @param array the array to process
+     * @return the Java array from the proto representation
+     * @throws SQLException in case of an error
+     */
+    public static Object[] fromArray(Array array) throws SQLException {
+        Object[] result = new Object[array.getElementCount()];
+        final List<Column> elements = array.getElementList();
+        for (int i = 0 ; i < elements.size() ; i++) {
+            result[i] = fromColumn(array.getElementType(), elements.get(i));
+        }
+        return result;
+    }
+
+    /**
+     * Return the protobuf {@link Array} for a SQL {@link java.sql.Array}.
+     * @param array the SQL array
+     * @return the resulting protobuf array
+     */
+    public static Array toArray(@Nonnull java.sql.Array array) throws SQLException {
+        Array.Builder builder = Array.newBuilder();
+        builder.setElementType(array.getBaseType());
+        for (Object o: (Object[])array.getArray()) {
+            builder.addElement(toColumn(array.getBaseType(), o));
+        }
+        return builder.build();
+    }
+
+    /**
+     * Create {@link Column} from a Java object.
+     * Note: In case the column is of a composite type (array) then the actual type has to be a SQL flavor
+     * ({@link java.sql.Array}.
+     * Note: In case {@code columnType} is of value {@link Types#NULL}, the {@code obj} parameter is expected to be the
+     * type of null. That is, the {@code obj} will represent the {@link Types} constant for the type of variable whose
+     * value is null.
+     * @param columnType the SQL type to create (from {@link Types})
+     * @param obj the value to use for the column
+     * @return the created column
+     * @throws SQLException in case of error
+     */
+    public static Column toColumn(int columnType, @Nonnull Object obj) throws SQLException {
+        if (columnType != SqlTypeNamesSupport.getSqlTypeCodeFromObject(obj)) {
+            throw new SQLException("Column element type does not match object type: " + columnType + " / " + obj.getClass().getSimpleName(),
+                    ErrorCode.WRONG_OBJECT_TYPE.getErrorCode());
+        }
+
+        Column.Builder builder = Column.newBuilder();
+        switch (columnType) {
+            case Types.BIGINT:
+                builder = builder.setLong((Long)obj);
+                break;
+            case Types.INTEGER:
+                builder = builder.setInteger((Integer)obj);
+                break;
+            case Types.BOOLEAN:
+                builder = builder.setBoolean((Boolean)obj);
+                break;
+            case Types.VARCHAR:
+                builder = builder.setString((String)obj);
+                break;
+            case Types.BINARY:
+                builder = builder.setBinary((ByteString)obj);
+                break;
+            case Types.DOUBLE:
+                builder = builder.setDouble((Double)obj);
+                break;
+            case Types.ARRAY:
+                builder = builder.setArray(toArray((java.sql.Array)obj));
+                break;
+            case Types.NULL:
+                builder = builder.setNullType((Integer)obj);
+                break;
+            default:
+                throw new SQLException("java.sql.Type=" + columnType + " not supported",
+                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+        return builder.build();
+    }
+
     private static Column toColumn(RelationalStruct relationalStruct, int oneBasedIndex) throws SQLException {
         int columnType = relationalStruct.getMetaData().getColumnType(oneBasedIndex);
         Column column;
@@ -281,6 +407,21 @@ public class TypeConversion {
                 column = toColumn(relationalStruct.wasNull() ? null : d,
                         (a, b) -> a == null ? b.clearDouble() : b.setDouble(a));
                 break;
+            case Types.OTHER:
+                final Object object = relationalStruct.getObject(oneBasedIndex);
+                if (object instanceof String) {
+                    // an enum. Enums are effectively just strings with a constraint, but this is how some other
+                    // databases support them.
+                    column = toColumn(relationalStruct.wasNull() ? null : (String) object,
+                            (value, protobuf) -> value == null ? protobuf.clearString() : protobuf.setString(value));
+                    break;
+                }
+                if (object == null) {
+                    column = toColumn(null, (value, protobuf) -> protobuf.clearString());
+                    break;
+                }
+                throw new SQLException("java.sql.Type=" + columnType + " not supported with " + object.getClass(),
+                        ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
             default:
                 throw new SQLException("java.sql.Type=" + columnType + " not supported",
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
@@ -324,6 +465,61 @@ public class TypeConversion {
             }
             resultSetBuilder.addRow(toRow(relationalResultSet));
         }
+        // Set the continuation after all the rows have been traversed
+        Continuation existingContinuation = relationalResultSet.getContinuation();
+        RpcContinuation rpcContinuation = toContinuation(existingContinuation);
+        resultSetBuilder.setContinuation(rpcContinuation);
+
         return resultSetBuilder.build();
+    }
+
+    private static RpcContinuation toContinuation(@Nonnull Continuation existingContinuation) {
+        RpcContinuation.Builder builder = RpcContinuation.newBuilder()
+                .setVersion(RelationalRpcContinuation.CURRENT_VERSION)
+                .setAtBeginning(existingContinuation.atBeginning())
+                .setAtEnd(existingContinuation.atEnd());
+        // Here, we serialize the entire continuation - this will make it easier to recreate the original once
+        // we send it back
+        byte[] state = existingContinuation.serialize();
+        if (state != null) {
+            builder.setInternalState(ByteString.copyFrom(state));
+        }
+        Continuation.Reason reason = existingContinuation.getReason();
+        if (reason != null) {
+            builder.setReason(toReason(reason));
+        }
+        return builder.build();
+    }
+
+    public static RpcContinuationReason toReason(Continuation.Reason reason) {
+        if (reason == null) {
+            return null;
+        }
+        switch (reason) {
+            case TRANSACTION_LIMIT_REACHED:
+                return RpcContinuationReason.TRANSACTION_LIMIT_REACHED;
+            case QUERY_EXECUTION_LIMIT_REACHED:
+                return RpcContinuationReason.QUERY_EXECUTION_LIMIT_REACHED;
+            case CURSOR_AFTER_LAST:
+                return RpcContinuationReason.CURSOR_AFTER_LAST;
+            default:
+                throw new IllegalStateException("Unrecognized continuation reason: " + reason);
+        }
+    }
+
+    public static Continuation.Reason toReason(RpcContinuationReason reason) {
+        if (reason == null) {
+            return null;
+        }
+        switch (reason) {
+            case TRANSACTION_LIMIT_REACHED:
+                return Continuation.Reason.TRANSACTION_LIMIT_REACHED;
+            case QUERY_EXECUTION_LIMIT_REACHED:
+                return Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED;
+            case CURSOR_AFTER_LAST:
+                return Continuation.Reason.CURSOR_AFTER_LAST;
+            default:
+                throw new IllegalStateException("Unrecognized continuation reason: " + reason);
+        }
     }
 }

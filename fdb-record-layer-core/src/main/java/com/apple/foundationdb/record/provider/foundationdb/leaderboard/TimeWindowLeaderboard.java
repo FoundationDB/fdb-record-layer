@@ -154,4 +154,15 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
                 .setSubspaceKey(ZeroCopyByteString.wrap(subspaceKey.pack()))
                 .setNlevels(nlevels);
     }
+
+    @Override
+    public String toString() {
+        return "TimeWindowLeaderboard{" +
+                "type=" + type +
+                ", startTimestamp=" + startTimestamp +
+                ", endTimestamp=" + endTimestamp +
+                ", subspaceKey=" + subspaceKey +
+                ", nlevels=" + nlevels +
+                '}';
+    }
 }

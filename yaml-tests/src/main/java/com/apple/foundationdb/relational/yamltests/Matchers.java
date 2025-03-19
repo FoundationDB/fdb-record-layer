@@ -63,7 +63,7 @@ public class Matchers {
         if (obj instanceof List) {
             return (List<?>) obj;
         }
-        fail(String.format("Expecting '%s' to be of type '%s'", desc, List.class.getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting '%s' to be of type '%s'", desc, List.class.getSimpleName()));
         return null;
     }
 
@@ -79,7 +79,7 @@ public class Matchers {
         if (obj instanceof Map<?, ?>) {
             return (Map<?, ?>) obj;
         }
-        fail(String.format("Expecting %s to be of type %s", desc, Map.class.getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s", desc, Map.class.getSimpleName()));
         return null;
     }
 
@@ -87,7 +87,7 @@ public class Matchers {
         if (obj instanceof Map.Entry<?, ?>) {
             return (Map.Entry<?, ?>) obj;
         }
-        fail(String.format("Expecting %s to be of type %s", desc, Map.Entry.class.getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s", desc, Map.Entry.class.getSimpleName()));
         return null;
     }
 
@@ -97,21 +97,21 @@ public class Matchers {
 
     public static Object first(@Nonnull final List<?> obj, @Nonnull final String desc) {
         if (obj.isEmpty()) {
-            fail(String.format("Expecting %s to contain at least one element, however it is empty", desc));
+            fail(String.format(Locale.ROOT, "Expecting %s to contain at least one element, however it is empty", desc));
         }
         return obj.get(0);
     }
 
     public static Object second(@Nonnull final List<?> obj) {
         if (obj.size() <= 1) {
-            fail(String.format("Expecting %s to contain at least two elements, however it contains %s element", obj, obj.size()));
+            fail(String.format(Locale.ROOT, "Expecting %s to contain at least two elements, however it contains %s element", obj, obj.size()));
         }
         return obj.get(1);
     }
 
     public static Object third(@Nonnull final List<?> obj) {
         if (obj.size() <= 2) {
-            fail(String.format("Expecting %s to contain at least three elements, however it contains %s element", obj, obj.size()));
+            fail(String.format(Locale.ROOT, "Expecting %s to contain at least three elements, however it contains %s element", obj, obj.size()));
         }
         return obj.get(2);
     }
@@ -121,7 +121,7 @@ public class Matchers {
             // <NULL> should return null maybe?
             return (String) obj;
         }
-        fail(String.format("Expecting %s to be of type %s, however it is of type %s", desc, String.class.getSimpleName(), obj.getClass().getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s", desc, String.class.getSimpleName(), obj.getClass().getSimpleName()));
         return null;
     }
 
@@ -146,7 +146,7 @@ public class Matchers {
             // <NULL> should return null maybe?
             return (Boolean) obj;
         }
-        fail(String.format("Expecting %s to be of type %s, however it is of type %s", obj, Boolean.class.getSimpleName(), obj.getClass().getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s", obj, Boolean.class.getSimpleName(), obj.getClass().getSimpleName()));
         return false; // never reached.
     }
 
@@ -161,7 +161,7 @@ public class Matchers {
         if (obj instanceof Integer) {
             return Long.valueOf((Integer) obj);
         }
-        fail(String.format("Expecting %s to be of type %s, however it is of type %s", obj, Long.class.getSimpleName(), obj.getClass().getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s", obj, Long.class.getSimpleName(), obj.getClass().getSimpleName()));
         return -1; // never reached.
     }
 
@@ -173,7 +173,7 @@ public class Matchers {
         if (obj instanceof Integer) {
             return (Integer) obj;
         }
-        fail(String.format("Expecting %s to be of type %s, however it is of type %s", obj, Integer.class.getSimpleName(), obj.getClass().getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s", obj, Integer.class.getSimpleName(), obj.getClass().getSimpleName()));
         return -1; // never reached.
     }
 
@@ -185,7 +185,7 @@ public class Matchers {
         if (obj instanceof Double) {
             return (Double) obj;
         }
-        fail(String.format("Expecting %s to be of type %s, however it is of type %s", obj, Double.class.getSimpleName(), obj.getClass().getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s", obj, Double.class.getSimpleName(), obj.getClass().getSimpleName()));
         return -1; // never reached.
     }
 
@@ -207,7 +207,7 @@ public class Matchers {
         if (obj instanceof Message) {
             return (Message) obj;
         }
-        fail(String.format("Expecting %s to be of type %s, however it is of type %s.", obj, Message.class.getSimpleName(), obj.getClass().getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", obj, Message.class.getSimpleName(), obj.getClass().getSimpleName()));
         return null;
     }
 
@@ -215,7 +215,7 @@ public class Matchers {
     @Nonnull
     public static <T> T notNull(@Nullable final T object, @Nonnull final String desc) {
         if (object == null) {
-            fail(String.format("unexpected %s to be null", desc));
+            fail(String.format(Locale.ROOT, "unexpected %s to be null", desc));
         }
         return object;
     }
@@ -226,14 +226,14 @@ public class Matchers {
         if (obj instanceof Map) {
             return ((Map<?, ?>) obj).entrySet().iterator().next();
         }
-        fail(String.format("Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
+        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
         return null;
     }
 
     @Nonnull
     public static Object valueElseKey(@Nonnull final Map.Entry<?, ?> entry) {
         if (isNull(entry.getKey()) && isNull(entry.getValue())) {
-            fail(String.format("encountered YAML-style 'null' which is not supported, consider using '%s' instead", CustomTag.NullPlaceholder.INSTANCE));
+            fail(String.format(Locale.ROOT, "encountered YAML-style 'null' which is not supported, consider using '%s' instead", CustomTag.NullPlaceholder.INSTANCE));
         }
         return entry.getValue() == null ? entry.getKey() : entry.getValue();
     }
@@ -428,7 +428,8 @@ public class Matchers {
         var i = 1;
         for (final var expectedRow : expectedAsList) {
             if (!actual.next()) {
-                return ImmutablePair.of(ResultSetMatchResult.fail("result does not contain all expected rows."), null);
+                printCurrentAndRemaining(actual, resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format(Locale.ROOT, "result does not contain all expected rows! expected %d rows, got %d", expectedAsList.size(), i - 1)), null);
             }
             if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
                 printCurrentAndRemaining(actual, resultSetPrettyPrinter);
@@ -442,27 +443,31 @@ public class Matchers {
         }
         if (printRemaining(actual, resultSetPrettyPrinter)) {
             final var leftActualRowCount = resultSetPrettyPrinter.getRowCount();
-            return ImmutablePair.of(ResultSetMatchResult.fail(String.format("too many rows in actual result set! expected %d rows, got %d.", expectedAsList.size(), expectedAsList.size() + leftActualRowCount)), resultSetPrettyPrinter);
+            return ImmutablePair.of(ResultSetMatchResult.fail(String.format(Locale.ROOT, "too many rows in actual result set! expected %d rows, got %d.", expectedAsList.size(), expectedAsList.size() + leftActualRowCount)), resultSetPrettyPrinter);
         }
         return ImmutablePair.of(ResultSetMatchResult.success(), null);
     }
 
     private static ImmutablePair<ResultSetMatchResult, ResultSetPrettyPrinter> matchUnorderedResultSet(final RelationalResultSet actual, final @Nonnull Multiset<?> expectedAsMultiSet) throws SQLException {
         final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
-        var i = 1;
-        // O(n^2) -- we all got M1s
+        final var expectedRowCount = expectedAsMultiSet.size();
+        var actualRowsCounter = 1;
         while (actual.next()) {
             boolean found = false;
             if (expectedAsMultiSet.isEmpty()) {
                 printCurrentAndRemaining(actual, resultSetPrettyPrinter);
-                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("too many rows in actual result set! expected %d rows, got %d.", i - 1, i - 1 + resultSetPrettyPrinter.getRowCount())), resultSetPrettyPrinter);
+                // count the remaining actual rows.
+                while (actual.next()) {
+                    actualRowsCounter++;
+                }
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format(Locale.ROOT, "too many rows in actual result set! expected %d row(s), got %d row(s) instead.", expectedRowCount, actualRowsCounter - 1)), resultSetPrettyPrinter);
             }
-            for (final var expectedRow : expectedAsMultiSet) {
+            for (final var expectedRow : expectedAsMultiSet.elementSet()) {
                 if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
                     printCurrentAndRemaining(actual, resultSetPrettyPrinter);
                     return ImmutablePair.of(ResultSetMatchResult.fail("unknown format of expected result set"), resultSetPrettyPrinter);
                 }
-                final var matchResult = matchRow(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), i);
+                final var matchResult = matchRow(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), actualRowsCounter);
                 if (matchResult.equals(ResultSetMatchResult.success())) {
                     found = true;
                     expectedAsMultiSet.remove(expectedRow);
@@ -471,12 +476,12 @@ public class Matchers {
             }
             if (!found) {
                 printCurrentAndRemaining(actual, resultSetPrettyPrinter);
-                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("result row at %d does not match any expected records", i)), resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format(Locale.ROOT, "actual row at %d does not match any expected records", actualRowsCounter)), resultSetPrettyPrinter);
             }
-            i++;
+            actualRowsCounter++;
         }
         if (!expectedAsMultiSet.isEmpty()) {
-            return ImmutablePair.of(ResultSetMatchResult.fail("result does not contain all expected rows"), null);
+            return ImmutablePair.of(ResultSetMatchResult.fail(String.format(Locale.ROOT, "result does not contain all expected rows, expected %d row(s), got %d row(s) instead.", expectedRowCount, actualRowsCounter - 1)), null);
         }
         return ImmutablePair.of(ResultSetMatchResult.success(), null);
     }
@@ -511,7 +516,7 @@ public class Matchers {
                                                  int rowNumber) throws SQLException {
         final var expectedColCount = expected.entrySet().size();
         if (actualEntriesCount != expectedColCount) {
-            return ResultSetMatchResult.fail(String.format("row cardinality mismatch at %d! expected a row comprising %d column(s), received %d column(s) instead.", rowNumber, expectedColCount, actualEntriesCount));
+            return ResultSetMatchResult.fail(String.format(Locale.ROOT, "row cardinality mismatch at %d! expected a row comprising %d column(s), received %d column(s) instead.", rowNumber, expectedColCount, actualEntriesCount));
         }
         return matchMap(expected, actualEntriesCount, entryByNameAccessor, entryByNumberAccessor, rowNumber, "");
     }
@@ -526,7 +531,7 @@ public class Matchers {
         int counter = 1;
         final var expectedColCount = expected.entrySet().size();
         if (actualEntriesCount != expectedColCount) {
-            return ResultSetMatchResult.fail(String.format("! expected a row comprising %d column(s), received %d column(s) instead.", expectedColCount, actualEntriesCount));
+            return ResultSetMatchResult.fail(String.format(Locale.ROOT, "! expected a row comprising %d column(s), received %d column(s) instead.", expectedColCount, actualEntriesCount));
         }
         for (final var entry : expected.entrySet()) {
             final var expectedField = valueElseKey(entry);
@@ -572,7 +577,7 @@ public class Matchers {
         // (nested) message
         if (expected instanceof Map<?, ?>) {
             if (!(actual instanceof RelationalStruct)) {
-                return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 to match a struct, got 🟡 instead.%n🟢 %s (Struct)%n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
+                return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 to match a struct, got 🟡 instead.%n🟢 %s (Struct)%n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
             }
             final var struct = (RelationalStruct) (actual);
             return matchMap(map(expected), struct.getAttributes().length, valueByName(struct), valueByIndex(struct), rowNumber, cellRef);
@@ -582,13 +587,13 @@ public class Matchers {
         if (expected instanceof List<?>) {
             final var expectedArray = (List<?>) (expected);
             if (!(actual instanceof RelationalArray)) {
-                return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 to match an array, got 🟡 instead.%n🟢 %s (Array)%n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
+                return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 to match an array, got 🟡 instead.%n🟢 %s (Array)%n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
             }
             final var actualArray = (RelationalArray) (actual);
             final var actualArrayContent = actualArray.getResultSet();
             for (int i = 0; i < expectedArray.size(); i++) {
                 if (!actualArrayContent.next()) {
-                    return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 (containing %d array items) does not match 🟡 (containing %d array items).%n🟢 %s%n🟡 %s",
+                    return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 (containing %d array items) does not match 🟡 (containing %d array items).%n🟢 %s%n🟡 %s",
                             rowNumber, cellRef, expectedArray.size(), i, expected, actual));
                 }
                 if (isMap(expectedArray.get(i))) {
@@ -643,7 +648,7 @@ public class Matchers {
         if (Objects.equals(expected, actual)) {
             return ResultSetMatchResult.success();
         } else {
-            return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (%s)%n🟡 %s (%s)", rowNumber, cellRef, expected, expected == null ? "NULL" : expected.getClass().getSimpleName(), actual, actual.getClass().getSimpleName()));
+            return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (%s)%n🟡 %s (%s)", rowNumber, cellRef, expected, expected == null ? "NULL" : expected.getClass().getSimpleName(), actual, actual.getClass().getSimpleName()));
         }
     }
 
@@ -665,6 +670,6 @@ public class Matchers {
                 return ResultSetMatchResult.success();
             }
         }
-        return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (Integer) %n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
+        return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (Integer) %n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
     }
 }

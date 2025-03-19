@@ -193,7 +193,7 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @Nonnull
     @Override
     public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Override
@@ -236,20 +236,24 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        final ScanComparisons translatedPrefixScanComparisons = prefixScanComparisons.translateCorrelations(translationMap);
+    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                     final boolean shouldSimplifyValues) {
+        final ScanComparisons translatedPrefixScanComparisons =
+                prefixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
 
         final ImmutableList.Builder<ScanComparisons> translatedDimensionScanComparisonBuilder = ImmutableList.builder();
         boolean isSameDimensionsScanComparisons = true;
         for (final ScanComparisons dimensionScanComparisons : dimensionsScanComparisons) {
-            final ScanComparisons translatedDimensionScanComparison = dimensionScanComparisons.translateCorrelations(translationMap);
+            final ScanComparisons translatedDimensionScanComparison =
+                    dimensionScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
             if (translatedDimensionScanComparison != dimensionScanComparisons) {
                 isSameDimensionsScanComparisons = false;
             }
             translatedDimensionScanComparisonBuilder.add(translatedDimensionScanComparison);
         }
 
-        final ScanComparisons translatedSuffixKeyScanComparisons = suffixScanComparisons.translateCorrelations(translationMap);
+        final ScanComparisons translatedSuffixKeyScanComparisons =
+                suffixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
 
         if (translatedPrefixScanComparisons != prefixScanComparisons || !isSameDimensionsScanComparisons ||
                 translatedSuffixKeyScanComparisons != suffixScanComparisons) {

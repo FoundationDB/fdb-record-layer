@@ -81,6 +81,7 @@ public enum ErrorCode {
     CANNOT_CONVERT_TYPE("22000"),
     INVALID_ROW_COUNT_IN_LIMIT_CLAUSE("2201W"),
     INVALID_PARAMETER("22023"),
+    ARRAY_ELEMENT_ERROR("2202E"),
     INVALID_BINARY_REPRESENTATION("22F03"),
     INVALID_ARGUMENT_FOR_FUNCTION("22F00"),
 
@@ -120,6 +121,7 @@ public enum ErrorCode {
     INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in the result set
     INVALID_TABLE_DEFINITION("42F16"),
     UNKNOWN_TYPE("42F18"),
+    INVALID_RECURSION("42F19"),
     /**
      * Indicates that a schema with the given name is already mapped to a schema template.
      */

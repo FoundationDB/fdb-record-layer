@@ -22,12 +22,14 @@ package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessServerBuilder;
 
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -46,13 +48,20 @@ public class InProcessRelationalServer implements Closeable {
     private Server grpcInProcessServer;
     private FRL frl;
     private final String serverName;
+    @Nullable
+    private final String clusterFile;
 
     public InProcessRelationalServer() {
-        this(InProcessServerBuilder.generateName());
+        this(InProcessServerBuilder.generateName(), null);
     }
 
-    InProcessRelationalServer(String serverName) {
+    public InProcessRelationalServer(@Nullable final String clusterFile) {
+        this(InProcessServerBuilder.generateName(), clusterFile);
+    }
+
+    InProcessRelationalServer(String serverName, @Nullable final String clusterFile) {
         this.serverName = serverName;
+        this.clusterFile = clusterFile;
     }
 
     public String getServerName() {
@@ -68,7 +77,7 @@ public class InProcessRelationalServer implements Closeable {
         // Create access to backing database.
         // TODO: Make this multi-query/-tenant/-database!
         try {
-            this.frl = new FRL();
+            this.frl = new FRL(Options.NONE, clusterFile);
         } catch (RelationalException ve) {
             throw new IOException(ve);
         }

@@ -20,14 +20,17 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
-
+import com.apple.foundationdb.relational.yamltests.command.SkippedCommand;
+import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
+import com.google.common.base.Verify;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -39,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -72,7 +76,7 @@ import java.util.stream.IntStream;
  * </ul>
  */
 @SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
-public final class TestBlock extends Block {
+public final class TestBlock extends ConnectedBlock {
 
     private static final Logger logger = LogManager.getLogger(TestBlock.class);
 
@@ -80,6 +84,7 @@ public final class TestBlock extends Block {
     static final String TEST_BLOCK_TESTS = "tests";
     static final String TEST_BLOCK_OPTIONS = "options";
     static final String TEST_BLOCK_PRESET = "preset";
+    static final String TEST_BLOCK_NAME = "name";
     static final String PRESET_SINGLE_REPETITION_ORDERED = "single_repetition_ordered";
     static final String PRESET_SINGLE_REPETITION_RANDOMIZED = "single_repetition_randomized";
     static final String PRESET_SINGLE_REPETITION_PARALLELIZED = "single_repetition_parallelized";
@@ -145,7 +150,9 @@ public final class TestBlock extends Block {
     }
 
     @Nonnull
-    private final List<Consumer<RelationalConnection>> executableTestsWithCacheCheck;
+    final String blockName;
+    @Nonnull
+    private final List<Consumer<YamlConnection>> executableTestsWithCacheCheck;
     @Nonnull
     private final TestBlockOptions options;
     @Nonnull
@@ -182,6 +189,7 @@ public final class TestBlock extends Block {
         private boolean checkCache = true;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         private StatementType statementType = StatementType.BOTH;
+        private SupportedVersionCheck supportedVersionCheck = SupportedVersionCheck.supported();
 
         private void verifyPreset(@Nonnull String preset) {
             switch (preset) {
@@ -215,7 +223,7 @@ public final class TestBlock extends Block {
             }
         }
 
-        private void setWithOptionsMap(@Nonnull Map<?, ?> optionsMap) {
+        private void setWithOptionsMap(@Nonnull Map<?, ?> optionsMap, @Nonnull YamlExecutionContext executionContext) {
             setOptionExecutionModeAndRepetition(optionsMap);
             if (optionsMap.containsKey(OPTION_SEED)) {
                 this.seed = Matchers.longValue(optionsMap.get(OPTION_SEED));
@@ -236,8 +244,8 @@ public final class TestBlock extends Block {
                         Assert.failUnchecked("Illegal Format: Unknown value for option `statement_type`: " + value);
                         break;
                 }
-
             }
+            supportedVersionCheck = SupportedVersionCheck.parseOptions(optionsMap, executionContext);
             setOptionConnectionLifecycle(optionsMap);
         }
 
@@ -297,13 +305,21 @@ public final class TestBlock extends Block {
 
         @Override
         public String toString() {
-            return String.format("mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s, statement_type: %s", mode, repetition, seed, checkCache, connectionLifecycle, statementType);
+            return String.format(Locale.ROOT, "mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s, statement_type: %s", mode, repetition, seed, checkCache, connectionLifecycle, statementType);
         }
     }
 
-    public static TestBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+    public static Block parse(int blockNumber, int lineNumber, @Nonnull Object document,
+                              @Nonnull YamlExecutionContext executionContext) {
         try {
-            final var testsMap = Matchers.map(document, "test_block");
+            // Since `options` is also a top-level block, the `CustomYamlConstructor` will add the line numbers,
+            // changing it from a `String` to a `LinedObject` so that we know the line numbers when logging an error,
+            // but that makes it hard to look it up in the map. The call to `unlineKeys` changes it back to a String.
+            // There might be a way to have it on the value, but I couldn't find it.
+            // The other option would be to allow `Block` to not have a line number, and make `options` not have a line
+            // number.
+            final var testsMap = CustomYamlConstructor.LinedObject.unlineKeys(
+                    Matchers.map(document, "test_block"));
             final var options = new TestBlockOptions();
             // check if the preset is present, if yes, set the options according to it.
             if (testsMap.get(TEST_BLOCK_PRESET) != null) {
@@ -311,27 +327,38 @@ public final class TestBlock extends Block {
             }
             // higher priority than the preset is that of options map, set the options according to that, if any is present.
             if (testsMap.get(TEST_BLOCK_OPTIONS) != null) {
-                options.setWithOptionsMap(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS)));
+                options.setWithOptionsMap(CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS))), executionContext);
             }
             // execution context carries the highest priority, try setting options per that if it has some options to override.
             options.setWithExecutionContext(executionContext);
+
+            final String blockName = testsMap.containsKey(TEST_BLOCK_NAME)
+                                     ? Matchers.string(testsMap.get(TEST_BLOCK_NAME)) : "unnamed-" + blockNumber;
             final var testsObject = Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber);
+            if (!options.supportedVersionCheck.isSupported()) {
+                return new SkipBlock(lineNumber, options.supportedVersionCheck.getMessage());
+            }
             var randomGenerator = new Random(options.seed);
-            final var executables = new ArrayList<Consumer<RelationalConnection>>();
-            final var executableTestsWithCacheCheck = new ArrayList<Consumer<RelationalConnection>>();
+            final var executables = new ArrayList<Consumer<YamlConnection>>();
+            final var executableTestsWithCacheCheck = new ArrayList<Consumer<YamlConnection>>();
             final var queryCommands = new ArrayList<QueryCommand>();
             final var tests = Matchers.arrayList(testsObject, "tests");
             for (var testObject : tests) {
                 final var test = Matchers.arrayList(testObject, "test");
-                final var resolvedCommand = Objects.requireNonNull(Command.parse(test, executionContext));
+                final var resolvedCommand = Objects.requireNonNull(Command.parse(test, blockName, executionContext));
+                if (resolvedCommand instanceof SkippedCommand) {
+                    ((SkippedCommand)resolvedCommand).log();
+                    continue;
+                }
                 Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
-                queryCommands.add((QueryCommand) resolvedCommand);
+                final QueryCommand queryCommand = (QueryCommand)resolvedCommand;
+                queryCommands.add(queryCommand);
                 var runAsPreparedMix = getRunAsPreparedMix(options.statementType, options.repetition, randomGenerator);
                 for (int i = 0; i < options.repetition; i++) {
-                    executables.add(createTestExecutable((QueryCommand) resolvedCommand, false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
+                    executables.add(createTestExecutable(queryCommand, false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
                 }
                 if (options.checkCache) {
-                    executableTestsWithCacheCheck.add(createTestExecutable((QueryCommand) resolvedCommand, true, randomGenerator, runAsPreparedMix.getRight()));
+                    executableTestsWithCacheCheck.add(createTestExecutable(queryCommand, true, randomGenerator, runAsPreparedMix.getRight()));
                 }
             }
             if (options.mode != ExecutionMode.ORDERED) {
@@ -339,17 +366,19 @@ public final class TestBlock extends Block {
                 Collections.shuffle(executableTestsWithCacheCheck, randomGenerator);
             }
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
-            return new TestBlock(lineNumber, queryCommands, executables, executableTestsWithCacheCheck,
+            return new TestBlock(lineNumber, blockName, queryCommands, executables, executableTestsWithCacheCheck,
                     executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext);
         } catch (Throwable e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the test block at " + lineNumber, TEST_BLOCK, lineNumber);
         }
     }
 
-    private TestBlock(int lineNumber, @Nonnull List<QueryCommand> queryCommands, @Nonnull List<Consumer<RelationalConnection>> executables,
-                      @Nonnull List<Consumer<RelationalConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
+    private TestBlock(int lineNumber, @Nonnull String blockName, @Nonnull List<QueryCommand> queryCommands,
+                      @Nonnull List<Consumer<YamlConnection>> executables,
+                      @Nonnull List<Consumer<YamlConnection>> executableTestsWithCacheCheck, @Nonnull URI connectionURI,
                       @Nonnull TestBlockOptions options, @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executables, connectionURI, executionContext);
+        this.blockName = blockName;
         this.queryCommands = queryCommands;
         this.options = options;
         this.executableTestsWithCacheCheck = executableTestsWithCacheCheck;
@@ -370,11 +399,11 @@ public final class TestBlock extends Block {
             // Check for the caught exceptions in each of the QueryCommands.
             queryCommands.stream().map(QueryCommand::getMaybeExecutionThrowable).filter(Objects::nonNull).findFirst().ifPresent(
                     e -> maybeFailureException = executionContext.wrapContext(e,
-                            () -> String.format("‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
+                            () -> String.format(Locale.ROOT, "‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
                             String.format(TEST_BLOCK + " [%s] ", options), getLineNumber()));
         } catch (Throwable e) {
             maybeFailureException = executionContext.wrapContext(e,
-                    () -> String.format("‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
+                    () -> String.format(Locale.ROOT, "‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
                     String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
         }
         executables.clear();
@@ -386,7 +415,7 @@ public final class TestBlock extends Block {
         return maybeFailureException == null ? Optional.empty() : Optional.of(maybeFailureException);
     }
 
-    private void executeInNonParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) {
+    private void executeInNonParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) {
         if (options.connectionLifecycle == ConnectionLifecycle.BLOCK) {
             // resort to the default implementation of execute.
             executeExecutables(testsToExecute);
@@ -403,7 +432,7 @@ public final class TestBlock extends Block {
      * @throws InterruptedException thrown if the execution does not finish within a time-bound.
      * @throws ExecutionException thrown if any the executable tasks complete exceptionally.
      */
-    private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) throws InterruptedException, ExecutionException {
+    private void executeInParallelizedMode(Collection<Consumer<YamlConnection>> testsToExecute) throws InterruptedException, ExecutionException {
         final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
         final var futures = testsToExecute.stream().map(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t)))).collect(Collectors.toList());
         executorService.shutdown();
@@ -412,6 +441,7 @@ public final class TestBlock extends Block {
         }
         // Iterate through the futures to catch any uncaught errors/exceptions from the submitted tasks.
         for (var future : futures) {
+            Verify.verify(!future.isCancelled());
             future.get();
         }
     }
@@ -439,8 +469,8 @@ public final class TestBlock extends Block {
     }
 
     @Nonnull
-    private static Consumer<RelationalConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                                     @Nonnull Random random, boolean runAsPreparedStatement) {
+    private static Consumer<YamlConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
+                                                                 @Nonnull Random random, boolean runAsPreparedStatement) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> queryCommand.execute(connection, checkCache, executor);
     }

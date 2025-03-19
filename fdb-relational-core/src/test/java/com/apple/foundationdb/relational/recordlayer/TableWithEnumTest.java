@@ -25,15 +25,14 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -43,7 +42,6 @@ import java.sql.Types;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
 public class TableWithEnumTest {
@@ -68,7 +66,7 @@ public class TableWithEnumTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
-    void canInsertAndGetSingleRecord() throws Exception {
+    void canInsertViaDirectAccess() throws Exception {
         final var inserted = insertCard(42, "HEARTS", 8);
 
         KeySet keys = new KeySet()
@@ -78,6 +76,37 @@ public class TableWithEnumTest {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .isRowExactly(inserted)
+                    .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void canInsertViaQuerySimpleStatement() throws SQLException {
+        statement.execute("INSERT INTO CARD (id, suit, rank) VALUES (1, 'HEARTS', 4)");
+        final var expectedStruct = getStructToInsert(1, "HEARTS", 4);
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD WHERE ID = 1")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .isRowExactly(expectedStruct)
+                    .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void canInsertViaQueryPreparedStatement() throws SQLException {
+        final var preparedStmt = connection.prepareStatement("INSERT INTO CARD (id, suit, rank) VALUES (?id, ?suit, ?rank)");
+        preparedStmt.setLong("id", 1);
+        preparedStmt.setObject("suit", "HEARTS");
+        preparedStmt.setLong("rank", 4);
+        final var count = preparedStmt.executeUpdate();
+        assertThat(count).isEqualTo(1);
+
+        final var expectedStruct = getStructToInsert(1, "HEARTS", 4);
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD WHERE ID = 1")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .isRowExactly(expectedStruct)
                     .hasNoNextRow();
         }
     }
@@ -142,14 +171,23 @@ public class TableWithEnumTest {
     void filterBySuit() throws Exception {
         insert52Cards();
 
-        // TODO: Enums need to be supported for comparison in the type repository for these queries to work
-        assertThatThrownBy(() -> statement.execute("SELECT * FROM card WHERE card.suit = 'CLUBS'"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("primitive type");
+        Assertions.assertTrue(statement.execute("SELECT * FROM card WHERE card.suit = 'CLUBS'"));
+        try (final var rs = statement.getResultSet()) {
+            final var resultSetAssert = ResultSetAssert.assertThat(rs);
+            for (int i = 1; i < 14; i++) {
+                resultSetAssert.hasNextRow().hasColumn("suit", "CLUBS");
+            }
+            resultSetAssert.hasNoNextRow();
+        }
 
-        assertThatThrownBy(() -> statement.execute("SELECT * FROM card WHERE card.suit > 'HEARTS'"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("primitive type");
+        Assertions.assertTrue(statement.execute("SELECT * FROM card WHERE card.suit < 'HEARTS'"));
+        try (final var rs = statement.getResultSet()) {
+            final var resultSetAssert = ResultSetAssert.assertThat(rs);
+            for (int i = 1; i < 14; i++) {
+                resultSetAssert.hasNextRow().hasColumn("suit", "SPADES");
+            }
+            resultSetAssert.hasNoNextRow();
+        }
     }
 
     @Test
@@ -169,22 +207,6 @@ public class TableWithEnumTest {
                     .hasColumn("ID", 0L)
                     .hasColumn("SUIT", null);
         }
-    }
-
-    /**
-     * Inserting a value via a query is not yet supported. Once it is, however, we should validate that proper
-     * enum conversions are performed. Additionally, it would be good to make sure we test what happens if
-     * an invalid enum value is specified.
-     *
-     * (yhatem) this _almost_ now works, we just miss a STRING-to-ENUM promotion path (https://github.com/FoundationDB/fdb-record-layer/issues/1946)
-     * disabling until we fix this issue.
-     */
-    @Test
-    @Disabled("require a record-layer fix https://github.com/FoundationDB/fdb-record-layer/issues/1946")
-    void insertViaQuery() {
-        assertThatThrownBy(() -> statement.execute("INSERT INTO Card (id, suit, rank) VALUES (1, 'HEARTS', 4)"))
-                .isInstanceOf(ContextualSQLException.class)
-                .hasMessageContaining("query is not supported");
     }
 
     private void insert52Cards() throws Exception {

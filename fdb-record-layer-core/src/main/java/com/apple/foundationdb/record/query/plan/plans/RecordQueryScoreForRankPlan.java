@@ -186,6 +186,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     public RecordQueryScoreForRankPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                             final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryScoreForRankPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers),
                 getRanks());

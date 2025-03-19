@@ -59,6 +59,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -884,24 +885,57 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     @Nonnull
     static <T> RecordCursor<T> fromFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future) {
-        return new FutureCursor<>(executor, future);
+        return fromFuture(executor, future, null);
     }
 
     /**
      * Get a new cursor that has the contents of the given future as its only record.
      * If the continuation is nonnull, return an empty cursor since a {@link FutureCursor} returns only a single record.
+     * Note that in general, this can lead to futures being started that are not properly waited on,
+     * so it is generally advised that the user use {@link #fromFuture(Executor, Supplier, byte[])} instead
+     * of this one. See also the warning on {@link #fromFuture(Executor, Supplier, byte[])} for a word
+     * about if the work powering the underlying future has more complicated state that should be
+     * included in the cursor's continuation.
+     *
      * @param executor an executor for executing the future
      * @param future a future that completes to the only element of the cursor
      * @param continuation a continuation from a future cursor to determine whether the cursor has a single element or no elements
      * @param <T> the result type of the future
      * @return a new cursor producing the contents of {@code future} if the continuation is nonnull and an empty cursor otherwise
+     * @see #fromFuture(Executor, Supplier, byte[])
      */
     @Nonnull
     static <T> RecordCursor<T> fromFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future, @Nullable byte[] continuation) {
+        return fromFuture(executor, () -> future, continuation);
+    }
+
+    /**
+     * Get a new cursor that has the contents of the lazily-evaluated future as its only record.
+     * If the continuation is nonnull, return an empty cursor since a {@link FutureCursor} returns only a single record.
+     * In that case, the {@code futureSupplier} will not be evaluated to avoid queuing up asynchronous work
+     * that is not guaranteed to have anyone wait on. For that reason, this should generally be preferred
+     * to {@link #fromFuture(Executor, CompletableFuture, byte[])}.
+     *
+     * <p>
+     * <em>Warning:</em> Using a {@link FutureCursor} here may lead to incorrect results if the underlying
+     * future is backed by something that has some kind of state that should be included in the continuation.
+     * For example, if the future is backed by a cursor that may stop for an out-of-band {@link NoNextReason},
+     * it may be desirable to include the progress included in the underlying cursor in the final continuation.
+     * That is not done by this class, so something more bespoke may be required.
+     * </p>
+     *
+     * @param executor an executor for executing the future
+     * @param futureSupplier a supplier of a future that completes to the only element of the cursor
+     * @param continuation a continuation from a future cursor to determine whether the cursor has a single element or no elements
+     * @param <T> the result type of the future
+     * @return a new cursor producing the contents of {@code future} if the continuation is nonnull and an empty cursor otherwise
+     */
+    @Nonnull
+    static <T> RecordCursor<T> fromFuture(@Nonnull Executor executor, @Nonnull Supplier<CompletableFuture<T>> futureSupplier, @Nullable byte[] continuation) {
         if (continuation == null) {
-            return new FutureCursor<>(executor, future);
+            return new FutureCursor<>(executor, futureSupplier.get());
         } else {
-            return RecordCursor.empty();
+            return RecordCursor.empty(executor);
         }
     }
 

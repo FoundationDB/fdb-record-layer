@@ -37,19 +37,15 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -92,7 +88,6 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        // TODO this "if" can be encoded in encapsulation code implementing type promotion rules
         final var obj = context.getBinding(Bindings.Internal.CORRELATION, alias);
         if (getResultType().isRelation()) {
             return obj;
@@ -121,29 +116,6 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
-    }
-
-    @Nonnull
-    @Override
-    public Map<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
-                                    @Nonnull final AliasMap aliasMap,
-                                    @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                    @Nonnull final CorrelationIdentifier upperBaseAlias) {
-        final var areSimpleReferences =
-                Streams.stream(toBePulledUpValues)
-                        .flatMap(toBePulledUpValue -> toBePulledUpValue.getCorrelatedTo().stream())
-                        .noneMatch(a -> !alias.equals(a) && constantAliases.contains(a));
-        if (areSimpleReferences) {
-            final var translationMap =
-                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(alias, upperBaseAlias));
-            final var translatedMapBuilder = ImmutableMap.<Value, Value>builder();
-            for (final var toBePulledUpValue : toBePulledUpValues) {
-                translatedMapBuilder.put(toBePulledUpValue, toBePulledUpValue.translateCorrelations(translationMap));
-            }
-            return translatedMapBuilder.build();
-        }
-
-        return super.pullUp(toBePulledUpValues, aliasMap, constantAliases, upperBaseAlias);
     }
 
     @Override

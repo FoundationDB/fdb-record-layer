@@ -196,13 +196,13 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
 
         final var partiallyMatchedOrs = new LinkedIdentitySet<QueryPredicate>();
         for (final var match : matches) {
-            final var matchInfo = match.getMatchInfo();
+            final var matchInfo = match.getRegularMatchInfo();
             final var predicateMap = matchInfo.getPredicateMap();
             predicateMap.values()
                     .stream()
                     .flatMap(predicateMapping ->
                             predicateMapping.getMappingKind() == PredicateMultiMap.PredicateMapping.MappingKind.OR_TERM_IMPLIES_CANDIDATE
-                            ? Stream.of(predicateMapping.getQueryPredicate())
+                            ? Stream.of(predicateMapping.getOriginalQueryPredicate())
                             : Stream.empty())
                     .forEach(partiallyMatchedOrs::add);
         }

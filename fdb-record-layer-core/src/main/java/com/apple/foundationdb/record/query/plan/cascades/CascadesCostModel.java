@@ -39,8 +39,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -66,7 +68,9 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
                     RecordQueryPlanWithIndex.class,
                     RecordQueryCoveringIndexPlan.class,
                     RecordQueryFetchFromPartialRecordPlan.class,
-                    RecordQueryInJoinPlan.class);
+                    RecordQueryInJoinPlan.class,
+                    RecordQueryMapPlan.class,
+                    RecordQueryPredicatesFilterPlan.class);
 
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
@@ -220,16 +224,31 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         }
 
         //
-        //  If a plan has more in-join sources it is preferable.
+        //  If a plan has more in-join sources, it is preferable.
         //
         final int numSourcesInJoinA = count(planOpsMapA, RecordQueryInJoinPlan.class);
         final int numSourcesInJoinB = count(planOpsMapB, RecordQueryInJoinPlan.class);
 
-        int countSourcesInJoinCompare =
+        int numSourcesInJoinCompare =
                 Integer.compare(numSourcesInJoinB, numSourcesInJoinA);
-        if (countSourcesInJoinCompare != 0) {
+        if (numSourcesInJoinCompare != 0) {
             // bigger one wins
-            return countSourcesInJoinCompare;
+            return numSourcesInJoinCompare;
+        }
+
+        //
+        //  If a plan has fewer MAP/FILTERS operations, it is preferable.
+        //
+        final int numSimpleOperationsA = count(planOpsMapA, RecordQueryMapPlan.class) +
+                count(planOpsMapA, RecordQueryPredicatesFilterPlan.class);
+        final int numSimpleOperationsB = count(planOpsMapB, RecordQueryMapPlan.class) +
+                count(planOpsMapB, RecordQueryPredicatesFilterPlan.class);
+
+        int numSimpleOperationsCompare =
+                Integer.compare(numSimpleOperationsA, numSimpleOperationsB);
+        if (numSimpleOperationsCompare != 0) {
+            // smaller one wins
+            return numSimpleOperationsCompare;
         }
         
         //

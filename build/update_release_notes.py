@@ -106,6 +106,7 @@ def get_new_contents(filename, new_version):
         + [template]
         + ['// end next release', '-->', '']
         + updated_next_release_notes
+        + ['', '<!-- MIXED_MODE_RESULTS ' + new_version + ' PLACEHOLDER -->', '']
         + lines[next_release_end+3:])
 
 
@@ -121,9 +122,9 @@ def main(argv):
     if args.overwrite:
         with open(args.filename, 'w') as fout:
             fout.write(new_contents)
-        print 'Updated {} for version {}'.format(args.filename, args.new_version)
+        print('Updated {} for version {}'.format(args.filename, args.new_version))
     else:
-        print new_contents
+        print(new_contents)
 
 
 if __name__ == '__main__':

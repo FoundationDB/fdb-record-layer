@@ -90,10 +90,10 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TempTableScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new TempTableScanPlan(tempTableReferenceValue.translateCorrelations(translationMap));
+    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                      final boolean shouldSimplifyValues,
+                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new TempTableScanPlan(tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues));
     }
 
     @Override
@@ -146,7 +146,8 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     public Value getTempTableReferenceValue() {
-        return tempTableReferenceValue;
+        return new QueriedValue(Objects.requireNonNull(
+                ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
     @Nonnull
@@ -182,7 +183,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValue());
+        return Objects.hash(tempTableReferenceValue);
     }
 
     @Override
@@ -200,7 +201,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getResultValue());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, tempTableReferenceValue);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }

@@ -297,16 +297,16 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     @Nonnull
     @Override
     public ComparisonRanges rebase(@Nonnull final AliasMap aliasMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap), false);
     }
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ComparisonRanges translateCorrelations(@Nonnull final TranslationMap translationMap) {
+    public ComparisonRanges translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         final ImmutableList.Builder<ComparisonRange> rebasedRangesBuilder = ImmutableList.builder();
         boolean isSame = true;
         for (final ComparisonRange range : ranges) {
-            final ComparisonRange rebasedRange = range.translateCorrelations(translationMap);
+            final ComparisonRange rebasedRange = range.translateCorrelations(translationMap, shouldSimplifyValues);
             if (rebasedRange != range) {
                 isSame = false;
             }

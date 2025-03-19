@@ -22,11 +22,11 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.block.FileOptions;
 import com.apple.foundationdb.relational.yamltests.block.SetupBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
-
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -37,7 +37,10 @@ import org.yaml.snakeyaml.nodes.Tag;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class CustomYamlConstructor extends SafeConstructor {
 
@@ -51,8 +54,10 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!sc"), new ConstructStringContains());
         yamlConstructors.put(new Tag("!null"), new ConstructNullPlaceholder());
         yamlConstructors.put(new Tag("!not_null"), new ConstructNotNull());
+        yamlConstructors.put(new Tag("!current_version"), new ConstructCurrentVersion());
 
         //blocks
+        requireLineNumber.add(FileOptions.OPTIONS);
         requireLineNumber.add(SetupBlock.SETUP_BLOCK);
         requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
@@ -69,6 +74,9 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_COUNT);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_PLAN_HASH);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_MAX_ROWS);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST);
     }
 
     @Override
@@ -93,6 +101,24 @@ public class CustomYamlConstructor extends SafeConstructor {
             this.lineNumber = lineNumber;
         }
 
+        /**
+         * Remove the {@link LinedObject} wrappers from keys and create a new map.
+         * @param blockMap a map from a yaml file that may have keys that had lines added
+         * @return a new map where the keys do not have lines added
+         */
+        public static Map<?, ?> unlineKeys(Map<?, ?> blockMap) {
+            return blockMap.entrySet().stream()
+                    .collect(Collectors.toMap(
+                            entry -> {
+                                if (entry.getKey() instanceof LinedObject) {
+                                    return ((LinedObject)entry.getKey()).getObject();
+                                } else {
+                                    return entry.getKey();
+                                }
+                            },
+                            Map.Entry::getValue));
+        }
+
         @Nonnull
         public Object getObject() {
             return object;
@@ -105,6 +131,11 @@ public class CustomYamlConstructor extends SafeConstructor {
         public static LinedObject cast(@Nonnull Object obj, @Nonnull Supplier<String> msg) {
             Assert.thatUnchecked(obj instanceof LinedObject, ErrorCode.INTERNAL_ERROR, msg);
             return (LinedObject) obj;
+        }
+
+        @Override
+        public String toString() {
+            return object + "@line:" + lineNumber;
         }
     }
 
@@ -119,7 +150,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         @Override
         public Object construct(Node node) {
             if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked(String.format("The value of the long (!l) tag must be a scalar, however '%s' is found!", node));
+                Assert.failUnchecked(String.format(Locale.ROOT, "The value of the long (!l) tag must be a scalar, however '%s' is found!", node));
             }
             return Long.valueOf(((ScalarNode) node).getValue());
         }
@@ -129,7 +160,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         @Override
         public Object construct(Node node) {
             if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked(String.format("The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
+                Assert.failUnchecked(String.format(Locale.ROOT, "The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
             }
             return new CustomTag.StringContains(((ScalarNode) node).getValue());
         }
@@ -146,6 +177,14 @@ public class CustomYamlConstructor extends SafeConstructor {
         @Override
         public Object construct(Node node) {
             return CustomTag.NotNull.INSTANCE;
+        }
+    }
+
+    private static class ConstructCurrentVersion extends AbstractConstruct {
+
+        @Override
+        public Object construct(Node node) {
+            return FileOptions.CurrentVersion.INSTANCE;
         }
     }
 }

@@ -38,7 +38,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -78,12 +77,11 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         Tuple group2EmptyDoc = null;
         // Populate data: 1 doc for groups 1 and 2 and one empty doc (if needed)
         try (FDBRecordContext context = openContext()) {
-            final long start = Instant.now().toEpochMilli();
             final FDBRecordStore store = dataModel.createOrOpenRecordStore(context);
-            group1ContentDoc = dataModel.saveRecord(start, store, 1);
-            group2ContentDoc = dataModel.saveRecord(start, store, 2);
+            group1ContentDoc = dataModel.saveRecord(store, 1);
+            group2ContentDoc = dataModel.saveRecord(store, 2);
             if (includeEmptyDoc) {
-                group2EmptyDoc = dataModel.saveEmptyRecord(start, store, 2);
+                group2EmptyDoc = dataModel.saveEmptyRecord(store, 2);
             }
             commit(context);
         }
@@ -140,9 +138,8 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                 .setPartitionHighWatermark(10)
                 .build();
 
-        final long start = Instant.now().toEpochMilli();
         try (FDBRecordContext context = openContext()) {
-            dataModel.saveRecords(500, start, context, 2);
+            dataModel.saveRecords(500, context, 2);
             commit(context);
         }
 
@@ -176,9 +173,8 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                 .setPartitionHighWatermark(210)
                 .build();
 
-        final long start = Instant.now().toEpochMilli();
         try (FDBRecordContext context = openContext()) {
-            dataModel.saveRecords(500, start, context, 2);
+            dataModel.saveRecords(500, context, 2);
             commit(context);
         }
         // Scan properties with a limit of 36

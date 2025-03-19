@@ -24,12 +24,11 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-
 import com.google.protobuf.DescriptorProtos;
-import com.ibm.icu.impl.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -96,7 +95,7 @@ public class SchemaTemplateSerDeTests {
                 .build();
     }
 
-    private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(@Nonnull Map<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>> template) {
+    private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(@Nonnull Map<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>> template) {
         final var builder = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate");
         for (var entry : template.entrySet()) {
             final var tableBuilder = RecordLayerTable.newBuilder(false)
@@ -106,7 +105,7 @@ public class SchemaTemplateSerDeTests {
                             .setDataType(DataType.Primitives.STRING.type())
                             .build());
             for (var generation : entry.getValue()) {
-                tableBuilder.addGeneration(generation.first, generation.second);
+                tableBuilder.addGeneration(generation.getLeft(), generation.getRight());
             }
             builder.addTable(tableBuilder.build());
         }
@@ -115,7 +114,7 @@ public class SchemaTemplateSerDeTests {
 
     @Test
     public void testGoodSchemaTemplate() {
-        var testcase = new HashMap<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>>();
+        var testcase = new HashMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
         testcase.put("T1", List.of());
         testcase.put("T2", List.of());
 
@@ -183,9 +182,9 @@ public class SchemaTemplateSerDeTests {
     public void testGoodSchemaTemplateWithGenerations() {
         final var fieldOptions1 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(true).build();
         final var fieldOptions2 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(false).build();
-        var testcase = new HashMap<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>>();
-        testcase.put("T1", List.of(Pair.of(1, fieldOptions1), Pair.of(2, fieldOptions2)));
-        testcase.put("T2", List.of(Pair.of(3, fieldOptions2), Pair.of(4, fieldOptions1)));
+        var testcase = new HashMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
+        testcase.put("T1", List.of(NonnullPair.of(1, fieldOptions1), NonnullPair.of(2, fieldOptions2)));
+        testcase.put("T2", List.of(NonnullPair.of(3, fieldOptions2), NonnullPair.of(4, fieldOptions1)));
 
         var template = getTestRecordLayerSchemaTemplate(testcase);
         var recordMetadataProto = template.toRecordMetadata().toProto();
@@ -205,7 +204,7 @@ public class SchemaTemplateSerDeTests {
             final var typeName = unionField.getTypeName();
             Assertions.assertTrue(testcase.containsKey(typeName));
             final var expectedGenerations = testcase.get(typeName);
-            Assertions.assertTrue(expectedGenerations.contains(Pair.of(unionField.getNumber(), unionField.getOptions())));
+            Assertions.assertTrue(expectedGenerations.contains(NonnullPair.of(unionField.getNumber(), unionField.getOptions())));
         }
     }
 
@@ -232,18 +231,18 @@ public class SchemaTemplateSerDeTests {
         final var fieldOptions2 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(false).build();
 
         // SchemaTemplate with field number 0
-        var testcase1 = new TreeMap<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>>();
-        testcase1.put("T1", List.of(Pair.of(0, fieldOptions1), Pair.of(2, fieldOptions2)));
+        var testcase1 = new TreeMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
+        testcase1.put("T1", List.of(NonnullPair.of(0, fieldOptions1), NonnullPair.of(2, fieldOptions2)));
         // SchemaTemplate with duplicated field number
-        var testcase2 = new TreeMap<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>>();
-        testcase2.put("T1", List.of(Pair.of(1, fieldOptions1), Pair.of(1, fieldOptions2)));
+        var testcase2 = new TreeMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
+        testcase2.put("T1", List.of(NonnullPair.of(1, fieldOptions1), NonnullPair.of(1, fieldOptions2)));
         // SchemaTemplate with duplicated fieldOptions
-        var testcase3 = new TreeMap<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>>();
-        testcase3.put("T1", List.of(Pair.of(1, fieldOptions2), Pair.of(2, fieldOptions2)));
+        var testcase3 = new TreeMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
+        testcase3.put("T1", List.of(NonnullPair.of(1, fieldOptions2), NonnullPair.of(2, fieldOptions2)));
         // SchemaTemplate with duplicated field numbers across tables
-        var testcase4 = new TreeMap<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>>();
-        testcase4.put("T1", List.of(Pair.of(1, fieldOptions2), Pair.of(2, fieldOptions1)));
-        testcase4.put("T2", List.of(Pair.of(2, fieldOptions2), Pair.of(3, fieldOptions1)));
+        var testcase4 = new TreeMap<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>>();
+        testcase4.put("T1", List.of(NonnullPair.of(1, fieldOptions2), NonnullPair.of(2, fieldOptions1)));
+        testcase4.put("T2", List.of(NonnullPair.of(2, fieldOptions2), NonnullPair.of(3, fieldOptions1)));
 
         return Stream.of(
                 Arguments.of(testcase1, UncheckedRelationalException.class, "Field numbers must be positive integers"),
@@ -255,7 +254,7 @@ public class SchemaTemplateSerDeTests {
 
     @ParameterizedTest
     @MethodSource("badSchemaTemplateGenerationsTestcaseProvider")
-    public void testBadSchemaTemplateGenerations(Map<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>> testcase,
+    public void testBadSchemaTemplateGenerations(Map<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>> testcase,
                                                  Class<? extends Exception> exceptionClass, String message) {
         final var thrown = Assertions.assertThrows(exceptionClass, () -> {
             final var schemaTemplate = getTestRecordLayerSchemaTemplate(testcase);
@@ -265,7 +264,7 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    public void deserializationNestedTypesPreservesNamesCorrectly() throws Exception {
+    public void deserializationNestedTypesPreservesNamesCorrectly() {
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
@@ -292,7 +291,7 @@ public class SchemaTemplateSerDeTests {
         final var column = deserializedTableType.get().getColumns().stream().findFirst();
         Assertions.assertTrue(column.isPresent());
         final var type = column.get().getDatatype();
-        Assertions.assertTrue(type instanceof DataType.StructType);
+        Assertions.assertInstanceOf(DataType.StructType.class, type);
         final var typeName = ((DataType.StructType) type).getName();
         Assertions.assertEquals("Subtype", typeName);
     }

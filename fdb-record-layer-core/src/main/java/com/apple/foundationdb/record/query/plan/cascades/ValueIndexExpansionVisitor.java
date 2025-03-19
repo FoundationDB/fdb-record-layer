@@ -127,7 +127,10 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                         true);
 
         final var keyValueExpansion =
-                pop(rootExpression.expand(push(initialState)));
+                pop(rootExpression.expand(push(initialState)))
+                        .toBuilder()
+                        .removeAllResultColumns()
+                        .build();
 
         allExpansionsBuilder.add(keyValueExpansion);
 
@@ -176,7 +179,10 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                                 false,
                                 true);
                 final var primaryKeyPartExpansion =
-                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
+                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)))
+                                .toBuilder()
+                                .removeAllResultColumns()
+                                .build();
                 allExpansionsBuilder
                         .add(primaryKeyPartExpansion);
             }
@@ -184,8 +190,13 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
         final var sealedExpansion = completeExpansion.seal();
-        final var parameters = sealedExpansion.getPlaceholders().stream().map(Placeholder::getParameterAlias).collect(ImmutableList.toImmutableList());
-        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, sealedExpansion.buildSelect());
+        final var parameters =
+                sealedExpansion.getPlaceholders()
+                        .stream()
+                        .map(Placeholder::getParameterAlias)
+                        .collect(ImmutableList.toImmutableList());
+        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse,
+                sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,
                 Traversal.withRoot(Reference.of(matchableSortExpression)),

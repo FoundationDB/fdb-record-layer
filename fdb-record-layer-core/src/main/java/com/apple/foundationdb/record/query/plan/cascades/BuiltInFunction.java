@@ -38,9 +38,9 @@ import java.util.Optional;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class BuiltInFunction<T extends Typed> extends Function<T> {
+public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction {
     @Nonnull
-    private final EncapsulationFunction<T> encapsulationFunction;
+    final EncapsulationFunction<T> encapsulationFunction;
 
     /**
      * Creates a new instance of {@link BuiltInFunction}.
@@ -63,11 +63,6 @@ public abstract class BuiltInFunction<T extends Typed> extends Function<T> {
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterTypes, variadicSuffixType);
         this.encapsulationFunction = encapsulationFunction;
-    }
-
-    @Nonnull
-    public EncapsulationFunction<T> getEncapsulationFunction() {
-        return encapsulationFunction;
     }
 
     /**
@@ -111,8 +106,13 @@ public abstract class BuiltInFunction<T extends Typed> extends Function<T> {
     }
 
     @Nonnull
+    public EncapsulationFunction<T> getEncapsulationFunction() {
+        return encapsulationFunction;
+    }
+
+    @Nonnull
     @Override
-    public T encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
         return encapsulationFunction.encapsulate(this, arguments);
     }
 }

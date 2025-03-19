@@ -126,6 +126,7 @@ public enum LogMessageKeys {
     PRIMARY_INDEX,
     VALUE_KEY,
     PRIMARY_KEY,
+    GROUPING_KEY,
     VALUE,
     INDEX_OPERATION("operation"),
     INITIAL_PREFIX,
@@ -277,6 +278,15 @@ public enum LogMessageKeys {
     PLAN,
     PLAN_HASH,
     QUERY,
+    RULE,
+    COMPLEXITY,
+    RULE_MATCHES_COUNT,
+    TASK_COUNT,
+    TASK_QUEUE_SIZE,
+    MAX_COMPLEXITY,
+    MAX_RULE_MATCHES_COUNT,
+    MAX_TASK_COUNT,
+    MAX_TASK_QUEUE_SIZE,
 
     // error
     ERROR,

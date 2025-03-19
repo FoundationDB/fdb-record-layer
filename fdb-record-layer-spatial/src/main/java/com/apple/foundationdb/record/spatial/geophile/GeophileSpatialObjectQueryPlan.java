@@ -204,6 +204,7 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
     @Nonnull
     @Override
     public GeophileSpatialObjectQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                final boolean shouldSimplifyValues,
                                                                 @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }

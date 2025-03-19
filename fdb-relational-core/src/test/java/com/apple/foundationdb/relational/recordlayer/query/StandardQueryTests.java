@@ -369,6 +369,7 @@ public class StandardQueryTests {
     void selectWithContinuation() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.setMaxRows(1);
                 insertRestaurantComplexRecord(statement);
                 RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
                 RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
@@ -387,8 +388,12 @@ public class StandardQueryTests {
                     try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected
                         Assertions.assertNotNull(resultSet, "Did not return a result set!");
-                        ResultSetAssert.assertThat(resultSet).hasNextRow()
-                                .isRowPartly(expected.get(i));
+                        if (i < expected.size()) {
+                            ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                    .isRowPartly(expected.get(i));
+                        } else {
+                            ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                        }
                         // get continuation for the next query
                         continuation = resultSet.getContinuation();
                         i += 1;

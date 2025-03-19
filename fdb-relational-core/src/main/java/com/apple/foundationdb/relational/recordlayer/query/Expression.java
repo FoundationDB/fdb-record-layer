@@ -21,13 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
@@ -35,20 +32,16 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
-import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -192,6 +185,17 @@ public class Expression {
         return this.withUnderlying(pulledUpUnderlying);
     }
 
+    public boolean canBeDerivedFrom(@Nonnull final Expression expression,
+                                    @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        final var value = expression.getUnderlying();
+        final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
+        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var thisValue = getUnderlying();
+        final var quantifier = CorrelationIdentifier.uniqueID();
+        final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue), aliasMap, constantAliases, quantifier);
+        return result.containsKey(thisValue);
+    }
+
     /**
      * Replaces all the {@link ConstantObjectValue} objects with corresponding {@link LiteralValue}s.
      *
@@ -269,7 +273,7 @@ public class Expression {
 
         @Nonnull
         private static Iterable<Value> filterUnderlying(@Nonnull Expression expression, boolean onlyAggregates) {
-            return Streams.stream(expression.getUnderlying().preOrderPruningIterator(value ->
+            return Streams.stream(expression.getUnderlying().preOrderIterator(value ->
                     value instanceof ArithmeticValue ||
                             value instanceof AndOrValue ||
                             value instanceof NotValue ||
@@ -292,54 +296,6 @@ public class Expression {
                 final var result = value.toQueryPredicate(null, innermostAlias);
                 Assert.thatUnchecked(result.isPresent());
                 return result.get();
-            }
-        }
-
-        @Nonnull
-        public static Expression resolveDefaultValue(@Nonnull final Type type) {
-            // TODO use metadata default values -- for now just do this:
-            //
-            // resolution rules:
-            // - type is nullable ==> null
-            // - type is not nullable
-            //   - type is of an array type ==> empty array
-            //   - type is a numeric type ==> 0 element
-            //   - type is string ==> ''
-            //   - type is a boolean ==> false
-            //   - type is bytes ==> zero length byte array
-            //   - type is record or enum ==> error
-            if (type.isNullable()) {
-                return Expression.fromUnderlying(new NullValue(type));
-            } else {
-                switch (type.getTypeCode()) {
-                    case UNKNOWN:
-                    case ANY:
-                    case NULL:
-                        throw Assert.failUnchecked("internal typing error; target type is not properly resolved");
-                    case BOOLEAN:
-                        return Expression.fromUnderlying(LiteralValue.ofScalar(false));
-                    case BYTES:
-                        return Expression.fromUnderlying(LiteralValue.ofScalar(ByteString.empty()));
-                    case DOUBLE:
-                        return Expression.fromUnderlying(LiteralValue.ofScalar(0.0d));
-                    case FLOAT:
-                        return Expression.fromUnderlying(LiteralValue.ofScalar(0.0f));
-                    case INT:
-                        return Expression.fromUnderlying(LiteralValue.ofScalar(0));
-                    case LONG:
-                        return Expression.fromUnderlying(LiteralValue.ofScalar(0L));
-                    case STRING:
-                        return Expression.fromUnderlying(LiteralValue.ofScalar(""));
-                    case ENUM:
-                        throw Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE, "non-nullable enums must be specified");
-                    case RECORD:
-                        throw Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE, "non-nullable records must be specified");
-                    case ARRAY:
-                        final var elementType = Assert.notNullUnchecked(((Type.Array) type).getElementType());
-                        return Expression.fromUnderlying(AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType));
-                    default:
-                        throw Assert.failUnchecked("unsupported type");
-                }
             }
         }
     }

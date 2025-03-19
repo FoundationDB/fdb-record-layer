@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -109,31 +107,27 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
-    public Expressions difference(@Nonnull Expressions that) {
+    public Expressions difference(@Nonnull Expressions that, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         if (Iterables.isEmpty(that)) {
             return this;
         }
         if (Iterables.isEmpty(this)) {
             return Expressions.empty();
         }
-        final var expandedThat = that.expanded();
-        final var otherAsSet = Streams.stream(expandedThat)
-                .map(item -> {
-                    final var value = item.getUnderlying();
-                    final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(AliasMap.identitiesFor(value.getCorrelatedTo()));
-                    return boundEquivalence.wrap(item.getUnderlying());
-                })
-                .collect(ImmutableSet.toImmutableSet());
-        final var expandedThis = expanded();
         final ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
-        for (final var thisExpression : expandedThis) {
-            final var thisUnderlying = thisExpression.getUnderlying();
-            final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(AliasMap.identitiesFor(thisUnderlying.getCorrelatedTo()));
-            if (otherAsSet.contains(boundEquivalence.wrap(thisExpression.getUnderlying()))) {
-                continue;
+        for (final var thisExpression: this.expanded()) {
+            boolean foundDerivation = false;
+            for (final var thatExpression: that.expanded()) {
+                if (thisExpression.canBeDerivedFrom(thatExpression, constantAliases)) {
+                    foundDerivation = true;
+                    break;
+                }
             }
-            resultBuilder.add(thisExpression);
+            if (!foundDerivation) {
+                resultBuilder.add(thisExpression);
+            }
         }
+
         return Expressions.of(resultBuilder.build());
     }
 
@@ -204,6 +198,11 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    public List<Type> underlyingTypes() {
+        return Streams.stream(underlying()).map(Value::getResultType).collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
     public Stream<Expression> stream() {
         return underlying.stream();
     }
@@ -234,6 +233,12 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public static Expressions of(@Nonnull Iterable<Expression> expressions) {
         return new Expressions(expressions);
+    }
+
+    @Nonnull
+    public static Expressions of(@Nonnull final Expression[] expressions) {
+        List<Expression> expressionsList = ImmutableList.copyOf(expressions);
+        return Expressions.of(expressionsList);
     }
 
     @Nonnull

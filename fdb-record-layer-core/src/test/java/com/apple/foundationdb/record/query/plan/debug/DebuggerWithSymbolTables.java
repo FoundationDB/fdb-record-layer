@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty;
@@ -320,6 +321,16 @@ public class DebuggerWithSymbolTables implements Debugger {
             return currentState.showStats();
         }
         return "no stats";
+    }
+
+    @Nonnull
+    @Override
+    public Optional<StatsMaps> getStatsMaps() {
+        State currentState = stateStack.peek();
+        if (currentState != null) {
+            return Optional.of(currentState.getStatsMaps());
+        }
+        return Optional.empty();
     }
 
     private void reset() {

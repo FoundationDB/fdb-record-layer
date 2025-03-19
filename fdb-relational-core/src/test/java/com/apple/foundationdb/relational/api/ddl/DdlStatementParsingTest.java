@@ -65,6 +65,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -253,6 +254,75 @@ public class DdlStatementParsingTest {
                 };
             }
         });
+    }
+
+    private static Stream<Arguments> typesMap() {
+        return Stream.of(
+                Arguments.of(Types.INTEGER, "INTEGER"),
+                Arguments.of(Types.BIGINT, "BIGINT"),
+                Arguments.of(Types.FLOAT, "FLOAT"),
+                Arguments.of(Types.DOUBLE, "DOUBLE"),
+                Arguments.of(Types.VARCHAR, "STRING"),
+                Arguments.of(Types.BOOLEAN, "BOOLEAN"),
+                Arguments.of(Types.BINARY, "BYTES"),
+                Arguments.of(Types.STRUCT, "BAZ"),
+                Arguments.of(Types.ARRAY, "STRING ARRAY")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("typesMap")
+    void columnTypeWithNull(int sqlType, @Nonnull String sqlTypeName) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TABLE bar (id bigint, foo_field " + sqlTypeName + " null, PRIMARY KEY(id))";
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+                checkColumnNullability(template, sqlType, true);
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("typesMap")
+    void columnTypeWithNotNull(int sqlType, @Nonnull String sqlTypeName) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TABLE bar (id bigint, foo_field " + sqlTypeName + " not null, PRIMARY KEY(id))";
+        if (sqlType == Types.ARRAY) {
+            shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+                @Nonnull
+                @Override
+                public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+                    checkColumnNullability(template, sqlType, false);
+                    return txn -> {
+                    };
+                }
+            });
+        } else {
+            shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION);
+        }
+    }
+
+    private static void checkColumnNullability(@Nonnull final SchemaTemplate template, int sqlType, boolean isNullable) {
+        Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+        Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
+        final var table = ((RecordLayerSchemaTemplate) template).findTableByName("BAR");
+        Assertions.assertTrue(table.isPresent());
+        final var columns = table.get().getColumns();
+        Assertions.assertEquals(2, columns.size());
+        final var maybeNullableArrayColumn = columns.stream().filter(c -> c.getName().equals("FOO_FIELD")).findFirst();
+        Assertions.assertTrue(maybeNullableArrayColumn.isPresent());
+        if (isNullable) {
+            Assertions.assertTrue(maybeNullableArrayColumn.get().getDatatype().isNullable());
+        } else {
+            Assertions.assertFalse(maybeNullableArrayColumn.get().getDatatype().isNullable());
+        }
+        Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDatatype().getJdbcSqlCode());
     }
 
     @Test

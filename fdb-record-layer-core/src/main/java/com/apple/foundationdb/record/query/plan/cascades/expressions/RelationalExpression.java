@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -705,13 +707,13 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         Verify.verify(!candidateExpression.canCorrelate());
         Verify.verify(candidateExpression.getQuantifiers().size() <= 1);
 
-        final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+        final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
         final var maxMatchMap =
-                MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
-                        ValueEquivalence.fromAliasMap(bindingAliasMap));
+                MaxMatchMap.compute(translatedResultValue, candidateExpression.getResultValue(),
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()), ValueEquivalence.fromAliasMap(bindingAliasMap));
 
         if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
+            return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {
@@ -781,7 +783,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                 });
     }
 
-    default Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+    @Nonnull
+    default Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                    @Nullable final PullUp pullUp,
+                                    @Nonnull final CorrelationIdentifier nestingAlias) {
         throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 
@@ -790,15 +796,18 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
         if (getCorrelatedTo().stream().anyMatch(aliasMap::containsSource)) {
             final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
-            final var newQuantifiers =  Quantifiers.translateCorrelations(getQuantifiers(), translationMap);
-            return translateCorrelations(translationMap, newQuantifiers);
+            final var newQuantifiers =
+                    Quantifiers.translateCorrelations(getQuantifiers(), translationMap, false);
+            return translateCorrelations(translationMap, false, newQuantifiers);
         } else {
             return this;
         }
     }
 
     @Nonnull
-    RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap, @Nonnull List<? extends Quantifier> translatedQuantifiers);
+    RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap,
+                                               boolean shouldSimplifyValues,
+                                               @Nonnull List<? extends Quantifier> translatedQuantifiers);
 
     @Nonnull
     default Set<Quantifier> getMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {

@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -38,13 +40,16 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRew
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,26 +65,26 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
-    private final Quantifier inner;
+    private final Quantifier innerQuantifier;
     @Nonnull
     private final Type resultType;
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner, @Nonnull Type resultType) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
         this.recordTypes = recordTypes;
-        this.inner = inner;
+        this.innerQuantifier = innerQuantifier;
         this.resultType = resultType;
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
+        return QuantifiedObjectValue.of(innerQuantifier.getAlias(), resultType);
     }
 
     @Override
     @Nonnull
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(getInner());
+        return ImmutableList.of(getInnerQuantifier());
     }
 
     @Override
@@ -94,8 +99,8 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     }
 
     @Nonnull
-    private Quantifier getInner() {
-        return inner;
+    public Quantifier getInnerQuantifier() {
+        return innerQuantifier;
     }
 
     @Nonnull
@@ -106,7 +111,9 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
     @Nonnull
     @Override
-    public LogicalTypeFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public LogicalTypeFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                             final boolean shouldSimplifyValues,
+                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalTypeFilterExpression(getRecordTypes(),
                 Iterables.getOnlyElement(translatedQuantifiers),
                 resultType);
@@ -130,7 +137,32 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
+        // the candidate must be a type filter expression.
+        if (candidateExpression.getClass() != this.getClass()) {
+            return ImmutableList.of();
+        }
+
         if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
+            return ImmutableList.of();
+        }
+
+        final var candidateTypeFilterExpression = (LogicalTypeFilterExpression)candidateExpression;
+        final var candidateInnerQuantifier = candidateTypeFilterExpression.getInnerQuantifier();
+
+        if (!(innerQuantifier instanceof Quantifier.ForEach)) {
+            return ImmutableList.of();
+        }
+
+        final var candidateAlias = bindingAliasMap.getTarget(innerQuantifier.getAlias());
+        if (candidateAlias == null) {
+            return ImmutableList.of();
+        }
+        Verify.verify(candidateAlias.equals(candidateInnerQuantifier.getAlias()));
+        if (!(candidateInnerQuantifier instanceof Quantifier.ForEach)) {
+            return ImmutableList.of();
+        }
+        if (((Quantifier.ForEach)innerQuantifier).isNullOnEmpty() !=
+                ((Quantifier.ForEach)candidateInnerQuantifier).isNullOnEmpty()) {
             return ImmutableList.of();
         }
 
@@ -143,10 +175,62 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
     }
 
+    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
-        final PartialMatch childPartialMatch = Objects.requireNonNull(partialMatch.getMatchInfo().getChildPartialMatch(inner).orElseThrow(() -> new RecordCoreException("expected a match child")));
-        return childPartialMatch.compensate(boundParameterPrefixMap);
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
+                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   @Nullable final PullUp pullUp,
+                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, nestingAlias);
+        final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
+
+        final PartialMatch childPartialMatch =
+                Objects.requireNonNull(regularMatchInfo
+                        .getChildPartialMatchMaybe(innerQuantifier)
+                        .orElseThrow(() -> new RecordCoreException("expected a match child")));
+
+        final var childCompensation =
+                childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
+                        Objects.requireNonNull(bindingAliasMap.getTarget(innerQuantifier.getAlias())));
+
+        if (childCompensation.isImpossible()) {
+            return Compensation.impossibleCompensation();
+        }
+
+        final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        if (pullUp != null) {
+            resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+        } else {
+            final var rootPullUp = adjustedPullUp.getRootPullUp();
+            final var maxMatchMap = matchInfo.getMaxMatchMap();
+            final var pulledUpResultValueOptional =
+                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
+            if (pulledUpResultValueOptional.isEmpty()) {
+                return Compensation.impossibleCompensation();
+            }
+
+            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+
+            resultCompensationFunction =
+                    PredicateMultiMap.ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
+                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+        }
+
+        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
+        Verify.verify(unmatchedQuantifiers.isEmpty());
+
+        if (!resultCompensationFunction.isNeeded()) {
+            return Compensation.noCompensation();
+        }
+
+        return childCompensation.derived(false,
+                new LinkedIdentityMap<>(),
+                getMatchedQuantifiers(partialMatch),
+                unmatchedQuantifiers,
+                partialMatch.getCompensatedAliases(),
+                resultCompensationFunction);
     }
 
     @Nonnull
