@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Sets;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumDescriptor;
@@ -251,10 +252,11 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    @SuppressWarnings("deprecation") // checks the deprecated syntax field
     private void validateProtoSyntax(@Nonnull Descriptors.Descriptor oldDescriptor, @Nonnull Descriptors.Descriptor newDescriptor) {
-        if (!oldDescriptor.getFile().getSyntax().equals(newDescriptor.getFile().getSyntax())
-                || !oldDescriptor.getFile().getEdition().equals(newDescriptor.getFile().getEdition())) {
+        final DescriptorProtos.FileDescriptorProto oldFileDescriptorProto = oldDescriptor.getFile().toProto();
+        final DescriptorProtos.FileDescriptorProto newFileDescriptorProto = newDescriptor.getFile().toProto();
+        if (!oldFileDescriptorProto.getSyntax().equals(oldFileDescriptorProto.getSyntax())
+                || !oldFileDescriptorProto.getEdition().equals(newFileDescriptorProto.getEdition())) {
             throw new MetaDataException("message descriptor proto syntax changed",
                     LogMessageKeys.RECORD_TYPE, oldDescriptor.getName());
         }
