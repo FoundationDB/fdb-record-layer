@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 public interface StreamingValue extends Value {
 
     @Nonnull
-    <M extends Message> RecordCursor<QueryResult> evalAsStream(@Nullable final FDBRecordStoreBase<M> store,
+    <M extends Message> RecordCursor<QueryResult> evalAsStream(@Nonnull final FDBRecordStoreBase<M> store,
                                                                @Nonnull final EvaluationContext context,
                                                                @Nullable final byte[] continuation,
                                                                @Nonnull final ExecuteProperties executeProperties);

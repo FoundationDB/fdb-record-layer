@@ -226,6 +226,10 @@ namedQuery
     : name=fullId (columnAliases=fullIdList)? AS? '(' query ')'
     ;
 
+tableFunction
+    : functionNameBase '(' functionArgs? ')' inlineTableDefinition?
+    ;
+
 continuation
     : WITH CONTINUATION continuationAtom
     ;
@@ -285,6 +289,7 @@ tableSourceItem // done
     : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?                                             #atomTableItem // done
     | query AS? alias=uid                                                                                   #subqueryTableItem // done
     | VALUES recordConstructorForInlineTable (',' recordConstructorForInlineTable )* inlineTableDefinition? #inlineTableItem
+    | tableFunction                                                                                         #tableValuedFunction
     ;
 
 indexHint

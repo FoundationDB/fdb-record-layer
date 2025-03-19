@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTy
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -38,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.RuleNode;
@@ -310,6 +308,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitNamedQuery(ctx);
     }
 
+    @Override
+    public Expression visitTableFunction(final RelationalParser.TableFunctionContext ctx) {
+        return getDelegate().visitTableFunction(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
@@ -406,6 +409,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitInlineTableItem(ctx);
     }
 
+    @Override
+    public LogicalOperator visitTableValuedFunction(final RelationalParser.TableValuedFunctionContext ctx) {
+        return getDelegate().visitTableValuedFunction(ctx);
+    }
+
     @Nonnull
     @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx) {
@@ -420,7 +428,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Table visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
+    public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
         return getDelegate().visitInlineTableDefinition(ctx);
     }
 

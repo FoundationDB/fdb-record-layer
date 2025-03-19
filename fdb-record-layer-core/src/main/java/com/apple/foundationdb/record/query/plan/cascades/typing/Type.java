@@ -2765,6 +2765,23 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
+         * Return the array with a given element {@link Type} and the same nullability semantics.
+         * @param elementType The new element type, can be {@code null}.
+         * @return the array with a given element {@link Type} and the same nullability semantics, if the element type
+         * matches the current element type, the same instance is returned.
+         */
+        @Nonnull
+        public Type.Array withElementType(@Nullable final Type elementType) {
+            if (elementType == null && this.elementType == null) {
+                return this;
+            }
+            if (elementType != null && elementType.equals(this.elementType)) {
+                return this;
+            }
+            return new Array(isNullable(), elementType);
+        }
+
+        /**
          * Checks whether the array type is erased or not.
          *
          * @return <code>true</code> if the array type is erased, otherwise <code>false</code>.

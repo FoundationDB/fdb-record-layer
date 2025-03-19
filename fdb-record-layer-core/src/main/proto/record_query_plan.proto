@@ -244,6 +244,7 @@ message PValue {
     PCollateValue collate_value = 44;
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
     PQuantifiedRecordValue quantified_record_value = 46;
+    PRangeValue range_value = 47;
   }
 }
 
@@ -957,6 +958,12 @@ message PCollateValue {
   optional PValue string_child = 2;
   optional PValue locale_child = 3;
   optional PValue strength_child = 4;
+}
+
+message PRangeValue {
+  optional PValue end_exclusive_child = 1;
+  optional PValue begin_inclusive_child = 2;
+  optional PValue step_child = 3;
 }
 
 //

@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -47,7 +46,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
 import com.apple.foundationdb.relational.util.Assert;
@@ -470,6 +468,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return queryVisitor.visitNamedQuery(ctx);
     }
 
+    @Override
+    public Expression visitTableFunction(@Nonnull final RelationalParser.TableFunctionContext ctx) {
+        return expressionVisitor.visitTableFunction(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitContinuation(RelationalParser.ContinuationContext ctx) {
@@ -566,6 +569,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return queryVisitor.visitInlineTableItem(ctx);
     }
 
+    @Override
+    public LogicalOperator visitTableValuedFunction(@Nonnull final RelationalParser.TableValuedFunctionContext ctx) {
+        return queryVisitor.visitTableValuedFunction(ctx);
+    }
+
     @Nonnull
     @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx) {
@@ -580,7 +588,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Table visitInlineTableDefinition(final RelationalParser.InlineTableDefinitionContext ctx) {
+    public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(final RelationalParser.InlineTableDefinitionContext ctx) {
         return expressionVisitor.visitInlineTableDefinition(ctx);
     }
 

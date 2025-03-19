@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -86,6 +85,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     public static ExpressionVisitor of(@Nonnull BaseVisitor baseVisitor) {
         return new ExpressionVisitor(baseVisitor);
+    }
+
+    @Override
+    public Expression visitTableFunction(final RelationalParser.TableFunctionContext ctx) {
+        return super.visitTableFunction(ctx);
     }
 
     @Nonnull
@@ -173,7 +177,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Table visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
+    public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
         final var tableId = visitTableName(ctx.tableName());
         final var columnIdTrie = visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens());
         int columnCount = Objects.requireNonNull(columnIdTrie.getThis().getChildrenMap()).size();
@@ -184,7 +188,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         final var tableBuilder = RecordLayerTable.newBuilder(false).setName(tableId.getName());
         columnsList.forEach(tableBuilder::addColumn);
-        return tableBuilder.build();
+        return NonnullPair.of(tableId.getName(), columnIdTrie);
     }
 
     private static RecordLayerColumn toColumn(@Nonnull FieldValue.ResolvedAccessor field, @Nonnull CompatibleTypeEvolutionPredicate.FieldAccessTrieNode columnIdTrie) {
