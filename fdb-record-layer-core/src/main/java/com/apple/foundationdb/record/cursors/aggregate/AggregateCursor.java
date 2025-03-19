@@ -222,16 +222,25 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         @Nonnull
         @Override
         public ByteString toByteString() {
+            if (innerContinuation == null) {
+                return ByteString.EMPTY;
+            }
+            return partialAggregationResult == null ? innerContinuation : toProto().toByteString();
+            /*
             if (isEnd()) {
                 return ByteString.EMPTY;
             } else {
                 return toProto().toByteString();
             }
+
+             */
         }
 
         @Nullable
         @Override
         public byte[] toBytes() {
+            return partialAggregationResult == null ? getInnerContinuation() : toProto().toByteArray();
+            /*
             if (isEnd()) {
                 return null;
             }
@@ -241,6 +250,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             } else {
                 return toProto().toByteArray();
             }
+
+             */
         }
 
         @Override
@@ -260,6 +271,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
 
         @Nonnull
         private RecordCursorProto.AggregateCursorContinuation toProto() {
+            System.out.println("toProto is called");
             if (cachedProto == null) {
                 RecordCursorProto.AggregateCursorContinuation.Builder cachedProtoBuilder = RecordCursorProto.AggregateCursorContinuation.newBuilder();
                 if (partialAggregationResult != null) {
@@ -280,17 +292,16 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             try {
                 RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(rawBytes);
                 if (!continuationProto.hasContinuation()) {
-                    return new AggregateCursorContinuation(null, true);
+                    return new AggregateCursorContinuation(rawBytes, false);
+                    //return new AggregateCursorContinuation(null, true);
                 } else if (continuationProto.hasPartialAggregationResults()) {
                     return new AggregateCursorContinuation(continuationProto.getContinuation().toByteArray(), false, continuationProto.getPartialAggregationResults());
                 } else {
                     return new AggregateCursorContinuation(continuationProto.getContinuation().toByteArray(), false);
                 }
-            }
-            catch (final InvalidProtocolBufferException ipbe) {
+            } catch (InvalidProtocolBufferException ipbe) {
                 return new AggregateCursorContinuation(rawBytes, false);
-            }
-            catch (final Exception ex) {
+            } catch (final Exception ex) {
                 throw new RuntimeException(ex);
             }
         }
