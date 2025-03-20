@@ -253,10 +253,8 @@ public class MetaDataEvolutionValidator {
     }
 
     private void validateProtoSyntax(@Nonnull Descriptors.Descriptor oldDescriptor, @Nonnull Descriptors.Descriptor newDescriptor) {
-        final DescriptorProtos.FileDescriptorProto oldFileDescriptorProto = oldDescriptor.getFile().toProto();
-        final DescriptorProtos.FileDescriptorProto newFileDescriptorProto = newDescriptor.getFile().toProto();
-        if (!oldFileDescriptorProto.getSyntax().equals(oldFileDescriptorProto.getSyntax())
-                || !oldFileDescriptorProto.getEdition().equals(newFileDescriptorProto.getEdition())) {
+        if (!oldDescriptor.getFile().toProto().getSyntax().equals(newDescriptor.getFile().toProto().getSyntax())
+                || !oldDescriptor.getFile().toProto().getEdition().equals(newDescriptor.getFile().toProto().getEdition())) {
             throw new MetaDataException("message descriptor proto syntax changed",
                     LogMessageKeys.RECORD_TYPE, oldDescriptor.getName());
         }
