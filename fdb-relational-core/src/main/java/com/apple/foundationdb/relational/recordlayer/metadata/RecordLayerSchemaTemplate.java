@@ -51,6 +51,7 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -70,7 +71,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerTable> tables;
 
     @Nonnull
-    private final Set<UserDefinedFunction> userDefinedFunctions;
+    private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
 
     private final int version;
 
@@ -89,13 +90,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<UserDefinedFunction> userDefinedFunctions,
+                                      @Nonnull final Map<String, UserDefinedFunction> userDefinedFunctionMap,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions) {
         this.name = name;
         this.tables = tables;
-        this.userDefinedFunctions = userDefinedFunctions;
+        this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -106,7 +107,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<UserDefinedFunction> userDefinedFunctions,
+                                      @Nonnull final Map<String, UserDefinedFunction> userDefinedFunctionMap,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -114,7 +115,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.name = name;
         this.version = version;
         this.tables = tables;
-        this.userDefinedFunctions = userDefinedFunctions;
+        this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
@@ -156,8 +157,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    public Set<UserDefinedFunction> getAllUserDefinedFunctions() {
-        return userDefinedFunctions;
+    public Collection<UserDefinedFunction> getAllUserDefinedFunctions() {
+        return userDefinedFunctionMap.values();
     }
 
     @Nonnull
@@ -322,7 +323,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private final Map<String, RecordLayerTable> tables;
 
-        private final Set<UserDefinedFunction> userDefinedFunctionSet;
+        private final Map<String, UserDefinedFunction> functionMap;
 
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
 
@@ -330,7 +331,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private Builder() {
             tables = new LinkedHashMap<>();
-            userDefinedFunctionSet = new HashSet<>();
+            functionMap = new HashMap<>();
             auxiliaryTypes = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
@@ -420,7 +421,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         @Nonnull
         public Builder addUserDefinedFunction(@Nonnull UserDefinedFunction userDefinedFunction) {
-            userDefinedFunctionSet.add(userDefinedFunction);
+            functionMap.put(userDefinedFunction.getFunctionName(), userDefinedFunction);
             return this;
         }
 
@@ -488,9 +489,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 resolveTypes();
             }
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), userDefinedFunctionSet, version, enableLongRows, storeRowVersions, cachedMetadata);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), functionMap, version, enableLongRows, storeRowVersions, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), userDefinedFunctionSet, version, enableLongRows, storeRowVersions);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), functionMap, version, enableLongRows, storeRowVersions);
             }
         }
 
