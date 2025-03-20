@@ -108,7 +108,7 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
                 final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH);
                 final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH);
                 final String edgesOnly = Optional.ofNullable(index.getOption(LuceneIndexOptions.NGRAM_TOKEN_EDGES_ONLY)).orElse(DEFAULT_NGRAM_WITH_EDGES_ONLY);
-                return t -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
+                return () -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
                         new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), Boolean.parseBoolean(edgesOnly)));
             } catch (NumberFormatException ex) {
                 throw new RecordCoreArgumentException("Invalid index option for token size", ex);

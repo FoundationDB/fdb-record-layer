@@ -47,9 +47,9 @@ public class LuceneAnalyzerRegistryTest {
                         LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
         // Assert the synonym analyzer is used for query analyzer for full-text search
         Assertions.assertEquals(SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, Map.of()).provideQueryAnalyzer("").getUniqueIdentifier());
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, Map.of()).provideQueryAnalyzer().getUniqueIdentifier());
         // Assert the standard analyzer is used for query analyzer for auto-complete suggestions
         Assertions.assertEquals(LuceneAnalyzerWrapper.STANDARD_ANALYZER_NAME,
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, Map.of()).provideQueryAnalyzer("").getUniqueIdentifier());
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, Map.of()).provideQueryAnalyzer().getUniqueIdentifier());
     }
 }
