@@ -22,12 +22,15 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Accumulator;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -104,10 +107,19 @@ public class StreamGrouping<M extends Message> {
                           @Nonnull final CorrelationIdentifier aggregateAlias,
                           @Nonnull final FDBRecordStoreBase<M> store,
                           @Nonnull final EvaluationContext context,
-                          @Nonnull final CorrelationIdentifier alias) {
+                          @Nonnull final CorrelationIdentifier alias,
+                          @Nullable final RecordCursorProto.PartialAggregationResult partialAggregationResult) {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
         this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+        if (partialAggregationResult != null) {
+            this.accumulator.setInitialState(partialAggregationResult.getAccumulatorStatesList());
+            try {
+                this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), partialAggregationResult.getGroupKey().toByteArray());
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        }
         this.store = store;
         this.context = context;
         this.alias = alias;
@@ -167,20 +179,22 @@ public class StreamGrouping<M extends Message> {
         }
     }
 
-    public void finalizeGroup() {
-        finalizeGroup(null);
+    public RecordCursorProto.PartialAggregationResult finalizeGroup() {
+        return finalizeGroup(null);
     }
 
-    private void finalizeGroup(Object nextGroup) {
+    private RecordCursorProto.PartialAggregationResult finalizeGroup(Object nextGroup) {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
+        RecordCursorProto.PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult((Message) currentGroup);
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+        return result;
     }
 
     private void accumulate(@Nullable Object currentObject) {
@@ -196,5 +210,14 @@ public class StreamGrouping<M extends Message> {
 
     public boolean isResultOnEmpty() {
         return groupingKeyValue == null;
+    }
+
+    @Nullable
+    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
+        return accumulator.getPartialAggregationResult(groupingKey);
+    }
+
+    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
+        return accumulator.getPartialAggregationResult((Message)currentGroup);
     }
 }

@@ -20,7 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.RecordCursorProto;
+import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * An aggregate accumulator.
@@ -29,4 +34,9 @@ public interface Accumulator {
     void accumulate(@Nullable Object currentObject);
 
     @Nullable Object finish();
+
+    @Nullable
+    RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey);
+
+    void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates);
 }

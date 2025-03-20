@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
@@ -62,6 +63,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -861,6 +863,97 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Override
         public Object finish() {
             return physicalOperator.evalPartialToFinal(state);
+        }
+
+        @Nullable
+        @Override
+        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
+            if (state ==  null) {
+                return null;
+            }
+            RecordCursorProto.AccumulatorState.Builder builder = RecordCursorProto.AccumulatorState.newBuilder().setPhysicalOperatorName(physicalOperator.name());
+            switch (physicalOperator) {
+                case SUM_I:
+                case MAX_I:
+                case MIN_I:
+                case SUM_L:
+                case MAX_L:
+                case MIN_L:
+                case SUM_D:
+                case MAX_D:
+                case MIN_D:
+                case SUM_F:
+                case MAX_F:
+                case MIN_F:
+                    builder.addState(String.valueOf(state));
+                    break;
+                case AVG_I:
+                case AVG_L:
+                case AVG_D:
+                case AVG_F:
+                    Pair<?, ?> pair = (Pair<?, ?>) state;
+                    builder.addState(String.valueOf(pair.getLeft())).addState(String.valueOf(pair.getRight()));
+                    break;
+                case BITMAP_CONSTRUCT_AGG_I:
+                case BITMAP_CONSTRUCT_AGG_L:
+                    builder.addState(new String(((BitSet) state).toByteArray(), StandardCharsets.UTF_8));
+                    break;
+                default:
+                    break;
+
+            }
+            return RecordCursorProto.PartialAggregationResult.newBuilder()
+                    .setGroupKey(groupingKey.toByteString())
+                    .addAccumulatorStates(builder)
+                    .build();
+        }
+
+        @Override
+        public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
+            Verify.verify(state == null);
+            Verify.verify(accumulatorStates.size() == 1);
+            Verify.verify(physicalOperator.name().equals(accumulatorStates.get(0).getPhysicalOperatorName()));
+
+            switch (physicalOperator) {
+                case SUM_I:
+                case MAX_I:
+                case MIN_I:
+                    state = Integer.parseInt(accumulatorStates.get(0).getState(0));
+                    break;
+                case SUM_L:
+                case MAX_L:
+                case MIN_L:
+                    state = Long.parseLong(accumulatorStates.get(0).getState(0));
+                    break;
+                case SUM_D:
+                case MAX_D:
+                case MIN_D:
+                    state = Double.parseDouble(accumulatorStates.get(0).getState(0));
+                    break;
+                case SUM_F:
+                case MAX_F:
+                case MIN_F:
+                    state = Float.parseFloat(accumulatorStates.get(0).getState(0));
+                    break;
+                case AVG_I:
+                    state = Pair.of(Integer.parseInt(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
+                    break;
+                case AVG_L:
+                    state = Pair.of(Long.parseLong(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
+                    break;
+                case AVG_D:
+                    state = Pair.of(Double.parseDouble(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
+                    break;
+                case AVG_F:
+                    state = Pair.of(Float.parseFloat(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
+                    break;
+                case BITMAP_CONSTRUCT_AGG_I:
+                case BITMAP_CONSTRUCT_AGG_L:
+                    state = BitSet.valueOf(accumulatorStates.get(0).getState(0).getBytes(StandardCharsets.UTF_8));
+                    break;
+                default:
+                    break;
+            }
         }
     }
 }

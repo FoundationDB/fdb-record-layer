@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -56,6 +57,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -373,6 +375,31 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                     childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
                 }
                 return childAccumulatorsBuilder.build();
+            }
+
+            @Nullable
+            @Override
+            public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
+                List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
+                for (Accumulator accumulator: childAccumulators) {
+                    if (accumulator.getPartialAggregationResult(groupingKey) != null) {
+                        accumulatorStates.addAll(accumulator.getPartialAggregationResult(groupingKey).getAccumulatorStatesList());
+                    }
+                }
+                if (accumulatorStates.isEmpty()) {
+                    return null;
+                }
+                return RecordCursorProto.PartialAggregationResult.newBuilder()
+                        .setGroupKey(groupingKey.toByteString())
+                        .addAllAccumulatorStates(accumulatorStates)
+                        .build();
+            }
+
+            @Override
+            public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
+                for (int i = 0; i < accumulatorStates.size(); i++) {
+                    childAccumulators.get(i).setInitialState(List.of(accumulatorStates.get(i)));
+                }
             }
         };
     }
