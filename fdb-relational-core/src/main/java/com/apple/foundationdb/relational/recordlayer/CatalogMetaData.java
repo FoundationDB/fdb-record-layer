@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;

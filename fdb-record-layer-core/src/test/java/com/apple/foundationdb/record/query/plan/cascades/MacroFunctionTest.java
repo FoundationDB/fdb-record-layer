@@ -64,7 +64,6 @@ public class MacroFunctionTest {
         QuantifiedObjectValue param2 = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), record);
 
         ArithmeticValue bodyValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, param1, param2);
-
         MacroFunction macroFunction = new MacroFunction("add", ImmutableList.of(param1, param2), bodyValue);
 
         RecordConstructorValue testValue1 = RecordConstructorValue.ofColumns(ImmutableList.of(

@@ -33,6 +33,6 @@ public interface SqlFunctionCatalog {
     boolean containsFunction(@Nonnull String name);
 
     boolean isUdfFunction(@Nonnull String name);
-    
+
     void addUdfFunction(@Nonnull UserDefinedFunction function);
 }

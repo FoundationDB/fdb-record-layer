@@ -48,7 +48,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
      * @param parameterTypes The type of the parameter(s).
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
-    public BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterTypes, null);
         this.encapsulationFunction = encapsulationFunction;
     }
