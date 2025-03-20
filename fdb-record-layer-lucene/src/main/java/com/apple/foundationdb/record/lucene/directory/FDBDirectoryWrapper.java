@@ -74,7 +74,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private final LuceneAnalyzerWrapper analyzerWrapper;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile IndexWriter writer;
-    // object is thread safe, so use of volatile to control instance creation is correct
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile DirectoryReader writerReader;
 
