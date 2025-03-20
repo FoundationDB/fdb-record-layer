@@ -22,9 +22,9 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -186,7 +186,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public ScalarValuedFunction visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
+    public UserDefinedFunction visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
         final var ddlCatalog = metadataBuilder.build();
         // parse the function definition using the newly constructed metadata.
         getDelegate().replaceCatalog(ddlCatalog);
@@ -206,8 +206,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         Optional<Value> fieldValue = semanticAnalyzer.lookupNestedField(functionBody, paramNameId, argumentValue, returnType);
         Assert.thatUnchecked(fieldValue.isPresent(), "couldn't resolve function definition");
-
-        return new ScalarValuedFunction(new MacroFunction(ctx.functionName.getText(), List.of(argumentValue), fieldValue.get()));
+        return new MacroFunction(ctx.functionName.getText(), List.of(argumentValue), fieldValue.get());
     }
 
     @Nonnull
@@ -270,7 +269,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             metadataBuilder.addTable(tableWithIndex);
         }
         final var udfs = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
-        metadataBuilder.addScalarValuedFunctions(udfs);
+        metadataBuilder.addUserDefinedFunctions(udfs);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 

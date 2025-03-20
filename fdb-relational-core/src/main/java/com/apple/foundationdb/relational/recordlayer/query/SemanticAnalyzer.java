@@ -21,13 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
@@ -102,8 +103,8 @@ public class SemanticAnalyzer {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
         // add UDFs to functionCatalog
-        for (ScalarValuedFunction scalarValuedFunction: ((RecordLayerSchemaTemplate) metadataCatalog).getAllScalarValuedFunctions()) {
-            ((SqlFunctionCatalog)this.functionCatalog).addFunction(scalarValuedFunction);
+        for (UserDefinedFunction function: ((RecordLayerSchemaTemplate) metadataCatalog).getAllUserDefinedFunctions()) {
+            (this.functionCatalog).addUdfFunction(function);
         }
     }
 

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
-import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -51,7 +50,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -197,6 +195,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public Map<String, RecordType> getRecordTypes() {
         return recordTypes;
+    }
+
+    @Nonnull
+    public Map<String, UserDefinedFunction> getUserDefinedFunctionMap() {
+        return userDefinedFunctionMap;
     }
 
     @Nonnull
@@ -349,11 +352,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     public List<FormerIndex> getFormerIndexes() {
         return formerIndexes;
-    }
-
-    @Nonnull
-    public Collection<ScalarValuedFunction> getAllScalarValuedFunctions() {
-        return scalarValuedFunctions;
     }
 
     public boolean isSplitLongRecords() {

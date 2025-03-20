@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
-import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -229,9 +228,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
             }
         }
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
         for (RecordMetaDataProto.PUserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
-            UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                    PlanHashable.CURRENT_FOR_CONTINUATION), function);
+            UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(serializationContext, function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
         }
         if (metaDataProto.hasSplitLongRecords()) {

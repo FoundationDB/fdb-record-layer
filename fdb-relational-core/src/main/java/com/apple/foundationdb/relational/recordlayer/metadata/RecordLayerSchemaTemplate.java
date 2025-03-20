@@ -25,8 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.ScalarValuedFunction;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -54,7 +54,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -71,7 +70,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerTable> tables;
 
     @Nonnull
-    private final Set<ScalarValuedFunction> scalarValuedFunctions;
+    private final Set<UserDefinedFunction> userDefinedFunctions;
 
     private final int version;
 
@@ -90,13 +89,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<ScalarValuedFunction> scalarValuedFunctions,
+                                      @Nonnull final Set<UserDefinedFunction> userDefinedFunctions,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions) {
         this.name = name;
         this.tables = tables;
-        this.scalarValuedFunctions = scalarValuedFunctions;
+        this.userDefinedFunctions = userDefinedFunctions;
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -107,7 +106,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<ScalarValuedFunction> scalarValuedFunctions,
+                                      @Nonnull final Set<UserDefinedFunction> userDefinedFunctions,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -115,7 +114,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.name = name;
         this.version = version;
         this.tables = tables;
-        this.scalarValuedFunctions = scalarValuedFunctions;
+        this.userDefinedFunctions = userDefinedFunctions;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
@@ -157,8 +156,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    public Set<ScalarValuedFunction> getAllScalarValuedFunctions() {
-        return scalarValuedFunctions;
+    public Set<UserDefinedFunction> getAllUserDefinedFunctions() {
+        return userDefinedFunctions;
     }
 
     @Nonnull
@@ -323,7 +322,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private final Map<String, RecordLayerTable> tables;
 
-        private final Set<ScalarValuedFunction> scalarValuedFunctions;
+        private final Set<UserDefinedFunction> userDefinedFunctionSet;
 
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
 
@@ -331,7 +330,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private Builder() {
             tables = new LinkedHashMap<>();
-            scalarValuedFunctions = new HashSet<>();
+            userDefinedFunctionSet = new HashSet<>();
             auxiliaryTypes = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
@@ -420,14 +419,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder addScalarValuedFunction(@Nonnull ScalarValuedFunction scalarValuedFunction) {
-            scalarValuedFunctions.add(scalarValuedFunction);
+        public Builder addUserDefinedFunction(@Nonnull UserDefinedFunction userDefinedFunction) {
+            userDefinedFunctionSet.add(userDefinedFunction);
             return this;
         }
 
         @Nonnull
-        public Builder addScalarValuedFunctions(@Nonnull Collection<ScalarValuedFunction> scalarValuedFunctions) {
-            scalarValuedFunctions.forEach(this::addScalarValuedFunction);
+        public Builder addUserDefinedFunctions(@Nonnull Collection<UserDefinedFunction> functions) {
+            functions.forEach(this::addUserDefinedFunction);
             return this;
         }
 
@@ -489,9 +488,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 resolveTypes();
             }
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), scalarValuedFunctions, version, enableLongRows, storeRowVersions, cachedMetadata);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), userDefinedFunctionSet, version, enableLongRows, storeRowVersions, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), scalarValuedFunctions, version, enableLongRows, storeRowVersions);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), userDefinedFunctionSet, version, enableLongRows, storeRowVersions);
             }
         }
 
