@@ -114,7 +114,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     private final FDBDirectoryManager directoryManager;
-    private final LuceneAnalyzerCombinationProvider queryAnalyzerSelector;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     public static final String PRIMARY_KEY_FIELD_NAME = "_p";
     protected static final String PRIMARY_KEY_SEARCH_NAME = "_s";
@@ -130,7 +129,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.executor = executor;
         this.directoryManager = createDirectoryManager(state);
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
-        this.queryAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         this.autoCompleteAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
         String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
@@ -177,7 +175,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
                     scanQuery.getGroupKey(), partitionInfo, scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
-                    scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), queryAnalyzerSelector, autoCompleteAnalyzerSelector);
+                    scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), directoryManager.getAnalyzerSelector(), autoCompleteAnalyzerSelector);
         }
 
         if (scanType.equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK)) {

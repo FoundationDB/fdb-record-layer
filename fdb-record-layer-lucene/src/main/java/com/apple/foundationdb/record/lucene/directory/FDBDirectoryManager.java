@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerCombinationProvider;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerRegistryImpl;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerType;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
@@ -83,8 +84,12 @@ public class FDBDirectoryManager implements AutoCloseable {
     @Nonnull
     private final Map<Tuple, FDBDirectoryWrapper> createdDirectories;
     private final int mergeDirectoryCount;
+    @Nullable
     private final Exception exceptionAtCreation;
+    @Nonnull
     protected final LuceneAnalyzerWrapper writerAnalyzer;
+    @Nonnull
+    private final LuceneAnalyzerCombinationProvider analyzerSelector;
 
     protected FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
@@ -96,7 +101,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             this.exceptionAtCreation = null;
         }
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
-        final var analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
+        this.analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         this.writerAnalyzer = analyzerSelector.provideIndexAnalyzer();
     }
 
@@ -107,6 +112,11 @@ public class FDBDirectoryManager implements AutoCloseable {
             directory.close();
         }
         createdDirectories.clear();
+    }
+
+    @Nonnull
+    public LuceneAnalyzerCombinationProvider getAnalyzerSelector() {
+        return analyzerSelector;
     }
 
     @SuppressWarnings("PMD.CloseResource")
