@@ -198,6 +198,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
+    public Map<String, UserDefinedFunction> getUserDefinedFunctionMap() {
+        return userDefinedFunctionMap;
+    }
+
+    @Nonnull
     public RecordType getRecordType(@Nonnull String name) {
         RecordType recordType = recordTypes.get(name);
         if (recordType == null) {
