@@ -92,14 +92,12 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @ExcludeFromJacocoGeneratedReport
     default void setMaxFieldSize(int max) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setEscapeProcessing(boolean enable) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
@@ -112,14 +110,12 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @ExcludeFromJacocoGeneratedReport
     default void setQueryTimeout(int seconds) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void cancel() throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
@@ -134,7 +130,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @ExcludeFromJacocoGeneratedReport
     default void clearWarnings() throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
@@ -196,7 +191,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @ExcludeFromJacocoGeneratedReport
     default void setFetchSize(int rows) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
@@ -221,14 +215,12 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @ExcludeFromJacocoGeneratedReport
     default void addBatch(String sql) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void clearBatch() throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
@@ -253,7 +245,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @ExcludeFromJacocoGeneratedReport
     default void setPoolable(boolean poolable) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
@@ -266,7 +257,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @ExcludeFromJacocoGeneratedReport
     default void closeOnCompletion() throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
     }
 
     @Override
