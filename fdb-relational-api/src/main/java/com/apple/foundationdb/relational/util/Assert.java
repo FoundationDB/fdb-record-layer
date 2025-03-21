@@ -32,7 +32,6 @@ import java.util.function.Supplier;
 /**
  * A set of helper methods for validating input, pre-conditions, ... etc.
  */
-@ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
 @API(API.Status.EXPERIMENTAL)
 public final class Assert {
 

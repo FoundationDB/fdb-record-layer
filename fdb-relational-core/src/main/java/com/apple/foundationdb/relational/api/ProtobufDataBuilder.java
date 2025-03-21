@@ -21,14 +21,11 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -67,7 +64,6 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return ProtobufDdlUtil.getTypeName(field);
     }
 
-    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public boolean isPrimitive(int fieldNumber) throws SQLException {
         final var field = typeDescriptor.getFields().get(fieldNumber - 1);
@@ -90,7 +86,6 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         }
     }
 
-    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public DynamicMessageBuilder setField(int fieldNumber, Object value) throws SQLException {
         try {
@@ -125,7 +120,6 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         }
     }
 
-    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public DynamicMessageBuilder addRepeatedField(int fieldNumber, Object value) throws SQLException {
         try {
@@ -176,7 +170,6 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return addRepeatedFields(fieldName, values, true);
     }
 
-    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public DynamicMessageBuilder addRepeatedFields(int fieldNumber, Iterable<? extends Object> values) throws SQLException {
         for (Object value : values) {
@@ -217,7 +210,6 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         }
     }
 
-    @ExcludeFromJacocoGeneratedReport // currently, used only for YAML testing
     @Override
     public DynamicMessageBuilder getNestedMessageBuilder(int fieldNumber) throws SQLException {
         try {

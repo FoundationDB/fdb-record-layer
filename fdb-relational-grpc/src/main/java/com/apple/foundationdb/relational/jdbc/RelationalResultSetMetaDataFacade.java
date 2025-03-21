@@ -48,7 +48,6 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
         return new RelationalStructFacade.RelationalStructFacadeMetaData(
                 this.delegate.getColumnMetadata().getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata());

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -30,7 +29,6 @@ import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAct
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -85,7 +83,6 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
         return new DropSchemaConstantAction(dbPath, schema, baseKeySpace, catalog);
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Nonnull
     public ConstantAction getSetStoreStateConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName) {
         return new RecordLayerSetStoreStateConstantAction(dbUri, schemaName, rlConfig, baseKeySpace, catalog);

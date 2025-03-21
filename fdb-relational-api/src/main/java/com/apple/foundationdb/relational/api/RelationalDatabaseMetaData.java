@@ -243,13 +243,11 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default String getDatabaseProductName() throws SQLException {
         return DATABASE_PRODUCT_NAME;
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default String getDatabaseProductVersion() throws SQLException {
         return BuildVersion.getInstance().getVersion();
     }
@@ -261,13 +259,11 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default String getDriverVersion() throws SQLException {
         return BuildVersion.getInstance().getVersion();
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMajorVersion() {
         try {
             return BuildVersion.getInstance().getMajorVersion();
@@ -277,7 +273,6 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMinorVersion() {
         try {
             return BuildVersion.getInstance().getMinorVersion();
@@ -347,13 +342,11 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default String getIdentifierQuoteString() throws SQLException {
         return "\"";
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default String getSQLKeywords() throws SQLException {
         return "";
     }
@@ -515,13 +508,11 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default boolean supportsANSI92EntryLevelSQL() throws SQLException {
         return true;
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default boolean supportsANSI92IntermediateSQL() throws SQLException {
         return false;
     }
