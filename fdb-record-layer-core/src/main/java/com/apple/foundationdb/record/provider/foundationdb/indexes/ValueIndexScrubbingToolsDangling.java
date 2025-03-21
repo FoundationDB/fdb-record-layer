@@ -57,6 +57,9 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
 
     @Override
     public void presetCommonParams(final Index index, final boolean allowRepair, final boolean isSynthetic, final Collection<RecordType> typesIgnored) {
+        if (isSynthetic && allowRepair) {
+            throw new UnsupportedOperationException("Scrubbing synthetic records with repair is not supported");
+        }
         this.index = index;
         this.allowRepair = allowRepair;
         this.isSynthetic = isSynthetic;
