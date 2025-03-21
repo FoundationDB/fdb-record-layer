@@ -720,7 +720,23 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey);
+    default CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey) {
+        return loadSyntheticRecord(primaryKey, IndexOrphanBehavior.ERROR);
+    }
+
+    /**
+     * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
+     * In case any of the constituents are missing, the following will be returned:
+     * - ERROR: Exception is thrown
+     * - SKIP: Future(null) is returned
+     * - RETURN: Future(Record with no constituents) is returned
+     * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
+     * @param orphanBehavior what to do if any of the record's constituents is missing
+     * @return a future which completes to the synthesized record
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey, final IndexOrphanBehavior orphanBehavior);
 
     /**
      * Check if a record exists in the record store with the given primary key.

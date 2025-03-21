@@ -684,8 +684,17 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            if (legacy) {
+                assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+            } else {
+                assertEquals(numRecords / 4, indexScrubber.scrubDanglingIndexEntries());
+                assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+            }
+
             indexScrubber.scrubMissingIndexEntries();
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         }
     }
 
