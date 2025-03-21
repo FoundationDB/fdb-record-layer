@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
@@ -262,7 +263,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Override
     @Nonnull
     @API(API.Status.INTERNAL)
-    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(@Nonnull final FDBRecordStore store, @Nonnull final Tuple primaryKey) {
+    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(@Nonnull final FDBRecordStore store, @Nonnull final Tuple primaryKey, IndexOrphanBehavior orphanBehavior) {
         Tuple parentPrimaryKey = primaryKey.getNestedTuple(1);
         return store.loadRecordAsync(parentPrimaryKey).thenApply(storedRecord -> {
             if (storedRecord == null) {

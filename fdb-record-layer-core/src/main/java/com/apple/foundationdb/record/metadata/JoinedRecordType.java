@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
@@ -124,7 +125,7 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
     @Nonnull
     @Override
     @API(API.Status.INTERNAL)
-    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey) {
+    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey, IndexOrphanBehavior orphanBehavior) {
         int nconstituents = getConstituents().size();
         final Map<String, FDBStoredRecord<? extends Message>> constituentValues = new ConcurrentHashMap<>(nconstituents);
         final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
@@ -136,16 +137,33 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
             } else {
                 futures[i] = store.loadRecordAsync(constituentKey).thenApply(rec -> {
                     if (rec == null) {
-                        throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
+                        if (orphanBehavior.equals(IndexOrphanBehavior.ERROR)) {
+                            throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
+                        } else {
+                            // For SKIP and RETURN do nothing
+                        }
+                    } else {
+                        constituentValues.put(constituent.getName(), rec);
                     }
-                    constituentValues.put(constituent.getName(), rec);
                     return null;
                 });
             }
         }
-        return CompletableFuture.allOf(futures).thenApply(vignore -> FDBSyntheticRecord.of(this, constituentValues));
+        return CompletableFuture.allOf(futures).thenApply(vignore -> {
+            if (nconstituents == constituentValues.size()) {
+                // all constituents have been found
+                return FDBSyntheticRecord.of(this, constituentValues);
+            } else {
+                // some constituents are missing
+                if (orphanBehavior.equals(IndexOrphanBehavior.SKIP)) {
+                    return null;
+                } else {
+                    // This is for RETURN - return the shell of the record with no constituents
+                    return FDBSyntheticRecord.of(this, Map.of());
+                }
+            }
+        });
     }
-
 
     @Nonnull
     public RecordMetaDataProto.JoinedRecordType toProto() {

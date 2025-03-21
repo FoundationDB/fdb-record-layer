@@ -93,7 +93,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
         }
 
         if (isSynthetic) {
-            return store.loadSyntheticRecord(indexEntry.getPrimaryKey()).thenApply(syntheticRecord -> {
+            return store.loadSyntheticRecord(indexEntry.getPrimaryKey(), IndexOrphanBehavior.RETURN).thenApply(syntheticRecord -> {
                 if (syntheticRecord.getConstituents().isEmpty()) {
                     // None of the constituents of this synthetic type are present, so it must be dangling
                     List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
