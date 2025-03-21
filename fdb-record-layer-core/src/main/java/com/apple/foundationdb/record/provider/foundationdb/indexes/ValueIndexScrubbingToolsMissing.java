@@ -66,6 +66,9 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
 
     @Override
     public void presetCommonParams(Index index, boolean allowRepair, boolean isSynthetic, Collection<RecordType> types) {
+        if (isSynthetic && allowRepair) {
+            throw new UnsupportedOperationException("Scrubbing synthetic records with repair is not supported");
+        }
         this.recordTypes = types;
         this.index = index;
         this.allowRepair = allowRepair;
