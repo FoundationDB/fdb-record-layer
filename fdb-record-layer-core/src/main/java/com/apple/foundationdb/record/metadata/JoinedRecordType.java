@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A <i>synthetic</i> record type representing the indexable result of <em>joining</em> stored records.
@@ -129,11 +130,11 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         int nconstituents = getConstituents().size();
         final Map<String, FDBStoredRecord<? extends Message>> constituentValues = new ConcurrentHashMap<>(nconstituents);
         final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
+        AtomicBoolean isMissingConstituent = new AtomicBoolean(false);
         for (int i = 0; i < nconstituents; i++) {
             final SyntheticRecordType.Constituent constituent = getConstituents().get(i);
             final Tuple constituentKey = primaryKey.getNestedTuple(i + 1);
             if (constituentKey == null) {
-                // TODO: Is this a valid entry to ignore (this will trigger the SKIP condition below)
                 futures[i] = AsyncUtil.DONE;
             } else {
                 futures[i] = store.loadRecordAsync(constituentKey).thenApply(rec -> {
@@ -141,7 +142,10 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
                         if (orphanBehavior.equals(IndexOrphanBehavior.ERROR)) {
                             throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
                         } else {
-                            // For SKIP and RETURN do nothing
+                            // For SKIP and RETURN
+                            isMissingConstituent.set(true);
+                            // ideally, we should be able to stop the iteration to fetch all other constituents
+                            // but because of the async nature of the loop this seems to be not worth it
                         }
                     } else {
                         constituentValues.put(constituent.getName(), rec);
@@ -151,7 +155,7 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
             }
         }
         return CompletableFuture.allOf(futures).thenApply(vignore -> {
-            if (nconstituents == constituentValues.size()) {
+            if ( ! isMissingConstituent.get()) {
                 // all constituents have been found
                 return FDBSyntheticRecord.of(this, constituentValues);
             } else {

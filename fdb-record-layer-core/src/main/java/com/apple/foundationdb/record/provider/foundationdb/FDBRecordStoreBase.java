@@ -736,7 +736,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey, final IndexOrphanBehavior orphanBehavior);
+    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey, IndexOrphanBehavior orphanBehavior);
 
     /**
      * Check if a record exists in the record store with the given primary key.
