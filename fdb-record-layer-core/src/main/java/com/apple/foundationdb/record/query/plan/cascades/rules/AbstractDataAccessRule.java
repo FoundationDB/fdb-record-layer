@@ -982,10 +982,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     protected static boolean isCompatibleComparisonKey(@Nonnull Collection<Value> comparisonKeyValues,
                                                        @Nonnull List<Value> commonPrimaryKeyValues,
                                                        @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
-        if (comparisonKeyValues.isEmpty()) {
-            // everything is in one row
-            return true;
-        }
+//        if (comparisonKeyValues.isEmpty()) {
+//            // everything is in one row
+//            return true;
+//        }
 
         return commonPrimaryKeyValues
                 .stream()
