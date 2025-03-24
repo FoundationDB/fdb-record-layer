@@ -267,8 +267,17 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
         Tuple parentPrimaryKey = primaryKey.getNestedTuple(1);
         return store.loadRecordAsync(parentPrimaryKey).thenApply(storedRecord -> {
             if (storedRecord == null) {
-                throw new RecordDoesNotExistException("constituent record not found: " + parentConstituent.getName())
-                        .addLogInfo(LogMessageKeys.PRIMARY_KEY, parentPrimaryKey);
+                switch (orphanBehavior) {
+                    case ERROR:
+                        throw new RecordDoesNotExistException("constituent record not found: " + parentConstituent.getName())
+                                .addLogInfo(LogMessageKeys.PRIMARY_KEY, parentPrimaryKey);
+                    case SKIP:
+                        return null;
+                    case RETURN:
+                        return FDBSyntheticRecord.of(this, Map.of());
+                    default:
+                        throw new IllegalArgumentException("Unknown orphanBehavior value: " + orphanBehavior);
+                }
             }
             Map<String, FDBStoredRecord<?>> constituentValues = new HashMap<>();
             constituentValues.put(getParentConstituent().getName(), storedRecord);

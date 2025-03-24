@@ -524,8 +524,14 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
-            indexScrubber.scrubMissingIndexEntries();
+            if (legacy) {
+                assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            } else {
+                // numrecord/3 is the top level records deleted, each with 3 sub records
+                assertEquals(numRecords, indexScrubber.scrubDanglingIndexEntries());
+                indexScrubber.scrubMissingIndexEntries();
+                assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+            }
         }
     }
 
