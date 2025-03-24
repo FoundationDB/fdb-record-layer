@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalSer
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -36,7 +37,12 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
     private final int initialConnection;
 
     public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer) {
-        super();
+        this(initialConnection, externalServer, null);
+    }
+
+    public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer,
+                                 @Nullable final String clusterFile) {
+        super(clusterFile);
         this.initialConnection = initialConnection;
         this.externalServer = externalServer;
     }
