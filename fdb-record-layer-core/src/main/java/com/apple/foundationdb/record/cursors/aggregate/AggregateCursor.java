@@ -69,7 +69,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
 
     public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
                            @Nonnull final StreamGrouping<M> streamGrouping,
-                           boolean isCreateDefaultOnEmpty,
+                           final boolean isCreateDefaultOnEmpty,
                            @Nullable byte[] continuation) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
@@ -90,14 +90,12 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             lastResult = previousResult;
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                System.out.println("innerResult noNextReason:" + innerResult.getNoNextReason());
                 if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
                     // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
                     partialAggregationResult = streamGrouping.finalizeGroup();
                 }
                 return false;
             } else {
-                System.out.println("innerResults:" + innerResult.get().getMessage());
                 final QueryResult queryResult = Objects.requireNonNull(innerResult.get());
                 boolean groupBreak = streamGrouping.apply(queryResult);
                 if (!groupBreak) {
@@ -271,7 +269,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
 
         @Nonnull
         private RecordCursorProto.AggregateCursorContinuation toProto() {
-            System.out.println("toProto is called");
             if (cachedProto == null) {
                 RecordCursorProto.AggregateCursorContinuation.Builder cachedProtoBuilder = RecordCursorProto.AggregateCursorContinuation.newBuilder();
                 if (partialAggregationResult != null) {
