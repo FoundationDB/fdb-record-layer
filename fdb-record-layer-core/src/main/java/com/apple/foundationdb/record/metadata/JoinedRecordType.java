@@ -133,6 +133,7 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
             final SyntheticRecordType.Constituent constituent = getConstituents().get(i);
             final Tuple constituentKey = primaryKey.getNestedTuple(i + 1);
             if (constituentKey == null) {
+                // TODO: Is this a valid entry to ignore (this will trigger the SKIP condition below)
                 futures[i] = AsyncUtil.DONE;
             } else {
                 futures[i] = store.loadRecordAsync(constituentKey).thenApply(rec -> {
