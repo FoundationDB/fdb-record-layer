@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.TestRecordsUnsigned5Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestTwoUnionsProto;
 import com.apple.foundationdb.record.TestUnionDefaultNameProto;
+import com.apple.foundationdb.record.evolution.TestNewRecordTypeProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
@@ -60,6 +61,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -70,6 +72,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.lessThan;
@@ -580,6 +583,136 @@ public class RecordMetaDataBuilderTest {
                 lessThan(newMetaData.getUnionFieldForRecordType(newSimpleRecord).getNumber()));
         assertEquals(oldSimpleRecord.getSinceVersion(), newSimpleRecord.getSinceVersion());
         MetaDataEvolutionValidator.getDefaultInstance().validate(oldMetaData, newMetaData);
+    }
+
+    @Test
+    public void excludeNewRecordType() {
+        final RecordMetaData olderMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        // Create a new meta-data. It is based off of a new file, but it excludes the new record type explicitly,
+        // which then ensures that we won't be able to write that data until the meta-data (and version) are updated.
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+        metaDataBuilder.excludeRecordType("NewRecord");
+        final RecordMetaData metaData = metaDataBuilder.build();
+        assertThat(metaData.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord"));
+        assertEquals(olderMetaData.getVersion(), metaData.getVersion());
+        MetaDataEvolutionValidator.newBuilder().setAllowNoVersionChange(true).build().validate(olderMetaData, metaData);
+
+        // Construct a new meta-data that doesn't exclude the type. It should be a valid evolution of the first meta-data
+        final RecordMetaDataBuilder newMetaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+        newMetaDataBuilder.getRecordType("NewRecord").setSinceVersion(metaData.getVersion() + 1);
+        newMetaDataBuilder.setVersion(metaData.getVersion() + 1);
+        final RecordMetaData newMetaData = newMetaDataBuilder.build();
+        MetaDataEvolutionValidator.getDefaultInstance().validate(metaData, newMetaData);
+    }
+
+    @Test
+    public void excludeAfterUpdatingRecords() {
+        final RecordMetaData olderMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.updateRecords(TestNewRecordTypeProto.getDescriptor());
+        metaDataBuilder.excludeRecordType("NewRecord");
+        metaDataBuilder.setVersion(metaDataBuilder.getVersion() - 1);
+        final RecordMetaData metaData = metaDataBuilder.build();
+        assertThat(metaData.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord"));
+        assertEquals(olderMetaData.getVersion(), metaData.getVersion());
+        MetaDataEvolutionValidator.newBuilder().setAllowNoVersionChange(true).build().validate(olderMetaData, metaData);
+
+        final RecordMetaDataBuilder newMetaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        newMetaDataBuilder.updateRecords(TestNewRecordTypeProto.getDescriptor());
+        final RecordMetaData newMetaData = newMetaDataBuilder.build();
+        assertThat(newMetaData.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "NewRecord"));
+        assertEquals(olderMetaData.getVersion() + 1, newMetaData.getVersion());
+        MetaDataEvolutionValidator.getDefaultInstance().validate(metaData, newMetaData);
+    }
+
+    @Test
+    public void cannotExcludeTwice() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+        metaDataBuilder.excludeRecordType("NewRecord");
+        assertThrows(MetaDataException.class, () -> metaDataBuilder.excludeRecordType("NewRecord"));
+    }
+
+    @Test
+    public void cannotExcludeNonExistentType() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+        assertThrows(MetaDataException.class, () -> metaDataBuilder.excludeRecordType("UnknownType"));
+    }
+
+    @Test
+    public void cannotExcludeTypeWithIndex() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        assertThrows(MetaDataException.class, () -> metaDataBuilder.excludeRecordType("MySimpleRecord"));
+
+        final RecordMetaData metaData = metaDataBuilder.build();
+        assertThat(metaData.getRecordTypes().values().stream().map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder("MySimpleRecord", "MyOtherRecord"));
+        assertThat(metaData.recordTypesForIndex(metaData.getIndex("MySimpleRecord$num_value_3_indexed")).stream().map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder("MySimpleRecord"));
+    }
+
+    @Test
+    public void cannotExcludeTypeWithMultiTypeIndex() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+        final Index multiNumValue3 = new Index("multiNumValue3", field("num_value_3_indexed"));
+        metaDataBuilder.addMultiTypeIndex(List.of(metaDataBuilder.getRecordType("MySimpleRecord"), metaDataBuilder.getRecordType("NewRecord")), multiNumValue3);
+        assertThrows(MetaDataException.class, () -> metaDataBuilder.excludeRecordType("NewRecord"));
+
+        final RecordMetaData metaData = metaDataBuilder.build();
+        assertThat(metaData.getRecordTypes().values().stream().map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "NewRecord"));
+        assertThat(metaData.recordTypesForIndex(multiNumValue3).stream().map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder("MySimpleRecord", "NewRecord"));
+    }
+
+    @Test
+    public void cannotExcludeTypeInJoinType() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+
+        final RecordTypeBuilder simpleBuilder = metaDataBuilder.getRecordType("MySimpleRecord");
+        final RecordTypeBuilder newTypeBuilder = metaDataBuilder.getRecordType("NewRecord");
+
+        JoinedRecordTypeBuilder joinedBuilder = metaDataBuilder.addJoinedRecordType("SimpleNewJoin");
+        joinedBuilder.addConstituent(simpleBuilder);
+        joinedBuilder.addConstituent(newTypeBuilder);
+        joinedBuilder.addJoin(simpleBuilder.getName(), "num_value_3_indexed", newTypeBuilder.getName(), "num_value_3_indexed");
+
+        assertThrows(MetaDataException.class, () -> metaDataBuilder.excludeRecordType("NewRecord"));
+
+        final RecordMetaData metaData = metaDataBuilder.build();
+        assertThat(metaData.getRecordTypes().values().stream().map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "NewRecord"));
+        final SyntheticRecordType<?> joined = metaData.getSyntheticRecordType(joinedBuilder.getName());
+        assertThat(joined.getConstituents().stream().map(SyntheticRecordType.Constituent::getRecordType).map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder(simpleBuilder.getName(), newTypeBuilder.getName()));
+    }
+
+    @Test
+    public void cannotExcludeTypeInUnnestedType() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+
+        final RecordTypeBuilder newTypeBuilder = metaDataBuilder.getRecordType("NewRecord");
+        UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("NewNested");
+        unnestedBuilder.addParentConstituent("parent", metaDataBuilder.getRecordType("NewRecord"));
+        unnestedBuilder.addNestedConstituent("child", TestNewRecordTypeProto.NewRecord.Nested.getDescriptor(), "parent", field("nested", KeyExpression.FanType.FanOut));
+
+        assertThrows(MetaDataException.class, () -> metaDataBuilder.excludeRecordType("NewRecord"));
+
+        final RecordMetaData metaData = metaDataBuilder.build();
+        assertThat(metaData.getRecordTypes().values().stream().map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "NewRecord"));
+        final SyntheticRecordType<?> unnested = metaData.getSyntheticRecordType(unnestedBuilder.getName());
+        assertThat(unnested.getConstituents().stream().map(SyntheticRecordType.Constituent::getRecordType).map(RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder(newTypeBuilder.getName(), TestNewRecordTypeProto.NewRecord.Nested.getDescriptor().getName()));
+    }
+
+    @Test
+    public void cannotUpdateWhenThereAreExcludedTypes() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestNewRecordTypeProto.getDescriptor());
+        metaDataBuilder.excludeRecordType("NewRecord");
+        MetaDataException exception = assertThrows(MetaDataException.class, () -> metaDataBuilder.updateRecords(TestRecords1Proto.getDescriptor()));
+        assertThat(exception.getMessage(), containsString("Updating the records descriptor is not allowed when there are excluded types"));
     }
 
     @Test

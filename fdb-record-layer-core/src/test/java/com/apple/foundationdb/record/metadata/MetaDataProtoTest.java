@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.evolution.TestNewRecordTypeProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -73,11 +74,14 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -419,5 +423,17 @@ public class MetaDataProtoTest {
             assertEquals(expectedParameter1, LiteralKeyExpression.fromProtoValue(actualParameter1));
             assertEquals(expectedParameter2, LiteralKeyExpression.fromProtoValue(actualParameter2));
         }
+    }
+
+    @Test
+    void excludedRecordType() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestNewRecordTypeProto.getDescriptor());
+        metaDataBuilder.excludeRecordType("NewRecord");
+        final RecordMetaData metaData = metaDataBuilder.build();
+        assertThat(metaData.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord"));
+
+        MetaDataException serializationException = assertThrows(MetaDataException.class, metaData::toProto);
+        assertThat(serializationException.getMessage(), containsString("cannot serialize meta-data with any excluded types"));
     }
 }

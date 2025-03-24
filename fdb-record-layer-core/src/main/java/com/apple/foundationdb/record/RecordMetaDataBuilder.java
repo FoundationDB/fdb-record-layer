@@ -65,6 +65,8 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A builder for {@link RecordMetaData}.
@@ -468,6 +470,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         if (localFileDescriptor != null) {
             throw new MetaDataException("Updating the records descriptor is not allowed when the local file descriptor is set");
+        }
+        if (recordTypes.size() != unionFields.size()) {
+            throw new MetaDataException("Updating the records descriptor is not allowed when there are excluded types");
         }
         if (unionDescriptor == null) {
             throw new RecordCoreException("cannot update record types as no previous union descriptor has been set");
@@ -968,6 +973,68 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return recordType;
     }
 
+    /**
+     * Removes a record type that is defined in the {@link #getUnionDescriptor()} but that we do not want to
+     * include in the final {@link RecordMetaData}. This can be used to facilitate certain kinds of meta-data
+     * rollouts. For example, if the records descriptor is deployed with the database engine (as any use case
+     * not using the {@link com.apple.foundationdb.record.provider.foundationdb.FDBMetaDataStore} or some kind
+     * of external meta-data storage solution would have to do), then when a new type is added, the administrator
+     * may want to prevent that type from being added to any stores until the new file is fully deployed. Excluding
+     * the type allows the user to rely on the database for that rather than, say, protecting every call within
+     * their application code with a meta-data version check.
+     *
+     * <p>
+     * To be concrete, with this function, the user may choose to deploy new types by:
+     * </p>
+     *
+     * <ol>
+     *     <li>Start with a base version of the meta-data that does not have the type referenced.</li>
+     *     <li>Update the records descriptor to add one or more new types. Exclude the new type(s) from the
+     *         meta-data, but make no other changes (including to the meta-data version).</li>
+     *     <li>Deploy a new software version of the database client that references the new meta-data. This
+     *         should be compatible with the old version and thus safe to run in mixed mode with older
+     *         software versions.</li>
+     *     <li>Once the new version is everywhere, switch over to a new meta-data version, and set the
+     *         {@link RecordType#getSinceVersion()} on the new type(s) to that version. Note: to avoid
+     *         downtime at this point, this means that something in the application code needs to check
+     *         for the new meta-data version (e.g., by catching
+     *         {@link com.apple.foundationdb.record.provider.foundationdb.RecordStoreStaleMetaDataVersionException
+     *         RecordStoreStaleMetaDataVersionException}s) and update to this new meta-data at that time.</li>
+     * </ol>
+     *
+     * <p>
+     * Once we get to the last step, meta-data downgrades are no longer possible, but before then, everything
+     * is cross-version compatible. If there is logic in the application that would try and write to the type, then
+     * if the meta-data version hasn't been updated, it is the Record Layer meta-data logic that will prevent the
+     * database from getting into a potentially corrupt state.
+     * </p>
+     *
+     * @param name the name of the type to remove
+     * @throws MetaDataException if the type does not exist or if it has already been used to define any indexes
+     * or synthetic types
+     */
+    public void excludeRecordType(@Nonnull String name) {
+        RecordTypeBuilder recordType = recordTypes.get(name);
+        if (recordType == null) {
+            throwUnknownRecordType(name, false);
+        }
+        if (!recordType.getIndexes().isEmpty() || !recordType.getMultiTypeIndexes().isEmpty()) {
+            throw new MetaDataException("cannot remove record type with indexes").addLogInfo(
+                    LogMessageKeys.RECORD_TYPE, name,
+                    LogMessageKeys.INDEX_NAME, Stream.concat(recordType.getIndexes().stream(), recordType.getMultiTypeIndexes().stream()).map(Index::getName).collect(Collectors.toList())
+            );
+        }
+        for (SyntheticRecordTypeBuilder<?> syntheticType : syntheticRecordTypes.values()) {
+            if (syntheticType.getConstituents().stream().anyMatch(c -> recordType.equals(c.getRecordType()))) {
+                throw new MetaDataException("cannot remove record type that is constituent of a synthetic type").addLogInfo(
+                        LogMessageKeys.RECORD_TYPE, name,
+                        "synthetic_record_type", syntheticType.getName()
+                );
+            }
+        }
+        recordTypes.remove(name);
+    }
+
     private void throwUnknownRecordType(final @Nonnull String name, boolean isSynthetic) {
         throw new MetaDataException("Unknown " + (isSynthetic ? "Synthetic " : "") + "record type " + name);
     }
@@ -1048,6 +1115,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
+    @Nonnull
     public RecordTypeIndexesBuilder getIndexableRecordType(@Nonnull String name) {
         RecordTypeIndexesBuilder recordType = recordTypes.get(name);
         if (recordType == null) {
