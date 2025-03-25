@@ -146,47 +146,48 @@ def format_notes(notes, label_config, old_version, new_version, repository, mixe
         text += f"\n\n{mixed_mode_results}\n"
     return text
 
-def replace_note(lines, note):
+def replace_note(lines, version, note):
     ''' Insert the given formatted release notes in to ReleaseNotes.md
     at the appropriate location.
     lines: The contents of ReleaseNotes.md split into lines
     note: The release notes for a given version
     Returns a new lits of lines, with the new notes inserted'''
-    print(f"Inserting note {note.old_version} -> {note.new_version}")
     new_lines = []
     added = False
     for line in lines:
-        if not added and line == note.old_version_header():
-            new_lines.append(note.new_version_header())
+        if not added and version.greater_than_precise_version_header(line):
+            new_lines.append(version.precise_version_header())
             new_lines.append('')
-            new_lines.append(note.notes)
+            new_lines.append(note)
             new_lines.append('')
             new_lines.append(line)
             added = True
-        elif not added and note.greater_than_minor_version(line):
-            new_lines.append(note.new_minor_version_header())
+        elif not added and version.greater_than_minor_version_header(line):
+            new_lines.append(version.minor_version_header())
             new_lines.append('')
-            new_lines.append(note.new_version_header())
+            new_lines.append(version.precise_version_header())
             new_lines.append('')
-            new_lines.append(note.notes)
+            new_lines.append(note)
             new_lines.append('')
             new_lines.append(line)
             added = True
         else:
             new_lines.append(line)
     if not added:
-        raise Exception(f"Could not find note for {note.old_version} -> {note.new_version}")
+        raise Exception(f"Could not find spot for {version}")
     return new_lines
 
-def replace_notes(notes, filename):
-    ''' Insert all the given notes into the given file '''
+def read_notes(filename):
+    ''' Read the provided file, and split by line '''
     with open(filename, 'r') as fin:
-        lines = fin.read().split('\n')
-    for note in notes:
-        lines = replace_note(lines, note)
+        return fin.read().split('\n')
+
+def replace_notes(lines, filename, version, note):
+    ''' Insert the given release notes into the given file '''
+    lines = replace_note(lines, version, note)
     with open(filename, 'w') as fout:
         fout.write('\n'.join(lines))
-    print(f'Updated {filename} with new release notes from {notes[0].old_version} to {notes[-1].new_version}')
+    print(f'Updated {filename} with new release notes from {version.precise_version()}')
 
 def commit_release_notes(filename, new_versions):
     ''' Commit the updates to the release notes '''
@@ -198,46 +199,53 @@ def commit_release_notes(filename, new_versions):
 def get_minor_version(version):
     return '.'.join(version.split('.')[:2])
 
-version_header = re.compile(r'^#+ (\d+(?:\.\d+)+)$') # match all version headers, including major or minor headers
-class Note:
-    ''' The release notes for a single version bump '''
-    def __init__(self, old_version, new_version, notes):
-        self.old_version = old_version
-        self.new_version = new_version
-        self.new_version_split = [int(part) for part in self.new_version.split('.')]
-        self.notes = notes
-    def old_minor_version_header(self):
-        return f'## {get_minor_version(self.old_version)}'
-    def new_minor_version_header(self):
-        return f'## {get_minor_version(self.new_version)}'
-    def changes_minor_version(self):
-        return get_minor_version(self.old_version) != get_minor_version(self.new_version)
-    def old_version_header(self):
-        return f'### {self.old_version}'
-    def new_version_header(self):
-        return f'### {self.new_version}'
-    def greater_than_minor_version(self, header):
-        ''' Check if the new version is greater than the version in the header.
-        This will also return false if the header is not a header for a version '''
-        result = version_header.match(header)
+class Version:
+    minor_header = re.compile(r'^## (\d+\.\d)$') # match all version headers, including major or minor headers
+    precise_header = re.compile(r'^### (\d+\.\d+\.\d+\.\d+)$') # match precise version headers
+    def __init__(self, version):
+        self.version = version
+        self.version_split = [int(part) for part in self.version.split('.')]
+    def is_greater(self, other):
+        version = [int(part) for part in other.split('.')]
+        for (s, h) in zip(self.version_split, version):
+            if s > h:
+                return True
+            if s < h:
+                return False
+        return len(self.version_split) < len(version)
+    def get_old_version(self, lines):
+        for line in lines:
+            result = self.precise_header.match(line)
+            if result:
+                test_version = result[1]
+                if self.is_greater(test_version):
+                    return test_version
+        raise Exception(f'Could not find previous version for {self.version}')
+
+    def greater_than_precise_version_header(self, line):
+        result = self.precise_header.match(line)
+        return result and self.is_greater(result[1])
+        
+    def greater_than_minor_version_header(self, line):
+        result = self.minor_header.match(line)
         if result:
-            version = [int(part) for part in result[1].split('.')]
-            for (s, h) in zip(self.new_version_split, version):
-                if s > h:
-                    print(f'"{header}" IS LESS THAN {self.new_version} ({self.old_version}) because {s} > {h}')
-                    return True
-                if s < h:
-                    return False
+            test_version = result[1]
+            if self.is_greater(test_version):
+                return True
         return False
+    def minor_version_header(self):
+        return '## ' + '.'.join([str(v) for v in self.version_split[:2]])
+    def precise_version_header(self):
+        return '### ' + self.version
+    def precise_version(self):
+        return self.version
 
 def main(argv):
     '''Replace placeholder release notes with the final release notes for a version.'''
     parser = argparse.ArgumentParser()
     parser.add_argument('--pr-cache', help='dump associated prs to json, or read from them (used in testing)')
     parser.add_argument('--config', required=True, help="path to json configuration for release notes")
-    parser.add_argument('--release-notes-md', 
-                        help="path to ReleaseNotes.md to update, will just print if not provided " +
-                        "(printing is only intended for testing)")
+    parser.add_argument('--release-notes-md', required=True, help="path to ReleaseNotes.md to update")
     parser.add_argument('--commit', action='store_true', default=False, help="Commit the updates to the release notes")
     # The below option is necessary because during the release we will have changed the version, and committed
     # that, but not pushed it
@@ -247,45 +255,144 @@ def main(argv):
     parser.add_argument('--mixed-mode-results',
                         help="Path to markdown for mixed mode test results for this version; " +
                         "only available when there's 1 new_version")
-    parser.add_argument('old_version', help='Old version to use when generating release notes')
-    parser.add_argument('new_version', nargs='+', 
-                        help='New version to use when generating release notes.\n' + 
-                        'If multiple values are provided, release notes will be generated for all versions')
+    parser.add_argument('--version', required=True, help='New version to use when generating release notes.')
     args = parser.parse_args(argv)
 
     with open(args.config, 'r') as fin:
         label_config = json.load(fin)
 
-    old_version = args.old_version
-    release_notes = []
-    if len(args.new_version) == 0:
-        print("At least one new version must be provided", file=sys.stderr)
-        exit(1)
-    elif len(args.new_version) > 1 and args.mixed_mode_results is not None:
-        print("--mixed-mode-result cannot be provided with more than one new_version", file=sys.stderr)
-        exit(1)
+    old_release_notes = read_notes(args.release_notes_md)
+    version = Version(args.version)
+    old_version = version.get_old_version(old_release_notes)
     mixed_mode_results = None
     if args.mixed_mode_results is not None:
         with open(args.mixed_mode_results, 'r') as fin:
             mixed_mode_results = fin.read()
-    for new_version in args.new_version:
-        print(f"Generating release notes for {new_version}")
-        commits = get_commits(old_version, new_version, args.skip_commit)
-        prs = get_prs(commits, args.pr_cache, args.repository)
-        prs = dedup_prs(prs)
-        new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
-        
-        release_notes.append(Note(old_version, new_version, format_notes(new_notes, label_config, old_version, new_version, args.repository, mixed_mode_results)))
-        old_version = new_version
-    print("\n\n------------------------------\n\n")
-    if args.release_notes_md is None:
-        release_notes.reverse()
-        for notes in release_notes:
-            print(notes[1])
-    else:
-        replace_notes(release_notes, args.release_notes_md)
-        if args.commit:
-            commit_release_notes(args.release_notes_md, args.new_version)
+    print(f'Generating release notes from {old_version} to {version.precise_version()}')
+    commits = get_commits(old_version, version.precise_version(), args.skip_commit)
+    prs = get_prs(commits, args.pr_cache, args.repository)
+    prs = dedup_prs(prs)
+    new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
+    note = format_notes(new_notes, label_config, old_version, version.precise_version(), args.repository, mixed_mode_results)
+    replace_notes(old_release_notes, args.release_notes_md, version, note)
+    if args.commit:
+        commit_release_notes(args.release_notes_md, version.precise_version())
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+
+# You can run the tests by doing the following, in this directory:
+# python3 -m unittest create_release_notes.py
+import unittest
+
+class TestStringMethods(unittest.TestCase):
+
+    def test_is_greater_header(self):
+        for (less, greater) in [
+                ("3.9.9.9", "4.0.0.0"),
+                ("4.2.1.0", "4.2.1.1"),
+                ("4.2.2.0", "4.2.3.0"),
+                ("4.2.0.9", "4.2.1.0"),
+                ("4.2.0.9", "4.2.0.10"),
+                ("4.2.0.8", "4.2.0.9"),
+                ("4.2.9.0", "4.2.10.0"),
+                ("4.1.8.2", "4.2.0.0"),
+                ("4.1.9.0", "4.1"),
+                ("4.1.9.0", "4.2"),
+                ("4.2", "4.3.0.0")]:
+            with self.subTest(x=f'{greater} > {less}'):
+                self.assertTrue(Version(greater).is_greater(less))
+            with self.subTest(x=f'{less} > {greater}'):
+                self.assertFalse(Version(less).is_greater(greater))
+
+    def test_get_old_version(self):
+        for (new, old, content) in [
+                ("4.1.10.1", "4.1.10.0", "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
+                ("4.1.11.0", "4.1.10.0", "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
+                ("4.2.1.0", "4.1.10.0", "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
+                ("4.1.9.1", "4.1.9.0", "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0")
+                ]:
+            with self.subTest(new=new, old=old):
+                self.assertEqual(old, Version(new).get_old_version(content.split('\n')))
+
+    def test_replace_note(self):
+        for (version, old, new) in [
+                ("4.1.10.1", 
+                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
+                 "Some filler\n## 4.1\ncontent\n### 4.1.10.1\n\nbanana\n\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
+                ("4.1.11.0",
+                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
+                 "Some filler\n## 4.1\ncontent\n### 4.1.11.0\n\nbanana\n\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
+                ("4.2.1.0",
+                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
+                 "Some filler\n## 4.2\n\n### 4.2.1.0\n\nbanana\n\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
+                ("4.1.9.1",
+                 "Some filler\n## 4.2\n\ncontent\n\n### 4.2.10.0\n\n<h4> Stuff </h4>\n\n## 4.1\n\n### 4.1.9.0",
+                 "Some filler\n## 4.2\n\ncontent\n\n### 4.2.10.0\n\n<h4> Stuff </h4>\n\n## 4.1\n\n### 4.1.9.1\n\nbanana\n\n### 4.1.9.0"),
+                ("4.1.9.1",
+                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
+                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.1\n\nbanana\n\n### 4.1.9.0")
+                ]:
+            with self.subTest(version=version, new=new, old=old):
+                self.assertEqual(new, '\n'.join(replace_note(old.split('\n'), Version(version), 'banana')))
+
+    def test_greater_than_precise_version_header(self):
+        for (new_version, line) in [
+                ("4.1.1.0", "### 4.0.10.0"),
+                ("4.1.3.0", "### 4.1.0.0"),
+                ("4.2.1.0", "### 4.1.18.0"),
+                ("4.0.1.0", "### 3.8.9.0"),
+                ("4.0.1.5", "### 4.0.1.4"),
+                ]:
+            with self.subTest(new=new_version, line=line):
+                self.assertTrue(Version(new_version).greater_than_precise_version_header(line))
+        for (old_version, line) in [
+                ("3.9.20.0", "### 4.0.0.0"),
+                ("4.1.0.0", "### 4.1.3.0"),
+                ("4.0.1.0", "### 4.1.0.0"),
+                ("4.0.1.0", "### 4.0.1.1"),
+                ("4.0.1.0", "### 4.0.2.0")
+                ]:
+            with self.subTest(old=old_version, line=line):
+                self.assertFalse(Version(old_version).greater_than_precise_version_header(line))
+        for (old_version, line) in [
+                ("3.9.20.0", "Here is some text"),
+                ("4.1.3.0", "* boo"),
+                ("4.0.1.0", "<h4> far </h4>"),
+                ("4.0.1.0", "## 4.0"),
+                ("4.0.1.0", "## 3.0"),
+                ("4.0.1.0", "## 3.9")
+                ]:
+            with self.subTest(old=old_version, other_content=line):
+                self.assertFalse(Version(old_version).greater_than_precise_version_header(line))
+
+    def test_greater_than_minor_version_header(self):
+        for (new_version, line) in [
+                ("4.1.1.0", "## 4.0"),
+                ("4.2.1.0", "## 4.1"),
+                ("4.0.1.0", "## 3.8"),
+                ]:
+            with self.subTest(new=new_version, line=line):
+                self.assertTrue(Version(new_version).greater_than_minor_version_header(line))
+        for (old_version, line) in [
+                ("3.9.20.0", "## 4.0"),
+                ("4.1.3.0", "## 4.1"),
+                ("4.0.1.0", "## 4.1")
+                ]:
+            with self.subTest(old=old_version, line=line):
+                self.assertFalse(Version(old_version).greater_than_minor_version_header(line))
+        for (old_version, line) in [
+                ("3.9.20.0", "Here is some text"),
+                ("4.1.3.0", "* boo"),
+                ("4.0.1.0", "<h4> far </h4>")
+                ]:
+            with self.subTest(old=old_version, other_content=line):
+                self.assertFalse(Version(old_version).greater_than_minor_version_header(line))
+    def test_minor_version(self):
+        for (minor, full) in [
+                ("## 3.9", "3.9.10.0"),
+                ("## 3.10", "3.10.8.0"),
+                ("## 4.2", "4.2.88.0")
+                ]:
+            with self.subTest(minor=minor, full=full):
+                self.assertEqual(minor, Version(full).minor_version_header())
