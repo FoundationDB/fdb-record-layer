@@ -89,7 +89,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in),
         NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
         STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
-        STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> UUID.fromString((String) in)));
+        STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> stringToUuidValue((String) in)));
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
@@ -146,6 +146,17 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             final var maybeValue = enumDescriptor.findValueByName(value);
             SemanticException.check(maybeValue != null, SemanticException.ErrorCode.INVALID_ENUM_VALUE, value);
             return maybeValue;
+        }
+
+        @Nonnull
+        public static UUID stringToUuidValue(String value) {
+            try {
+                return UUID.fromString(value);
+            } catch (IllegalArgumentException ex) {
+                SemanticException.fail(SemanticException.ErrorCode.INVALID_UUID_VALUE, value);
+            }
+            // won't happen
+            return null;
         }
 
         @Nonnull

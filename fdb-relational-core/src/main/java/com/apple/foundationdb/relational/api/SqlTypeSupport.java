@@ -99,7 +99,7 @@ public final class SqlTypeSupport {
                 return Types.BINARY;
             case ENUM:
             case UUID:
-                //TODO(bfines) should be string?
+                // There are no specific JDBC types for ENUM and UUID, hence, defaulting to Types.OTHER.
                 return Types.OTHER;
             case RECORD:
                 return Types.STRUCT;

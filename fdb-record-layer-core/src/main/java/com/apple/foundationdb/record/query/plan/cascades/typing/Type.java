@@ -179,9 +179,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
-     * Checks whether a {@link Type} is {@link Enum}.
+     * Checks whether a {@link Type} is {@link Uuid}.
      *
-     * @return <code>true</code> if the {@link Type} is {@link Enum}, otherwise <code>false</code>.
+     * @return <code>true</code> if the {@link Type} is {@link Uuid}, otherwise <code>false</code>.
      */
     default boolean isUuid() {
         return false;
@@ -809,13 +809,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 case FLOAT:
                     return TypeCode.FLOAT;
                 case INT64:
+                case UINT64:
+                case FIXED64:
+                case SFIXED64:
+                case SINT64:
                     return TypeCode.LONG;
                 case INT32:
+                case FIXED32:
+                case UINT32:
+                case SFIXED32:
+                case SINT32:
                     return TypeCode.INT;
                 case BOOL:
                     return TypeCode.BOOLEAN;
                 case STRING:
                     return TypeCode.STRING;
+                case GROUP:
                 case ENUM:
                     return TypeCode.ENUM;
                 case MESSAGE:

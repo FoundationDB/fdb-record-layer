@@ -177,9 +177,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
             return FDBRecordVersion.fromBytes(((ByteString)fieldValue).toByteArray(), false);
         } else if (type.isUuid()) {
-            if (fieldValue instanceof UUID) {
-                return fieldValue;
-            }
             Verify.verify(fieldValue instanceof DynamicMessage);
             final var message = (DynamicMessage) fieldValue;
             return new UUID((Long) message.getField(message.getDescriptorForType().findFieldByName("most_significant_bits")),

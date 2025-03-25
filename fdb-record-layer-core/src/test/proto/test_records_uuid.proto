@@ -1,5 +1,5 @@
 /*
- * test_records_2.proto
+ * test_records_bytes.proto
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -19,21 +19,21 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.test2;
+package com.apple.foundationdb.record.testuuid;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecords2Proto";
+option java_outer_classname = "TestRecordsUuidProto";
 
 import "record_metadata_options.proto";
+import "tuple_fields.proto";
 
-option (schema).split_long_records = true;
-
-message MyLongRecord {
-  required int64 rec_no = 1 [(field).primary_key = true];
-  optional bytes bytes_value = 2;
+message UuidRecord {
+  required UUID pkey = 1 [(field).primary_key = true];
+  optional UUID secondary = 2 [(field).index = {}];
+  optional UUID unique = 3 [(field).index = { unique: true }];
+  optional string name = 4;
 }
 
 message RecordTypeUnion {
-  option (com.apple.foundationdb.record.record).usage = UNION;
-  optional MyLongRecord _MyLongRecord = 1;
+  optional UuidRecord _UuidRecord = 1;
 }
