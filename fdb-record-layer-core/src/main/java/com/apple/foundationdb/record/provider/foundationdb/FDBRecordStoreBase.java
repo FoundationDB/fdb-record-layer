@@ -727,9 +727,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
      * In case any of the constituents are missing, the following will be returned:
-     * - ERROR: Exception is thrown
-     * - SKIP: Future(null) is returned
-     * - RETURN: Future(Record with no constituents) is returned
+     * <ul>
+     * <li>{@link IndexOrphanBehavior#ERROR}: Exception is thrown</li>
+     * <li>{@link IndexOrphanBehavior#SKIP}: Future(null) is returned</li>
+     * <li>{@link IndexOrphanBehavior#RETURN}: Future(Record with no constituents) is returned</li>
+     * </ul>
      * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
      * @param orphanBehavior what to do if any of the record's constituents is missing
      * @return a future which completes to the synthesized record
