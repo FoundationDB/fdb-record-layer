@@ -469,10 +469,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            if (!legacy) {
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
-            } else {
+            if (legacy) {
                 indexScrubber.scrubDanglingIndexEntries();
                 indexScrubber.scrubMissingIndexEntries();
 
@@ -485,6 +482,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            } else {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
             }
         }
     }
@@ -588,19 +588,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
 
-        if ( ! legacy) {
-            // Repair is not supported for synthetic records
-            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
-                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                            .setLogWarningsLimit(Integer.MAX_VALUE)
-                            .setAllowRepair(true)
-                            .useLegacyScrubber(legacy)
-                            .build())
-                    .build()) {
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
-            }
-        } else {
+        if (legacy) {
             timer.reset();
             try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
                     .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
@@ -632,6 +620,18 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
             assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
             assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        } else {
+            // Repair is not supported for synthetic records
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
+            }
         }
     }
 
@@ -654,10 +654,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            if (!legacy) {
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
-            } else {
+            if (legacy) {
                 indexScrubber.scrubDanglingIndexEntries();
                 indexScrubber.scrubMissingIndexEntries();
                 // Scanned 3 * numRecords. This is from:
@@ -669,6 +666,9 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            } else {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
             }
         }
     }
@@ -775,19 +775,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
 
-        if ( ! legacy) {
-            // Repair is not supported for synthetic records
-            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
-                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                            .setLogWarningsLimit(Integer.MAX_VALUE)
-                            .setAllowRepair(true)
-                            .useLegacyScrubber(legacy)
-                            .build())
-                    .build()) {
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
-                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
-            }
-        } else {
+        if (legacy) {
             timer.reset();
             try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
                     .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
@@ -819,6 +807,18 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
             assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
             assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        } else {
+            // Repair is not supported for synthetic records
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
+            }
         }
     }
 }
