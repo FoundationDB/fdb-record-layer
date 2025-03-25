@@ -576,9 +576,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var groupingKeyValue = RecordConstructorValue.ofUnnamed(groupValues);
             final var aggregateValue = RecordConstructorValue.ofUnnamed(aggregateValues);
             if (useNestedResult) {
-                return RecordQueryStreamingAggregationPlan.ofNested(quantifier, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerDesMode.TO_NEW_FROM_NEW);
+                return RecordQueryStreamingAggregationPlan.ofNested(quantifier, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
             } else {
-                return RecordQueryStreamingAggregationPlan.ofFlattened(quantifier, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerDesMode.TO_NEW_FROM_NEW);
+                return RecordQueryStreamingAggregationPlan.ofFlattened(quantifier, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
             }
         }
 

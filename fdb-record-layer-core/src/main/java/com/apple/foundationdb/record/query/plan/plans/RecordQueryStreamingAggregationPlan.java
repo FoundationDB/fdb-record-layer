@@ -98,7 +98,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     private final Value completeResultValue;
     private final boolean isCreateDefaultOnEmpty;
-    private final SerDesMode serDesMode;
+    private final SerializationMode serializationMode;
 
     /**
      * Construct a new plan.
@@ -117,7 +117,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                 @Nonnull final CorrelationIdentifier aggregateAlias,
                                                 @Nonnull final Value completeResultValue,
                                                 final boolean isCreateDefaultOnEmpty,
-                                                @Nonnull final SerDesMode serDesMode) {
+                                                @Nonnull final SerializationMode serializationMode) {
         this.inner = inner;
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
@@ -125,7 +125,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         this.aggregateAlias = aggregateAlias;
         this.completeResultValue = completeResultValue;
         this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
-        this.serDesMode = serDesMode;
+        this.serializationMode = serializationMode;
     }
 
     private RecordQueryStreamingAggregationPlan(@Nonnull final Quantifier.Physical inner,
@@ -135,7 +135,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                 @Nonnull final CorrelationIdentifier aggregateAlias,
                                                 @Nonnull final Value completeResultValue,
                                                 final boolean isCreateDefaultOnEmpty) {
-        this(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, isCreateDefaultOnEmpty, SerDesMode.TO_OLD_FROM_BOTH);
+        this(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, isCreateDefaultOnEmpty, SerializationMode.TO_OLD);
     }
 
     @Nonnull
@@ -145,7 +145,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        AggregateCursor.AggregateCursorContinuation aggregateCursorContinuation = AggregateCursor.AggregateCursorContinuation.fromRawBytes(continuation);
+        AggregateCursor.AggregateCursorContinuation aggregateCursorContinuation = AggregateCursor.AggregateCursorContinuation.fromRawBytes(continuation, serializationMode);
         final var innerCursor = getInnerPlan().executePlan(store, context, aggregateCursorContinuation.getInnerContinuation(), executeProperties.clearSkipAndLimit());
 
         final var streamGrouping =
@@ -160,7 +160,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         aggregateCursorContinuation.getPartialAggregationResult()
                         );
 
-        return new AggregateCursor<>(innerCursor, streamGrouping, isCreateDefaultOnEmpty, aggregateCursorContinuation.getInnerContinuation())
+        return new AggregateCursor<>(innerCursor, streamGrouping, isCreateDefaultOnEmpty, aggregateCursorContinuation.getInnerContinuation(), serializationMode)
                 .skipThenLimit(executeProperties.getSkip(),
                         executeProperties.getReturnedRowLimit());
     }
@@ -374,7 +374,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     @Override
     public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        if (serDesMode == SerDesMode.TO_OLD_FROM_BOTH) {
+        if (serializationMode == SerializationMode.TO_OLD) {
             final var builder = PRecordQueryStreamingAggregationPlan.newBuilder()
                     .setInner(inner.toProto(serializationContext))
                     .setAggregateValue(aggregateValue.toValueProto(serializationContext));
@@ -403,7 +403,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        if (serDesMode == SerDesMode.TO_OLD_FROM_BOTH) {
+        if (serializationMode == SerializationMode.TO_OLD) {
             return PRecordQueryPlan.newBuilder().setStreamingAggregationPlan((PRecordQueryStreamingAggregationPlan)toProto(serializationContext)).build();
         } else {
             return PRecordQueryPlan.newBuilder().setStreamingAggregationPlan2((PRecordQueryStreamingAggregationPlan2)toProto(serializationContext)).build();
@@ -424,7 +424,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final CorrelationIdentifier groupingKeyAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getGroupingKeyAlias()));
         final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
         final Value completeResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getCompleteResultValue()));
-        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, false);
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, false, SerializationMode.TO_NEW);
     }
 
     @Nonnull
@@ -441,23 +441,23 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
         final Value completeResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getCompleteResultValue()));
         final boolean isCreateDefaultOnEmpty = recordQueryStreamingAggregationPlanProto.hasIsCreateDefaultOnEmpty() ? recordQueryStreamingAggregationPlanProto.getIsCreateDefaultOnEmpty() : true;
-        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, isCreateDefaultOnEmpty);
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, isCreateDefaultOnEmpty, SerializationMode.TO_OLD);
     }
 
     @Nonnull
     public static RecordQueryStreamingAggregationPlan ofNested(@Nonnull final Quantifier.Physical inner,
                                                                @Nullable final Value groupingKeyValue,
                                                                @Nonnull final AggregateValue aggregateValue,
-                                                               @Nonnull final SerDesMode serDesMode) {
-        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::nestedResults, serDesMode);
+                                                               @Nonnull final SerializationMode serializationMode) {
+        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::nestedResults, serializationMode);
     }
 
     @Nonnull
     public static RecordQueryStreamingAggregationPlan ofFlattened(@Nonnull final Quantifier.Physical inner,
                                                                   @Nullable final Value groupingKeyValue,
                                                                   @Nonnull final AggregateValue aggregateValue,
-                                                                  @Nonnull final SerDesMode serDesMode) {
-        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::flattenedResults, serDesMode);
+                                                                  @Nonnull final SerializationMode serializationMode) {
+        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::flattenedResults, serializationMode);
     }
 
     @Nonnull
@@ -475,7 +475,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
 
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), false, SerDesMode.TO_OLD_FROM_BOTH);
+                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), false, SerializationMode.TO_OLD);
     }
 
     @Nonnull
@@ -483,7 +483,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                          @Nullable final Value groupingKeyValue,
                                                          @Nonnull final AggregateValue aggregateValue,
                                                          @Nonnull final BiFunction<Value, Value, Value> resultValueFunction,
-                                                         @Nonnull final SerDesMode serDesMode) {
+                                                         @Nonnull final SerializationMode serializationMode) {
         final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
         final var aggregateAlias = CorrelationIdentifier.uniqueID();
 
@@ -494,13 +494,12 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
 
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), false, serDesMode);
+                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), false, serializationMode);
     }
 
-    public enum SerDesMode {
-        TO_OLD_FROM_BOTH, // old <-> TO_OLD_FROM_BOTH both produce old result
-        TO_NEW_FROM_BOTH, // TO_OLD_FROM_BOTH -> TO_NEW_FROM_BOTH generate old result, TO_NEW_FROM_BOTH -> TO_OLD_FROM_BOTH generate new result
-        TO_NEW_FROM_NEW // TO_NEW_FROM_BOTH -> TO_NEW_FROM_NEW genereate new result, TO_NEW_FROM_NEW -> TO_NEW_FROM_BOTH generate new result
+    public enum SerializationMode {
+        TO_OLD,
+        TO_NEW
     }
 
     /**

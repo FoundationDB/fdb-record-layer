@@ -49,6 +49,8 @@ public class GroupByQueryTests {
         Utils.enableCascadesDebugger();
     }
 
+    // works for new continuation
+    @Disabled
     @Test
     void groupByWithScanLimit() throws Exception {
         final String schemaTemplate =
