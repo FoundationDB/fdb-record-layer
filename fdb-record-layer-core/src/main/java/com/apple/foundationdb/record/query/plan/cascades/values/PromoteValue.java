@@ -148,7 +148,6 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             return maybeValue;
         }
 
-        @Nonnull
         public static UUID stringToUuidValue(String value) {
             try {
                 return UUID.fromString(value);
