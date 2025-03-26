@@ -32,11 +32,11 @@ class Version:
     minor_header = re.compile(r'^## (\d+\.\d)$')  # match all version headers, including major or minor headers
     precise_header = re.compile(r'^### (\d+\.\d+\.\d+\.\d+)$')  # match precise version headers
 
-    def __init__(self, version):
+    def __init__(self, version: str):
         self.version = version
         self.version_split = [int(part) for part in self.version.split('.')]
 
-    def is_greater(self, other):
+    def is_greater(self, other: str) -> bool:
         version = [int(part) for part in other.split('.')]
         for (s, h) in zip(self.version_split, version):
             if s > h:
@@ -45,7 +45,7 @@ class Version:
                 return False
         return len(self.version_split) < len(version)
 
-    def get_old_version(self, lines):
+    def get_old_version(self, lines: list[str]) -> str:
         for line in lines:
             result = self.precise_header.match(line)
             if result:
@@ -54,11 +54,11 @@ class Version:
                     return test_version
         raise Exception(f'Could not find previous version for {self.version}')
 
-    def greater_than_precise_version_header(self, line):
+    def greater_than_precise_version_header(self, line: str) -> bool:
         result = self.precise_header.match(line)
         return result and self.is_greater(result[1])
 
-    def greater_than_minor_version_header(self, line):
+    def greater_than_minor_version_header(self, line: str) -> bool:
         result = self.minor_header.match(line)
         if result:
             test_version = result[1]
@@ -66,16 +66,16 @@ class Version:
                 return True
         return False
 
-    def minor_version_header(self):
+    def minor_version_header(self) -> str:
         return '## ' + '.'.join([str(v) for v in self.version_split[:2]])
 
-    def precise_version_header(self):
+    def precise_version_header(self) -> str:
         return '### ' + self.version
 
-    def precise_version(self):
+    def precise_version(self) -> str:
         return self.version
 
-def run(command):
+def run(command: list[str]) -> str:
     ''' Run a command, returning its output
     If the command fails, the output will be dumped, and an exception thrown
     '''
@@ -88,7 +88,9 @@ def run(command):
         print(e.stderr)
         raise Exception(f"Failed to run command ({e.returncode}): {e.cmd}")
 
-def get_commits(old_version, new_version, skip_commits):
+Commit = list[str] # Type hint
+
+def get_commits(old_version: str, new_version: str, skip_commits: list[str]) -> list[Commit]:
     '''Return a list of tuples for each commit between the two versions
     The tuples will be (hash, commit subject)
     '''
@@ -96,7 +98,7 @@ def get_commits(old_version, new_version, skip_commits):
     commit_pairs = [commit.split(' ', maxsplit=1) for commit in raw_log.splitlines()]
     return [commit for commit in commit_pairs if not commit[0] in skip_commits]
 
-def get_pr(commit_hash, pr_cache, repository):
+def get_pr(commit_hash: str, pr_cache: str, repository: str) -> list[dict]:
     '''Get the PRs associated with the given commit hash.
     pr_cache: A path to a directory to cache PR results, or None.
     This will return the raw pr info from github associated with the commit,
@@ -115,7 +117,7 @@ def get_pr(commit_hash, pr_cache, repository):
             json.dump(info, fout)
     return info
 
-def get_prs(commits, pr_cache, repository):
+def get_prs(commits: list[Commit], pr_cache: str, repository: str) -> list[tuple[list[dict], Commit]]:
     ''' Return all the prs for the given commits, optionally using the cache.
     pr_cache: A path to a directory to cache PR results or None.
     Returns a list of tuple pairs, the first being the PR info, and the second
@@ -123,7 +125,7 @@ def get_prs(commits, pr_cache, repository):
     '''
     return [(get_pr(commit[0], pr_cache, repository), commit) for commit in commits]
 
-def dedup_prs(prs):
+def dedup_prs(prs: list[tuple[list[dict], Commit]]) -> list[tuple[list[dict], Commit]]:
     ''' Remove any duplicate prs from the list based on urls.
     The prs should be the output of get_prs.
     Returns a list with the first pair that references a given
@@ -143,7 +145,7 @@ def dedup_prs(prs):
                     dedupped.append((pr, commit))
     return dedupped
 
-def get_category(pr, label_config, commit):
+def get_category(pr: dict, label_config: dict, commit: Commit) -> str:
     ''' Get the appropriate category based on the labels in the given pr.'''
     main_label = None
     label_names = [label['name'] for label in pr['labels']]
@@ -154,7 +156,7 @@ def get_category(pr, label_config, commit):
     print(f"No label: {pr['html_url']} {str(label_names)} {str(commit)}")
     return label_config['catch_all']
 
-def generate_note(prs, commit, label_config):
+def generate_note(prs: list[dict], commit: Commit, label_config: dict) -> tuple[str, str]:
     ''' Generate a release note for a single category, returning a pair of
     the category for the note, and the text as markdown '''
     if len(prs) == 0:
@@ -167,7 +169,8 @@ def generate_note(prs, commit, label_config):
         f'[PR #{pr["number"]}]({pr["html_url"]})'
     return (category, text)
 
-def format_notes(notes, label_config, old_version, new_version, repository, mixed_mode_results):
+def format_notes(notes: list[tuple[str, str]], label_config: dict,
+                 old_version: str, new_version: str, repository: str, mixed_mode_results: str) -> str:
     ''' Format a list of notes for the changes between the two given versions '''
     grouping = defaultdict(list)
     for (category, line) in notes:
@@ -193,7 +196,7 @@ def format_notes(notes, label_config, old_version, new_version, repository, mixe
         text += f"\n\n{mixed_mode_results}\n"
     return text
 
-def replace_note(lines, version, note):
+def replace_note(lines: list[str], version, note: str) -> list[str]:
     ''' Insert the given formatted release notes in to ReleaseNotes.md
     at the appropriate location.
     lines: The contents of ReleaseNotes.md split into lines
@@ -224,29 +227,24 @@ def replace_note(lines, version, note):
         raise Exception(f"Could not find spot for {version}")
     return new_lines
 
-def read_notes(filename):
+def read_notes(filename: str) -> list[str]:
     ''' Read the provided file, and split by line '''
     with open(filename, 'r') as fin:
         return fin.read().split('\n')
 
-def replace_notes(lines, filename, version, note):
+def replace_notes(lines: list[str], filename: str, version: Version , note):
     ''' Insert the given release notes into the given file '''
     lines = replace_note(lines, version, note)
     with open(filename, 'w') as fout:
         fout.write('\n'.join(lines))
     print(f'Updated {filename} with new release notes from {version.precise_version()}')
 
-def commit_release_notes(filename, new_versions):
+def commit_release_notes(filename: str, version: str):
     ''' Commit the updates to the release notes '''
-    message = f"Updating release notes for {new_versions[-1]}"
-    if len(new_versions) > 1:
-        message += f"\n\nAlso including versions {' '.join(new_versions[:-1])}"
+    message = f"Updating release notes for {version}"
     subprocess.run(['git', 'commit', '-m', message, filename], check=True)
 
-def get_minor_version(version):
-    return '.'.join(version.split('.')[:2])
-
-def main(argv):
+def main(argv: list[str]):
     '''Replace placeholder release notes with the final release notes for a version.'''
     parser = argparse.ArgumentParser()
     parser.add_argument('--pr-cache', help='dump associated prs to json, or read from them (used in testing)')
@@ -265,11 +263,11 @@ def main(argv):
     args = parser.parse_args(argv)
 
     with open(args.config, 'r') as fin:
-        label_config = json.load(fin)
+        label_config: dict = json.load(fin)
 
     old_release_notes = read_notes(args.release_notes_md)
     version = Version(args.version)
-    old_version = version.get_old_version(old_release_notes)
+    old_version: str = version.get_old_version(old_release_notes)
     mixed_mode_results = None
     if args.mixed_mode_results is not None:
         with open(args.mixed_mode_results, 'r') as fin:
@@ -278,7 +276,7 @@ def main(argv):
     commits = get_commits(old_version, version.precise_version(), args.skip_commit)
     prs = get_prs(commits, args.pr_cache, args.repository)
     prs = dedup_prs(prs)
-    new_notes = [generate_note(pr[0], pr[1], label_config) for pr in prs]
+    new_notes: list[tuple[str, str]] = [generate_note(pr[0], pr[1], label_config) for pr in prs]
     note = format_notes(new_notes, label_config, old_version, version.precise_version(), args.repository, mixed_mode_results)
     replace_notes(old_release_notes, args.release_notes_md, version, note)
     if args.commit:
@@ -293,7 +291,7 @@ import unittest
 
 class TestStringMethods(unittest.TestCase):
 
-    def test_is_greater_header(self):
+    def test_is_greater_header(self) -> None:
         for (less, greater) in [
                 ("3.9.9.9", "4.0.0.0"),
                 ("4.2.1.0", "4.2.1.1"),
@@ -311,7 +309,7 @@ class TestStringMethods(unittest.TestCase):
             with self.subTest(x=f'{less} > {greater}'):
                 self.assertFalse(Version(less).is_greater(greater))
 
-    def test_get_old_version(self):
+    def test_get_old_version(self) -> None:
         for (new, old, content) in [
                 ("4.1.10.1", "4.1.10.0", "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
                 ("4.1.11.0", "4.1.10.0", "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
@@ -321,7 +319,7 @@ class TestStringMethods(unittest.TestCase):
             with self.subTest(new=new, old=old):
                 self.assertEqual(old, Version(new).get_old_version(content.split('\n')))
 
-    def test_replace_note(self):
+    def test_replace_note(self) -> None:
         for (version, old, new) in [
                 ("4.1.10.1", 
                  "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
@@ -342,7 +340,7 @@ class TestStringMethods(unittest.TestCase):
             with self.subTest(version=version, new=new, old=old):
                 self.assertEqual(new, '\n'.join(replace_note(old.split('\n'), Version(version), 'banana')))
 
-    def test_greater_than_precise_version_header(self):
+    def test_greater_than_precise_version_header(self) -> None:
         for (new_version, line) in [
                 ("4.1.1.0", "### 4.0.10.0"),
                 ("4.1.3.0", "### 4.1.0.0"),
@@ -372,7 +370,7 @@ class TestStringMethods(unittest.TestCase):
             with self.subTest(old=old_version, other_content=line):
                 self.assertFalse(Version(old_version).greater_than_precise_version_header(line))
 
-    def test_greater_than_minor_version_header(self):
+    def test_greater_than_minor_version_header(self) -> None:
         for (new_version, line) in [
                 ("4.1.1.0", "## 4.0"),
                 ("4.2.1.0", "## 4.1"),
@@ -394,7 +392,7 @@ class TestStringMethods(unittest.TestCase):
                 ]:
             with self.subTest(old=old_version, other_content=line):
                 self.assertFalse(Version(old_version).greater_than_minor_version_header(line))
-    def test_minor_version(self):
+    def test_minor_version(self) -> None:
         for (minor, full) in [
                 ("## 3.9", "3.9.10.0"),
                 ("## 3.10", "3.10.8.0"),
@@ -403,10 +401,10 @@ class TestStringMethods(unittest.TestCase):
             with self.subTest(minor=minor, full=full):
                 self.assertEqual(minor, Version(full).minor_version_header())
 
-    def simple_label_config(self):
+    def simple_label_config(self) -> dict:
         return {'categories': [], 'catch_all': 'Other'}
 
-    def test_format_empty_notes(self):
+    def test_format_empty_notes(self) -> None:
         self.assertEqual('\n\n**[Full Changelog (4.1.8.0...4.2.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.8.0...4.2.1.0)**\n\n' +
                          'Mixed Mode Results\n',
                          format_notes([], self.simple_label_config(), '4.1.8.0', '4.2.1.0',
