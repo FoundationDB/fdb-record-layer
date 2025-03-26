@@ -101,18 +101,18 @@ def get_commits(old_version: str, new_version: str, skip_commits: list[str]) -> 
 def get_pr(commit_hash: str, pr_cache: str, repository: str) -> list[dict]:
     '''Get the PRs associated with the given commit hash.
     pr_cache: A path to a directory to cache PR results, or None.
-    This will return the raw pr info from github associated with the commit,
+    This will return the raw pr info from GitHub associated with the commit,
     parsed into python objects.
     '''
-    if (pr_cache is not None):
+    if pr_cache is not None:
         try:
             with open(pr_cache + "/" + commit_hash + ".json", 'r') as fin:
                 return json.load(fin)
-        except:
+        except OSError:
             pass
     raw_info = run(['gh', 'api', f'/repos/{repository}/commits/{commit_hash}/pulls'])
     info = json.loads(raw_info)
-    if (pr_cache is not None):
+    if pr_cache is not None:
         with open(pr_cache + "/" + commit_hash + ".json", 'w') as fout:
             json.dump(info, fout)
     return info
@@ -147,7 +147,6 @@ def dedup_prs(prs: list[tuple[list[dict], Commit]]) -> list[tuple[list[dict], Co
 
 def get_category(pr: dict, label_config: dict, commit: Commit) -> str:
     ''' Get the appropriate category based on the labels in the given pr.'''
-    main_label = None
     label_names = [label['name'] for label in pr['labels']]
     for category in label_config['categories']:
         for label in category['labels']:
@@ -160,14 +159,14 @@ def generate_note(prs: list[dict], commit: Commit, label_config: dict) -> tuple[
     ''' Generate a release note for a single category, returning a pair of
     the category for the note, and the text as markdown '''
     if len(prs) == 0:
-        return ("Direct Commit", commit[1])
+        return "Direct Commit", commit[1]
     if len(prs) > 1:
         print("Too many PRs?")
     pr = prs[0]
     category = get_category(pr, label_config, commit)
     text = f'* {pr["title"]} - ' + \
         f'[PR #{pr["number"]}]({pr["html_url"]})'
-    return (category, text)
+    return category, text
 
 def format_notes(notes: list[tuple[str, str]], label_config: dict,
                  old_version: str, new_version: str, repository: str, mixed_mode_results: str) -> str:
@@ -201,7 +200,7 @@ def replace_note(lines: list[str], version, note: str) -> list[str]:
     at the appropriate location.
     lines: The contents of ReleaseNotes.md split into lines
     note: The release notes for a given version
-    Returns a new lits of lines, with the new notes inserted'''
+    Returns a new list of lines, with the new notes inserted'''
     new_lines = []
     added = False
     for line in lines:
@@ -287,6 +286,7 @@ if __name__ == '__main__':
 
 # You can run the tests by doing the following, in this directory:
 # python3 -m unittest create_release_notes.py
+# Or if you are using pycharm (or probably other python IDEs) there should be a run button next to the class
 import unittest
 
 class TestStringMethods(unittest.TestCase):
@@ -401,7 +401,8 @@ class TestStringMethods(unittest.TestCase):
             with self.subTest(minor=minor, full=full):
                 self.assertEqual(minor, Version(full).minor_version_header())
 
-    def simple_label_config(self) -> dict:
+    @staticmethod
+    def simple_label_config() -> dict:
         return {'categories': [], 'catch_all': 'Other'}
 
     def test_format_empty_notes(self) -> None:
