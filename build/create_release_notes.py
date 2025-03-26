@@ -396,3 +396,12 @@ class TestStringMethods(unittest.TestCase):
                 ]:
             with self.subTest(minor=minor, full=full):
                 self.assertEqual(minor, Version(full).minor_version_header())
+
+    def simple_label_config(self):
+        return {'categories': [], 'catch_all': 'Other'}
+
+    def test_format_empty_notes(self):
+        self.assertEqual('\n\n**[Full Changelog (4.1.8.0...4.2.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.8.0...4.2.1.0)**\n\n' +
+                         'Mixed Mode Results\n',
+                         format_notes([], self.simple_label_config(), '4.1.8.0', '4.2.1.0',
+                                      'FoundationDB/fdb-record-layer', 'Mixed Mode Results'))
