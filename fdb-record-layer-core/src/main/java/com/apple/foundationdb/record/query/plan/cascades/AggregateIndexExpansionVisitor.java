@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
@@ -61,6 +62,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -72,7 +74,12 @@ import java.util.stream.Stream;
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                             implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
-    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
+    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap =
+            Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
+
+    @Nonnull
+    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> rollUpAggregateMap =
+            Suppliers.memoize(AggregateIndexExpansionVisitor::computeRollUpAggregateMap);
 
     @Nonnull
     protected final Index index;
@@ -92,7 +99,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param recordTypes The indexed record types.
      */
     public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(IndexTypes.BITMAP_VALUE.equals(index.getType()) || aggregateMap.get().containsKey(index.getType()));
+        Preconditions.checkArgument(IndexTypes.BITMAP_VALUE.equals(index.getType()) ||
+                aggregateMap.get().containsKey(index.getType()));
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());
@@ -339,6 +347,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
+    public static Optional<AggregateValue> aggregateValue(@Nonnull final Index index, @Nonnull final Value argument) {
+        return Optional.of((AggregateValue)aggregateMap.get()
+                .get(index.getType()).encapsulate(ImmutableList.of(argument)));
+    }
+
+    @Nonnull
     private static Map<String, BuiltInFunction<? extends Value>> computeAggregateMap() {
         final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
         mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexOnlyAggregateValue.MaxEverFn());
@@ -348,6 +362,28 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
+        return mapBuilder.build();
+    }
+
+    @Nonnull
+    public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final Index index, @Nonnull final Value argument) {
+        return Optional.ofNullable(rollUpAggregateMap.get()
+                .get(index.getType()))
+                .map(fn -> (AggregateValue)fn.encapsulate(ImmutableList.of(argument)));
+    }
+
+    @Nonnull
+    private static Map<String, BuiltInFunction<? extends Value>> computeRollUpAggregateMap() {
+        final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
+        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new NumericAggregationValue.MinFn());
+        // mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, TODO);
+        // mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, TODO);
+        mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.COUNT, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
         mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
         return mapBuilder.build();

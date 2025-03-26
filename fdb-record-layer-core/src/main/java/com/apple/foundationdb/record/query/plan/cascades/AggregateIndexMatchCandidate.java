@@ -43,13 +43,16 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -172,7 +175,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Override
     public String toString() {
-        return "Agg[" + getName() + "; " + index.getType() + "]";
+        return "AGG[" + getName() + "; " + index.getType() + "]";
     }
 
     @Override
@@ -374,6 +377,33 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
     }
 
+    @Nullable
+    @Override
+    public PullUp.UnificationPullUp prepareForUnification(@Nonnull final PartialMatch partialMatch,
+                                                          @Nonnull final CorrelationIdentifier topAlias,
+                                                          @Nonnull final CorrelationIdentifier topCandidateAlias) {
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+        if (regularMatchInfo.getRollUpToGroupingValues() != null) {
+            final var groupingAndAggregateAccessors =
+                    getGroupingAndAggregateAccessors(topCandidateAlias);
+            final var groupingAccessorValues = groupingAndAggregateAccessors.getLeft();
+            final var aggregateAccessorValue = groupingAndAggregateAccessors.getRight();
+            final var allFields =
+                    ((Type.Record)selectHavingExpression.getResultValue().getResultType()).getFields();
+            final var rollUpColumnsBuilder =
+                    ImmutableList.<Column<? extends Value>>builder();
+            final var numGroupings = regularMatchInfo.getRollUpToGroupingValues().size();
+            for (int i = 0; i < numGroupings; i++) {
+                final var field = allFields.get(i);
+                rollUpColumnsBuilder.add(Column.of(field, groupingAccessorValues.get(i)));
+            }
+            rollUpColumnsBuilder.add(Column.of(allFields.get(allFields.size() - 1), aggregateAccessorValue));
+            return PullUp.forUnification(topAlias, RecordConstructorValue.ofColumns(rollUpColumnsBuilder.build()),
+                    ImmutableSet.of(topCandidateAlias));
+        }
+        return null;
+    }
+
     @Nonnull
     @Override
     public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
@@ -384,13 +414,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
 
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
-        final var resultType = selectHavingResultValue.getResultType();
+        final var resultType = (Type.Record)selectHavingResultValue.getResultType();
         final var messageDescriptor =
                 Objects.requireNonNull(TypeRepository.newBuilder()
                         .addTypeIfNeeded(resultType)
                         .build()
                         .getMessageDescriptor(resultType));
-        final var constraintMaybe = partialMatch.getRegularMatchInfo().getConstraint();
+        final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+        final var constraintMaybe = regularMatchInfo.getConstraint();
 
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
         final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
@@ -404,12 +435,45 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 baseRecordType,
                 QueryPlanConstraint.noConstraint());
 
-        return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
+        var plan = new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
                 selectHavingResultValue,
                 groupByResultValue,
                 constraintMaybe);
+        if (regularMatchInfo.getRollUpToGroupingValues() != null) {
+            //
+            // We need to perform a roll up.
+            //
+            final var aggregateIndexScanReference = memoizer.memoizePlans(plan);
+            final var aggregateIndexScanAlias = Quantifier.uniqueId();
+
+            //final var recordValues = Values.deconstructRecord(recordValue);
+            final var groupingAndAggregateAccessors =
+                    getGroupingAndAggregateAccessors(regularMatchInfo.getRollUpToGroupingValues().size(),
+                            aggregateIndexScanAlias);
+            final var groupingAccessorValues = groupingAndAggregateAccessors.getLeft();
+            final var aggregateAccessorValue = groupingAndAggregateAccessors.getRight();
+            final var allFields = resultType.getFields();
+            final var rollUpGroupingColumnsBuilder =
+                    ImmutableList.<Column<? extends Value>>builder();
+            for (int i = 0; i < groupingAccessorValues.size(); i++) {
+                final var field = allFields.get(i);
+                rollUpGroupingColumnsBuilder.add(Column.of(field, groupingAccessorValues.get(i)));
+            }
+
+            final var rollUpAggregateValueOptional =
+                    AggregateIndexExpansionVisitor.rollUpAggregateValueMaybe(index,
+                            aggregateAccessorValue);
+
+            final var aggregateIndexScanQuantifier =
+                    Quantifier.physical(aggregateIndexScanReference, aggregateIndexScanAlias);
+
+            return RecordQueryStreamingAggregationPlan.ofFlattened(aggregateIndexScanQuantifier,
+                    RecordConstructorValue.ofColumns(rollUpGroupingColumnsBuilder.build(), resultType.isNullable()),
+                    rollUpAggregateValueOptional.orElseThrow(() -> new RecordCoreException("unknown rollup operation")));
+        }
+        return plan;
     }
 
     @Nonnull
@@ -426,19 +490,22 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     }
 
     @Nonnull
-    public NonnullPair<List<Value>, Value> getGroupingAndAggregateAccessors() {
+    public NonnullPair<List<Value>, Value> getGroupingAndAggregateAccessors(@Nonnull final CorrelationIdentifier alias) {
+        return getGroupingAndAggregateAccessors(getGroupingCount(), alias);
+    }
+
+    @Nonnull
+    public NonnullPair<List<Value>, Value> getGroupingAndAggregateAccessors(final int numGroupings,
+                                                                            @Nonnull final CorrelationIdentifier alias) {
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
         final var selectHavingResultType = (Type.Record)selectHavingResultValue.getResultType();
         final var unbasedResultValue =
-                QuantifiedObjectValue.of(Quantifier.current(), selectHavingResultType);
-
-        final var groupingCount = getGroupingCount();
-        Verify.verify(selectHavingResultType.getFields().size() >= groupingCount);
-
+                QuantifiedObjectValue.of(alias, selectHavingResultType);
         final var deconstructedRecord = Values.deconstructRecord(unbasedResultValue);
+        Verify.verify(deconstructedRecord.size() > numGroupings);
         final var groupingAccessorValues =
-                ImmutableList.copyOf(deconstructedRecord.subList(0, groupingCount));
-        final var aggregateAccessorValue = deconstructedRecord.get(groupingCount);
+                ImmutableList.copyOf(deconstructedRecord.subList(0, numGroupings));
+        final var aggregateAccessorValue = deconstructedRecord.get(deconstructedRecord.size() - 1);
         return NonnullPair.of(groupingAccessorValues, aggregateAccessorValue);
     }
 
