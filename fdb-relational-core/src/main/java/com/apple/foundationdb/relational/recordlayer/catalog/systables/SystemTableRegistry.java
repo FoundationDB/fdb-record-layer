@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import javax.annotation.Nonnull;
 import java.util.Map;
 
@@ -32,7 +30,6 @@ import java.util.Map;
  * is to provide a placeholder of these tables that could be consulted e.g. during database
  * bootstrapping.
  */
-@ExcludeFromJacocoGeneratedReport //We don't need to test map accesses
 @API(API.Status.EXPERIMENTAL)
 public final class SystemTableRegistry {
 

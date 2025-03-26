@@ -38,9 +38,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import io.grpc.StatusRuntimeException;
 
 import javax.annotation.Nonnull;
@@ -269,7 +267,6 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
-    @ExcludeFromJacocoGeneratedReport
     public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options) throws SQLException {
         checkOpen();
         GetResponse getResponse;
@@ -295,7 +292,6 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
-    @ExcludeFromJacocoGeneratedReport
     public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options)
             throws SQLException {
         checkOpen();
@@ -319,7 +315,6 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
             throws SQLException {
         checkOpen();
@@ -344,14 +339,12 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
         checkOpen();
         return -1;
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException {
         checkOpen();
     }

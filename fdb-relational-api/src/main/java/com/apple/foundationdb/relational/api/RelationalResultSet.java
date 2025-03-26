@@ -356,13 +356,11 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Override
     default <T> T unwrap(Class<T> iface) throws SQLException {
         return iface.cast(this);
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Override
     default boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
