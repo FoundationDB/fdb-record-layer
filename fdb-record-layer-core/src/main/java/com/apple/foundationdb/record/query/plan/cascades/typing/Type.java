@@ -2128,7 +2128,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 }
 
                 if (i + 1 < getFields().size()) {
-                    return resultExplainTokens.addCommaAndWhiteSpace();
+                    resultExplainTokens.addCommaAndWhiteSpace();
                 }
                 i ++;
             }

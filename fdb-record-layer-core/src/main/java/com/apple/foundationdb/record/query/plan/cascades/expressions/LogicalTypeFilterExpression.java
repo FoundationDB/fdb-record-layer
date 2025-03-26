@@ -185,7 +185,10 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                                    @Nonnull final CorrelationIdentifier candidateAlias) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
-        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, candidateAlias);
+        final var nestedPullUpPair =
+                partialMatch.nestPullUp(pullUp, candidateAlias);
+        final var rootOfMatchPullUp = nestedPullUpPair.getKey();
+        final var adjustedPullUp = Objects.requireNonNull(nestedPullUpPair.getRight());
         final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
 
         final PartialMatch childPartialMatch =
@@ -204,14 +207,13 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         boolean isCompensationImpossible = false;
         final ResultCompensationFunction resultCompensationFunction;
         final AggregateMappings aggregateMappings;
-        if (pullUp != null) {
+        if (rootOfMatchPullUp == null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             aggregateMappings = AggregateMappings.empty();
         } else {
-            final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpTranslatedResultValueOptional =
-                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
+                    rootOfMatchPullUp.pullUpValueMaybe(maxMatchMap.getQueryValue());
             if (pulledUpTranslatedResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
@@ -228,7 +230,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
             aggregateMappings =
-                    RegularMatchInfo.pullUpAggregateMappings(partialMatch, candidateAlias);
+                    RegularMatchInfo.pullUpAggregateCandidateMappings(partialMatch, rootOfMatchPullUp);
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();

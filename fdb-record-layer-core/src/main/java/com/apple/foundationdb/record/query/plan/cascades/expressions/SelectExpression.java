@@ -466,7 +466,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         MaxMatchMap.compute(translatedResultValue, candidateExpression.getResultValue(),
                                 Quantifiers.aliases(candidateExpression.getQuantifiers()), bindingValueEquivalence);
                 return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
-                                PredicateMap.empty(), maxMatchMap, AggregateMappings.empty(),
+                                PredicateMap.empty(), maxMatchMap, AggregateMappings.empty(), null,
                                 maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
@@ -586,7 +586,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                                             bindingValueEquivalence);
                                             return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
                                                     allParameterBindingMap, predicateMap,
-                                                    maxMatchMap, AggregateMappings.empty(),
+                                                    maxMatchMap, AggregateMappings.empty(), null,
                                                     maxMatchMap.getQueryPlanConstraint());
                                         })
                                         .map(ImmutableList::of)
@@ -787,8 +787,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifiers = getQuantifiers();
 
-        final var adjustedPullUp =
+        final var nestedPullUpPair =
                 partialMatch.nestPullUp(pullUp, candidateAlias);
+        final var rootOfMatchPullUp = nestedPullUpPair.getKey();
+        final var adjustedPullUp = Objects.requireNonNull(nestedPullUpPair.getRight());
 
         //
         // The partial match we are called with here has child matches that have compensations on their own.
@@ -875,14 +877,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         final ResultCompensationFunction resultCompensationFunction;
         final AggregateMappings aggregateMappings;
-        if (pullUp != null) {
+        if (rootOfMatchPullUp == null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             aggregateMappings = AggregateMappings.empty();
         } else {
-            final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpTranslatedResultValueOptional =
-                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
+                    rootOfMatchPullUp.pullUpValueMaybe(maxMatchMap.getQueryValue());
             if (pulledUpTranslatedResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
@@ -899,7 +900,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             isAnyCompensationFunctionImpossible |= resultCompensationFunction.isImpossible();
 
             aggregateMappings =
-                    RegularMatchInfo.pullUpAggregateMappings(partialMatch, candidateAlias);
+                    RegularMatchInfo.pullUpAggregateCandidateMappings(partialMatch, rootOfMatchPullUp);
         }
 
         final var isCompensationNeeded =

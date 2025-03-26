@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
@@ -181,6 +182,13 @@ public interface MatchCandidate {
     Ordering computeOrderingFromScanComparisons(@Nonnull ScanComparisons scanComparisons,
                                                 boolean isReverse,
                                                 boolean isDistinct);
+
+    @Nullable
+    default PullUp.UnificationPullUp prepareForUnification(@Nonnull final PartialMatch partialMatch,
+                                                           @Nonnull final CorrelationIdentifier topAlias,
+                                                           @Nonnull final CorrelationIdentifier topCandidateAlias) {
+        return null;
+    }
 
     /**
      * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data.

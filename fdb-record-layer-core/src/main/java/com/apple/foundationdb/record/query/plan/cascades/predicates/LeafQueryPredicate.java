@@ -80,7 +80,7 @@ public interface LeafQueryPredicate extends QueryPredicate {
     @Nonnull
     default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunctionForLeaf(@Nonnull final PullUp pullUp) {
         return toResidualPredicate()
-                .replaceValuesMaybe(pullUp::pullUpMaybe)
+                .replaceValuesMaybe(pullUp::pullUpValueMaybe)
                 .map(PredicateMultiMap.PredicateCompensationFunction::ofPredicate)
                 .orElse(PredicateMultiMap.PredicateCompensationFunction.impossibleCompensation());
     }

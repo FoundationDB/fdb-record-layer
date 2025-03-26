@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -285,9 +286,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 distinctMatchToScanMap(call, bestMatchToPlanMap);
 
         final var commonPrimaryKeyValuesOptional =
-                WithPrimaryKeyMatchCandidate.commonRecordKeyValuesMaybe(
+                commonRecordKeyValuesMaybe(
                         bestMaximumCoverageMatches.stream()
-                                .map(singleMatchedAccessVectored -> singleMatchedAccessVectored.getElement().getPartialMatch().getMatchCandidate())
+                                .map(singleMatchedAccessVectored ->
+                                        singleMatchedAccessVectored.getElement().getPartialMatch())
                                 .collect(ImmutableList.toImmutableList()));
         if (commonPrimaryKeyValuesOptional.isEmpty() || bestMaximumCoverageMatches.size() == 1) {
             return intersectionInfoMapToExpressions(intersectionInfoMap);
@@ -417,6 +419,52 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         return intersectionInfoMapToExpressions(intersectionInfoMap);
+    }
+
+    @Nonnull
+    private static Optional<List<Value>> commonRecordKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
+        List<Value> common = null;
+        var first = true;
+        for (final var partialMatch : partialMatches) {
+            final var matchCandidate = partialMatch.getMatchCandidate();
+            final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+
+            final List<Value> key;
+            if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
+                final var withPrimaryKeyMatchCandidate = (WithPrimaryKeyMatchCandidate)matchCandidate;
+                final var keyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyValuesMaybe();
+                if (keyMaybe.isEmpty()) {
+                    return Optional.empty();
+                }
+                key = keyMaybe.get();
+            } else if (matchCandidate instanceof AggregateIndexMatchCandidate) {
+                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
+                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
+                if (rollUpToGroupingValues == null) {
+                    key = aggregateIndexMatchCandidate.getGroupByValues();
+                } else {
+                    key = aggregateIndexMatchCandidate.getGroupByValues().subList(0, rollUpToGroupingValues.size());
+                }
+
+//                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
+//                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
+//                if (rollUpToGroupingValues == null) {
+//                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(Quantifier.current()).getLeft();
+//                } else {
+//                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(rollUpToGroupingValues.size(),
+//                            Quantifier.current()).getLeft();
+//                }
+            } else {
+                return Optional.empty();
+            }
+            if (first) {
+                common = key;
+                first = false;
+            } else if (!common.equals(key)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.ofNullable(common); // common can only be null if we didn't have any match candidates to start with
     }
 
     @Nonnull
@@ -550,12 +598,17 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
                     scanDirection == ScanDirection.BOTH);
 
+            final var topAlias = Quantifier.uniqueId();
             final var candidateTopAlias = Quantifier.uniqueId();
-            final var compensation = partialMatch.compensateCompleteMatch(candidateTopAlias);
+            final var unificationPullUp =
+                    partialMatch.prepareForUnification(topAlias, candidateTopAlias);
+            final var compensation =
+                    partialMatch.compensateCompleteMatch(unificationPullUp,
+                            unificationPullUp == null ? topAlias : candidateTopAlias);
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        candidateTopAlias, false, satisfyingOrderingsPair.getRight()));
+                        topAlias, false, satisfyingOrderingsPair.getRight()));
             }
 
             //
@@ -568,7 +621,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             //
             if (scanDirection == ScanDirection.REVERSE /* || scanDirection == ScanDirection.BOTH */) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        candidateTopAlias, true, satisfyingOrderingsPair.getRight()));
+                        topAlias, true, satisfyingOrderingsPair.getRight()));
             }
         }
 
@@ -727,7 +780,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             final var singleMatchedAccess = singleMatchedAccessVectored.getElement();
                             final var partialMatch = singleMatchedAccess.getPartialMatch();
                             return partialMatch.getMatchCandidate()
-                                    .toEquivalentPlan(partialMatch, planContext, memoizer, singleMatchedAccess.isReverseScanOrder());
+                                    .toEquivalentPlan(partialMatch, planContext, memoizer,
+                                            singleMatchedAccess.isReverseScanOrder());
                         }));
     }
 

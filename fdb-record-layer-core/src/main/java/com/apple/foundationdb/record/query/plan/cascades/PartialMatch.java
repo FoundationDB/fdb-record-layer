@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -328,7 +329,7 @@ public class PartialMatch {
             final var originalQueryPredicate = childPredicateMappingEntry.getKey();
             final var childPredicateMapping = childPredicateMappingEntry.getValue();
             final var pulledUpPredicateOptional =
-                    childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpMaybe);
+                    childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpValueMaybe);
             pulledUpPredicateOptional.ifPresent(queryPredicate ->
                     resultsMap.put(originalQueryPredicate,
                             childPredicateMapping.withTranslatedQueryPredicate(queryPredicate)));
@@ -369,7 +370,13 @@ public class PartialMatch {
 
     @Nonnull
     public Compensation compensateCompleteMatch(@Nonnull final CorrelationIdentifier candidateTopAlias) {
-        return queryExpression.compensate(this, getBoundParameterPrefixMap(), null, candidateTopAlias);
+        return compensateCompleteMatch(null, candidateTopAlias);
+    }
+
+    @Nonnull
+    public Compensation compensateCompleteMatch(@Nullable PullUp unificationPullUp,
+                                                @Nonnull final CorrelationIdentifier candidateTopAlias) {
+        return queryExpression.compensate(this, getBoundParameterPrefixMap(), unificationPullUp, candidateTopAlias);
     }
 
     @Nonnull
@@ -384,13 +391,21 @@ public class PartialMatch {
         return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueId());
     }
 
-    @Nonnull
-    public PullUp pullUp(@Nonnull final CorrelationIdentifier candidateAlias) {
-        return nestPullUp(null, candidateAlias);
+    @Nullable
+    public PullUp.UnificationPullUp prepareForUnification(@Nonnull final CorrelationIdentifier topAlias,
+                                                          @Nonnull final CorrelationIdentifier topCandidateAlias) {
+        return getMatchCandidate().prepareForUnification(this, topAlias, topCandidateAlias);
     }
 
     @Nonnull
-    public PullUp nestPullUp(@Nullable final PullUp pullUp, @Nonnull final CorrelationIdentifier candidateAlias) {
+    public PullUp pullUp(@Nonnull final CorrelationIdentifier candidateAlias) {
+        return Objects.requireNonNull(nestPullUp(null, candidateAlias).getRight());
+    }
+
+    @Nonnull
+    public Pair</*root of match*/ PullUp , /*current*/ PullUp> nestPullUp(@Nullable final PullUp pullUp,
+                                                                          @Nonnull final CorrelationIdentifier candidateAlias) {
+        PullUp rootOfMatchPullUp = null;
         var currentMatchInfo = getMatchInfo();
         var currentCandidateRef = candidateRef;
         var currentPullUp = pullUp;
@@ -400,6 +415,9 @@ public class PartialMatch {
                     PullUp.visitor(currentPullUp, currentCandidateAlias);
             final var currentCandidateExpression = currentCandidateRef.get();
             currentPullUp = nestingVisitor.visit(currentCandidateRef.get());
+            if (!(pullUp instanceof PullUp.MatchPullUp) && rootOfMatchPullUp == null) {
+                rootOfMatchPullUp = currentPullUp;
+            }
             if (!currentMatchInfo.isAdjusted()) {
                 break;
             }
@@ -412,7 +430,7 @@ public class PartialMatch {
 
             currentMatchInfo = ((MatchInfo.AdjustedMatchInfo)currentMatchInfo).getUnderlying();
         }
-        return currentPullUp;
+        return Pair.of(rootOfMatchPullUp, currentPullUp);
     }
 
     /**

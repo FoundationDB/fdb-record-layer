@@ -145,7 +145,8 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         // loop through all compensated alias sets and their associated match partitions
         for (final var matchPartitionByMatchAliasEntry : matchPartitionByMatchAliasMap.entrySet()) {
             final var matchedAlias = matchPartitionByMatchAliasEntry.getKey();
-            final var matchPartitionForMatchedAlias = matchPartitionByMatchAliasEntry.getValue();
+            final var matchPartitionForMatchedAlias =
+                    matchPartitionByMatchAliasEntry.getValue();
 
             //
             // Pull down the requested orderings along the matchedAlias
@@ -292,7 +293,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
 
     @Nonnull
     private static NonnullPair<List<Value>, List<Value>> computeCommonAndPickUpValues(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                                      final int numGrouped) {
+                                                                                      final int numGroupings) {
         final var commonValuesAndPickUpValueByAccess =
                 partition
                         .stream()
@@ -301,14 +302,13 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                                         .getPartialMatch()
                                         .getMatchCandidate())
                         .map(matchCandidate -> (AggregateIndexMatchCandidate)matchCandidate)
-                        .map(AggregateIndexMatchCandidate::getGroupingAndAggregateAccessors)
+                        .map(aggregateIndexMatchCandidate ->
+                                aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(numGroupings, Quantifier.current()))
                         .collect(ImmutableList.toImmutableList());
 
         final var pickUpValuesBuilder = ImmutableList.<Value>builder();
         for (int i = 0; i < commonValuesAndPickUpValueByAccess.size(); i++) {
             final var commonAndPickUpValuePair = commonValuesAndPickUpValueByAccess.get(i);
-            final var commonValues = commonAndPickUpValuePair.getLeft();
-            Verify.verify(commonValues.size() == numGrouped);
             final var pickUpValue = commonAndPickUpValuePair.getRight();
             pickUpValuesBuilder.add(pickUpValue);
         }

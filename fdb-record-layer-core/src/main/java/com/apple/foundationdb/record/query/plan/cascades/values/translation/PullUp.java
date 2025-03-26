@@ -31,7 +31,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,7 +52,6 @@ public class PullUp {
     private final Value pullThroughValue;
     @Nonnull
     private final Set<CorrelationIdentifier> rangedOverAliases;
-
     @Nonnull
     private final PullUp rootPullUp;
 
@@ -95,26 +96,28 @@ public class PullUp {
     }
 
     @Nonnull
-    public CorrelationIdentifier getTopAlias() {
-        return getRootPullUp().getCandidateAlias();
-    }
-
-    @Nonnull
-    private static PullUp of(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier candidateAlias,
-                             @Nonnull final CorrelationIdentifier lowerAlias,
-                             @Nonnull final Type lowerType,
-                             @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
-        return of(parentPullUp, candidateAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
+    private static PullUp forMatch(@Nullable final PullUp parentPullUp,
+                                   @Nonnull final CorrelationIdentifier candidateAlias,
+                                   @Nonnull final CorrelationIdentifier lowerAlias,
+                                   @Nonnull final Type lowerType,
+                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+        return forMatch(parentPullUp, candidateAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
                 rangedOverAliases);
     }
 
     @Nonnull
-    private static PullUp of(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier candidateAlias,
-                             @Nonnull final Value lowerPullThroughValue,
-                             @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
-        return new PullUp(parentPullUp, candidateAlias, lowerPullThroughValue, rangedOverAliases);
+    private static PullUp forMatch(@Nullable final PullUp parentPullUp,
+                                   @Nonnull final CorrelationIdentifier candidateAlias,
+                                   @Nonnull final Value lowerPullThroughValue,
+                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+        return new MatchPullUp(parentPullUp, candidateAlias, lowerPullThroughValue, rangedOverAliases);
+    }
+
+    @Nonnull
+    public static UnificationPullUp forUnification(@Nonnull final CorrelationIdentifier candidateAlias,
+                                                   @Nonnull final Value lowerPullThroughValue,
+                                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+        return new UnificationPullUp(null, candidateAlias, lowerPullThroughValue, rangedOverAliases);
     }
 
     /**
@@ -131,7 +134,7 @@ public class PullUp {
      *         {@code value} could not be pulled up.
      */
     @Nonnull
-    public Optional<Value> pullUpMaybe(@Nonnull final Value value) {
+    public Optional<Value> pullUpValueMaybe(@Nonnull final Value value) {
         //
         // The following loop would probably be more self-explanatory if it were written as a recursion but
         // this unrolled version probably performs better as this may prove to be a tight loop.
@@ -148,6 +151,35 @@ public class PullUp {
             }
             currentValue = currentValueOptional.get()
                     .simplify(EvaluationContext.empty(), AliasMap.emptyMap(), currentPullUp.getRangedOverAliases());
+
+            if (currentPullUp.getParentPullUp() == null) {
+                return Optional.of(currentValue);
+            }
+        }
+    }
+
+    @Nonnull
+    public Optional<Value> pullUpCandidateValueMaybe(@Nonnull final Value value) {
+        //
+        // The following loop would probably be more self-explanatory if it were written as a recursion but
+        // this unrolled version probably performs better as this may prove to be a tight loop.
+        //
+        var currentValue = value;
+        for (var currentPullUp = this; ; currentPullUp = currentPullUp.getParentPullUp()) {
+            final var currentPullThroughValue = currentPullUp.getPullThroughValue();
+            final var currentRangedOverAliases = currentPullUp.getRangedOverAliases();
+            final var currentCandidateAlias = currentPullUp.getCandidateAlias();
+            final var candidatePullUpMap =
+                    currentPullThroughValue.pullUp(ImmutableList.of(currentValue),
+                            AliasMap.emptyMap(),
+                            Sets.difference(currentValue.getCorrelatedToWithoutChildren(),
+                                    currentRangedOverAliases),
+                            currentCandidateAlias);
+            final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(currentValue);
+            if (pulledUpCandidateAggregateValue == null) {
+                return Optional.empty();
+            }
+            currentValue = pulledUpCandidateAggregateValue;
 
             if (currentPullUp.getParentPullUp() == null) {
                 return Optional.of(currentValue);
@@ -176,7 +208,7 @@ public class PullUp {
         @Nonnull
         @Override
         public PullUp visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
-            return of(parentPullUp, candidateAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
+            return forMatch(parentPullUp, candidateAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
                     logicalTypeFilterExpression.getInnerQuantifier().getFlowedObjectType(),
                     Quantifiers.aliases(logicalTypeFilterExpression.getQuantifiers()));
         }
@@ -184,8 +216,26 @@ public class PullUp {
         @Nonnull
         @Override
         public PullUp visitDefault(@Nonnull final RelationalExpression relationalExpression) {
-            return of(parentPullUp, candidateAlias, relationalExpression.getResultValue(),
+            return forMatch(parentPullUp, candidateAlias, relationalExpression.getResultValue(),
                     Quantifiers.aliases(relationalExpression.getQuantifiers()));
+        }
+    }
+
+    public static class MatchPullUp extends PullUp {
+        public MatchPullUp(@Nullable final PullUp parentPullUp,
+                           @Nonnull final CorrelationIdentifier candidateAlias,
+                           @Nonnull final Value pullThroughValue,
+                           @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+            super(parentPullUp, candidateAlias, pullThroughValue, rangedOverAliases);
+        }
+    }
+
+    public static class UnificationPullUp extends PullUp {
+        public UnificationPullUp(@Nullable final PullUp parentPullUp,
+                                 @Nonnull final CorrelationIdentifier candidateAlias,
+                                 @Nonnull final Value pullThroughValue,
+                                 @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+            super(parentPullUp, candidateAlias, pullThroughValue, rangedOverAliases);
         }
     }
 }

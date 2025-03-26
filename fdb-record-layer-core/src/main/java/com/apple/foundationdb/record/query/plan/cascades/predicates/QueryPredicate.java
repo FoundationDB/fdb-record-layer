@@ -248,7 +248,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         Verify.verify(childrenResults.isEmpty());
 
         return toResidualPredicate()
-                .replaceValuesMaybe(pullUp::pullUpMaybe)
+                .replaceValuesMaybe(pullUp::pullUpValueMaybe)
                 .map(PredicateCompensationFunction::ofPredicate)
                 .orElse(PredicateCompensationFunction.impossibleCompensation());
     }
