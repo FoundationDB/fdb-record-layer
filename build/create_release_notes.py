@@ -28,6 +28,53 @@ import re
 import subprocess
 import sys
 
+class Version:
+    minor_header = re.compile(r'^## (\d+\.\d)$')  # match all version headers, including major or minor headers
+    precise_header = re.compile(r'^### (\d+\.\d+\.\d+\.\d+)$')  # match precise version headers
+
+    def __init__(self, version):
+        self.version = version
+        self.version_split = [int(part) for part in self.version.split('.')]
+
+    def is_greater(self, other):
+        version = [int(part) for part in other.split('.')]
+        for (s, h) in zip(self.version_split, version):
+            if s > h:
+                return True
+            if s < h:
+                return False
+        return len(self.version_split) < len(version)
+
+    def get_old_version(self, lines):
+        for line in lines:
+            result = self.precise_header.match(line)
+            if result:
+                test_version = result[1]
+                if self.is_greater(test_version):
+                    return test_version
+        raise Exception(f'Could not find previous version for {self.version}')
+
+    def greater_than_precise_version_header(self, line):
+        result = self.precise_header.match(line)
+        return result and self.is_greater(result[1])
+
+    def greater_than_minor_version_header(self, line):
+        result = self.minor_header.match(line)
+        if result:
+            test_version = result[1]
+            if self.is_greater(test_version):
+                return True
+        return False
+
+    def minor_version_header(self):
+        return '## ' + '.'.join([str(v) for v in self.version_split[:2]])
+
+    def precise_version_header(self):
+        return '### ' + self.version
+
+    def precise_version(self):
+        return self.version
+
 def run(command):
     ''' Run a command, returning its output
     If the command fails, the output will be dumped, and an exception thrown
@@ -198,47 +245,6 @@ def commit_release_notes(filename, new_versions):
 
 def get_minor_version(version):
     return '.'.join(version.split('.')[:2])
-
-class Version:
-    minor_header = re.compile(r'^## (\d+\.\d)$') # match all version headers, including major or minor headers
-    precise_header = re.compile(r'^### (\d+\.\d+\.\d+\.\d+)$') # match precise version headers
-    def __init__(self, version):
-        self.version = version
-        self.version_split = [int(part) for part in self.version.split('.')]
-    def is_greater(self, other):
-        version = [int(part) for part in other.split('.')]
-        for (s, h) in zip(self.version_split, version):
-            if s > h:
-                return True
-            if s < h:
-                return False
-        return len(self.version_split) < len(version)
-    def get_old_version(self, lines):
-        for line in lines:
-            result = self.precise_header.match(line)
-            if result:
-                test_version = result[1]
-                if self.is_greater(test_version):
-                    return test_version
-        raise Exception(f'Could not find previous version for {self.version}')
-
-    def greater_than_precise_version_header(self, line):
-        result = self.precise_header.match(line)
-        return result and self.is_greater(result[1])
-        
-    def greater_than_minor_version_header(self, line):
-        result = self.minor_header.match(line)
-        if result:
-            test_version = result[1]
-            if self.is_greater(test_version):
-                return True
-        return False
-    def minor_version_header(self):
-        return '## ' + '.'.join([str(v) for v in self.version_split[:2]])
-    def precise_version_header(self):
-        return '### ' + self.version
-    def precise_version(self):
-        return self.version
 
 def main(argv):
     '''Replace placeholder release notes with the final release notes for a version.'''
