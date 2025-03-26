@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PType;
 import com.apple.foundationdb.record.planprotos.PType.PAnyRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PAnyType;
@@ -76,6 +77,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper.getNullableWrapperDescriptorForTypeCode;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
@@ -404,6 +407,20 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                       @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                       @Nonnull FieldDescriptorProto.Label protoLabel,
                                       boolean isNullable) {
+        // A MESSAGE field type can be descriptive of types other than the nested type. Hence, first check for those.
+        if (protoType == Descriptors.FieldDescriptor.Type.MESSAGE) {
+            Objects.requireNonNull(descriptor);
+            final var messageDescriptor = (Descriptors.Descriptor)descriptor;
+            if (TupleFieldsHelper.isTupleField((Descriptors.Descriptor) descriptor)) {
+                return TupleFieldsHelper.getTypeForNullableWrapper((Descriptors.Descriptor) descriptor);
+            }
+            if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
+                // find TypeCode of array elements
+                final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
+                final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
+                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
+            }
+        }
         final var typeCode = TypeCode.fromProtobufType(protoType);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
@@ -414,18 +431,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
             return Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
         } else if (typeCode == TypeCode.RECORD) {
-            Objects.requireNonNull(descriptor);
-            final var messageDescriptor = (Descriptors.Descriptor)descriptor;
-            if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
-                // find TypeCode of array elements
-                final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
-                final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
-                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
-            } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
-                return Type.uuidType(isNullable);
-            } else {
-                return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
-            }
+            return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(((Descriptors.Descriptor) descriptor).getFields()));
         }
 
         throw new IllegalStateException("unable to translate protobuf descriptor to type");
@@ -970,12 +976,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                   @Nonnull final Optional<String> ignored,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
-            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
-                    .setNumber(fieldNumber)
-                    .setName(fieldName)
-                    .setType(protoType)
-                    .setLabel(label)
-                    .build());
+            if (isNullable) {
+                final var nullableWrapperDescriptor = getNullableWrapperDescriptorForTypeCode(typeCode);
+                descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                        .setNumber(fieldNumber)
+                        .setName(fieldName)
+                        .setTypeName(nullableWrapperDescriptor.getFullName())
+                        .setLabel(label)
+                        .build());
+            } else {
+                descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                        .setNumber(fieldNumber)
+                        .setName(fieldName)
+                        .setType(protoType)
+                        .setLabel(label)
+                        .build());
+            }
         }
 
         @Override
@@ -2943,8 +2959,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     class Uuid implements Type {
-
-        public static final String MESSAGE_NAME = TupleFieldsProto.UUID.getDescriptor().getName();
 
         private final boolean isNullable;
 

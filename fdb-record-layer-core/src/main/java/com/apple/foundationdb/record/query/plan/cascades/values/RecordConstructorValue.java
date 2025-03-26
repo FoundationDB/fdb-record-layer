@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -173,12 +173,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         }
 
         if (fieldType.isUuid()) {
-            Verify.verify(field instanceof UUID);
-            final var uuidObject = (UUID) field;
-            return TupleFieldsProto.UUID.newBuilder()
-                    .setMostSignificantBits(uuidObject.getMostSignificantBits())
-                    .setLeastSignificantBits(uuidObject.getLeastSignificantBits())
-                    .build();
+            return TupleFieldsHelper.toProto((UUID) field);
         }
 
         if (fieldType instanceof Type.Array) {
@@ -215,7 +210,9 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     }
 
     private static Object protoObjectForPrimitive(@Nonnull Type type, @Nonnull Object field) {
-        if (type.getTypeCode() == Type.TypeCode.BYTES) {
+        if (type.isNullable()) {
+            return TupleFieldsHelper.toProto(field, TupleFieldsHelper.getNullableWrapperDescriptorForTypeCode(type.getTypeCode()));
+        } else if (type.getTypeCode() == Type.TypeCode.BYTES) {
             if (field instanceof byte[]) {
                 // todo: we're a little inconsistent about whether the field should be byte[] or ByteString for BYTES fields
                 return ZeroCopyByteString.wrap((byte[]) field);

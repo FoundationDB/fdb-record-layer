@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -84,6 +86,48 @@ public class TupleFieldsHelper {
             return fromProto(value instanceof TupleFieldsProto.NullableString ? (TupleFieldsProto.NullableString)value : TupleFieldsProto.NullableString.newBuilder().mergeFrom(value).build());
         } else if (descriptor == TupleFieldsProto.NullableBytes.getDescriptor()) {
             return fromProto(value instanceof TupleFieldsProto.NullableBytes ? (TupleFieldsProto.NullableBytes)value : TupleFieldsProto.NullableBytes.newBuilder().mergeFrom(value).build());
+        } else {
+            throw new RecordCoreArgumentException("value is not of a known message type");
+        }
+    }
+
+    public static Descriptors.Descriptor getNullableWrapperDescriptorForTypeCode(Type.TypeCode typeCode) {
+        switch (typeCode) {
+            case INT:
+                return TupleFieldsProto.NullableInt32.getDescriptor();
+            case LONG:
+                return TupleFieldsProto.NullableInt64.getDescriptor();
+            case DOUBLE:
+                return TupleFieldsProto.NullableDouble.getDescriptor();
+            case FLOAT:
+                return TupleFieldsProto.NullableFloat.getDescriptor();
+            case BYTES:
+                return TupleFieldsProto.NullableBytes.getDescriptor();
+            case BOOLEAN:
+                return TupleFieldsProto.NullableBool.getDescriptor();
+            default:
+                throw new SemanticException(SemanticException.ErrorCode.UNSUPPORTED, "nullable for type " + typeCode.name() + "is not supported (yet).", null);
+        }
+    }
+
+    public static Type getTypeForNullableWrapper(@Nonnull Descriptors.Descriptor descriptor) {
+        if (descriptor == TupleFieldsProto.UUID.getDescriptor()) {
+            // just for simplicity, lets just say that nullable UUID do exist.
+            return Type.uuidType(false);
+        } else if (descriptor == TupleFieldsProto.NullableDouble.getDescriptor()) {
+            return Type.primitiveType(Type.TypeCode.DOUBLE);
+        } else if (descriptor == TupleFieldsProto.NullableFloat.getDescriptor()) {
+            return Type.primitiveType(Type.TypeCode.FLOAT);
+        } else if (descriptor == TupleFieldsProto.NullableInt32.getDescriptor()) {
+            return Type.primitiveType(Type.TypeCode.INT);
+        } else if (descriptor == TupleFieldsProto.NullableInt64.getDescriptor()) {
+            return Type.primitiveType(Type.TypeCode.LONG);
+        } else if (descriptor == TupleFieldsProto.NullableBool.getDescriptor()) {
+            return Type.primitiveType(Type.TypeCode.BOOLEAN);
+        } else if (descriptor == TupleFieldsProto.NullableString.getDescriptor()) {
+            return Type.primitiveType(Type.TypeCode.STRING);
+        } else if (descriptor == TupleFieldsProto.NullableBytes.getDescriptor()) {
+            return Type.primitiveType(Type.TypeCode.BYTES);
         } else {
             throw new RecordCoreArgumentException("value is not of a known message type");
         }
