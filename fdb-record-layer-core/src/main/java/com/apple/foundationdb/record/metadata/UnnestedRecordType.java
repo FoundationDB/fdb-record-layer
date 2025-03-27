@@ -295,8 +295,18 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                         int childConstituentIndex = getConstituents().indexOf(constituent);
                         int childElemIndex = (int) primaryKey.getNestedTuple(childConstituentIndex + 1).getLong(0);
                         if (childElemIndex >= childElems.size()) {
-                            throw new RecordCoreException("child element position is too large")
-                                    .addLogInfo(LogMessageKeys.CHILD_COUNT, childElems.size());
+                            // Constituent not found
+                            switch (orphanBehavior) {
+                                case ERROR:
+                                    throw new RecordCoreException("child element position is too large")
+                                            .addLogInfo(LogMessageKeys.CHILD_COUNT, childElems.size());
+                                case SKIP:
+                                    return null;
+                                case RETURN:
+                                    return FDBSyntheticRecord.of(this, Map.of());
+                                default:
+                                    throw new IllegalArgumentException("Unknown orphanBehavior value: " + orphanBehavior);
+                            }
                         }
                         Key.Evaluated childElem = childElems.get(childElemIndex);
                         Message childMessage = childElem.getObject(0, Message.class);
