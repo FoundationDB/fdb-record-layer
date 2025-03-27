@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api.ddl;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -31,7 +30,6 @@ import java.net.URI;
 /**
  * Skeleton implementation of a ConstantActionFactory.
  */
-@ExcludeFromJacocoGeneratedReport //excluded because it doesn't do anything by default, so there's nothing to test
 public abstract class AbstractMetadataOperationsFactory implements MetadataOperationsFactory {
     @Nonnull
     @Override
