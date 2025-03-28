@@ -522,7 +522,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default SQLWarning getWarnings() throws SQLException {
         // For now, return null until warnings are implemented.
         // Throwing an exception stops all processing. See TODO (Implement JDBC Warnings in Relational embedded Driver)

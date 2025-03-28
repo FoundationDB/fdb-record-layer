@@ -266,7 +266,6 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     @Nonnull
     @SpotBugsSuppressWarnings("NP") // TODO: Will need to fix null handling
     public Continuation getContinuation() throws SQLException {
@@ -284,7 +283,6 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
         RelationalStruct s = TypeConversion.getStruct(this.delegate, this.rowIndex, oneBasedColumn);
         wasNull = s == null;
@@ -357,13 +355,11 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public Object getObject(String columnLabel) throws SQLException {
         return getObject(RelationalStruct.getOneBasedPosition(columnLabel, this));
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public RelationalArray getArray(int oneBasedColumn) throws SQLException {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         ColumnMetadata columnMetadata = this.delegate.getMetadata().getColumnMetadata().getColumnMetadata(index);

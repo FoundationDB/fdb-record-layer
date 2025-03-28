@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import java.sql.Array;
 import java.sql.Struct;
 import java.sql.Types;
@@ -37,7 +35,6 @@ import java.util.UUID;
  * recordlayer.
  */
 // Used by fdb-relational-jdbc module in JDBCRelationalArray.
-@ExcludeFromJacocoGeneratedReport
 @API(API.Status.EXPERIMENTAL)
 public final class SqlTypeNamesSupport {
     private SqlTypeNamesSupport() {

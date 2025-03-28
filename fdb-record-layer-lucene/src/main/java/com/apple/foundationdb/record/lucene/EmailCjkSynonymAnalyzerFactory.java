@@ -65,7 +65,7 @@ public class EmailCjkSynonymAnalyzerFactory implements LuceneAnalyzerFactory {
             final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_TOKEN_LENGTH);
             final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(Integer.toString(UAX29URLEmailAnalyzer.DEFAULT_MAX_TOKEN_LENGTH));
 
-            return t -> new LuceneAnalyzerWrapper(UNIQUE_IDENTIFIER,
+            return () -> new LuceneAnalyzerWrapper(UNIQUE_IDENTIFIER,
                     new EmailCjkSynonymAnalyzer(MINIMAL_STOP_WORDS, 1, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), true,
                             false, null));
         } catch (NumberFormatException ex) {
@@ -81,7 +81,7 @@ public class EmailCjkSynonymAnalyzerFactory implements LuceneAnalyzerFactory {
             final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_TOKEN_LENGTH);
             final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_TOKEN_LENGTH);
             final String synonymConfigName = index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION);
-            return t -> new LuceneAnalyzerWrapper(UNIQUE_IDENTIFIER,
+            return () -> new LuceneAnalyzerWrapper(UNIQUE_IDENTIFIER,
                     new EmailCjkSynonymAnalyzer(MINIMAL_STOP_WORDS, 1, Integer.parseInt(minLengthString), Integer.parseInt(maxLengthString), true,
                             synonymConfigName != null, synonymConfigName != null ? SynonymMapRegistryImpl.instance().getSynonymMap(synonymConfigName) : null));
         } catch (NumberFormatException ex) {
