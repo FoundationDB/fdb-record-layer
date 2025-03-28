@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
@@ -412,6 +413,13 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         visit(insertPlan.getChild());
         return pipe().addKeyword("INSERT").addWhitespace().addKeyword("INTO").addWhitespace()
                 .addIdentifier(insertPlan.getTargetRecordType());
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan tableFunctionPlan) {
+        return addKeyword("TFunc").addWhitespace()
+                .addNested(tableFunctionPlan.getValue().explain().getExplainTokens());
     }
 
     @Nonnull

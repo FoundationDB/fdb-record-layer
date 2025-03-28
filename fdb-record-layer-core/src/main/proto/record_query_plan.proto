@@ -1227,6 +1227,7 @@ message PRecordQueryPlan {
     PTempTableScanPlan temp_table_scan_plan = 34;
     PTempTableInsertPlan temp_table_insert_plan = 35;
     PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
+    PRecordQueryTableFunctionPlan table_function_plan = 37;
   }
 }
 
@@ -1818,4 +1819,11 @@ message PRecursiveUnionQueryPlan {
   optional PPhysicalQuantifier recursiveStateQuantifier = 2;
   optional string initialTempTableAlias = 3;
   optional string recursiveTempTableAlias = 4;
+}
+
+//
+// PRecordQueryTableFunctionPlan
+//
+message PRecordQueryTableFunctionPlan {
+  optional PValue value = 1;
 }

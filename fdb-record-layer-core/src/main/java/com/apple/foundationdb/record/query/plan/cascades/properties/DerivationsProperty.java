@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -334,6 +335,15 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
                 resultValuesBuilder.add(computationValue.translateCorrelations(resultsTranslationMap, true));
             }
             return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan tableFunctionPlan) {
+            final var collectionValue = tableFunctionPlan.getValue();
+            final var elementType = collectionValue.getResultType();
+            final var values = ImmutableList.<Value>of(new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType)));
+            return new Derivations(values, values);
         }
 
         @Nonnull

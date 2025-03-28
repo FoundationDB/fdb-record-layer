@@ -20,11 +20,23 @@
 options:
     supported_version: !current_version
 ---
+schema_template:
+    create table t1(id bigint, col1 string, primary key(id))
+---
+setup:
+  steps:
+    - query: INSERT INTO T1 VALUES
+        (1, 'a'),
+        (2, 'b'),
+        (3, 'c')
+---
 test_block:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   name: table-functions
   preset: single_repetition_ordered
   tests:
+    -
+      - query: select * from values (42)
+      - result: [{42}]
     -
       - query: select * from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
       - explain: "EXPLODE array((@c6 AS B, @c8 AS C, (@c11 AS X, promote(@c13 AS DOUBLE) AS Y, @c15 AS Z) AS W), (@c20 AS B, @c22 AS C, (@c25 AS X, @c27 AS Y, @c29 AS Z) AS W))"
@@ -64,6 +76,52 @@ test_block:
       - explain: "EXPLODE array((@c20 AS B, @c22 AS C, (@c25 AS X, promote(@c27 AS DOUBLE) AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X) | FILTER _.B LESS_THAN @c68"
       - result: [{B: 1, Q: 2.0, X: 3}]
     -
-      - query: select * from values()
-      - error: "42601"
+      - query: select * from range(1, 4)
+      - result: [{ID: 1}, {ID: 2}, {ID: 3}]
+    -
+      - query: select * from range(-1)
+      - error: XXXXX
+    -
+      - query: select * from range(-1, 4)
+      - error: XXXXX
+    -
+      - query: select * from range(1, 4, -1)
+      - error: XXXXX
+    -
+      - query: select * from range(1, 4, 0)
+      - error: XXXXX
+    -
+      - query: select * from range(0, 12, 5)
+      - result: [{ID: 0}, {ID: 5}, {ID: 10}]
+    -
+      - query: select * from range(0, 11, 5)
+      - result: [{ID: 0}, {ID: 5}, {ID: 10}]
+    -
+      - query: select * from range(6 - 6, 14 + 6 + 1, 20 - 10)
+      - result: [{ID: 0}, {ID: 10}, {ID: 20}]
+    -
+      - query: select ID as X from range(3) as Y
+      - result: [{X: 0}, {X: 1}, {X: 2}]
+    -
+      - query: select X.ID as A, Y.ID as B from range(3) as X, range(4) as Y
+      - result: [{A: 0, B: 0},
+                 {A: 0, B: 1},
+                 {A: 0, B: 2},
+                 {A: 0, B: 3},
+                 {A: 1, B: 0},
+                 {A: 1, B: 1},
+                 {A: 1, B: 2},
+                 {A: 1, B: 3},
+                 {A: 2, B: 0},
+                 {A: 2, B: 1},
+                 {A: 2, B: 2},
+                 {A: 2, B: 3}]
+    -
+      - query: select a.id as x, a.col1 as y, b.id as z from t1 as a, range(a.id) as b
+      - result: [{X: 1, Y: 'a', Z: 0},
+                 {X: 2, Y: 'b', Z: 0},
+                 {X: 2, Y: 'b', Z: 1},
+                 {X: 3, Y: 'c', Z: 0},
+                 {X: 3, Y: 'c', Z: 1},
+                 {X: 3, Y: 'c', Z: 2}]
 ...

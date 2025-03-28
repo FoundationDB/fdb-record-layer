@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -211,12 +210,17 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveFunction(functionName, true, arguments);
+        return getSemanticAnalyzer().resolveFunction(functionName, true, false, arguments);
     }
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveFunction(functionName, flattenSingleItemRecords, arguments);
+        return getSemanticAnalyzer().resolveFunction(functionName, flattenSingleItemRecords, false, arguments);
+    }
+
+    @Nonnull
+    public Expression resolveTableValuedFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
+        return getSemanticAnalyzer().resolveFunction(functionName, true, true, arguments);
     }
 
     @Override
@@ -471,6 +475,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Expression visitTableFunction(@Nonnull final RelationalParser.TableFunctionContext ctx) {
         return expressionVisitor.visitTableFunction(ctx);
+    }
+
+    @Override
+    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+        return identifierVisitor.visitTableFunctionName(ctx);
     }
 
     @Nonnull

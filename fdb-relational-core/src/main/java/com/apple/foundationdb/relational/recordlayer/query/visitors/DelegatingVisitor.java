@@ -312,6 +312,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitTableFunction(ctx);
     }
 
+    @Override
+    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+        return getDelegate().visitTableFunctionName(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
@@ -404,12 +409,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public LogicalOperator visitInlineTableItem(final RelationalParser.InlineTableItemContext ctx) {
+    public LogicalOperator visitInlineTableItem(@Nonnull final RelationalParser.InlineTableItemContext ctx) {
         return getDelegate().visitInlineTableItem(ctx);
     }
 
     @Override
-    public LogicalOperator visitTableValuedFunction(final RelationalParser.TableValuedFunctionContext ctx) {
+    public LogicalOperator visitTableValuedFunction(@Nonnull final RelationalParser.TableValuedFunctionContext ctx) {
         return getDelegate().visitTableValuedFunction(ctx);
     }
 

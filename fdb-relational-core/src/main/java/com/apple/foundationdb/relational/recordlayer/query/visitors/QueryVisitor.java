@@ -28,15 +28,16 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -313,9 +314,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext atomTableItemContext) {
         final var tableIdentifier = Assert.castUnchecked(atomTableItemContext.tableName().accept(this), Identifier.class);
-        final var tableAlias = Optional.of(atomTableItemContext.alias == null ?
-                Assert.castUnchecked(atomTableItemContext.tableName().accept(this), Identifier.class) :
-                Assert.castUnchecked(atomTableItemContext.alias.accept(this), Identifier.class));
+        final var tableAlias = Optional.of(atomTableItemContext.alias == null ? visitTableName(atomTableItemContext.tableName())
+                                                                              : visitUid(atomTableItemContext.alias));
         final var requestedIndexes = atomTableItemContext.indexHint()
                 .stream().flatMap(indexHint -> visitIndexHint(indexHint).stream()).collect(ImmutableSet.toImmutableSet());
         return LogicalOperator.generateAccess(tableIdentifier, tableAlias, requestedIndexes, getDelegate().getSemanticAnalyzer(),
@@ -367,7 +367,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public LogicalOperator visitTableValuedFunction(@Nonnull RelationalParser.TableValuedFunctionContext tableValuedFunctionContext) {
-        return null;
+        final var expression = visitTableFunction(tableValuedFunctionContext.tableFunction());
+        final var underlyingValue = expression.getUnderlying();
+        final var explodeExpression = new TableFunctionExpression(Assert.castUnchecked(underlyingValue, StreamingValue.class));
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(explodeExpression));
+        final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
+        final var aliasMaybe = Optional.ofNullable(tableValuedFunctionContext.uid() == null ? null : visitUid(tableValuedFunctionContext.uid()));
+        return aliasMaybe.map(alias -> LogicalOperator.newNamedOperator(alias, output, resultingQuantifier))
+                .orElse(LogicalOperator.newUnnamedOperator(output, resultingQuantifier));
     }
 
     @Nonnull

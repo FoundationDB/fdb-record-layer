@@ -88,8 +88,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Expression visitTableFunction(final RelationalParser.TableFunctionContext ctx) {
-        return super.visitTableFunction(ctx);
+    public Expression visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
+        final var functionName = visitTableFunctionName(ctx.tableFunctionName()).toString();
+        return ctx.functionArgs() == null
+                ? getDelegate().resolveTableValuedFunction(functionName)
+                : getDelegate().resolveTableValuedFunction(functionName, visitFunctionArgs(ctx.functionArgs()).asList().toArray(new Expression[0]));
     }
 
     @Nonnull

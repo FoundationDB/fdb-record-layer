@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -244,6 +245,11 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<ExplodeExpression> explodeExpression() {
         return ofTypeOwning(ExplodeExpression.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<TableFunctionExpression> tableFunctionExpression() {
+        return ofTypeOwning(TableFunctionExpression.class, CollectionMatcher.empty());
     }
 
     @Nonnull

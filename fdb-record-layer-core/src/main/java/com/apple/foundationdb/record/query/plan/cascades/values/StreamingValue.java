@@ -30,11 +30,14 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+/**
+ * a {@link Value} that returns a stream of results upon evaluation.
+ */
 public interface StreamingValue extends Value {
 
     @Nonnull
-    <M extends Message> RecordCursor<QueryResult> evalAsStream(@Nonnull final FDBRecordStoreBase<M> store,
-                                                               @Nonnull final EvaluationContext context,
-                                                               @Nullable final byte[] continuation,
-                                                               @Nonnull final ExecuteProperties executeProperties);
+    <M extends Message> RecordCursor<QueryResult> evalAsStream(@Nonnull FDBRecordStoreBase<M> store,
+                                                               @Nonnull EvaluationContext context,
+                                                               @Nullable byte[] continuation,
+                                                               @Nonnull ExecuteProperties executeProperties);
 }

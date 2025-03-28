@@ -2771,6 +2771,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * matches the current element type, the same instance is returned.
          */
         @Nonnull
+        @SuppressWarnings("PMD.BrokenNullCheck") // I think PMD got confused or the null check conjunctions below.
         public Type.Array withElementType(@Nullable final Type elementType) {
             if (elementType == null && this.elementType == null) {
                 return this;

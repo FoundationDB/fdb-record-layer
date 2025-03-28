@@ -56,7 +56,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -276,24 +275,6 @@ public class LogicalOperator {
             final var value = column.getValue();
             final var attributeName = field.getFieldNameOptional().map(Identifier::of);
             final var attributeType = DataTypeUtils.toRelationalType(value.getResultType());
-            final var attributeExpression = FieldValue.ofOrdinalNumber(quantifier.getFlowedObjectValue(), colCount);
-            attributesBuilder.add(new Expression(attributeName, attributeType, attributeExpression));
-            colCount++;
-        }
-        return Expressions.of(attributesBuilder.build());
-    }
-
-    @Nonnull
-    public static Expressions convertToExpressions(@Nonnull final Quantifier quantifier, @Nonnull final Type type) {
-        Verify.verify(type.isRecord());
-        final var recordType = (Type.Record)type;
-        final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
-        int colCount = 0;
-        final var columns = quantifier.getFlowedColumns();
-        for (final var column : columns) {
-            final var field = recordType.getFields().get(colCount);
-            final var attributeName = field.getFieldNameOptional().map(Identifier::of);
-            final var attributeType = DataTypeUtils.toRelationalType(field.getFieldType());
             final var attributeExpression = FieldValue.ofOrdinalNumber(quantifier.getFlowedObjectValue(), colCount);
             attributesBuilder.add(new Expression(attributeName, attributeType, attributeExpression));
             colCount++;
