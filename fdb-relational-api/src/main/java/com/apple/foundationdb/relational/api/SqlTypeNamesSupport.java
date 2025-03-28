@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import java.sql.Array;
 import java.sql.Struct;
 import java.sql.Types;
+import java.util.UUID;
 
 /**
  * Class to host method taken from SqlTypeSupport needed by
@@ -116,6 +117,8 @@ public final class SqlTypeNamesSupport {
             return Types.ARRAY;
         } else if (obj instanceof Struct) {
             return Types.STRUCT;
+        } else if (obj instanceof UUID) {
+            return Types.OTHER;
         } else {
             throw new IllegalStateException("Unexpected object type: " + obj.getClass().getName());
         }

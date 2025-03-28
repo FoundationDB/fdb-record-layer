@@ -45,6 +45,7 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
+import java.util.UUID;
 
 /**
  * Extension of {@link java.sql.PreparedStatement} to allow for Relational specific Prepared Statements.
@@ -159,6 +160,29 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
      * this method is called on a closed <code>PreparedStatement</code>
      */
     void setObject(String parameterName, Object x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>UUID</code> value.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x the parameter value
+     * @exception SQLException if parameterIndex does not correspond to a parameter
+     * marker in the SQL statement;
+     * if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setUUID(int parameterIndex, UUID x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>UUID</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setUUID(String parameterName, UUID x) throws SQLException;
 
     /**
      * Sets the designated parameter to SQL <code>NULL</code>.

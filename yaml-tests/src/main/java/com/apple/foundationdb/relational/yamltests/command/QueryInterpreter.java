@@ -37,6 +37,7 @@ import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
@@ -46,6 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -94,6 +96,7 @@ public final class QueryInterpreter {
         private static final Tag ARRAY_GENERATOR_TAG = new Tag("!a");
         private static final Tag IN_LIST_TAG = new Tag("!in");
         private static final Tag NULL_TAG = new Tag("!n");
+        private static final Tag UUID_TAG = new Tag("!uuid");
 
         private QueryParameterYamlConstructor(LoaderOptions loaderOptions) {
             super(loaderOptions);
@@ -102,13 +105,14 @@ public final class QueryInterpreter {
             this.yamlConstructors.put(ARRAY_GENERATOR_TAG, new ConstructArrayGenerator());
             this.yamlConstructors.put(IN_LIST_TAG, new ConstructInList());
             this.yamlConstructors.put(NULL_TAG, new ConstructNull());
+            this.yamlConstructors.put(UUID_TAG, new ConstructUuid());
 
             this.yamlConstructors.put(new Tag("!l"), new CustomYamlConstructor.ConstructLong());
         }
 
         @Override
         public Parameter constructObject(Node node) {
-            if (node.getTag().equals(RANDOM_TAG) || node.getTag().equals(ARRAY_GENERATOR_TAG) || node.getTag().equals(IN_LIST_TAG) || node.getTag().equals(NULL_TAG)) {
+            if (node.getTag().equals(RANDOM_TAG) || node.getTag().equals(ARRAY_GENERATOR_TAG) || node.getTag().equals(IN_LIST_TAG) || node.getTag().equals(NULL_TAG) || node.getTag().equals(UUID_TAG)) {
                 return (Parameter) super.constructObject(node);
             } else if (node instanceof SequenceNode) {
                 // simple list
@@ -190,6 +194,18 @@ public final class QueryInterpreter {
             @Override
             public Object construct(Node node) {
                 return new PrimitiveParameter(null);
+            }
+        }
+
+        /**
+         * Constructor for NULL literal value.
+         */
+        private static class ConstructUuid extends AbstractConstruct {
+
+            @Override
+            public Object construct(Node node) {
+                Assert.thatUnchecked(node instanceof ScalarNode, "!uuid expects a string value.");
+                return new PrimitiveParameter(UUID.fromString(((ScalarNode) node).getValue()));
             }
         }
     }

@@ -38,6 +38,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Types;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -289,6 +290,21 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
+    public UUID getUUID(String columnLabel) throws SQLException {
+        // Not implemented
+        throw new SQLException("Not implemented getUUID");
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    public UUID getUUID(int oneBasedColumn) throws SQLException {
+        UUID s = TypeConversion.getUUID(this.delegate, this.rowIndex, oneBasedColumn);
+        wasNull = s == null;
+        return s;
+    }
+
+    @Override
     public Object getObject(int oneBasedColumn) throws SQLException {
         int type = getMetaData().getColumnType(oneBasedColumn);
         final Object o;
@@ -315,13 +331,18 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 o = getBoolean(oneBasedColumn);
                 break;
             case Types.BINARY:
+                o = getBytes(oneBasedColumn);
+                break;
+            case Types.OTHER:
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
                 Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
-                return column == null || !column.hasBinary() ? null : column.getBinary().toByteArray();
-            case Types.OTHER:
-                // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
-                // thing which appears as OTHER
-                o = getString(oneBasedColumn);
+                if (column.hasUuid()) {
+                    o = getUUID(oneBasedColumn);
+                } else {
+                    // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
+                    // thing which appears as OTHER
+                    o = getString(oneBasedColumn);
+                }
                 break;
             default:
                 throw new SQLException("Unsupported type " + type);
