@@ -1220,6 +1220,7 @@ message PRecordQueryPlan {
     PTempTableScanPlan temp_table_scan_plan = 34;
     PTempTableInsertPlan temp_table_insert_plan = 35;
     PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
+    PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 37;
   }
 }
 
@@ -1581,6 +1582,14 @@ message PRecordQueryIntersectionOnKeyExpressionPlan {
 //
 message PRecordQueryIntersectionOnValuesPlan {
   optional PRecordQueryIntersectionPlan super = 1;
+}
+
+//
+// PRecordQueryMultiIntersectionOnValuesPlan
+//
+message PRecordQueryMultiIntersectionOnValuesPlan {
+  optional PRecordQueryIntersectionPlan super = 1;
+  optional PValue result_value = 2;
 }
 
 //

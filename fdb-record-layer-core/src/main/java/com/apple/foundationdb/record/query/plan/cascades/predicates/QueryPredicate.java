@@ -34,8 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensation;
@@ -48,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -249,11 +248,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         Verify.verify(childrenResults.isEmpty());
 
         return toResidualPredicate()
-                .replaceValuesMaybe(pullUp::pullUpMaybe)
-                .map(queryPredicate ->
-                        PredicateCompensationFunction.of(baseAlias ->
-                                LinkedIdentitySet.of(queryPredicate.translateCorrelations(
-                                        TranslationMap.ofAliases(pullUp.getTopAlias(), baseAlias), false))))
+                .replaceValuesMaybe(pullUp::pullUpValueMaybe)
+                .map(PredicateCompensationFunction::ofPredicate)
                 .orElse(PredicateCompensationFunction.impossibleCompensation());
     }
 

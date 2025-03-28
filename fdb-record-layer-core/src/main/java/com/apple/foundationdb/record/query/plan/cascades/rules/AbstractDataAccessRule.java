@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
@@ -55,9 +57,8 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
@@ -76,6 +77,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -285,9 +287,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 distinctMatchToScanMap(call, bestMatchToPlanMap);
 
         final var commonPrimaryKeyValuesOptional =
-                WithPrimaryKeyMatchCandidate.commonPrimaryKeyValuesMaybe(
+                commonRecordKeyValuesMaybe(
                         bestMaximumCoverageMatches.stream()
-                                .map(singleMatchedAccessVectored -> singleMatchedAccessVectored.getElement().getPartialMatch().getMatchCandidate())
+                                .map(singleMatchedAccessVectored ->
+                                        singleMatchedAccessVectored.getElement().getPartialMatch())
                                 .collect(ImmutableList.toImmutableList()));
         if (commonPrimaryKeyValuesOptional.isEmpty() || bestMaximumCoverageMatches.size() == 1) {
             return intersectionInfoMapToExpressions(intersectionInfoMap);
@@ -417,6 +420,52 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         return intersectionInfoMapToExpressions(intersectionInfoMap);
+    }
+
+    @Nonnull
+    private static Optional<List<Value>> commonRecordKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
+        List<Value> common = null;
+        var first = true;
+        for (final var partialMatch : partialMatches) {
+            final var matchCandidate = partialMatch.getMatchCandidate();
+            final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+
+            final List<Value> key;
+            if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
+                final var withPrimaryKeyMatchCandidate = (WithPrimaryKeyMatchCandidate)matchCandidate;
+                final var keyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyValuesMaybe();
+                if (keyMaybe.isEmpty()) {
+                    return Optional.empty();
+                }
+                key = keyMaybe.get();
+            } else if (matchCandidate instanceof AggregateIndexMatchCandidate) {
+                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
+                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
+                if (rollUpToGroupingValues == null) {
+                    key = aggregateIndexMatchCandidate.getGroupByValues();
+                } else {
+                    key = aggregateIndexMatchCandidate.getGroupByValues().subList(0, rollUpToGroupingValues.size());
+                }
+
+//                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
+//                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
+//                if (rollUpToGroupingValues == null) {
+//                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(Quantifier.current()).getLeft();
+//                } else {
+//                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(rollUpToGroupingValues.size(),
+//                            Quantifier.current()).getLeft();
+//                }
+            } else {
+                return Optional.empty();
+            }
+            if (first) {
+                common = key;
+                first = false;
+            } else if (!common.equals(key)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.ofNullable(common); // common can only be null if we didn't have any match candidates to start with
     }
 
     @Nonnull
@@ -550,11 +599,17 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||
                     scanDirection == ScanDirection.BOTH);
 
-            final var compensation = partialMatch.compensateCompleteMatch();
+            final var topAlias = Quantifier.uniqueId();
+            final var candidateTopAlias = Quantifier.uniqueId();
+            final var unificationPullUp =
+                    partialMatch.prepareForUnification(topAlias, candidateTopAlias);
+            final var compensation =
+                    partialMatch.compensateCompleteMatch(unificationPullUp,
+                            unificationPullUp == null ? topAlias : candidateTopAlias);
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        false, satisfyingOrderingsPair.getRight()));
+                        topAlias, false, satisfyingOrderingsPair.getRight()));
             }
 
             //
@@ -567,7 +622,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             //
             if (scanDirection == ScanDirection.REVERSE /* || scanDirection == ScanDirection.BOTH */) {
                 partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation,
-                        true, satisfyingOrderingsPair.getRight()));
+                        topAlias, true, satisfyingOrderingsPair.getRight()));
             }
         }
 
@@ -726,7 +781,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             final var singleMatchedAccess = singleMatchedAccessVectored.getElement();
                             final var partialMatch = singleMatchedAccess.getPartialMatch();
                             return partialMatch.getMatchCandidate()
-                                    .toEquivalentPlan(partialMatch, planContext, memoizer, singleMatchedAccess.isReverseScanOrder());
+                                    .toEquivalentPlan(partialMatch, planContext, memoizer,
+                                            singleMatchedAccess.isReverseScanOrder());
                         }));
     }
 
@@ -779,11 +835,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         if (compensation.isImpossible()) {
             return Optional.empty();
         }
-        return Optional.of(compensation.applyAllNeededCompensations(memoizer, plan));
+        return Optional.of(compensation.applyAllNeededCompensations(memoizer, plan,
+                realizedAlias ->
+                        TranslationMap.ofAliases(singleMatchedAccess.getCandidateTopAlias(), realizedAlias)));
     }
     
     /**
-     * Private helper method to plan an intersection and subsequently compensate it using the partial match structures
+     * Protected helper method to plan an intersection and subsequently compensate it using the partial match structures
      * kept for all participating data accesses.
      * Planning the data access and its compensation for a given match is a two-step approach as we compute
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
@@ -799,87 +857,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *         realized data access and its compensation.
      */
     @Nonnull
-    private static IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
-                                                                        @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                        @Nonnull final List<Value> commonPrimaryKeyValues,
-                                                                        @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
-                                                                        @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                        @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        final var partitionOrderings =
-                partition.stream()
-                        .map(Vectored::getElement)
-                        .map(AbstractDataAccessRule::adjustMatchedOrderingParts)
-                        .collect(ImmutableList.toImmutableList());
-        final var intersectionOrdering = intersectOrderings(partitionOrderings);
+    protected abstract IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
+                                                                            @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                                            @Nonnull final List<Value> commonPrimaryKeyValues,
+                                                                            @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
+                                                                            @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                            @Nonnull final Set<RequestedOrdering> requestedOrderings);
 
-        final var equalityBoundKeyValues =
-                partitionOrderings
-                        .stream()
-                        .flatMap(orderingPartsPair ->
-                                orderingPartsPair.getKey()
-                                        .stream()
-                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                                        .map(MatchedOrderingPart::getValue))
-                        .collect(ImmutableSet.toImmutableSet());
-
-        final var isPartitionRedundant =
-                isPartitionRedundant(intersectionInfoMap, partition, equalityBoundKeyValues);
-        if (isPartitionRedundant) {
-            return IntersectionResult.of(ImmutableList.of(), null);
-        }
-
-        boolean hasCommonOrdering = false;
-        final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
-        for (final var requestedOrdering : requestedOrderings) {
-            final var comparisonKeyValuesIterable =
-                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
-            for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
-                if (!isCompatibleComparisonKey(comparisonKeyValues,
-                        commonPrimaryKeyValues,
-                        equalityBoundKeyValues)) {
-                    continue;
-                }
-
-                hasCommonOrdering = true;
-
-                final var compensation =
-                        partition
-                                .stream()
-                                .map(pair -> pair.getElement().getCompensation())
-                                .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
-
-                if (!compensation.isImpossible()) {
-                    var comparisonOrderingParts =
-                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
-                                    OrderingPart.ProvidedSortOrder.FIXED);
-                    final var comparisonIsReverse =
-                            RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
-                    comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
-
-                    final var newQuantifiers =
-                            partition
-                                    .stream()
-                                    .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
-                                    .map(memoizer::memoizePlans)
-                                    .map(Quantifier::physical)
-                                    .collect(ImmutableList.toImmutableList());
-
-                    final var intersectionPlan =
-                            RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
-                                    comparisonOrderingParts, comparisonIsReverse);
-                    final var compensatedIntersection =
-                            compensation.applyAllNeededCompensations(memoizer, intersectionPlan);
-                    expressionsBuilder.add(compensatedIntersection);
-                }
-            }
-        }
-
-        return IntersectionResult.of(expressionsBuilder.build(), hasCommonOrdering ? intersectionOrdering : null);
-    }
-
-    private static boolean isPartitionRedundant(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                @Nonnull final ImmutableSet<Value> equalityBoundKeyValues) {
+    protected static boolean isPartitionRedundant(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                  @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                  @Nonnull final ImmutableSet<Value> equalityBoundKeyValues) {
         // if one of the single accesses has a max cardinality of 0 or 1 it is not useful to create this intersection
         for (final var singleMatchedAccessWithIndex : partition) {
             final var infoKey = intersectionInfoKey(singleMatchedAccessWithIndex);
@@ -890,15 +877,78 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             }
         }
 
+        final var partitionUnmatchedIdsForPartitionOptional = unmatchedIdsMaybe(intersectionInfoMap, partition);
+        if (partitionUnmatchedIdsForPartitionOptional.isEmpty()) {
+            return false;
+        }
+        final var partitionUnmatchedIds = partitionUnmatchedIdsForPartitionOptional.get();
+
         for (final var subPartition : ChooseK.chooseK(partition, partition.size() - 1)) {
             final var checkCacheKey = intersectionInfoKey(subPartition);
-            final var subIntersectionInfo = Objects.requireNonNull(intersectionInfoMap.get(checkCacheKey));
+            final var subIntersectionInfo =
+                    Objects.requireNonNull(intersectionInfoMap.get(checkCacheKey));
+
+            //
+            // If there is a sub partition
+            // 1.) whose intersection ordering uses the given equality-bound key AND
+            // 2.) whose unmatchedIds are already equal to the unmatched ids of the entire partition
+            // this partition is deemed redundant
+            //
             final var subIntersectionOrdering = subIntersectionInfo.getIntersectionOrdering();
-            if (subIntersectionOrdering.getEqualityBoundValues().containsAll(equalityBoundKeyValues)) {
+            if (!subIntersectionOrdering.getEqualityBoundValues().containsAll(equalityBoundKeyValues)) {
+                continue;
+            }
+
+            final var subIntersectionUnmatchedIdsOptional = unmatchedIdsMaybe(subIntersectionInfo);
+            if (subIntersectionUnmatchedIdsOptional.isEmpty()) {
+                return false;
+            }
+            final var subIntersectionUnmatchedIds = subIntersectionUnmatchedIdsOptional.get();
+            if (subIntersectionUnmatchedIds.equals(partitionUnmatchedIds)) {
                 return true;
             }
         }
         return false;
+    }
+
+    @Nonnull
+    private static Optional<Set<CorrelationIdentifier>> unmatchedIdsMaybe(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                                          @Nonnull final List<Vectored<SingleMatchedAccess>> partition) {
+        final var iterator = partition.iterator();
+
+        var unmatchedIdsOptional =
+                unmatchedIdsMaybe(Objects.requireNonNull(intersectionInfoMap.get(intersectionInfoKey(iterator.next()))));
+        if (unmatchedIdsOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        var intersectedUniqueIds = new LinkedHashSet<>(unmatchedIdsOptional.get());
+        while (iterator.hasNext()) {
+            unmatchedIdsOptional =
+                    unmatchedIdsMaybe(Objects.requireNonNull(intersectionInfoMap.get(intersectionInfoKey(iterator.next()))));
+            if (unmatchedIdsOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            intersectedUniqueIds.retainAll(unmatchedIdsOptional.get());
+        }
+
+        return Optional.of(intersectedUniqueIds);
+    }
+
+    @Nonnull
+    private static Optional<Compensation.WithSelectCompensation> compensationMaybe(@Nonnull final IntersectionInfo intersectionInfo) {
+        final var compensation = intersectionInfo.getCompensation();
+        if (!(compensation instanceof Compensation.WithSelectCompensation)) {
+            return Optional.empty();
+        }
+        return Optional.of((Compensation.WithSelectCompensation)compensation);
+    }
+
+    @Nonnull
+    private static Optional<Set<CorrelationIdentifier>> unmatchedIdsMaybe(@Nonnull final IntersectionInfo intersectionInfo) {
+        final var compensationOptional = compensationMaybe(intersectionInfo);
+        return compensationOptional.map(compensation ->
+                compensation.getAggregateMappings().getUnmatchedAggregateMap().keySet());
     }
 
     @Nonnull
@@ -919,7 +969,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *         computed from
      */
     @Nonnull
-    private static NonnullPair<List<MatchedOrderingPart>, Boolean> adjustMatchedOrderingParts(@Nonnull final SingleMatchedAccess singleMatchedAccess) {
+    protected static NonnullPair<List<MatchedOrderingPart>, Boolean> adjustMatchedOrderingParts(@Nonnull final SingleMatchedAccess singleMatchedAccess) {
         final var partialMatch = singleMatchedAccess.getPartialMatch();
         final var boundParametersPrefixMap =
                 partialMatch.getBoundParameterPrefixMap();
@@ -942,7 +992,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static Ordering.Intersection intersectOrderings(@Nonnull final List<NonnullPair<List<MatchedOrderingPart>, Boolean>> partitionOrderingPairs) {
+    protected static Ordering.Intersection intersectOrderings(@Nonnull final List<NonnullPair<List<MatchedOrderingPart>, Boolean>> partitionOrderingPairs) {
         final var orderings =
                 partitionOrderingPairs
                         .stream()
@@ -984,13 +1034,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * @param equalityBoundKeyValues  a set of equality-bound key parts
      * @return a boolean that indicates if the list of values passed in can be used as comparison key
      */
-    private static boolean isCompatibleComparisonKey(@Nonnull Collection<Value> comparisonKeyValues,
-                                                     @Nonnull List<Value> commonPrimaryKeyValues,
-                                                     @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
-        if (comparisonKeyValues.isEmpty()) {
-            // everything is in one row
-            return true;
-        }
+    protected static boolean isCompatibleComparisonKey(@Nonnull Collection<Value> comparisonKeyValues,
+                                                       @Nonnull List<Value> commonPrimaryKeyValues,
+                                                       @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
+//        if (comparisonKeyValues.isEmpty()) {
+//            // everything is in one row
+//            return true;
+//        }
 
         return commonPrimaryKeyValues
                 .stream()
@@ -1003,15 +1053,18 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                  @Nonnull final Optional<RelationalExpression> compensatedExpressionOptional) {
         final var cacheKey = new BitSet();
         cacheKey.set(singleAccessWithIndex.getPosition());
-        final var orderingFromSingleMatchedAccess = orderingFromSingleMatchedAccess(singleAccessWithIndex.getElement());
+        final var singleMatchedAccess = singleAccessWithIndex.getElement();
+        final var compensation = singleMatchedAccess.getCompensation();
+        final var orderingFromSingleMatchedAccess = orderingFromSingleMatchedAccess(singleMatchedAccess);
         if (compensatedExpressionOptional.isEmpty()) {
-            intersectionInfoMap.put(cacheKey, IntersectionInfo.ofImpossibleAccess(orderingFromSingleMatchedAccess));
+            intersectionInfoMap.put(cacheKey, IntersectionInfo.ofImpossibleAccess(orderingFromSingleMatchedAccess,
+                    compensation));
         } else {
             final var compensatedExpression = compensatedExpressionOptional.get();
             final var cardinalities = CardinalitiesProperty.evaluate(compensatedExpression);
 
             intersectionInfoMap.put(cacheKey,
-                    IntersectionInfo.ofSingleAccess(orderingFromSingleMatchedAccess, compensatedExpression,
+                    IntersectionInfo.ofSingleAccess(orderingFromSingleMatchedAccess, compensation, compensatedExpression,
                             cardinalities.getMaxCardinality()));
         }
     }
@@ -1039,7 +1092,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             }
             intersectionInfoMap.put(cacheKey,
                     IntersectionInfo.ofIntersection(intersectionResult.getCommonIntersectionOrdering(),
-                            intersectionResult.getExpressions()));
+                            intersectionResult.getCompensation(), intersectionResult.getExpressions()));
         }
     }
 
@@ -1071,21 +1124,25 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         return intersectionInfoKey;
     }
 
-    private static class SingleMatchedAccess {
+    protected static class SingleMatchedAccess {
         @Nonnull
         private final PartialMatch partialMatch;
         @Nonnull
         private final Compensation compensation;
+        @Nonnull
+        private final CorrelationIdentifier candidateTopAlias;
         private final boolean reverseScanOrder;
         @Nonnull
         private final Set<RequestedOrdering> satisfyingRequestedOrderings;
 
         public SingleMatchedAccess(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Compensation compensation,
+                                   @Nonnull final CorrelationIdentifier candidateTopAlias,
                                    final boolean reverseScanOrder,
                                    @Nonnull final Set<RequestedOrdering> satisfyingRequestedOrderings) {
             this.partialMatch = partialMatch;
             this.compensation = compensation;
+            this.candidateTopAlias = candidateTopAlias;
             this.reverseScanOrder = reverseScanOrder;
             this.satisfyingRequestedOrderings = ImmutableSet.copyOf(satisfyingRequestedOrderings);
         }
@@ -1100,6 +1157,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             return compensation;
         }
 
+        @Nonnull
+        public CorrelationIdentifier getCandidateTopAlias() {
+            return candidateTopAlias;
+        }
+
         public boolean isReverseScanOrder() {
             return reverseScanOrder;
         }
@@ -1110,7 +1172,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
     }
 
-    private static class Vectored<T> {
+    protected static class Vectored<T> {
         @Nonnull
         private final T element;
         final int position;
@@ -1156,17 +1218,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
     }
 
-    private static class IntersectionResult {
-        @Nonnull
-        private final List<RelationalExpression> expressions;
+    protected static class IntersectionResult {
         @Nullable
         private final Ordering.Intersection commonIntersectionOrdering;
+        @Nonnull
+        private final Compensation compensation;
+        @Nonnull
+        private final List<RelationalExpression> expressions;
 
-        private IntersectionResult(@Nonnull final List<RelationalExpression> expressions,
-                                   @Nullable final Ordering.Intersection commonIntersectionOrdering) {
+        private IntersectionResult(@Nullable final Ordering.Intersection commonIntersectionOrdering,
+                                   @Nonnull final Compensation compensation,
+                                   @Nonnull final List<RelationalExpression> expressions) {
             Verify.verify(commonIntersectionOrdering != null || expressions.isEmpty());
             this.expressions = ImmutableList.copyOf(expressions);
             this.commonIntersectionOrdering = commonIntersectionOrdering;
+            this.compensation = compensation;
         }
 
         @Nonnull
@@ -1184,36 +1250,52 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         @Nonnull
-        public static IntersectionResult of(@Nonnull final List<RelationalExpression> expressions,
-                                            @Nullable final Ordering.Intersection commonIntersectionOrdering) {
-            return new IntersectionResult(expressions, commonIntersectionOrdering);
+        public Compensation getCompensation() {
+            return compensation;
+        }
+
+        @Nonnull
+        public static IntersectionResult noCommonOrdering() {
+            return new IntersectionResult(null, Compensation.noCompensation(), ImmutableList.of());
+        }
+
+        @Nonnull
+        public static IntersectionResult of(@Nullable final Ordering.Intersection commonIntersectionOrdering,
+                                            @Nonnull final Compensation compensation,
+                                            @Nonnull final List<RelationalExpression> expressions) {
+            return new IntersectionResult(commonIntersectionOrdering, compensation, expressions);
         }
 
         @Override
         public String toString() {
-            return "[" + expressions + ", ordering=" +
-                    (commonIntersectionOrdering == null ? "no common ordering" : commonIntersectionOrdering) + "]";
+            return "[ordering=" +
+                    (commonIntersectionOrdering == null ? "no common ordering" : commonIntersectionOrdering) + ", " +
+                    compensation + "]";
         }
     }
 
-    private enum ScanDirection {
+    protected enum ScanDirection {
         FORWARD,
         REVERSE,
         BOTH
     }
 
-    private static class IntersectionInfo {
+    protected static class IntersectionInfo {
         @Nonnull
         private final Ordering intersectionOrdering;
+        @Nonnull
+        private final Compensation compensation;
         @Nonnull
         private final List<RelationalExpression> expressions;
         @Nonnull
         private final Cardinality maxCardinality;
 
         private IntersectionInfo(@Nonnull final Ordering intersectionOrdering,
+                                 @Nonnull final Compensation compensation,
                                  @Nonnull final List<RelationalExpression> expressions,
                                  @Nonnull final Cardinality maxCardinality) {
             this.intersectionOrdering = intersectionOrdering;
+            this.compensation = compensation;
             this.expressions = expressions;
             this.maxCardinality = maxCardinality;
         }
@@ -1221,6 +1303,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         @Nonnull
         public Ordering getIntersectionOrdering() {
             return intersectionOrdering;
+        }
+
+        @Nonnull
+        public Compensation getCompensation() {
+            return compensation;
         }
 
         @Nonnull
@@ -1239,20 +1326,24 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         @Nonnull
         public static IntersectionInfo ofSingleAccess(@Nonnull final Ordering ordering,
+                                                      @Nonnull final Compensation compensation,
                                                       @Nonnull final RelationalExpression expression,
                                                       @Nonnull final Cardinality maxCardinality) {
-            return new IntersectionInfo(ordering, Lists.newArrayList(expression), maxCardinality);
+            return new IntersectionInfo(ordering, compensation, Lists.newArrayList(expression), maxCardinality);
         }
 
         @Nonnull
-        public static IntersectionInfo ofImpossibleAccess(@Nonnull final Ordering ordering) {
-            return new IntersectionInfo(ordering, Lists.newArrayList(), Cardinality.unknownCardinality());
+        public static IntersectionInfo ofImpossibleAccess(@Nonnull final Ordering ordering,
+                                                          @Nonnull final Compensation compensation) {
+            return new IntersectionInfo(ordering, compensation, Lists.newArrayList(), Cardinality.unknownCardinality());
         }
 
         @Nonnull
         public static IntersectionInfo ofIntersection(@Nonnull final Ordering ordering,
+                                                      @Nonnull final Compensation compensation,
                                                       @Nonnull final List<RelationalExpression> expressions) {
-            return new IntersectionInfo(ordering, Lists.newArrayList(expressions), Cardinality.unknownCardinality());
+            return new IntersectionInfo(ordering, compensation, Lists.newArrayList(expressions),
+                    Cardinality.unknownCardinality());
         }
     }
 }

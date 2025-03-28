@@ -20,10 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -32,11 +41,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /**
  * Map that maps from a {@link QueryPredicate} of a query to a {@link QueryPredicate} of a {@link MatchCandidate}.
@@ -54,6 +64,26 @@ public class PredicateMultiMap {
      */
     @Nonnull
     private final ImmutableSetMultimap<QueryPredicate, PredicateMapping> map;
+
+    @Nonnull
+    private static Value amendValue(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                    @Nonnull final Map<Value, Value> amendedMatchedAggregateMap,
+                                    @Nonnull final Value rootValue) {
+        return Objects.requireNonNull(rootValue.replace(currentValue -> {
+            if (currentValue instanceof GroupByExpression.UnmatchedAggregateValue) {
+                final var unmatchedId =
+                        ((GroupByExpression.UnmatchedAggregateValue)currentValue).getUnmatchedId();
+                final var queryValue =
+                        Objects.requireNonNull(unmatchedAggregateMap.get(unmatchedId));
+                final var translatedQueryValue =
+                        amendedMatchedAggregateMap.get(queryValue);
+                if (translatedQueryValue != null) {
+                    return translatedQueryValue;
+                }
+            }
+            return currentValue;
+        }));
+    }
 
     /**
      * Functional interface to reapply a predicate if necessary.
@@ -84,7 +114,14 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                               @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
+                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -103,7 +140,14 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                               @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
+                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -114,10 +158,81 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
-        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull CorrelationIdentifier baseAlias);
+        PredicateCompensationFunction amend(@Nonnull BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                            @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
 
         @Nonnull
-        static PredicateCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Set<QueryPredicate>> compensationFunction) {
+        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull TranslationMap translationMap);
+
+        @Nonnull
+        static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate) {
+            return ofPredicate(predicate, false);
+        }
+
+        @Nonnull
+        static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate,
+                                                         final boolean shouldSimplifyValues) {
+            final var isImpossible = predicateContainsUnmatchedValues(predicate);
+
+            return new PredicateCompensationFunction() {
+                @Override
+                public boolean isNeeded() {
+                    return true;
+                }
+
+                @Override
+                public boolean isImpossible() {
+                    return isImpossible;
+                }
+
+                @Nonnull
+                @Override
+                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    final var amendedTranslatedPredicateOptional =
+                            predicate.replaceValuesMaybe(rootValue ->
+                                    Optional.of(amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap,
+                                            rootValue)));
+                    Verify.verify(amendedTranslatedPredicateOptional.isPresent());
+                    return ofPredicate(amendedTranslatedPredicateOptional.get(), true);
+                }
+
+                @Nonnull
+                @Override
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    return LinkedIdentitySet.of(predicate.translateCorrelations(translationMap, shouldSimplifyValues));
+                }
+            };
+        }
+
+        private static boolean predicateContainsUnmatchedValues(final @Nonnull QueryPredicate pulledUpPredicate) {
+            if (pulledUpPredicate instanceof PredicateWithValue) {
+                final var value = Objects.requireNonNull(((PredicateWithValue)pulledUpPredicate).getValue());
+                if (value.preOrderStream()
+                        .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue)) {
+                    return true;
+                }
+            }
+
+            if (pulledUpPredicate instanceof PredicateWithComparisons) {
+                final var comparisons = ((PredicateWithComparisons)pulledUpPredicate).getComparisons();
+                for (final var comparison : comparisons) {
+                    if (comparison instanceof Comparisons.ValueComparison) {
+                        final var comparisonValue = comparison.getValue();
+                        if (comparisonValue.preOrderStream()
+                                .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Nonnull
+        static PredicateCompensationFunction ofExistentialPredicate(@Nonnull final ExistsPredicate existsPredicate) {
+            final var result = LinkedIdentitySet.of((QueryPredicate)existsPredicate);
+
             return new PredicateCompensationFunction() {
                 @Override
                 public boolean isNeeded() {
@@ -131,8 +246,50 @@ public class PredicateMultiMap {
 
                 @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(baseAlias);
+                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    return this;
+                }
+
+                @Nonnull
+                @Override
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    return result;
+                }
+            };
+        }
+
+        @Nonnull
+        static PredicateCompensationFunction ofChildrenCompensationFunctions(@Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
+                                                                             @Nonnull final BiFunction<List<PredicateCompensationFunction>, TranslationMap, Set<QueryPredicate>> compensationFunction) {
+            return new PredicateCompensationFunction() {
+                @Override
+                public boolean isNeeded() {
+                    return true;
+                }
+
+                @Override
+                public boolean isImpossible() {
+                    return childrenCompensationFunctions.stream().anyMatch(PredicateCompensationFunction::isImpossible);
+                }
+
+                @Nonnull
+                @Override
+                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    final var amendedChildrenCompensationFunctions =
+                            childrenCompensationFunctions.stream()
+                                    .map(childrenCompensationFunction ->
+                                            childrenCompensationFunction.amend(unmatchedAggregateMap,
+                                                    amendedMatchedAggregateMap))
+                                    .collect(ImmutableList.toImmutableList());
+                    return ofChildrenCompensationFunctions(amendedChildrenCompensationFunctions, compensationFunction);
+                }
+
+                @Nonnull
+                @Override
+                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    return compensationFunction.apply(childrenCompensationFunctions, translationMap);
                 }
             };
         }
@@ -166,7 +323,14 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                            @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
+                    public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -185,7 +349,14 @@ public class PredicateMultiMap {
 
                     @Nonnull
                     @Override
-                    public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
+                    public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                            @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                        return this;
+                    }
+
+                    @Nonnull
+                    @Override
+                    public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -196,10 +367,21 @@ public class PredicateMultiMap {
         boolean isImpossible();
 
         @Nonnull
-        Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
+        ResultCompensationFunction amend(@Nonnull BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                         @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
 
         @Nonnull
-        static ResultCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Value> compensationFunction) {
+        Value applyCompensationForResult(@Nonnull TranslationMap translationMap);
+
+        @Nonnull
+        static ResultCompensationFunction ofValue(@Nonnull final Value value) {
+            return ofValue(value, false);
+        }
+
+        @Nonnull
+        static ResultCompensationFunction ofValue(@Nonnull final Value value, final boolean shouldSimplifyValue) {
+            final var isImpossible = valueContainsUnmatchedValues(value);
+
             return new ResultCompensationFunction() {
                 @Override
                 public boolean isNeeded() {
@@ -208,13 +390,22 @@ public class PredicateMultiMap {
 
                 @Override
                 public boolean isImpossible() {
-                    return false;
+                    return isImpossible;
                 }
 
                 @Nonnull
                 @Override
-                public Value applyCompensationForResult(@Nonnull final CorrelationIdentifier baseAlias) {
-                    return compensationFunction.apply(baseAlias);
+                public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                        @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    final var amendedTranslatedQueryValue =
+                            amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap, value);
+                    return ofValue(amendedTranslatedQueryValue, true);
+                }
+
+                @Nonnull
+                @Override
+                public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
+                    return value.translateCorrelations(translationMap, shouldSimplifyValue);
                 }
             };
         }
@@ -227,6 +418,11 @@ public class PredicateMultiMap {
         @Nonnull
         static ResultCompensationFunction impossibleCompensation() {
             return IMPOSSIBLE_COMPENSATION;
+        }
+
+        private static boolean valueContainsUnmatchedValues(final @Nonnull Value pulledUpValue) {
+            return pulledUpValue.preOrderStream()
+                    .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue);
         }
     }
 

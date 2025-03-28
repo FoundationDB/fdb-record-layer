@@ -1,5 +1,5 @@
 /*
- * SelectDataAccessRule.java
+ * WithPrimaryKeyDataAccessRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,15 +24,26 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
@@ -40,17 +51,22 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.completeMatch;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.ofType;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.matchingWithPrimaryKeyMatchCandidate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
@@ -62,14 +78,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpression> {
-    private static final BindingMatcher<PartialMatch> completeMatchMatcher = completeMatch();
-    private static final BindingMatcher<SelectExpression> expressionMatcher = ofType(SelectExpression.class);
+public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<RelationalExpression> {
+    private static final BindingMatcher<PartialMatch> completeMatchMatcher =
+            completeMatch().and(matchingWithPrimaryKeyMatchCandidate());
+    private static final BindingMatcher<RelationalExpression> expressionMatcher = anyExpression();
 
     private static final BindingMatcher<MatchPartition> rootMatcher =
             ofExpressionAndMatches(expressionMatcher, some(completeMatchMatcher));
 
-    public SelectDataAccessRule() {
+    public WithPrimaryKeyDataAccessRule() {
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
@@ -170,5 +187,101 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                 call.yieldExpression(dataAccessExpressions);
             }
         }
+    }
+
+    @Nonnull
+    @Override
+    protected IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
+                                                                   @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                                   @Nonnull final List<Value> commonPrimaryKeyValues,
+                                                                   @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
+                                                                   @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                   @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+        final var partitionOrderings =
+                partition.stream()
+                        .map(Vectored::getElement)
+                        .map(AbstractDataAccessRule::adjustMatchedOrderingParts)
+                        .collect(ImmutableList.toImmutableList());
+        final var intersectionOrdering = intersectOrderings(partitionOrderings);
+
+        final var equalityBoundKeyValues =
+                partitionOrderings
+                        .stream()
+                        .flatMap(orderingPartsPair ->
+                                orderingPartsPair.getKey()
+                                        .stream()
+                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() ==
+                                                ComparisonRange.Type.EQUALITY)
+                                        .map(OrderingPart.MatchedOrderingPart::getValue))
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final var isPartitionRedundant =
+                isPartitionRedundant(intersectionInfoMap, partition, equalityBoundKeyValues);
+        if (isPartitionRedundant) {
+            return IntersectionResult.noCommonOrdering();
+        }
+
+        final var compensation =
+                partition
+                        .stream()
+                        .map(pair -> pair.getElement().getCompensation())
+                        .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
+        final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction =
+                realizedAlias -> matchedToRealizedTranslationMap(partition, realizedAlias);
+
+        boolean hasCommonOrdering = false;
+        final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
+        for (final var requestedOrdering : requestedOrderings) {
+            final var comparisonKeyValuesIterable =
+                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
+            for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
+                if (!isCompatibleComparisonKey(comparisonKeyValues,
+                        commonPrimaryKeyValues,
+                        equalityBoundKeyValues)) {
+                    continue;
+                }
+
+                hasCommonOrdering = true;
+                if (!compensation.isImpossible()) {
+                    var comparisonOrderingParts =
+                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
+                                    OrderingPart.ProvidedSortOrder.FIXED);
+                    final var comparisonIsReverse =
+                            RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
+                    comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
+
+                    final var newQuantifiers =
+                            partition
+                                    .stream()
+                                    .map(pair ->
+                                            Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
+                                    .map(memoizer::memoizePlans)
+                                    .map(Quantifier::physical)
+                                    .collect(ImmutableList.toImmutableList());
+
+                    final var intersectionPlan =
+                            RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
+                                    comparisonOrderingParts, comparisonIsReverse);
+                    final var compensatedIntersection =
+                            compensation.applyAllNeededCompensations(memoizer, intersectionPlan,
+                                    matchedToRealizedTranslationMapFunction);
+                    expressionsBuilder.add(compensatedIntersection);
+                }
+            }
+        }
+
+        return IntersectionResult.of(hasCommonOrdering ? intersectionOrdering : null, compensation,
+                expressionsBuilder.build());
+    }
+
+    private static TranslationMap matchedToRealizedTranslationMap(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                  @Nonnull final CorrelationIdentifier realizedAlias) {
+        final var translationMapBuilder = TranslationMap.builder();
+        for (final var singleMatchedAccessWithIndex : partition) {
+            translationMapBuilder.when(singleMatchedAccessWithIndex.getElement().getCandidateTopAlias())
+                    .then((sourceAlias, leafValue) -> leafValue.rebaseLeaf(
+                            realizedAlias));
+        }
+        return translationMapBuilder.build();
     }
 }
