@@ -47,7 +47,6 @@ test_block:
       - explain: "EXPLODE array((@c10 AS B, @c12 AS C, (@c15 AS X, promote(@c17 AS DOUBLE) AS Y, @c19 AS Z) AS W), (@c24 AS B, @c26 AS C, (@c29 AS X, @c31 AS Y, @c33 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
-# due to: https://github.com/FoundationDB/fdb-record-layer/issues/3231
     -
       - query: select * from values (1, 2.0, [42, 43, 44]), (11, 3.0, [420, 430, 440])  as A(B, C, W)
       - result: [{B: 1, C: 2.0, W: [42, 43, 44]},
