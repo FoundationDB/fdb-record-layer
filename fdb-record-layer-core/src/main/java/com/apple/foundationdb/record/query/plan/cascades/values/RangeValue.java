@@ -64,7 +64,13 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * A Value that is able to return a range between 0 (inclusive) and a given number (inclusive).
+ * A {@link StreamingValue} that is able to return a range that is defined as the following:
+ * <ul>
+ *     <li>an optional inclusive start (0L by default).</li>
+ *     <li>an exclusive end.</li>
+ *     <li>an optional step (1L by default).</li>
+ * </ul>
+ * For more information, see relational SQL {@code range} table-valued function.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RangeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
@@ -226,7 +232,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         Cursor(@Nonnull final Executor executor, final long endExclusive, @Nonnull final Optional<Long> beginInclusive,
                 @Nonnull final Optional<Long> step, @Nonnull final Function<Long, Object> rangeValueCreator, @Nullable final byte[] continuation) {
             this(executor, endExclusive, step, rangeValueCreator,
-                    continuation == null ? beginInclusive.orElse(0L) : Continuation.from(continuation).getNextPosition());
+                    continuation == null ? beginInclusive.orElse(0L) : Continuation.from(continuation, endExclusive, step).getNextPosition());
         }
 
         private Cursor(@Nonnull final Executor executor, final long endExclusive, @Nonnull final Optional<Long> step,
@@ -313,17 +319,8 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                 return nextPosition >= endExclusive + step.orElse(1L);
             }
 
-            public long getEndExclusive() {
-                return endExclusive;
-            }
-
             public long getNextPosition() {
                 return nextPosition;
-            }
-
-            @Nonnull
-            public Optional<Long> getStep() {
-                return step;
             }
 
             @Nonnull
@@ -332,9 +329,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                 if (isEnd()) {
                     return ByteString.EMPTY;
                 }
-                final var protoBuilder = RecordCursorProto.RangeCursorContinuation.newBuilder()
-                        .setEndExclusive(endExclusive).setNextPosition(nextPosition);
-                step.ifPresent(protoBuilder::setStep);
+                final var protoBuilder = RecordCursorProto.RangeCursorContinuation.newBuilder().setNextPosition(nextPosition);
                 return protoBuilder.build().toByteString();
             }
 
@@ -345,18 +340,16 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
             }
 
             @Nonnull
-            public static Continuation from(@Nonnull final RecordCursorProto.RangeCursorContinuation message) {
-                final var endExclusive = message.getEndExclusive();
+            public static Continuation from(@Nonnull final RecordCursorProto.RangeCursorContinuation message, long endExclusive, @Nonnull final Optional<Long> step) {
                 final var nextPosition = message.getNextPosition();
-                final Optional<Long> step = message.hasStep() ? Optional.of(message.getStep()) : Optional.empty();
                 return new Continuation(endExclusive, nextPosition, step);
             }
 
             @Nonnull
-            public static Continuation from(@Nonnull final byte[] unparsedContinuationBytes) {
+            public static Continuation from(@Nonnull final byte[] unparsedContinuationBytes, long endExclusive, @Nonnull final Optional<Long> step) {
                 try {
                     final var parsed = RecordCursorProto.RangeCursorContinuation.parseFrom(unparsedContinuationBytes);
-                    return from(parsed);
+                    return from(parsed, endExclusive, step);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("invalid continuation", ex)
                             .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsedContinuationBytes));

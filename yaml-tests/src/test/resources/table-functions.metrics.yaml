@@ -1,35 +1,11 @@
 table-functions:
--   query: EXPLAIN select * from values (1, 2.0, 'foo'), (10, 90.2, 'bar') as A(B,
-        C, D)
-    explain: EXPLODE array((@c6 AS B, @c8 AS C, @c10 AS D), (@c14 AS B, @c16 AS C,
-        @c18 AS D))
-    task_count: 62
-    task_total_time_ms: 42
-    transform_count: 23
-    transform_time_ms: 9
-    transform_yield_count: 3
-    insert_time_ms: 0
-    insert_new_count: 3
-    insert_reused_count: 0
--   query: EXPLAIN select * from values (1, 2.0, [42, 43, 44]), (11, 3.0, [420, 430,
-        440])
-    explain: EXPLODE array((@c6 AS _0, @c8 AS _1, array(@c11, @c13, @c15) AS _2),
-        (@c20 AS _0, @c22 AS _1, array(@c25, @c27, @c29) AS _2))
-    task_count: 62
-    task_total_time_ms: 2
-    transform_count: 23
-    transform_time_ms: 0
-    transform_yield_count: 3
-    insert_time_ms: 0
-    insert_new_count: 3
-    insert_reused_count: 0
 -   query: EXPLAIN select * from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0,
         'bar')) as A(B, C, W(X, Y, Z))
     explain: EXPLODE array((@c6 AS B, @c8 AS C, (@c11 AS X, promote(@c13 AS DOUBLE)
         AS Y, @c15 AS Z) AS W), (@c20 AS B, @c22 AS C, (@c25 AS X, @c27 AS Y, @c29
         AS Z) AS W))
     task_count: 62
-    task_total_time_ms: 1
+    task_total_time_ms: 3
     transform_count: 23
     transform_time_ms: 0
     transform_yield_count: 3
@@ -46,7 +22,7 @@ table-functions:
     transform_count: 21
     transform_time_ms: 1
     transform_yield_count: 3
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 4
     insert_reused_count: 0
 -   query: EXPLAIN select A.B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2,
@@ -55,7 +31,7 @@ table-functions:
         AS Y, @c21 AS Z) AS W), (@c26 AS B, @c28 AS C, (@c31 AS X, @c33 AS Y, @c35
         AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
     task_count: 68
-    task_total_time_ms: 3
+    task_total_time_ms: 2
     transform_count: 21
     transform_time_ms: 0
     transform_yield_count: 3
@@ -81,7 +57,7 @@ table-functions:
         AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
     task_count: 100
-    task_total_time_ms: 5
+    task_total_time_ms: 4
     transform_count: 33
     transform_time_ms: 0
     transform_yield_count: 4
@@ -96,10 +72,63 @@ table-functions:
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X) | FILTER _.B LESS_THAN
         @c68
     task_count: 100
-    task_total_time_ms: 6
+    task_total_time_ms: 7
     transform_count: 33
     transform_time_ms: 2
     transform_yield_count: 4
     insert_time_ms: 0
     insert_new_count: 6
+    insert_reused_count: 0
+-   query: EXPLAIN select * from range(0, 11, 5)
+    explain: TFunc range()
+    task_count: 62
+    task_total_time_ms: 1
+    transform_count: 23
+    transform_time_ms: 0
+    transform_yield_count: 3
+    insert_time_ms: 0
+    insert_new_count: 3
+    insert_reused_count: 0
+-   query: EXPLAIN select * from range(6 - 6, 14 + 6 + 1, 20 - 10)
+    explain: TFunc range()
+    task_count: 62
+    task_total_time_ms: 0
+    transform_count: 23
+    transform_time_ms: 0
+    transform_yield_count: 3
+    insert_time_ms: 0
+    insert_new_count: 3
+    insert_reused_count: 0
+-   query: EXPLAIN select ID as X from range(3) as Y
+    explain: TFunc range() | MAP (_.ID AS X)
+    task_count: 68
+    task_total_time_ms: 1
+    transform_count: 21
+    transform_time_ms: 0
+    transform_yield_count: 3
+    insert_time_ms: 0
+    insert_new_count: 4
+    insert_reused_count: 0
+-   query: EXPLAIN select X.ID as A, Y.ID as B from range(3) as X, range(4) as Y
+    explain: TFunc range() | FLATMAP q0 -> { TFunc range() AS q1 RETURN (q0.ID AS
+        A, q1.ID AS B) }
+    task_count: 108
+    task_total_time_ms: 19
+    transform_count: 33
+    transform_time_ms: 6
+    transform_yield_count: 6
+    insert_time_ms: 1
+    insert_new_count: 10
+    insert_reused_count: 0
+-   query: EXPLAIN select a.id as x, a.col1 as y, b.id as z from t1 as a, range(a.id)
+        as b
+    explain: SCAN(<,>) | FLATMAP q0 -> { TFunc range() AS q1 RETURN (q0.ID AS X, q0.COL1
+        AS Y, q1.ID AS Z) }
+    task_count: 131
+    task_total_time_ms: 59
+    transform_count: 49
+    transform_time_ms: 52
+    transform_yield_count: 9
+    insert_time_ms: 0
+    insert_new_count: 8
     insert_reused_count: 0
