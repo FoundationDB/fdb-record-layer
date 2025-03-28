@@ -25,15 +25,14 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 
 import javax.annotation.Nonnull;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 
 public class JDBCDatabaseMetaData implements RelationalDatabaseMetaData {
-    private final DatabaseMetaData metaData;
+    private final RelationalDatabaseMetaData metaData;
 
-    public JDBCDatabaseMetaData(DatabaseMetaData metaData) {
+    public JDBCDatabaseMetaData(JDBCDatabaseMetaData metaData) {
         this.metaData = metaData;
     }
 
@@ -640,7 +639,7 @@ public class JDBCDatabaseMetaData implements RelationalDatabaseMetaData {
     @Nonnull
     @Override
     public RelationalResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types) throws SQLException {
-        return new JDBCRelationalResultSet(metaData.getTables(catalog, schemaPattern, tableNamePattern, types));
+        return new JDBCRelationalResultSet(metaData.getTables(catalog, schemaPattern, tableNamePattern, types).unwrap(RelationalResultSet.class));
     }
 
     @Nonnull

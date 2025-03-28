@@ -66,13 +66,23 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private List<ExternalServer> servers;
     @Nullable
     private final String clusterFile;
+    private final boolean includeMethodInDescriptions;
 
     public YamlTestExtension() {
-        this.clusterFile = null; // it will get it from the environment
+        this(null, false);
     }
 
-    public YamlTestExtension(@Nullable final String clusterFile) {
+    /**
+     * Create a new extension with some configuration.
+     * @param clusterFile a custom cluster file to use, or {@code null} to inherit it from the environment, namely
+     * {@code FDB_CLUSTER_FILE}.
+     * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
+     * handle complex test hierarchies. In the record layer we maintain the full hierarchy in the output, so this is not
+     * necessary, but if integrating some other tools this might be necessary.
+     */
+    public YamlTestExtension(@Nullable final String clusterFile, final boolean includeMethodInDescriptions) {
         this.clusterFile = clusterFile;
+        this.includeMethodInDescriptions = includeMethodInDescriptions;
     }
 
     @Override
@@ -184,11 +194,11 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(final ExtensionContext context) {
         final var testClass = context.getRequiredTestClass();
+        final var testMethod = context.getRequiredTestMethod();
         if (testClass.getAnnotation(MaintainYamlTestConfig.class) != null) {
             final var annotation = testClass.getAnnotation(MaintainYamlTestConfig.class);
-            return provideInvocationContextsForMaintenance(annotation);
+            return provideInvocationContextsForMaintenance(annotation, testMethod.getName());
         }
-        final var testMethod = context.getRequiredTestMethod();
         if (testMethod.getAnnotation(ExcludeYamlTestConfig.class) != null) {
             // excluded tests are still included as configs so that they show up in the test run as skipped, rather than
             // just not being there. This may waste some resources if all the tests being run exclude a config that has
@@ -196,22 +206,24 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             final var annotation = testMethod.getAnnotation(ExcludeYamlTestConfig.class);
             return testConfigs
                     .stream()
-                    .map(config -> new Context(config, annotation.reason(), annotation.value()));
+                    .map(config -> new Context(config, annotation.reason(), annotation.value(),
+                            includeMethodInDescriptions, testMethod.getName()));
         } else if (testMethod.getAnnotation(MaintainYamlTestConfig.class) != null) {
             final var annotation =
                     testMethod.getAnnotation(MaintainYamlTestConfig.class);
-            return provideInvocationContextsForMaintenance(annotation);
+            return provideInvocationContextsForMaintenance(annotation, testMethod.getName());
         }
         return testConfigs
                 .stream()
-                .map(config -> new Context(config, "", null));
+                .map(config -> new Context(config, "", null, includeMethodInDescriptions, testMethod.getName()));
     }
 
-    private Stream<TestTemplateInvocationContext> provideInvocationContextsForMaintenance(@Nonnull final MaintainYamlTestConfig annotation) {
+    private Stream<TestTemplateInvocationContext> provideInvocationContextsForMaintenance(
+            @Nonnull final MaintainYamlTestConfig annotation, @Nonnull final String methodName) {
         return maintainConfigs
                 .stream()
                 .map(config -> new Context(config, "maintenance not needed",
-                        Objects.requireNonNull(annotation.value())));
+                        Objects.requireNonNull(annotation.value()), includeMethodInDescriptions, methodName));
     }
 
     /**
@@ -225,17 +237,27 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         private final String excludedReason;
         @Nullable
         private final YamlTestConfigFilters configFilters;
+        private final boolean includeMethodInDescriptions;
+        @Nonnull
+        private final String methodName;
 
         public Context(@Nonnull final YamlTestConfig config, @Nonnull final String excludedReason,
-                       @Nullable final YamlTestConfigFilters configFilters) {
+                       @Nullable final YamlTestConfigFilters configFilters,
+                       final boolean includeMethodInDescriptions, @Nonnull final String methodName) {
             this.config = config;
             this.excludedReason = excludedReason;
             this.configFilters = configFilters;
+            this.includeMethodInDescriptions = includeMethodInDescriptions;
+            this.methodName = methodName;
         }
 
         @Override
         public String getDisplayName(int invocationIndex) {
-            return config.toString();
+            if (includeMethodInDescriptions) {
+                return methodName + "(" + config + ")";
+            } else {
+                return config.toString();
+            }
         }
 
         @Override

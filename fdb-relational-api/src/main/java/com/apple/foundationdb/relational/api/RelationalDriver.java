@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.BuildVersion;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -36,7 +35,6 @@ import java.util.logging.Logger;
 /**
  * A Driver which is used to connect to a Relational Database.
  */
-@ExcludeFromJacocoGeneratedReport
 public interface RelationalDriver extends Driver {
 
     default RelationalConnection connect(@Nonnull URI url) throws SQLException {

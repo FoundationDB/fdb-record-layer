@@ -63,6 +63,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -174,6 +175,9 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             return returnList;
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
             return FDBRecordVersion.fromBytes(((ByteString)fieldValue).toByteArray(), false);
+        } else if (type.isUuid()) {
+            Verify.verify(fieldValue instanceof UUID);
+            return fieldValue;
         } else {
             // This also may need to turn ByteString's into byte[] for Type.TypeCode.BYTES
             return fieldValue;

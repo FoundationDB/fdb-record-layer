@@ -29,6 +29,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.protobuf.DescriptorProtos;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -260,7 +262,7 @@ public class SchemaTemplateSerDeTests {
             final var schemaTemplate = getTestRecordLayerSchemaTemplate(testcase);
             schemaTemplate.toRecordMetadata();
         });
-        Assertions.assertTrue(thrown.getMessage().contains(message));
+        MatcherAssert.assertThat(thrown.getMessage(), Matchers.containsString(message));
     }
 
     @Test
