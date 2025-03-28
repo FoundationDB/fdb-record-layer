@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PCountValue;
 import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
@@ -344,6 +345,28 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
         @Override
         public Object finish() {
             return physicalOperator.evalPartialToFinal(state);
+        }
+
+        @Nullable
+        @Override
+        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
+            if (state ==  null) {
+                return null;
+            }
+            return RecordCursorProto.PartialAggregationResult.newBuilder()
+                    .setGroupKey(groupingKey.toByteString())
+                    .addAccumulatorStates(RecordCursorProto.AccumulatorState.newBuilder()
+                            .setPhysicalOperatorName(physicalOperator.name())
+                            .addState(String.valueOf(state)))
+                    .build();
+        }
+
+        @Override
+        public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
+            Verify.verify(this.state == null);
+            Verify.verify(accumulatorStates.size() == 1);
+            Verify.verify(physicalOperator.name().equals(accumulatorStates.get(0).getPhysicalOperatorName()));
+            this.state = Long.parseLong(accumulatorStates.get(0).getState(0));
         }
     }
 
