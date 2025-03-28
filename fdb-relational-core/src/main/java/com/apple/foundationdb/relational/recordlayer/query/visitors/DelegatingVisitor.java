@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -35,7 +36,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.RuleNode;
@@ -307,6 +307,16 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitNamedQuery(ctx);
     }
 
+    @Override
+    public Expression visitTableFunction(final RelationalParser.TableFunctionContext ctx) {
+        return getDelegate().visitTableFunction(ctx);
+    }
+
+    @Override
+    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+        return getDelegate().visitTableFunctionName(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
@@ -399,6 +409,17 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public LogicalOperator visitInlineTableItem(@Nonnull final RelationalParser.InlineTableItemContext ctx) {
+        return getDelegate().visitInlineTableItem(ctx);
+    }
+
+    @Override
+    public LogicalOperator visitTableValuedFunction(@Nonnull final RelationalParser.TableValuedFunctionContext ctx) {
+        return getDelegate().visitTableValuedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx) {
         return getDelegate().visitIndexHint(ctx);
     }
@@ -408,6 +429,13 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     public Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx) {
         return getDelegate().visitIndexHintType(ctx);
     }
+
+    @Nonnull
+    @Override
+    public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
+        return getDelegate().visitInlineTableDefinition(ctx);
+    }
+
 
     @Nonnull
     @Override
@@ -915,19 +943,19 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public NonnullPair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
+    public Object visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
         return getDelegate().visitUidWithNestings(ctx);
     }
 
     @Nonnull
     @Override
-    public StringTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
         return getDelegate().visitUidListWithNestingsInParens(ctx);
     }
 
     @Nonnull
     @Override
-    public StringTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
         return getDelegate().visitUidListWithNestings(ctx);
     }
 
@@ -959,6 +987,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
         return getDelegate().visitRecordConstructorForInsert(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitRecordConstructorForInlineTable(@Nonnull RelationalParser.RecordConstructorForInlineTableContext ctx) {
+        return getDelegate().visitRecordConstructorForInlineTable(ctx);
     }
 
     @Nonnull

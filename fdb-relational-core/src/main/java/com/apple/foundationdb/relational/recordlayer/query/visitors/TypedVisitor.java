@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -34,7 +35,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -214,6 +214,12 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     LogicalOperator visitNamedQuery(RelationalParser.NamedQueryContext ctx);
 
+    @Override
+    Expression visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx);
+
+    @Override
+    Identifier visitTableFunctionName(RelationalParser.TableFunctionNameContext ctx);
+
     @Nonnull
     @Override
     Expression visitContinuation(RelationalParser.ContinuationContext ctx);
@@ -276,11 +282,22 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    LogicalOperator visitInlineTableItem(@Nonnull RelationalParser.InlineTableItemContext ctx);
+
+    @Override
+    LogicalOperator visitTableValuedFunction(@Nonnull RelationalParser.TableValuedFunctionContext ctx);
+
+    @Nonnull
+    @Override
     Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx);
 
     @Nonnull
     @Override
     Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx);
+
+    @Nonnull
+    @Override
+    NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(RelationalParser.InlineTableDefinitionContext ctx);
 
     @Nonnull
     @Override
@@ -616,15 +633,15 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    NonnullPair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx);
+    Object visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx);
 
     @Nonnull
     @Override
-    StringTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx);
+    CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx);
 
     @Nonnull
     @Override
-    StringTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx);
+    CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx);
 
     @Nonnull
     @Override
@@ -645,6 +662,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx);
+
+    @Override
+    Expression visitRecordConstructorForInlineTable(RelationalParser.RecordConstructorForInlineTableContext ctx);
 
     @Nonnull
     @Override

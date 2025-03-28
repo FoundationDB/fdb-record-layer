@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -75,6 +76,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
@@ -246,6 +248,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitRecordQueryInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
         return fromChild(insertPlan);
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan element) {
+        return Cardinalities.unknownMaxCardinality();
     }
 
     @Nonnull
@@ -557,6 +565,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitLogicalIntersectionExpression(@Nonnull final LogicalIntersectionExpression logicalIntersectionExpression) {
         return intersectCardinalities(fromChildren(logicalIntersectionExpression));
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitTableFunctionExpression(@Nonnull final TableFunctionExpression element) {
+        return Cardinalities.unknownMaxCardinality();
     }
 
     @Nonnull

@@ -166,7 +166,7 @@ PARTITION:                           'PARTITION';
 PRIMARY:                             'PRIMARY';
 PROCEDURE:                           'PROCEDURE';
 PURGE:                               'PURGE';
-RANGE:                               'RANGE';
+// RANGE:                               'RANGE';
 READ:                                'READ';
 READS:                               'READS';
 RECURSIVE:                           'RECURSIVE';

@@ -226,6 +226,14 @@ namedQuery
     : name=fullId (columnAliases=fullIdList)? AS? '(' query ')'
     ;
 
+tableFunction
+    : tableFunctionName '(' functionArgs? ')' inlineTableDefinition?
+    ;
+
+tableFunctionName
+    : fullId
+    ;
+
 continuation
     : WITH CONTINUATION continuationAtom
     ;
@@ -282,8 +290,10 @@ tableSource // done
     ;
 
 tableSourceItem // done
-    : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?    #atomTableItem // done
-    | query AS? alias=uid                                          #subqueryTableItem // done
+    : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?                                             #atomTableItem // done
+    | '(' query ')' AS? alias=uid                                                                           #subqueryTableItem // done
+    | VALUES recordConstructorForInlineTable (',' recordConstructorForInlineTable )* inlineTableDefinition? #inlineTableItem
+    | tableFunction (AS? alias=uid)?                                                                        #tableValuedFunction
     ;
 
 indexHint
@@ -294,6 +304,10 @@ indexHint
 
 indexHintType
     : JOIN | ORDER BY | GROUP BY
+    ;
+
+inlineTableDefinition
+    : AS? tableName uidListWithNestingsInParens
     ;
 
 joinPart
@@ -730,11 +744,15 @@ expressionsWithDefaults
     ;
 
 recordConstructorForInsert
-    : LEFT_ROUND_BRACKET expressionWithOptionalName (',' expressionWithOptionalName)* RIGHT_ROUND_BRACKET
+    : '(' expressionWithOptionalName (',' expressionWithOptionalName)* ')'
+    ;
+
+recordConstructorForInlineTable
+    : '(' expressionWithOptionalName (',' expressionWithOptionalName)* ')'
     ;
 
 recordConstructor
-    : ofTypeClause? LEFT_ROUND_BRACKET (uid DOT STAR | STAR | expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RIGHT_ROUND_BRACKET
+    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithName /* this can be removed */ | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
     ;
 
 ofTypeClause
@@ -1132,7 +1150,7 @@ keywordsCanBeId
     | TEXT | TEMPORARY | TEMPTABLE | THAN | TRADITIONAL
     | TRANSACTION | TRANSACTIONAL | TRIGGERS | TRUNCATE | UNDEFINED | UNDOFILE
     | UNDO_BUFFER_SIZE | UNINSTALL | UNKNOWN | UNTIL | UPGRADE | USA | USER | USE_FRM | USER_RESOURCES
-    | VALIDATION | VALUE | VALUES | VAR_POP | VAR_SAMP | VARIABLES | VARIANCE | VERSION_TOKEN_ADMIN | VIEW | WAIT | WARNINGS | WITHOUT
+    | VALIDATION | VALUE | VAR_POP | VAR_SAMP | VARIABLES | VARIANCE | VERSION_TOKEN_ADMIN | VIEW | WAIT | WARNINGS | WITHOUT
     | WRAPPER | X509 | XA | XA_RECOVER_ADMIN | XML
     ;
 

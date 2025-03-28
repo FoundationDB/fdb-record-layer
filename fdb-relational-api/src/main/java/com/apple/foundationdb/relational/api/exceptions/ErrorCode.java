@@ -58,7 +58,7 @@ import java.util.stream.Stream;
  * are in-line with published SQL codes whenever possible). However, often you'll find that the standard does
  * not have an error code that matches what you're trying to do. In that case, choose a class from
  * the above table, and then define a unique code.
- * Newly introduced error codes follow the pattern "..V..". For example: 08F01
+ * Newly introduced error codes follow the pattern "..F..". For example: 08F01
  * */
 public enum ErrorCode {
     // Class 00 - Successful Completion
@@ -122,6 +122,7 @@ public enum ErrorCode {
     INVALID_TABLE_DEFINITION("42F16"),
     UNKNOWN_TYPE("42F18"),
     INVALID_RECURSION("42F19"),
+    INCOMPATIBLE_TABLE_ALIAS("42F20"),
     /**
      * Indicates that a schema with the given name is already mapped to a schema template.
      */

@@ -1,9 +1,9 @@
 /*
- * RecordQueryExplodePlan.java
+ * RecordQueryTableValuedPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,14 +27,14 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.planprotos.PRecordQueryExplodePlan;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
@@ -45,10 +45,11 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,57 +62,43 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
- * method: Mapping one {@link Value} to another.
+ * A query plan that delegates its execution to a table-valued {@link StreamingValue}.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Explode-Plan");
+public class RecordQueryTableFunctionPlan implements RecordQueryPlanWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Table-Function-Plan");
 
     @Nonnull
-    private final Value collectionValue;
+    private final StreamingValue value;
 
-    public RecordQueryExplodePlan(@Nonnull Value collectionValue) {
-        this.collectionValue = collectionValue;
+    public RecordQueryTableFunctionPlan(@Nonnull final StreamingValue collectionValue) {
+        this.value = collectionValue;
     }
 
-    @Nonnull
-    public Value getCollectionValue() {
-        return collectionValue;
-    }
-
-    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        if (collectionValue instanceof StreamingValue) {
-            final var streamingValue = (StreamingValue)collectionValue;
-            return streamingValue.evalAsStream(store, context, continuation, executeProperties);
-        }
-        final var result = collectionValue.eval(store, context);
-        return RecordCursor.fromList(result == null ? ImmutableList.of() : (List<?>)result, continuation)
-                .map(QueryResult::ofComputed)
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        return value.evalAsStream(store, context, continuation, executeProperties);
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return collectionValue.getCorrelatedTo();
+        return value.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryExplodePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                                        final boolean shouldSimplifyValues,
-                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
-        if (translatedCollectionValue != collectionValue) {
-            return new RecordQueryExplodePlan(translatedCollectionValue);
+    public RecordQueryTableFunctionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                              final boolean shouldSimplifyValues,
+                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final Value translatedValue = value.translateCorrelations(translationMap, shouldSimplifyValues);
+        if (translatedValue != value) {
+            return new RecordQueryTableFunctionPlan((StreamingValue)translatedValue);
         }
         return this;
     }
@@ -122,7 +109,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public RecordQueryExplodePlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryTableFunctionPlan strictlySorted(@Nonnull final Memoizer memoizer) {
         return this;
     }
 
@@ -161,15 +148,18 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public Value getResultValue() {
-        Verify.verify(collectionValue.getResultType().isArray());
+        return new QueriedValue(value.getResultType());
+    }
 
-        return new QueriedValue(Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType()));
+    @Nonnull
+    public StreamingValue getValue() {
+        return value;
     }
 
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return collectionValue.getDynamicTypes();
+        return value.getDynamicTypes();
     }
 
 
@@ -181,7 +171,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
@@ -189,10 +179,10 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final var otherExplodePlan =  (RecordQueryExplodePlan)otherExpression;
+        final var otherTableFunctionPlan =  (RecordQueryTableFunctionPlan)otherExpression;
 
-        return collectionValue.semanticEquals(otherExplodePlan.getCollectionValue(), equivalencesMap) &&
-               semanticEqualsForResults(otherExpression, equivalencesMap);
+        return value.semanticEquals(otherTableFunctionPlan.value, equivalencesMap) &&
+                semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -238,47 +228,53 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
-                        ImmutableList.of("EXPLODE {{expr}}"),
-                        ImmutableMap.of("expr", Attribute.gml(collectionValue.toString()))),
+                        ImmutableList.of("TFUNC {{expr}}"),
+                        ImmutableMap.of("expr", Attribute.gml(value.toString()))),
                 childGraphs);
     }
 
     @Nonnull
     @Override
-    public PRecordQueryExplodePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryExplodePlan.newBuilder()
-                .setCollectionValue(collectionValue.toValueProto(serializationContext))
+    public PRecordQueryTableFunctionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryTableFunctionPlan.newBuilder()
+                .setValue(value.toValueProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setExplodePlan(toProto(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setTableFunctionPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PRecordQueryExplodePlan recordQueryRangePlanProto) {
-        return new RecordQueryExplodePlan(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRangePlanProto.getCollectionValue())));
+    public static RecordQueryTableFunctionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PRecordQueryTableFunctionPlan recordQueryTableFunctionPlanProto) {
+        final var value = Value.fromValueProto(serializationContext,
+                Objects.requireNonNull(recordQueryTableFunctionPlanProto.getValue()));
+        if (!(value instanceof StreamingValue)) {
+            throw new RecordCoreException("invalid value, expecting streaming value").addLogInfo(LogMessageKeys.VALUE, value);
+        }
+        return new RecordQueryTableFunctionPlan((StreamingValue)value);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecordQueryExplodePlan, RecordQueryExplodePlan> {
+    public static class Deserializer implements PlanDeserializer<PRecordQueryTableFunctionPlan, RecordQueryTableFunctionPlan> {
         @Nonnull
         @Override
-        public Class<PRecordQueryExplodePlan> getProtoMessageClass() {
-            return PRecordQueryExplodePlan.class;
+        public Class<PRecordQueryTableFunctionPlan> getProtoMessageClass() {
+            return PRecordQueryTableFunctionPlan.class;
         }
 
         @Nonnull
         @Override
-        public RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PRecordQueryExplodePlan recordQueryExplodePlanProto) {
-            return RecordQueryExplodePlan.fromProto(serializationContext, recordQueryExplodePlanProto);
+        public RecordQueryTableFunctionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PRecordQueryTableFunctionPlan message) {
+            return RecordQueryTableFunctionPlan.fromProto(serializationContext, message);
         }
     }
 }
+

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -44,7 +45,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
 import com.apple.foundationdb.relational.util.Assert;
@@ -210,12 +210,17 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveFunction(functionName, true, arguments);
+        return getSemanticAnalyzer().resolveFunction(functionName, true, false, arguments);
     }
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveFunction(functionName, flattenSingleItemRecords, arguments);
+        return getSemanticAnalyzer().resolveFunction(functionName, flattenSingleItemRecords, false, arguments);
+    }
+
+    @Nonnull
+    public Expression resolveTableValuedFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
+        return getSemanticAnalyzer().resolveFunction(functionName, true, true, arguments);
     }
 
     @Override
@@ -467,6 +472,16 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return queryVisitor.visitNamedQuery(ctx);
     }
 
+    @Override
+    public Expression visitTableFunction(@Nonnull final RelationalParser.TableFunctionContext ctx) {
+        return expressionVisitor.visitTableFunction(ctx);
+    }
+
+    @Override
+    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+        return identifierVisitor.visitTableFunctionName(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitContinuation(RelationalParser.ContinuationContext ctx) {
@@ -559,6 +574,17 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
+    public LogicalOperator visitInlineTableItem(@Nonnull RelationalParser.InlineTableItemContext ctx) {
+        return queryVisitor.visitInlineTableItem(ctx);
+    }
+
+    @Override
+    public LogicalOperator visitTableValuedFunction(@Nonnull final RelationalParser.TableValuedFunctionContext ctx) {
+        return queryVisitor.visitTableValuedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx) {
         return queryVisitor.visitIndexHint(ctx);
     }
@@ -567,6 +593,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx) {
         return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(final RelationalParser.InlineTableDefinitionContext ctx) {
+        return expressionVisitor.visitInlineTableDefinition(ctx);
     }
 
     @Nonnull
@@ -1064,24 +1096,24 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Nonnull
     @Override
     public List<Identifier> visitUidList(@Nonnull RelationalParser.UidListContext ctx) {
-        return List.of();
+        return identifierVisitor.visitUidList(ctx);
     }
 
     @Nonnull
     @Override
-    public NonnullPair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
-        return expressionVisitor.visitUidWithNestings(ctx);
+    public Object visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
+        return visitChildren(ctx);
     }
 
     @Nonnull
     @Override
-    public StringTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
         return expressionVisitor.visitUidListWithNestingsInParens(ctx);
     }
 
     @Nonnull
     @Override
-    public StringTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
         return expressionVisitor.visitUidListWithNestings(ctx);
     }
 
@@ -1113,6 +1145,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
         return expressionVisitor.visitRecordConstructorForInsert(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitRecordConstructorForInlineTable(final RelationalParser.RecordConstructorForInlineTableContext ctx) {
+        return expressionVisitor.visitRecordConstructorForInlineTable(ctx);
     }
 
     @Nonnull
