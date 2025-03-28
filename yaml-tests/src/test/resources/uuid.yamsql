@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.2.3.0
 ---
 schema_template:
     create table ta(a bigint, b uuid, primary key(a))
