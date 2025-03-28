@@ -231,6 +231,18 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
+        return getDelegate().visitFunctionDefinition(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
+        return getDelegate().visitUserDefinedFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitIndexAttributes(@Nonnull RelationalParser.IndexAttributesContext ctx) {
         return getDelegate().visitIndexAttributes(ctx);
     }
@@ -1169,6 +1181,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitScalarFunctionName(@Nonnull RelationalParser.ScalarFunctionNameContext ctx) {
         return getDelegate().visitScalarFunctionName(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitUserDefinedFunctionName(@Nonnull RelationalParser.UserDefinedFunctionNameContext ctx) {
+        return getDelegate().visitUserDefinedFunctionName(ctx);
     }
 
     @Nonnull

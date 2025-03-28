@@ -22,12 +22,18 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -180,6 +186,31 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public UserDefinedFunction visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx) {
+        final var ddlCatalog = metadataBuilder.build();
+        // parse the function definition using the newly constructed metadata.
+        getDelegate().replaceCatalog(ddlCatalog);
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+
+        // argumentValue
+        final var inputColumnId = ctx.columnType(0).customType != null ? visitUid(ctx.columnType(0).customType) : Identifier.of(ctx.columnType(0).getText());
+        final var columnType = semanticAnalyzer.lookupType(inputColumnId, true, false, metadataBuilder::findType);
+        QuantifiedObjectValue argumentValue = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), DataTypeUtils.toRecordLayerType(columnType));
+
+        // function return type
+        final var returnColumnId = ctx.columnType(1).customType != null ? visitUid(ctx.columnType(1).customType) : Identifier.of(ctx.columnType(1).getText());
+        final var returnType = semanticAnalyzer.lookupType(returnColumnId, true, false, metadataBuilder::findType);
+
+        final var functionBody = visitFullId(ctx.fullId());
+        final var paramNameId = Identifier.of(ctx.paramName.getText().toUpperCase(Locale.ROOT));
+
+        Optional<Value> fieldValue = semanticAnalyzer.lookupNestedField(functionBody, paramNameId, argumentValue, returnType);
+        Assert.thatUnchecked(fieldValue.isPresent(), "couldn't resolve function definition");
+        return new MacroFunction(ctx.functionName.getText(), List.of(argumentValue), fieldValue.get());
+    }
+
+    @Nonnull
+    @Override
     public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
         final var enumId = visitUid(ctx.uid());
 
@@ -214,6 +245,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.StructDefinitionContext> structClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.TableDefinitionContext> tableClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.FunctionDefinitionContext> functionClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -221,6 +253,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 structClauses.add(templateClause.structDefinition());
             } else if (templateClause.tableDefinition() != null) {
                 tableClauses.add(templateClause.tableDefinition());
+            } else if (templateClause.functionDefinition() != null) {
+                functionClauses.add(templateClause.functionDefinition());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -234,6 +268,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);
         }
+        final var udfs = functionClauses.build().stream().map(this::visitFunctionDefinition).collect(ImmutableList.toImmutableList());
+        metadataBuilder.addUserDefinedFunctions(udfs);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 
