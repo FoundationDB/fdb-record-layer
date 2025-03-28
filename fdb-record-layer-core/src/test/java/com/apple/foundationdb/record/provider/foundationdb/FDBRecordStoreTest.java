@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
@@ -46,8 +45,11 @@ import com.apple.foundationdb.record.TestRecordsDuplicateUnionFields;
 import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.evolution.TestNewRecordTypeProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
@@ -91,6 +93,8 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Counts.INDEXES_NEED_REBUILDING;
+import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.CHECK_VERSION;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.DELETE_INDEX_ENTRY;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -100,6 +104,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexS
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
@@ -1245,6 +1250,244 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(updateTime, recordStore.getRecordStoreState().getStoreHeader().getLastUpdateTime());
         }
         return updateTime;
+    }
+
+    private void openNewTypeStore(FDBRecordContext context, RecordMetaDataHook hook) {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestNewRecordTypeProto.getDescriptor());
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
+        metaDataBuilder.addUniversalIndex(globalCountUpdatesIndex());
+        hook.apply(metaDataBuilder);
+        createOrOpenRecordStore(context, metaDataBuilder.build());
+    }
+
+    /**
+     * Simple test of an excluded type showing that inserts and queries are blocked. This is accomplished
+     * by excluding the type from the meta-data, which should be a pretty robust way of preventing
+     * accidental access.
+     */
+    @Test
+    public void excludeNewRecordType() {
+        try (FDBRecordContext context = openContext()) {
+            // Create a store, but exclude the new record type
+            openNewTypeStore(context, metaDataBuilder -> metaDataBuilder.excludeRecordType("NewRecord"));
+
+            // Should not be able to save the record as the type has been excluded
+            TestNewRecordTypeProto.NewRecord newRecord = TestNewRecordTypeProto.NewRecord.newBuilder()
+                    .setRecNo(100L)
+                    .setNumValue3Indexed(5)
+                    .build();
+            assertThrows(MetaDataException.class, () -> recordStore.saveRecord(newRecord));
+
+            // Should not be able to query for this type
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("NewRecord")
+                    .setFilter(Query.field("num_value_3_indexed").equalsValue(5))
+                    .build();
+            assertThrows(MetaDataException.class, () -> recordStore.executeQuery(query));
+
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // Now update it to include the new type
+            openNewTypeStore(context, metaDataBuilder -> {
+                metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
+                metaDataBuilder.getRecordType("NewRecord").setSinceVersion(metaDataBuilder.getVersion());
+            });
+
+            // Should not be any records stored
+            try (RecordCursor<?> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)) {
+                assertThat(cursor.asList().join(), empty());
+            }
+            commit(context);
+        }
+    }
+
+    /**
+     * Test of using excluded types to perform a meta-data update. Here the test starts with a store using
+     * {@code test_records_1.proto} as its records file, and it saves some records. Then, the records file is
+     * updated  but the new record type in the file is excluded, which means that it should be
+     * interchangeable with the old one, and so we test reading data from the old store and then going back
+     * to the old meta-data definition and reading new data. (In common upgrade flows, this would represent
+     * a stage where multiple instances with both files might co-exist.) Then, we update the meta-data version
+     * and add the type with an appropriate {@link com.apple.foundationdb.record.metadata.RecordType#getSinceVersion() sinceVersion}.
+     * We should still be able to read the old data, but now we can also write the type, and also, those with the
+     * old file are excluded.
+     *
+     * <p>
+     * So this is a test of <em>correct</em> API usage, showing that we can do upgrade and downgrade testing from
+     * correctly configured meta-data. This doesn't capture how one who has excluded the meta-data would know how
+     * to update to the new version, but that can be accomplished either with by catching the stale meta-data exception,
+     * for instance.
+     * </p>
+     *
+     * @throws Exception from store opening
+     */
+    @Test
+    public void upgradeAndDowngradeWithExcludedNewType() throws Exception {
+        // Save records using a meta-data based on test_records_1.proto
+        final TestRecords1Proto.MySimpleRecord simple1 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(101L)
+                .setNumValue2(10)
+                .setNumValue3Indexed(5)
+                .setStrValueIndexed("odd")
+                .setNumValueUnique(1001)
+                .build();
+        final TestRecords1Proto.MyOtherRecord other1 = TestRecords1Proto.MyOtherRecord.newBuilder()
+                .setRecNo(102L)
+                .setNumValue2(10)
+                .setNumValue3Indexed(5)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.saveRecord(simple1);
+            recordStore.saveRecord(other1);
+            commit(context);
+        }
+
+        // Re-open the store with the new type defined in the protobuf file (but excluded from the meta-data)
+        timer.reset();
+        final TestRecords1Proto.MySimpleRecord simple2 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(103L)
+                .setNumValue2(10)
+                .setNumValue3Indexed(5)
+                .setStrValueIndexed("odd")
+                .setNumValueUnique(1002)
+                .build();
+        final TestRecords1Proto.MyOtherRecord other2 = TestRecords1Proto.MyOtherRecord.newBuilder()
+                .setRecNo(104L)
+                .setNumValue2(10)
+                .setNumValue3Indexed(5)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openNewTypeStore(context, metaDataBuilder -> metaDataBuilder.excludeRecordType("NewRecord"));
+            assertEquals(1, timer.getCount(CHECK_VERSION));
+            assertEquals(0, timer.getCount(INDEXES_NEED_REBUILDING));
+
+            assertEquals(simple1, recordStore.loadRecord(Tuple.from(simple1.getRecNo())).getRecord());
+            assertEquals(other1, recordStore.loadRecord(Tuple.from(other1.getRecNo())).getRecord());
+            assertEquals(2L, recordStore.getSnapshotRecordCount().join());
+            assertEquals(2L, recordStore.getSnapshotRecordUpdateCount().join());
+
+            // Should not be able to save new record
+            assertThrows(MetaDataException.class, () ->
+                    recordStore.saveRecord(TestNewRecordTypeProto.NewRecord.newBuilder()
+                            .setRecNo(103L)
+                            .setNumValue3Indexed(5)
+                            .build()
+                    )
+            );
+            // No updates to count indexes
+            assertEquals(2L, recordStore.getSnapshotRecordCount().join());
+            assertEquals(2L, recordStore.getSnapshotRecordUpdateCount().join());
+
+            // Should still be able to save old records
+            recordStore.saveRecord(simple2);
+            recordStore.saveRecord(other2);
+            assertEquals(4L, recordStore.getSnapshotRecordCount().join());
+            assertEquals(4L, recordStore.getSnapshotRecordUpdateCount().join());
+
+            commit(context);
+        }
+
+        // Re-open with the older meta-data to validate that downgrades are still compatible
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            // Should be able to read all of the existing records
+            assertEquals(simple1, recordStore.loadRecord(Tuple.from(simple1.getRecNo())).getRecord());
+            assertEquals(other1, recordStore.loadRecord(Tuple.from(other1.getRecNo())).getRecord());
+            assertEquals(simple2, recordStore.loadRecord(Tuple.from(simple2.getRecNo())).getRecord());
+            assertEquals(other2, recordStore.loadRecord(Tuple.from(other2.getRecNo())).getRecord());
+
+            assertEquals(4L, recordStore.getSnapshotRecordCount().join());
+            assertEquals(4L, recordStore.getSnapshotRecordUpdateCount().join());
+
+            commit(context);
+        }
+
+        // Update the meta-data so that the type is no longer excluded
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            openNewTypeStore(context, metaDataBuilder -> {
+                metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
+                metaDataBuilder.getRecordType("NewRecord").setSinceVersion(metaDataBuilder.getVersion());
+                metaDataBuilder.addIndex("NewRecord", "num_value_3_indexed");
+            });
+            assertEquals(1, timer.getCount(CHECK_VERSION));
+            assertEquals(1, timer.getCount(INDEXES_NEED_REBUILDING));
+            assertTrue(recordStore.isIndexReadable("NewRecord$num_value_3_indexed"), "New index should be readable as it is on a new record type");
+
+            // Make sure the old data is still readable
+            assertEquals(simple1, recordStore.loadRecord(Tuple.from(simple1.getRecNo())).getRecord());
+            assertEquals(other1, recordStore.loadRecord(Tuple.from(other1.getRecNo())).getRecord());
+            assertEquals(simple2, recordStore.loadRecord(Tuple.from(simple2.getRecNo())).getRecord());
+            assertEquals(other2, recordStore.loadRecord(Tuple.from(other2.getRecNo())).getRecord());
+            assertEquals(4L, recordStore.getSnapshotRecordCount().join());
+            assertEquals(4L, recordStore.getSnapshotRecordUpdateCount().join());
+
+            // Save a new record (and validate that the counters get updated)
+            recordStore.saveRecord(TestNewRecordTypeProto.NewRecord.newBuilder()
+                    .setRecNo(106L)
+                    .setNumValue3Indexed(5)
+                    .build());
+            assertEquals(5L, recordStore.getSnapshotRecordCount().join());
+            assertEquals(5L, recordStore.getSnapshotRecordUpdateCount().join());
+
+            commit(context);
+        }
+
+        // Try to downgrade to the old meta-data. This should no longer be possible because the meta-data version has changed
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            assertThrows(RecordStoreStaleMetaDataVersionException.class, () -> openSimpleRecordStore(context));
+        }
+    }
+
+    /**
+     * This is a test to see what happens if the user mis-uses the meta-data API. In this test, a store
+     * is created with one version of the meta-data, and a record is stored. Then, the same store is
+     * re-opened, this time with a meta-data that has the same version but excludes the type of the record
+     * that has been stored. In this case, the new store doesn't think the type should exist, and so
+     * attempts to read or modify it should fail. This is important as any indexes here are also unlikely
+     * to have been maintained correctly, and we just want to prevent doing any damage to that data until
+     * we have fixed the meta-data.
+     *
+     * @see RecordMetaDataBuilder#excludeRecordType(String)
+     */
+    @Test
+    public void tryReadOrModifyDataFromExcludedType() {
+        final TestNewRecordTypeProto.NewRecord newRecord = TestNewRecordTypeProto.NewRecord.newBuilder()
+                .setRecNo(100L)
+                .setNumValue3Indexed(5)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openNewTypeStore(context, NO_HOOK);
+            recordStore.saveRecord(newRecord);
+            commit(context);
+        }
+
+        // Open the store with a faulty meta-data. Any attempt to read (including reading the type during type modification) should fail
+        try (FDBRecordContext context = openContext()) {
+            openNewTypeStore(context, metaDataBuilder -> metaDataBuilder.excludeRecordType("NewRecord"));
+            RecordCoreException exception = assertThrows(RecordCoreException.class, () -> recordStore.loadRecord(Tuple.from(newRecord.getRecNo())));
+            assertThat(exception.getCause(), instanceOf(MetaDataException.class));
+
+            exception = assertThrows(RecordCoreException.class, () -> recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder().setRecNo(newRecord.getRecNo()).build()));
+            assertThat(exception.getCause(), instanceOf(MetaDataException.class));
+
+            exception = assertThrows(RecordCoreException.class, () -> recordStore.deleteRecord(Tuple.from(newRecord.getRecNo())));
+            assertThat(exception.getCause(), instanceOf(MetaDataException.class));
+
+            commit(context);
+        }
+
+        // Record should be the same as before the failed mutation attempts
+        try (FDBRecordContext context = openContext()) {
+            openNewTypeStore(context, NO_HOOK);
+            assertEquals(newRecord, recordStore.loadRecord(Tuple.from(newRecord.getRecNo())).getRecord());
+        }
     }
 
     /**

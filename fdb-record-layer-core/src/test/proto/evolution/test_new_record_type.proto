@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.evolution.newtype;
 
 option java_package = "com.apple.foundationdb.record.evolution";
 option java_outer_classname = "TestNewRecordTypeProto";
+option (schema).store_record_versions = true;
 
 import "record_metadata_options.proto";
 import "test_records_1.proto";
@@ -30,6 +31,11 @@ import "test_records_1.proto";
 message NewRecord {
     optional int64 rec_no = 1 [(field).primary_key = true];
     optional int32 num_value_3_indexed = 2;
+    message Nested {
+        optional int64 a = 1;
+        optional int64 b = 2;
+    }
+    repeated Nested nested = 3;
 }
 
 message RecordTypeUnion {
