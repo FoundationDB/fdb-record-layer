@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
 import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
@@ -96,13 +97,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     private final CorrelationIdentifier aggregateAlias;
     @Nonnull
     private final Value completeResultValue;
-    //
-    // This flag is needed to distinguish if we need to create a default value on-empty or not (i.e.
-    // RecordQueryDefaultOnEmptyPlan will do that going forward). We will always plan with that flag set to false going
-    // forward, but we accept and honor this field coming from proto if we are continuing OR if it not there we imply
-    // true.
-    // https://github.com/FoundationDB/fdb-record-layer/issues/3107
-    private final boolean isCreateDefaultOnEmpty;
 
     /**
      * Construct a new plan.
@@ -119,15 +113,13 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                 @Nonnull final AggregateValue aggregateValue,
                                                 @Nonnull final CorrelationIdentifier groupingKeyAlias,
                                                 @Nonnull final CorrelationIdentifier aggregateAlias,
-                                                @Nonnull final Value completeResultValue,
-                                                final boolean isCreateDefaultOnEmpty) {
+                                                @Nonnull final Value completeResultValue) {
         this.inner = inner;
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
         this.groupingKeyAlias = groupingKeyAlias;
         this.aggregateAlias = aggregateAlias;
         this.completeResultValue = completeResultValue;
-        this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
     }
 
     @Nonnull
@@ -148,7 +140,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         (FDBRecordStoreBase<Message>)store,
                         context,
                         inner.getAlias());
-        return new AggregateCursor<>(innerCursor, streamGrouping, isCreateDefaultOnEmpty)
+        return new AggregateCursor<>(innerCursor, streamGrouping)
                 .skipThenLimit(executeProperties.getSkip(),
                         executeProperties.getReturnedRowLimit());
     }
@@ -206,8 +198,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 translatedAggregateValue,
                 groupingKeyAlias,
                 aggregateAlias,
-                completeResultValue,
-                isCreateDefaultOnEmpty);
+                completeResultValue);
     }
 
     @Nonnull
@@ -218,8 +209,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 aggregateValue,
                 groupingKeyAlias,
                 aggregateAlias,
-                completeResultValue,
-                isCreateDefaultOnEmpty);
+                completeResultValue);
     }
 
     @Nonnull
@@ -371,7 +361,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         builder.setGroupingKeyAlias(groupingKeyAlias.getId())
                 .setAggregateAlias(aggregateAlias.getId())
                 .setCompleteResultValue(completeResultValue.toValueProto(serializationContext))
-                .setIsCreateDefaultOnEmpty(isCreateDefaultOnEmpty);
+                .setIsCreateDefaultOnEmpty(false);
         return builder.build();
     }
 
@@ -396,7 +386,10 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
         final Value completeResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getCompleteResultValue()));
         final boolean isCreateDefaultOnEmpty = recordQueryStreamingAggregationPlanProto.hasIsCreateDefaultOnEmpty() ? recordQueryStreamingAggregationPlanProto.getIsCreateDefaultOnEmpty() : true;
-        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, isCreateDefaultOnEmpty);
+        if (isCreateDefaultOnEmpty) {
+            throw new RecordCoreArgumentException("cannot create streaming aggregate plan with default value on empty");
+        }
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue);
     }
 
     @Nonnull
@@ -428,7 +421,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
 
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), false);
+                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue));
     }
 
     /**
