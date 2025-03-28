@@ -1,5 +1,5 @@
 /*
- * ExcludeYamlTestConfig.java
+ * YamlTestWithDebuggingExtension.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,23 +20,19 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.relational.util.Environment;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+public class YamlTestWithDebuggingExtension extends YamlTestExtension {
 
-/**
- * Mark specific {@link YamlTestConfig} that are designated test maintenance helper configs as enabled for the current
- * test in an {@link YamlTestExtension} test class.
- * <p>
- *     Any config in {@link #value()} will be included for the annotated test. Any config not included will be skipped.
- * </p>
- */
-@Retention(RetentionPolicy.RUNTIME)
-public @interface MaintainYamlTestConfig {
-    /**
-     * Any {@code YamlTestConfig} class in this list will run
-     * {@link org.junit.jupiter.api.TestTemplate} test.
-     */
-    YamlTestConfigFilters value();
+    @Override
+    public void beforeAll(final ExtensionContext context) throws Exception {
+        if (Debugger.getDebugger() == null && Environment.isDebug()) {
+            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
+        }
+        Debugger.setup();
+        super.beforeAll(context);
+    }
 }

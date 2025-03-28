@@ -58,7 +58,8 @@ public class SupportedVersionTest {
     }
 
     private void doRun(String fileName) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
+        new YamlRunner(createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS)
+                .runYamsql(fileName);
     }
 
     YamlConnectionFactory createConnectionFactory() {
