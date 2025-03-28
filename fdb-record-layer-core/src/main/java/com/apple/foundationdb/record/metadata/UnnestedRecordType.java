@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
@@ -262,12 +263,21 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Override
     @Nonnull
     @API(API.Status.INTERNAL)
-    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(@Nonnull final FDBRecordStore store, @Nonnull final Tuple primaryKey) {
+    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(@Nonnull final FDBRecordStore store, @Nonnull final Tuple primaryKey, IndexOrphanBehavior orphanBehavior) {
         Tuple parentPrimaryKey = primaryKey.getNestedTuple(1);
         return store.loadRecordAsync(parentPrimaryKey).thenApply(storedRecord -> {
             if (storedRecord == null) {
-                throw new RecordDoesNotExistException("constituent record not found: " + parentConstituent.getName())
-                        .addLogInfo(LogMessageKeys.PRIMARY_KEY, parentPrimaryKey);
+                switch (orphanBehavior) {
+                    case ERROR:
+                        throw new RecordDoesNotExistException("constituent record not found: " + parentConstituent.getName())
+                                .addLogInfo(LogMessageKeys.PRIMARY_KEY, parentPrimaryKey);
+                    case SKIP:
+                        return null;
+                    case RETURN:
+                        return FDBSyntheticRecord.of(this, Map.of());
+                    default:
+                        throw new IllegalArgumentException("Unknown orphanBehavior value: " + orphanBehavior);
+                }
             }
             Map<String, FDBStoredRecord<?>> constituentValues = new HashMap<>();
             constituentValues.put(getParentConstituent().getName(), storedRecord);
@@ -285,8 +295,18 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                         int childConstituentIndex = getConstituents().indexOf(constituent);
                         int childElemIndex = (int) primaryKey.getNestedTuple(childConstituentIndex + 1).getLong(0);
                         if (childElemIndex >= childElems.size()) {
-                            throw new RecordCoreException("child element position is too large")
-                                    .addLogInfo(LogMessageKeys.CHILD_COUNT, childElems.size());
+                            // Constituent not found
+                            switch (orphanBehavior) {
+                                case ERROR:
+                                    throw new RecordCoreException("child element position is too large")
+                                            .addLogInfo(LogMessageKeys.CHILD_COUNT, childElems.size());
+                                case SKIP:
+                                    return null;
+                                case RETURN:
+                                    return FDBSyntheticRecord.of(this, Map.of());
+                                default:
+                                    throw new IllegalArgumentException("Unknown orphanBehavior value: " + orphanBehavior);
+                            }
                         }
                         Key.Evaluated childElem = childElems.get(childElemIndex);
                         Message childMessage = childElem.getObject(0, Message.class);

@@ -157,7 +157,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull final Tuple primaryKey, final IndexOrphanBehavior orphanBehavior) {
         throw new RecordCoreException("api unsupported on typed store");
     }
 

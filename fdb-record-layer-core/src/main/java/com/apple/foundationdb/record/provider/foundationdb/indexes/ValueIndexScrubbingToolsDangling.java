@@ -57,6 +57,9 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
 
     @Override
     public void presetCommonParams(final Index index, final boolean allowRepair, final boolean isSynthetic, final Collection<RecordType> typesIgnored) {
+        if (isSynthetic && allowRepair) {
+            throw new UnsupportedOperationException("Scrubbing synthetic records with repair is not supported");
+        }
         this.index = index;
         this.allowRepair = allowRepair;
         this.isSynthetic = isSynthetic;
@@ -93,7 +96,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
         }
 
         if (isSynthetic) {
-            return store.loadSyntheticRecord(indexEntry.getPrimaryKey()).thenApply(syntheticRecord -> {
+            return store.loadSyntheticRecord(indexEntry.getPrimaryKey(), IndexOrphanBehavior.RETURN).thenApply(syntheticRecord -> {
                 if (syntheticRecord.getConstituents().isEmpty()) {
                     // None of the constituents of this synthetic type are present, so it must be dangling
                     List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
