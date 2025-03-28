@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
@@ -316,6 +316,9 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
 
     @Override
     public String toString() {
+        // We want to preserve the last wasNull state and not let it get effected by toString() since this too uses
+        // the getObject() call to fetch values.
+        final var preservedWasNullValue = wasNull();
         final var builder = new StringBuilder();
         try {
             final var colCount = metaData.getColumnCount();
@@ -333,7 +336,8 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
         } catch (SQLException e) {
             throw new UncheckedRelationalException(new RelationalException(e));
         }
-
+        // restore wasNull
+        wasNull = preservedWasNullValue;
         return builder.toString();
     }
 }
