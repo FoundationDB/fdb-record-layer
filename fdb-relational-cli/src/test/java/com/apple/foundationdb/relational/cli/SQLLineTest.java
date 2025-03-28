@@ -20,17 +20,17 @@
 
 package com.apple.foundationdb.relational.cli;
 
-import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
-
+import com.google.common.base.Charsets;
 import org.junit.jupiter.api.Test;
 import sqlline.SqlLine;
 
-import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * SQLline doesn't do the intellij terminal very well.
@@ -45,32 +45,33 @@ public class SQLLineTest {
      */
     @Test
     public void runSqlline() throws IOException {
-        PrintStream oldOut = System.out;
-        try (PrintStream ps = new PrintStream(new BufferedOutputStream(new ByteArrayOutputStream()));) {
-            System.setOut(ps);
-            SqlLine.main(new String[]{
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ByteArrayOutputStream err = new ByteArrayOutputStream();
+                ByteArrayInputStream in = new ByteArrayInputStream(new byte[0])) {
+            final SqlLine sqlLine = new SqlLine();
+            sqlLine.setOutputStream(out);
+            sqlLine.setErrorStream(err);
+            final SqlLine.Status status = sqlLine.begin(new String[] {
                     "-ac", "com.apple.foundationdb.relational.cli.sqlline.Customize",
                     // We don't need the below because we add our command over in our
                     // sqlline Customize class.
                     // "-ch", "sqlline.PlannerDebuggerCommandHandler",
-                    "-u", "jdbc:embed:/__SYS?schema=CATALOG",
-                    "-d", "com.apple.foundationdb.relational.jdbc.JDBCEmbedDriver",
+                    "-u", "jdbc:relational:///__SYS?schema=CATALOG",
+                    "-d", "com.apple.foundationdb.relational.jdbc.JDBCRelationalDriver",
                     "--maxWidth=257",
-                    "e", "select * from databases;"
-            });
-            ps.flush();
-            // Output should contain something like:
-            // +-------------+
-            // | DATABASE_ID |
-            // +-------------+
-            // | /__SYS      |
-            // +-------------+
-            // Do primitive check tht output string has above.
-            assertTrue(ps.toString().contains("DATABASE_ID"));
-            assertTrue(ps.toString().contains(RelationalKeyspaceProvider.SYS));
-        } finally {
-            // Restore old sysout.
-            System.setOut(oldOut);
+                    "-e", "select * from databases;"
+            }, in, false);
+            try {
+                assertEquals(status, SqlLine.Status.OK);
+
+                final String output = out.toString(Charsets.UTF_8);
+                assertThat(output).contains("DATABASE_ID")
+                        .contains("/__SYS");
+            } catch (AssertionError e) {
+                System.out.println(err.toString(StandardCharsets.UTF_8));
+                System.out.println(out.toString(StandardCharsets.UTF_8));
+                throw e;
+            }
         }
     }
 }
