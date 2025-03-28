@@ -501,7 +501,8 @@ public class SemanticAnalyzer {
                 type = isNullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
                 break;
             case "UUID":
-                type = isNullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
+                Assert.thatUnchecked(!isNullable, ErrorCode.UNSUPPORTED_OPERATION, "Nullable UUID not supported");
+                type = DataType.Primitives.UUID.type();
                 break;
             default:
                 Assert.notNullUnchecked(metadataCatalog);
