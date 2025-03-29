@@ -505,7 +505,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         Verify.verify(deconstructedRecord.size() > numGroupings);
         final var groupingAccessorValues =
                 ImmutableList.copyOf(deconstructedRecord.subList(0, numGroupings));
-        final var aggregateAccessorValue = deconstructedRecord.get(deconstructedRecord.size() - 1);
+        final var aggregateAccessorValue = deconstructedRecord.get(numGroupings);
         return NonnullPair.of(groupingAccessorValues, aggregateAccessorValue);
     }
 
