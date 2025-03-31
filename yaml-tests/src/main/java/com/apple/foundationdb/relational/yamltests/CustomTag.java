@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
+import java.util.UUID;
 
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class CustomTag {
@@ -68,6 +69,43 @@ public abstract class CustomTag {
         @Override
         public String toString() {
             return "!sc " + value;
+        }
+    }
+
+    static final class UuidField {
+        @Nonnull
+        private final String value;
+
+        UuidField(@Nonnull final String value) {
+            this.value = value;
+        }
+
+        @Nonnull
+        public String getValue() {
+            return value;
+        }
+
+        @Nonnull
+        public Matchers.ResultSetMatchResult matchWith(@Nonnull Object other, int rowNumber, @Nonnull String cellRef) {
+            UUID otherUUID;
+            try {
+                otherUUID = UUID.fromString(value);
+            } catch (IllegalArgumentException e) {
+                return Matchers.ResultSetMatchResult.fail(String.format("Provided string is not a valid UUID format at row: %d cellRef: %s%n. Provided String '%s'", rowNumber, cellRef, value));
+
+            }
+            if (other instanceof UUID) {
+                if (otherUUID.equals(UUID.fromString(value))) {
+                    return Matchers.ResultSetMatchResult.success();
+                }
+            }
+            // not matched
+            return Matchers.ResultSetMatchResult.fail(String.format("UUID mismatch at row: %d cellRef: %s%n The actual '%s' does not match UUID '%s'", rowNumber, cellRef, other, value));
+        }
+
+        @Override
+        public String toString() {
+            return "!uuid " + value;
         }
     }
 

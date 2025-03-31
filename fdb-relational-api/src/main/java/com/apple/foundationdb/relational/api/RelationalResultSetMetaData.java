@@ -101,7 +101,6 @@ public interface RelationalResultSetMetaData extends ResultSetMetaData, StructMe
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default String getTableName(int column) throws SQLException {
         // Throwing an exception here messes up sqlline drawing results. Just do what Oracle apparently does here
         // and return an empty String for now until we implement ResultSet context attributes like table name.

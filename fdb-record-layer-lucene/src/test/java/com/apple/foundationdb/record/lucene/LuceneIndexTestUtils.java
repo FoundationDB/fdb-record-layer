@@ -47,12 +47,10 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.util.pair.Pair;
-import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.search.Sort;
 
 import javax.annotation.Nonnull;
@@ -108,7 +106,6 @@ public class LuceneIndexTestUtils {
     protected static final String SPELLCHECK_INDEX_COMPLEX_KEY = "spellcheck_index_complex_key";
     protected static final String COMPLEX_MULTIPLE_GROUPED_KEY = "complex_multiple_grouped_key";
     protected static final String COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY = "complex_multi_grouped_with_auto_complete_key";
-    protected static final String ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY = "analyzer_chooser_test_lucene_index_key";
     protected static final String AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY = "auto_complete_simple_lucene_index_key";
 
     public static final KeyExpression SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
@@ -328,10 +325,6 @@ public class LuceneIndexTestUtils {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of());
 
-    private static final Index ANALYZER_CHOOSER_TEST_LUCENE_INDEX = new Index("analyzer_chooser_test_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(
-                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
-
     private static final Index AUTO_COMPLETE_SIMPLE_LUCENE_INDEX = new Index("Complex$multiple_analyzer_autocomplete",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
@@ -394,21 +387,6 @@ public class LuceneIndexTestUtils {
                     ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
                             LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
                             LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME,
-                            LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
-
-    protected static final Index JOINED_COMPLEX_MULTIPLE_TEXT_ANALYZER_CHOOSER_INDEXES =
-            new Index("JoinedComplex$text_analyzerChooser_multipleIndexes",
-                    concat(
-                            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
-                            field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
-                            field("complex").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
-                            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("score"))),
-                            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("group"))),
-                            field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
-                    ), LuceneIndexTypes.LUCENE,
-                    ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                            LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME,
-                            LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME,
                             LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
 
     protected static final Index JOINED_AUTHORITATIVE_SYNONYM_COMPLEX_MULTIPLE_TEXT_INDEXES =
@@ -849,46 +827,6 @@ public class LuceneIndexTestUtils {
     }
 
     /**
-     * A testing analyzer factory to verify the logic for {@link AnalyzerChooser}.
-     */
-    @AutoService(LuceneAnalyzerFactory.class)
-    public static class TestAnalyzerFactory implements LuceneAnalyzerFactory {
-        protected static final String ANALYZER_FACTORY_NAME = "TEST_ANALYZER";
-
-        @Override
-        @Nonnull
-        public String getName() {
-            return ANALYZER_FACTORY_NAME;
-        }
-
-        @Override
-        @Nonnull
-        public LuceneAnalyzerType getType() {
-            return LuceneAnalyzerType.FULL_TEXT;
-        }
-
-        @Override
-        @Nonnull
-        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
-            return new TestAnalyzerChooser();
-        }
-    }
-
-    private static class TestAnalyzerChooser implements AnalyzerChooser {
-        @Override
-        @Nonnull
-        public LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull List<String> texts) {
-            if (texts.stream().anyMatch(t -> t.contains("synonym"))) {
-                return new LuceneAnalyzerWrapper("TEST_SYNONYM",
-                        new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME));
-            } else {
-                return new LuceneAnalyzerWrapper("TEST_NGRAM",
-                        new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, 3, 30, false));
-            }
-        }
-    }
-
-    /**
      * Whether to test with synthetic record types or standard record types.
      */
     public enum IndexedType {
@@ -914,7 +852,6 @@ public class LuceneIndexTestUtils {
                 Map.entry(SPELLCHECK_INDEX_COMPLEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
                 Map.entry(COMPLEX_MULTIPLE_GROUPED_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
                 Map.entry(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
-                Map.entry(ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_ANALYZER_CHOOSER_INDEXES),
                 Map.entry(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES)),
                 true,
                 List.of(1373414429, -542327065, 1373414429, -1751615347, -1644529491, -1644529491, 2019229269)),
@@ -940,7 +877,6 @@ public class LuceneIndexTestUtils {
                 Map.entry(SPELLCHECK_INDEX_COMPLEX_KEY, SPELLCHECK_INDEX_COMPLEX),
                 Map.entry(COMPLEX_MULTIPLE_GROUPED_KEY, COMPLEX_MULTIPLE_GROUPED),
                 Map.entry(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY, COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE),
-                Map.entry(ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY, ANALYZER_CHOOSER_TEST_LUCENE_INDEX),
                 Map.entry(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY, AUTO_COMPLETE_SIMPLE_LUCENE_INDEX)),
                 false,
                 List.of(1498044543, -417696951, -687982540, -1626985233, -1008465729, 1532371150, -42167700));

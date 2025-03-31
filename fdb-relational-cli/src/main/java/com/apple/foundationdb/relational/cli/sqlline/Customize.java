@@ -21,9 +21,6 @@
 package com.apple.foundationdb.relational.cli.sqlline;
 
 import com.apple.foundationdb.annotation.API;
-
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import sqlline.BuiltInProperty;
 import sqlline.CommandHandler;
 import sqlline.OutputFormat;
@@ -45,6 +42,7 @@ import java.util.Map;
  * on how this works. The main thing we add is output of Relational STRUCT and ARRAY missing from basic sqlline.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("unused") // retrieved by sqlline via reflection
 public class Customize extends sqlline.Application {
     // Overriding {@link #getDefaultInteractiveMode()}, and {@link #getConnectInteractiveModes()} doesn't work -- bug
     // because sqlline does this <code>new HashSet<>(new Application().getConnectInteractiveModes()))</code> -- so we have
@@ -57,7 +55,6 @@ public class Customize extends sqlline.Application {
      * @return Our options instance.
      */
     @Override
-    @ExcludeFromJacocoGeneratedReport // Hard to make a test that makes sense given this an sqlline internal.
     public SqlLineOpts getOpts(SqlLine sqlLine) {
         // Set do-not-ask-for-login credentials -- login not supported on Relational, not yet.
         sqlLine.getOpts().set(BuiltInProperty.CONNECT_INTERACTION_MODE, "notAskCredentials");
@@ -65,14 +62,12 @@ public class Customize extends sqlline.Application {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport // Hard to make a test that makes sense given this an sqlline internal.
     public String getInfoMessage() {
         // Prepend 'Relational' to hint Relational context.
         return "Relational " + getVersion();
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport // Hard to make a test that makes sense given this an sqlline internal.
     public Map<String, OutputFormat> getOutputFormats(SqlLine sqlLine) {
         //        final Map<String, OutputFormat> outputFormats = new HashMap<>();
         //        outputFormats.put("vertical", new VerticalOutputFormat(sqlLine));
@@ -97,7 +92,6 @@ public class Customize extends sqlline.Application {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport // Hard to make a test that makes sense given this an sqlline internal.
     public Collection<CommandHandler> getCommandHandlers(SqlLine sqlLine) {
         // Make a copy of super handlers list to get around the super making the list unmodifiable.
         List<CommandHandler> handlers = new ArrayList<>(super.getCommandHandlers(sqlLine));

@@ -188,7 +188,6 @@ class JDBCRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         if (!autoCommit) {
             throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
@@ -290,7 +289,6 @@ class JDBCRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public URI getPath() {
         return null;
     }
