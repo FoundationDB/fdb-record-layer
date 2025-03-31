@@ -21,8 +21,6 @@
 package sqlline;
 
 import com.apple.foundationdb.annotation.API;
-
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import org.jline.reader.Completer;
 
 import java.sql.SQLException;
@@ -36,7 +34,6 @@ import java.util.Collections;
 @SuppressWarnings("PMD.GuardLogStatement")
 @API(API.Status.EXPERIMENTAL)
 public class SetSchema extends AbstractCommandHandler {
-    @ExcludeFromJacocoGeneratedReport // Hard to make a test that makes sense given this an sqlline internal.
     public SetSchema(SqlLine sqlLine) {
         super(sqlLine, new String[]{"setschema", "ss"}, "Set Relational Schema: e.g. !ss <SCHEMA_NAME>.",
                 Collections.<Completer>emptyList());

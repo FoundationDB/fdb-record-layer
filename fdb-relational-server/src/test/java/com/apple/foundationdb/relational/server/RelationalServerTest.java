@@ -110,7 +110,9 @@ public class RelationalServerTest {
         } catch (Throwable t) {
             com.google.rpc.Status status = StatusProto.fromThrowable(t);
             if (status != null) {
-                logger.fatal(t + ", " + TextFormat.shortDebugString(status));
+                // V3: printer().shortDebugString(status)
+                // V4: printer().emittingSingleLine(true).printToString(status)
+                logger.fatal(t + ", " + TextFormat.printer().printToString(status).replace("\n", " "));
             }
             throw t;
         } finally {

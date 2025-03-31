@@ -60,6 +60,7 @@ import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
@@ -107,6 +108,11 @@ class BooleanValueTest {
     private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
     private static final LiteralValue<String> ENUM_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "HEARTS");
     private static final LiteralValue<String> ENUM_STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "DIAMONDS");
+    private static final LiteralValue<String> UUID_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "0920df1c-be81-4ec1-8a06-2180226f051d");
+    private static final LiteralValue<String> UUID_STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "a8708750-d70f-4800-8c3b-13700d5b369f");
+    private static final LiteralValue<UUID> UUID_1 = new LiteralValue<>(Type.uuidType(false), UUID.fromString(UUID_STRING_1.getLiteralValue()));
+    private static final LiteralValue<UUID> UUID_2 = new LiteralValue<>(Type.uuidType(false), UUID.fromString(UUID_STRING_2.getLiteralValue()));
+    private static final LiteralValue<UUID> UUID_NULL = new LiteralValue<>(Type.uuidType(true), null);
 
     private static final LiteralValue<byte[]> BYTES_1 = new LiteralValue<>("foo".getBytes(StandardCharsets.UTF_8));
     private static final LiteralValue<byte[]> BYTES_2 = new LiteralValue<>("bar".getBytes(StandardCharsets.UTF_8));
@@ -412,6 +418,31 @@ class BooleanValueTest {
 
                     Arguments.of(List.of(F_ENUM_1, F_ENUM_2), new RelOpValue.EqualsFn(), new ValuePredicate(F_ENUM_1, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, F_ENUM_2))),
 
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+
                     /* translation of predicates involving a field value, make sure field value is always LHS */
                     Arguments.of(List.of(F, INT_1), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
                     Arguments.of(List.of(INT_1, F), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
@@ -449,6 +480,10 @@ class BooleanValueTest {
 
                     Arguments.of(List.of(BOOL_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
+
+                    Arguments.of(List.of(UUID_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
+
 
                     Arguments.of(List.of(F), new RelOpValue.IsNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
                     Arguments.of(List.of(F), new RelOpValue.NotNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),

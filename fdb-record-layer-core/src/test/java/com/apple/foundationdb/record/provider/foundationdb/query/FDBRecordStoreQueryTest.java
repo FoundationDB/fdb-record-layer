@@ -29,11 +29,13 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsTupleFieldsProto;
+import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
@@ -247,6 +249,57 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(2, count);
                 assertDiscardedNone(context);
             }
+        }
+    }
+
+    /**
+     * Verify that UUID queries work with indexes as expected.
+     */
+    @Test
+    void queryUuid() {
+        // mostSigBits = 8144532116101480826, leastSigBits = -494096804849344581
+        UUID uuid1 = UUID.fromString("710730ce-d9fd-417a-bb6e-27bcfefe3d4d");
+        // mostSigBits = 268283151730297838, leastSigBits = -8338638043467558285
+        UUID uuid2 = UUID.fromString("03b9221a-e61b-4bee-8c47-34e1248ed273");
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsUuidProto.getDescriptor()));
+            recordStore.saveRecord(TestRecordsUuidProto.UuidRecord.newBuilder()
+                    .setPkey(TupleFieldsHelper.toProto(UUID.randomUUID())).setSecondary(TupleFieldsHelper.toProto(uuid1))
+                    .setUnique(TupleFieldsHelper.toProto(UUID.randomUUID())).setName("foo").build());
+            recordStore.saveRecord(TestRecordsUuidProto.UuidRecord.newBuilder()
+                    .setPkey(TupleFieldsHelper.toProto(UUID.randomUUID())).setSecondary(TupleFieldsHelper.toProto(uuid2))
+                    .setUnique(TupleFieldsHelper.toProto(UUID.randomUUID())).setName("foo").build());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsUuidProto.getDescriptor()));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("UuidRecord")
+                    .setFilter(Query.field("secondary").equalsValue(uuid1))
+                    .build();
+
+            // Index(UuidRecord$secondary [[710730ce-d9fd-417a-bb6e-27bcfefe3d4d],[710730ce-d9fd-417a-bb6e-27bcfefe3d4d]])
+            RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan,
+                    indexPlan().where(indexName("UuidRecord$secondary"))
+                            .and(scanComparisons(range("[[710730ce-d9fd-417a-bb6e-27bcfefe3d4d],[710730ce-d9fd-417a-bb6e-27bcfefe3d4d]]"))));
+
+            assertEquals(2089349512, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1782392930, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                int count = 0;
+                while (cursor.hasNext()) {
+                    TestRecordsUuidProto.UuidRecord.Builder record = TestRecordsUuidProto.UuidRecord.newBuilder();
+                    record.mergeFrom(cursor.next().getRecord());
+                    assertEquals(uuid1, TupleFieldsHelper.fromProto(record.getSecondary()));
+                    assertEquals("foo", record.getName());
+                    count++;
+                }
+                assertEquals(1, count);
+                assertDiscardedNone(context);
+            }
+            commit(context);
         }
     }
 

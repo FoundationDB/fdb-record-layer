@@ -1,9 +1,9 @@
 /*
- * AnalyzerChooser.java
+ * test_records_uuid.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+syntax = "proto2";
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.testuuid;
 
-import org.apache.lucene.analysis.Analyzer;
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecordsUuidProto";
 
-import javax.annotation.Nonnull;
+import "record_metadata_options.proto";
+import "tuple_fields.proto";
 
-/**
- * Choose an {@link Analyzer}.
- */
-public interface AnalyzerChooser {
-    @Nonnull
-    LuceneAnalyzerWrapper chooseAnalyzer();
+message UuidRecord {
+  required UUID pkey = 1 [(field).primary_key = true];
+  optional UUID secondary = 2 [(field).index = {}];
+  optional UUID unique = 3 [(field).index = { unique: true }];
+  optional string name = 4;
+}
+
+message RecordTypeUnion {
+  optional UuidRecord _UuidRecord = 1;
 }

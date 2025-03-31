@@ -21,18 +21,17 @@
 package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 
 import javax.annotation.Nonnull;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
  * A set of helper methods for validating input, pre-conditions, ... etc.
  */
-@ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
 @API(API.Status.EXPERIMENTAL)
 public final class Assert {
 
@@ -58,13 +57,13 @@ public final class Assert {
 
     public static void that(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageFormat, @Nonnull Object messageValue) throws RelationalException {
         if (!mustBeTrue) {
-            throw new RelationalException(String.format(messageFormat, messageValue), errorCodeIfNotTrue);
+            throw new RelationalException(String.format(Locale.ROOT, messageFormat, messageValue), errorCodeIfNotTrue);
         }
     }
 
     public static void that(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageFormat, @Nonnull Object messageValue1, @Nonnull Object messageValue2) throws RelationalException {
         if (!mustBeTrue) {
-            throw new RelationalException(String.format(messageFormat, messageValue1, messageValue2), errorCodeIfNotTrue);
+            throw new RelationalException(String.format(Locale.ROOT, messageFormat, messageValue1, messageValue2), errorCodeIfNotTrue);
         }
     }
 
@@ -132,13 +131,13 @@ public final class Assert {
 
     public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageTemplate, @Nonnull final Object messageValue) {
         if (!mustBeTrue) {
-            throw new RelationalException(String.format(messageTemplate, messageValue), errorCodeIfNotTrue).toUncheckedWrappedException();
+            throw new RelationalException(String.format(Locale.ROOT, messageTemplate, messageValue), errorCodeIfNotTrue).toUncheckedWrappedException();
         }
     }
 
     public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageTemplate, @Nonnull final Object messageValue1, @Nonnull final Object messageValue2) {
         if (!mustBeTrue) {
-            throw new RelationalException(String.format(messageTemplate, messageValue1, messageValue2), errorCodeIfNotTrue).toUncheckedWrappedException();
+            throw new RelationalException(String.format(Locale.ROOT, messageTemplate, messageValue1, messageValue2), errorCodeIfNotTrue).toUncheckedWrappedException();
         }
     }
 
@@ -168,7 +167,7 @@ public final class Assert {
 
     public static <T> T notNullUnchecked(T object, @Nonnull final ErrorCode errorCodeIfNull, @Nonnull final String messageTemplate, @Nonnull final Object messageValue) {
         if (object == null) {
-            throw new RelationalException(String.format(messageTemplate, messageValue), errorCodeIfNull).toUncheckedWrappedException();
+            throw new RelationalException(String.format(Locale.ROOT, messageTemplate, messageValue), errorCodeIfNull).toUncheckedWrappedException();
         } else {
             return object;
         }

@@ -57,6 +57,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
@@ -87,7 +88,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
         NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in),
         NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
-        STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in)));
+        STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
+        STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> stringToUuidValue((String) in)));
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
@@ -146,6 +148,16 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             return maybeValue;
         }
 
+        public static UUID stringToUuidValue(String value) {
+            try {
+                return UUID.fromString(value);
+            } catch (IllegalArgumentException ex) {
+                SemanticException.fail(SemanticException.ErrorCode.INVALID_UUID_VALUE, value);
+            }
+            // won't happen
+            return null;
+        }
+
         @Nonnull
         private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
@@ -197,7 +209,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         this.inValue = inValue;
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
-        this.isSimplePromotion = promoteToType.isPrimitive() ||
+        this.isSimplePromotion = promoteToType.isPrimitive() || promoteToType.isUuid() ||
                 (promoteToType instanceof Type.Array &&
                          Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
     }
@@ -346,6 +358,10 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
 
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
 
+        if (currentType.isUuid()) {
+            return null;
+        }
+
         if (currentType.isEnum()) {
             SemanticException.check(currentType.withNullability(false).equals(targetType.withNullability(false)),
                     SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
@@ -436,8 +452,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             }
             return false;
         }
-        SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive() ||
-                inType.isPrimitive() && promoteToType.isEnum(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+        SemanticException.check((inType.isPrimitive() || inType.isEnum() || inType.isUuid()) &&
+                (promoteToType.isPrimitive() || promoteToType.isEnum() || promoteToType.isUuid()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();
     }
 

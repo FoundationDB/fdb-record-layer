@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
+import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -43,10 +44,11 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainer;
-import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -71,6 +73,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -112,6 +115,22 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                     .setName("foo").build());
             recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
                     .setPkey(byteString(0, 1, 5)).setSecondary(byteString(0, 1, 3)).setUnique(byteString(0, 2))
+                    .setName("box").build());
+            assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
+        }
+    }
+
+    @Test
+    public void writeUniqueUuid() {
+        final UUID nonUniqueUuid = UUID.fromString("710730ce-d9fd-417a-bb6e-27bcfefe3d4d");
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsUuidProto.getDescriptor()));
+            recordStore.saveRecord(TestRecordsUuidProto.UuidRecord.newBuilder()
+                    .setPkey(TupleFieldsHelper.toProto(UUID.randomUUID())).setSecondary(TupleFieldsHelper.toProto(UUID.randomUUID())).setUnique(TupleFieldsHelper.toProto(nonUniqueUuid))
+                    .setName("foo").build());
+            recordStore.saveRecord(TestRecordsUuidProto.UuidRecord.newBuilder()
+                    .setPkey(TupleFieldsHelper.toProto(UUID.randomUUID())).setSecondary(TupleFieldsHelper.toProto(UUID.randomUUID())).setUnique(TupleFieldsHelper.toProto(nonUniqueUuid))
                     .setName("box").build());
             assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
         }

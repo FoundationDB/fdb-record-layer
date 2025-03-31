@@ -21,19 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.util.UUID;
 
-@ExcludeFromJacocoGeneratedReport //there's nothing to test, just exception translation
 @API(API.Status.EXPERIMENTAL)
 public class ErrorCapturingResultSet implements RelationalResultSet {
     private final RelationalResultSet delegate;
@@ -231,6 +229,24 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     public RelationalArray getArray(String columnLabel) throws SQLException {
         try {
             return delegate.getArray(columnLabel);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
+    public UUID getUUID(final int oneBasedPosition) throws SQLException {
+        try {
+            return delegate.getUUID(oneBasedPosition);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.toRelationalException(re).toSqlException();
+        }
+    }
+
+    @Override
+    public UUID getUUID(final String fieldName) throws SQLException {
+        try {
+            return delegate.getUUID(fieldName);
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re).toSqlException();
         }

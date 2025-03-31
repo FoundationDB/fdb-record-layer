@@ -123,7 +123,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default SQLWarning getWarnings() throws SQLException {
         // Return null warnings for now until implemented.
         // Throwing an exception stops all processing.

@@ -170,7 +170,7 @@ public class LuceneHighlighting {
                                     final String fieldName,
                                     final String value,
                                     final String termName) {
-        final LuceneAnalyzerWrapper queryAnalyzer = analyzerSelector.provideIndexAnalyzer(value);
+        final LuceneAnalyzerWrapper queryAnalyzer = analyzerSelector.provideIndexAnalyzer();
         UnifiedHighlighter highlighter = makeHighlighter(fieldName, queryAnalyzer.getAnalyzer(), luceneQueryHighlightParameters.getSnippedSize());
         try {
             return highlighter.highlightWithoutSearcher(termName, luceneQueryHighlightParameters.getQuery(), value, luceneQueryHighlightParameters.getMaxMatchCount());

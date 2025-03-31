@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,9 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import javax.annotation.Nonnull;
 import java.net.URI;
 
-@ExcludeFromJacocoGeneratedReport //nothing to test
 public abstract class AbstractQueryFactory implements DdlQueryFactory {
     @Override
     public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {

@@ -251,10 +251,9 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    @SuppressWarnings("deprecation") // checks the deprecated syntax field
     private void validateProtoSyntax(@Nonnull Descriptors.Descriptor oldDescriptor, @Nonnull Descriptors.Descriptor newDescriptor) {
-        if (!oldDescriptor.getFile().getSyntax().equals(newDescriptor.getFile().getSyntax())
-                || !oldDescriptor.getFile().getEdition().equals(newDescriptor.getFile().getEdition())) {
+        if (!oldDescriptor.getFile().toProto().getSyntax().equals(newDescriptor.getFile().toProto().getSyntax())
+                || !oldDescriptor.getFile().toProto().getEdition().equals(newDescriptor.getFile().toProto().getEdition())) {
             throw new MetaDataException("message descriptor proto syntax changed",
                     LogMessageKeys.RECORD_TYPE, oldDescriptor.getName());
         }

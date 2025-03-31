@@ -37,7 +37,6 @@ plugins {
     alias(libs.plugins.versions)
     alias(libs.plugins.spotbugs)
     alias(libs.plugins.nexus)
-    alias(libs.plugins.artifactory)
     alias(libs.plugins.download)
 }
 

@@ -21,22 +21,19 @@
 package com.apple.foundationdb.relational.transactionbound.catalog;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 
-@ExcludeFromJacocoGeneratedReport
 @API(API.Status.EXPERIMENTAL)
 public class HollowStoreCatalog implements StoreCatalog {
 

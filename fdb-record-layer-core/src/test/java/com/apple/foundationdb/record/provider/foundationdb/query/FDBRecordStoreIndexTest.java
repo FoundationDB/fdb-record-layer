@@ -24,15 +24,18 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -40,6 +43,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
@@ -47,12 +51,15 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtLeast;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -201,6 +208,49 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                         openWithNewIndex,
                         TestHelpers::assertDiscardedNone));
 
+    }
+
+    @Test
+    public void scanIndexWithUuidValue() {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.newBuilder().setRecords(TestRecordsUuidProto.getDescriptor()).getRecordMetaData());
+            commit(context);
+        }
+
+        List<UUID> uuids = ImmutableList.of(
+                // mostSigBits = 8144532116101480826, leastSigBits = -494096804849344581
+                UUID.fromString("710730ce-d9fd-417a-bb6e-27bcfefe3d4d"),
+                // mostSigBits = 268283151730297838, leastSigBits = -8338638043467558285
+                UUID.fromString("03b9221a-e61b-4bee-8c47-34e1248ed273")
+        );
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenRecordStore(context, RecordMetaData.newBuilder().setRecords(TestRecordsUuidProto.getDescriptor()).getRecordMetaData());
+            for (int i = 0; i < 2; i++) {
+                recordStore.saveRecord(TestRecordsUuidProto.UuidRecord.newBuilder()
+                        .setPkey(TupleFieldsHelper.toProto(UUID.randomUUID())).setSecondary(TupleFieldsHelper.toProto(uuids.get(i)))
+                        .setUnique(TupleFieldsHelper.toProto(UUID.randomUUID())).setName("rec-" + i).build());
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenRecordStore(context, RecordMetaData.newBuilder().setRecords(TestRecordsUuidProto.getDescriptor()).getRecordMetaData());
+            try (RecordCursorIterator<IndexEntry> cursor = recordStore.scanIndex(
+                    recordStore.getRecordMetaData().getIndex("UuidRecord$secondary"),
+                    IndexScanType.BY_VALUE,
+                    TupleRange.ALL,
+                    null,
+                    ScanProperties.FORWARD_SCAN).asIterator()) {
+                for (int i = 1; i >= 0; i--) {
+                    assertTrue(cursor.hasNext());
+                    IndexEntry tuples = cursor.next();
+                    assertEquals(2, tuples.getKey().size());
+                    assertEquals(uuids.get(i), tuples.getKey().getUUID(0));
+                }
+                assertFalse(cursor.hasNext());
+            }
+        }
     }
 
     /**

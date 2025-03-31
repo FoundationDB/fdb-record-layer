@@ -21,17 +21,16 @@
 package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
@@ -109,7 +108,6 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
         var versions = backingStore.get(newTemplate.getName());
         if (versions == null) {

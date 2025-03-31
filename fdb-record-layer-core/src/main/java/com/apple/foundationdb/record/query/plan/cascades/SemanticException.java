@@ -50,6 +50,7 @@ public class SemanticException extends RecordCoreException {
         ORDERING_IS_OF_INCOMPATIBLE_TYPE(10, "The specified ordering expecting an argument of a primitive or record type, is invoked with an argument of an array type or other complex type."),
         ARGUMENT_TO_COLLATE_IS_OF_COMPLEX_TYPE(11, "The argument to a collate expression expecting an argument of a primitive type, is invoked with an argument of a complex type, e.g. an array or a record."),
         INVALID_ENUM_VALUE(12, "Invalid enum value for the enum type"),
+        INVALID_UUID_VALUE(13, "Invalid UUID value for the UUID type"),
 
         // insert, update, deletes
         UPDATE_TRANSFORM_AMBIGUOUS(1_000, "The transformations used in an UPDATE statement are ambiguous."),
@@ -109,7 +110,11 @@ public class SemanticException extends RecordCoreException {
 
     public static void check(final boolean condition, @Nonnull final ErrorCode message, @Nonnull final String additionalErrorMessage) {
         if (!condition) {
-            throw new SemanticException(message, additionalErrorMessage);
+            fail(message, additionalErrorMessage);
         }
+    }
+
+    public static void fail(@Nonnull final ErrorCode message, @Nonnull final String additionalErrorMessage) {
+        throw new SemanticException(message, additionalErrorMessage);
     }
 }

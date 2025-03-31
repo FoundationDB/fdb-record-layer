@@ -360,7 +360,11 @@ public class MessageHelpers {
             } else {
                 if (currentMessage != null) {
                     final var currentFieldType = Verify.verifyNotNull(currentRecordType.getField(messageFieldDescriptor.getIndex())).getFieldType();
-                    final var fieldResult = NullableArrayTypeUtils.unwrapIfArray(getFieldOnMessage(currentMessage, messageFieldDescriptor), currentFieldType);
+                    // If the field type is a message, then it could be one of the special types, like UUID. We do not
+                    // want to get the value of that field as a 'runtime' type, hence we get the raw message itself.
+                    var fieldResult = messageFieldDescriptor.isRepeated() || !messageFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE) ?
+                                      getFieldOnMessage(currentMessage, messageFieldDescriptor) : getFieldMessageOnMessage(currentMessage, messageFieldDescriptor);
+                    fieldResult = NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType);
                     final var coercedObject =
                             coerceObject(promotionTrieForField, targetFieldType, targetDescriptorForField, currentFieldType, fieldResult);
                     if (coercedObject != null) {
@@ -409,6 +413,12 @@ public class MessageHelpers {
         //
         if (targetType.isPrimitive()) {
             Verify.verify(currentType.isPrimitive());
+            final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
+            return Verify.verifyNotNull(coercionFunction.apply(null, current));
+        }
+
+        // Uuid
+        if (targetType.isUuid()) {
             final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
             return Verify.verifyNotNull(coercionFunction.apply(null, current));
         }

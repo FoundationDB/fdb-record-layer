@@ -148,7 +148,7 @@ public class MetaDataEvolutionValidatorTestV3 {
     @SuppressWarnings("deprecation") // test focuses on checking the (deprecated) syntax field
     @Test
     public void onlyFileProto2ToProto3() throws InvalidProtocolBufferException {
-        assertNotEquals(TestRecords1Proto.getDescriptor().getSyntax(), TestRecords1ImportedProto.getDescriptor().getSyntax());
+        assertNotEquals(TestRecords1Proto.getDescriptor().toProto().getSyntax(), TestRecords1ImportedProto.getDescriptor().toProto().getSyntax());
         MetaDataEvolutionValidator.getDefaultInstance().validateUnion(
                 TestRecords1Proto.RecordTypeUnion.getDescriptor(),
                 TestRecords1ImportedProto.RecordTypeUnion.getDescriptor()

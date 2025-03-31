@@ -21,17 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 
-@ExcludeFromJacocoGeneratedReport
 @API(API.Status.EXPERIMENTAL)
 public class HollowTransactionManager implements TransactionManager {
     public static final HollowTransactionManager INSTANCE = new HollowTransactionManager();
