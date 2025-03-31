@@ -81,7 +81,19 @@ dependencies {
 ext.resolveOtherServer = { Set<String> rejectedVersions ->
     def configurationName = "resolveArtifact-${UUID.randomUUID()}"
     return rootProject.with {
-        configurations.create(configurationName, { })
+        configurations.create(configurationName, {
+        resolutionStrategy {
+                // Cache the latest version for 10 minutes to make sure we actually get the latest.
+                // This should be long enough that we can do this resolution, but means that if we had a release
+                // in the last 10 minutes.
+                // Note: In the actions we have a build cache, which means that these versions will be cached across
+                // builds.
+                // The default value for this is 24 hours, which is probably, generally, fine, but in the case where
+                // we do have two releases within 24 hours (as we did for 4.2.3.0) we don't want to miss the last
+                // version.
+                cacheDynamicVersionsFor 10, 'minutes'
+            }
+        })
         // If you're wondering why this doesn't just use `latest.release`:
         // `latest.release` becomes `LatestVersionSelector` which `requiresMetadata` in order to determine if the
         // version in question is a release. This means that it can't just look at the version listing, it has to
