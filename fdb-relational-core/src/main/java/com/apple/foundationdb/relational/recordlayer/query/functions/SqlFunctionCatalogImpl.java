@@ -51,7 +51,7 @@ import static java.util.stream.Collectors.toList;
 public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
-    private static final SqlFunctionCatalogImpl INSTANCE = new SqlFunctionCatalogImpl();
+    public static final SqlFunctionCatalogImpl INSTANCE = new SqlFunctionCatalogImpl();
 
     @Nonnull
     private final ImmutableMap<String, Function<Integer, BuiltInFunction<? extends Typed>>> synonyms;
