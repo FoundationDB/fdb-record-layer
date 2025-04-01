@@ -335,9 +335,10 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             builder.append("} ");
         } catch (SQLException e) {
             throw new UncheckedRelationalException(new RelationalException(e));
+        } finally {
+            // restore wasNull
+            wasNull = preservedWasNullValue;
         }
-        // restore wasNull
-        wasNull = preservedWasNullValue;
         return builder.toString();
     }
 }

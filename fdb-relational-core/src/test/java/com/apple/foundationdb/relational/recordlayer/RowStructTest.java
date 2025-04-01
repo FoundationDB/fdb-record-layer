@@ -39,7 +39,7 @@ public class RowStructTest {
     @ValueSource(booleans = {true, false})
     void wasNullWorks(boolean mutable) throws SQLException {
         final var struct = createStruct(mutable);
-        struct.getObject(2);
+        struct.getObject(1);
         Assertions.assertTrue(struct.wasNull());
     }
 
@@ -47,7 +47,7 @@ public class RowStructTest {
     @ValueSource(booleans = {true, false})
     void wasNullWorksWithToString(boolean mutable) throws SQLException {
         final var struct = createStruct(mutable);
-        struct.getObject(2);
+        struct.getObject(1);
         Assertions.assertFalse(struct.toString().isEmpty());
         Assertions.assertTrue(struct.wasNull());
     }
@@ -57,7 +57,7 @@ public class RowStructTest {
                 FieldDescription.primitive("fInt", Types.INTEGER, DatabaseMetaData.columnNullable),
                 FieldDescription.primitive("fLong", Types.BIGINT, DatabaseMetaData.columnNullable)
         );
-        final var row = new ArrayRow(1, null);
+        final var row = new ArrayRow(null, 1L);
         if (mutable) {
             final var toReturn = new MutableRowStruct(metadata);
             toReturn.setRow(row);
