@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class SupportedVersionTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
-    private static final EmbeddedConfig config = new EmbeddedConfig();
+    private static final EmbeddedConfig config = new EmbeddedConfig(null);
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -85,7 +85,10 @@ public class SupportedVersionTest {
                 "lower-at-block",
                 "lower-at-query",
                 "late-query-supported-version",
-                "late-file-options"
+                "late-file-options",
+                "illegal-version-at-file",
+                "illegal-version-at-block",
+                "illegal-version-at-query"
         );
     }
 

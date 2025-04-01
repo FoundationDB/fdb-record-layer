@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * A testing implementation of a result set row.
@@ -82,5 +83,9 @@ public class MockResultSetRow {
 
     public RelationalArray getArray(int oneBasedPosition) {
         return (RelationalArray) row.get(oneBasedPosition - 1);
+    }
+
+    public UUID getUUID(int oneBasedPosition) {
+        return (UUID) row.get(oneBasedPosition - 1);
     }
 }

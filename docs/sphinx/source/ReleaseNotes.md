@@ -5,6 +5,88 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.2
+
+### 4.2.3.0
+
+<h4> New Features </h4>
+
+* Add support for UUID as primitive type in SQL - [PR #3198](https://github.com/FoundationDB/fdb-record-layer/pull/3198)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix release note since 4.2.1.0 release did not get published to maven central - [PR #3279](https://github.com/FoundationDB/fdb-record-layer/pull/3279)
+* Remove more @ExcludeFromJacocoGeneratedReport - [PR #3278](https://github.com/FoundationDB/fdb-record-layer/pull/3278)
+
+</details>
+
+
+**[Full Changelog (4.2.2.0...4.2.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.2.0...4.2.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.559.1`, ❌`4.0.559.2`, ❌`4.0.559.3`, ❌`4.0.559.4`, ❌`4.0.559.6`, ❌`4.0.561.0`, ❌`4.0.562.0`, ❌`4.0.564.0`, ❌`4.0.565.0`, ❌`4.0.566.0`, ❌`4.0.567.0`, ❌`4.0.568.0`, ❌`4.0.569.0`, ❌`4.0.570.0`, ❌`4.0.571.0`, ❌`4.0.572.0`, ❌`4.0.573.0`, ❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14134843186)
+
+
+
+### 4.2.2.0
+
+<h4> Breaking Changes </h4>
+
+* Lucene: AnalyzerChooser no longer takes the text when choosing an analyzer - [PR #2994](https://github.com/FoundationDB/fdb-record-layer/pull/2994)
+* Remove deprecated DatabaseTemplate - [PR #3270](https://github.com/FoundationDB/fdb-record-layer/pull/3270)
+* Queries using versions now use a serialization that requires 4.1 - [PR #3245](https://github.com/FoundationDB/fdb-record-layer/pull/3245)
+<h4> New Features </h4>
+
+* Support defining UDFs in `RecordMetaData` - [PR #2995](https://github.com/FoundationDB/fdb-record-layer/pull/2995)
+<h4> Bug Fixes </h4>
+
+* Change some error messages to format with Locale.ROOT - [PR #3255](https://github.com/FoundationDB/fdb-record-layer/pull/3255)
+<h4> Dependency Updates </h4>
+
+* Update protobuf dependency to 4.30.1 and grpc-commonProtos dependency to 2.54.1 - [PR #3258](https://github.com/FoundationDB/fdb-record-layer/pull/3258)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Have create_release_notes.py get the old version from ReleaseNotes.md - [PR #3275](https://github.com/FoundationDB/fdb-record-layer/pull/3275)
+* Add cleanup to list of potential labels for PRs - [PR #3268](https://github.com/FoundationDB/fdb-record-layer/pull/3268)
+* Remove a bunch of references to @ExcludeFromJacocoGeneratedReport - [PR #3269](https://github.com/FoundationDB/fdb-record-layer/pull/3269)
+* Allow having YamlTestExtension include method name in test names - [PR #3253](https://github.com/FoundationDB/fdb-record-layer/pull/3253)
+* Prepare for upgrade to Protobuf 4 by removing deprecated or removed calls - [PR #3260](https://github.com/FoundationDB/fdb-record-layer/pull/3260)
+* Remove Artifactory publishing logic from gradle build - [PR #3256](https://github.com/FoundationDB/fdb-record-layer/pull/3256)
+* Remove unused build files - [PR #3257](https://github.com/FoundationDB/fdb-record-layer/pull/3257)
+* Allow specifying a custom cluster file to FRL and YamlTestExtension  - [PR #3251](https://github.com/FoundationDB/fdb-record-layer/pull/3251)
+* Remove -Xverify:none from build - [PR #3244](https://github.com/FoundationDB/fdb-record-layer/pull/3244)
+* Add missing explicit dependencies for gradle tasks - [PR #3250](https://github.com/FoundationDB/fdb-record-layer/pull/3250)
+* SchemaTemplateSerDeTests: Replace ibm's Pair with our NonnullPair - [PR #3248](https://github.com/FoundationDB/fdb-record-layer/pull/3248)
+
+</details>
+
+**[Full Changelog (4.1.10.0...4.2.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.10.0...4.2.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.559.1`, ❌`4.0.559.2`, ❌`4.0.559.3`, ❌`4.0.559.4`, ❌`4.0.559.6`, ❌`4.0.561.0`, ❌`4.0.562.0`, ❌`4.0.564.0`, ❌`4.0.565.0`, ❌`4.0.566.0`, ❌`4.0.567.0`, ❌`4.0.568.0`, ❌`4.0.569.0`, ❌`4.0.570.0`, ❌`4.0.571.0`, ❌`4.0.572.0`, ❌`4.0.573.0`, ❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14116508725)
+
+
 ## 4.1
 
 ### Features
@@ -14,6 +96,41 @@ Builds and releases have been moved to a new CI system. This includes the resump
 ### Update Compatibility
 
 Users performing online updates are encouraged to update from [4.0.559.4](#405594). The continuations of some queries have changed in ways that may break if continued on other 4.0 builds. See: [Issue #3093](https://github.com/FoundationDB/fdb-record-layer/issues/3093), [PR #3092](https://github.com/FoundationDB/fdb-record-layer/pull/3092) fixing the issue, and [PR #3108](https://github.com/FoundationDB/fdb-record-layer/issues/3108) preparing 4.0.559.4 to accept newer continuations.
+
+### 4.1.10.0
+
+<h4> Bug Fixes </h4>
+
+* Do not drop AllTime leaderboard if deleteBefore is Long.Max_VALUE - [PR #3241](https://github.com/FoundationDB/fdb-record-layer/pull/3241)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation Improvements (click to expand) </h4>
+
+</summary>
+
+* Add illegal version tests to SupportedVersionTest - [PR #3239](https://github.com/FoundationDB/fdb-record-layer/pull/3239)
+* Add --warning-mode all to all our builds - [PR #3243](https://github.com/FoundationDB/fdb-record-layer/pull/3243)
+* Run Mixed Mode Tests during the release parallel to the other tests - [PR #3233](https://github.com/FoundationDB/fdb-record-layer/pull/3233)
+* Change documentation link in readme to point to github pages - [PR #3236](https://github.com/FoundationDB/fdb-record-layer/pull/3236)
+* Fix gradle warnings in prb - [PR #3225](https://github.com/FoundationDB/fdb-record-layer/pull/3225)
+* Fix path to FDB logo in README.md - [PR #3235](https://github.com/FoundationDB/fdb-record-layer/pull/3235)
+
+</details>
+
+
+**[Full Changelog (4.1.9.0...4.1.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.9.0...4.1.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.559.1`, ❌`4.0.559.2`, ❌`4.0.559.3`, ✅`4.0.559.4`, ✅`4.0.559.6`, ❌`4.0.561.0`, ❌`4.0.562.0`, ❌`4.0.564.0`, ❌`4.0.565.0`, ❌`4.0.566.0`, ❌`4.0.567.0`, ❌`4.0.568.0`, ❌`4.0.569.0`, ❌`4.0.570.0`, ❌`4.0.571.0`, ❌`4.0.572.0`, ❌`4.0.573.0`, ❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/13861613630)
+
+
 
 ### 4.1.9.0
 

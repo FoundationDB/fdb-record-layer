@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-apply plugin: 'com.jfrog.artifactory'
 apply plugin: 'signing'
 
 // Add various details to the pom file to allow for publishing
@@ -74,17 +73,6 @@ if (ext.publishLibrary) {
             }
         }
     }
-    artifactoryPublish {
-        // As a safeguard, only actually publish to artifactory if -PpublishBuild=true is passed to gradle
-        // Note: skip is documented, but onlyIf seems to also be required to make this work for some reason
-        // See: https://gist.github.com/DALDEI/40925568cef57e16e8a7
-        def publishBuild = Boolean.parseBoolean(publishBuild)
-        skip = !publishBuild
-        onlyIf {
-            publishBuild
-        }
-        publications(publishing.publications.library)
-    }
     createDistribution.configure {
         afterEvaluate {
             dependsOn generatePomFileForLibraryPublication
@@ -124,28 +112,6 @@ publishing {
                         password = System.getenv("GITHUB_TOKEN")
                     }
                 }
-            }
-        }
-    }
-}
-
-if (System.getenv('ARTIFACTORY_USER') != null && System.getenv('ARTIFACTORY_KEY') != null) {
-    artifactory {
-        clientConfig.setIncludeEnvVars(true)
-        publish {
-            def artifactoryUrl = System.getenv('ARTIFACTORY_URL') ?: 'https://ossartifacts.jfrog.io/artifactory/'
-            contextUrl = artifactoryUrl
-            repository {
-                repoKey = System.getenv('ARTIFACTORY_REPO') ?: 'fdb-record-layer'
-                username = System.getenv('ARTIFACTORY_USER')
-                password = System.getenv('ARTIFACTORY_KEY')
-            }
-            defaults {
-                publications('mavenJava')
-                publishPom = publishBuild
-                publishArtifacts = publishBuild
-                publishBuildInfo = publishBuild
-                publishIvy = false
             }
         }
     }

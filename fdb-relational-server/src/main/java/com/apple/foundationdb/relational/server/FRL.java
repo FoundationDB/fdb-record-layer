@@ -50,7 +50,6 @@ import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvide
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,6 +62,7 @@ import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -81,14 +81,16 @@ public class FRL implements AutoCloseable {
     private final RelationalDriver driver;
     private boolean registeredJDBCEmbedDriver;
 
-    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
     public FRL() throws RelationalException {
-        this(Options.NONE);
+        this(Options.NONE, null);
     }
 
-    @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
     public FRL(@Nonnull Options options) throws RelationalException {
-        final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
+        this(options, null);
+    }
+
+    public FRL(@Nonnull Options options, @Nullable String clusterFile) throws RelationalException {
+        final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final Long asyncToSyncTimeout = options.getOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS);
         if (asyncToSyncTimeout > 0) {
             fdbDb.setAsyncToSyncTimeout(asyncToSyncTimeout, TimeUnit.MILLISECONDS);
@@ -258,6 +260,14 @@ public class FRL implements AutoCloseable {
                 break;
             case Types.NULL:
                 relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
+                break;
+            case Types.OTHER:
+                if (parameter.getParameter().hasUuid()) {
+                    final var uuidParameter = parameter.getParameter().getUuid();
+                    relationalPreparedStatement.setUUID(index, new UUID(uuidParameter.getMostSignificantBits(), uuidParameter.getLeastSignificantBits()));
+                } else {
+                    throw new SQLException("Unsupported type OTHER");
+                }
                 break;
             case Types.ARRAY:
                 final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();

@@ -24,8 +24,6 @@ import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -37,47 +35,39 @@ import java.util.stream.Collectors;
  * The default analyzer chooser is used for all fields of one Lucene index except the fields which has overrides in the analyzer chooser per field mapping.
  */
 public class LuceneAnalyzerCombinationProvider {
-    public static final String DELINEATOR_BETWEEN_KEY_AND_VALUE = ":";
 
-    public static final String DELINEATOR_BETWEEN_KEY_VALUE_PAIRS = ",";
-    private AnalyzerChooser defaultIndexAnalyzerChooser;
-    private AnalyzerChooser defaultQueryAnalyzerChooser;
-    private Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride;
-    private Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride;
+    @Nonnull
+    private final LuceneAnalyzerWrapper indexAnalyzerWrapper;
+    @Nonnull
+    private final LuceneAnalyzerWrapper queryAnalyzerWrapper;
 
-    public LuceneAnalyzerCombinationProvider(@Nonnull AnalyzerChooser defaultIndexAnalyzerChooser, @Nonnull AnalyzerChooser defaultQueryAnalyzerChooser,
-                                             @Nullable Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride, @Nullable Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride) {
-        this.defaultIndexAnalyzerChooser = defaultIndexAnalyzerChooser;
-        this.defaultQueryAnalyzerChooser = defaultQueryAnalyzerChooser;
-        this.indexAnalyzerChooserPerFieldOverride = indexAnalyzerChooserPerFieldOverride;
-        this.queryAnalyzerChooserPerFieldOverride = queryAnalyzerChooserPerFieldOverride;
+    public LuceneAnalyzerCombinationProvider(@Nonnull AnalyzerChooser defaultIndexAnalyzerChooser,
+                                             @Nonnull AnalyzerChooser defaultQueryAnalyzerChooser,
+                                             @Nullable Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride,
+                                             @Nullable Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride) {
+        indexAnalyzerWrapper = buildAnalyzerWrapper(defaultIndexAnalyzerChooser, indexAnalyzerChooserPerFieldOverride);
+        queryAnalyzerWrapper = buildAnalyzerWrapper(defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
     }
 
-    public LuceneAnalyzerWrapper provideIndexAnalyzer(@Nonnull String text) {
-        return provideIndexAnalyzer(Collections.singletonList(text));
+    @Nonnull
+    public LuceneAnalyzerWrapper provideIndexAnalyzer() {
+        return indexAnalyzerWrapper;
     }
 
-    public LuceneAnalyzerWrapper provideIndexAnalyzer(@Nonnull List<String> texts) {
-        return buildAnalyzerWrapper(texts, defaultIndexAnalyzerChooser, indexAnalyzerChooserPerFieldOverride);
+    @Nonnull
+    public LuceneAnalyzerWrapper provideQueryAnalyzer() {
+        return queryAnalyzerWrapper;
     }
 
-    public LuceneAnalyzerWrapper provideQueryAnalyzer(@Nonnull String text) {
-        return provideQueryAnalyzer(Collections.singletonList(text));
-    }
-
-    public LuceneAnalyzerWrapper provideQueryAnalyzer(@Nonnull List<String> texts) {
-        return buildAnalyzerWrapper(texts, defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
-    }
-
+    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull List<String> texts,
-                                                              @Nonnull AnalyzerChooser defaultAnalyzerChooser,
+    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull AnalyzerChooser defaultAnalyzerChooser,
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
-        final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer(texts);
+        final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer();
         if (customizedAnalyzerChooserPerField != null) {
             // The order of keys matters because the identifier for each map needs to be consistent
             SortedMap<String, LuceneAnalyzerWrapper> analyzerWrapperMap = new TreeMap<>(customizedAnalyzerChooserPerField.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().chooseAnalyzer(texts))));
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().chooseAnalyzer())));
 
             PerFieldAnalyzerWrapper analyzerWrapper = new PerFieldAnalyzerWrapper(defaultAnalyzerWrapper.getAnalyzer(),
                     analyzerWrapperMap.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getAnalyzer())));

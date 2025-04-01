@@ -23,18 +23,11 @@ package com.apple.foundationdb.record.lucene;
 import org.apache.lucene.analysis.Analyzer;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.List;
 
 /**
- * Choose an {@link Analyzer} given texts.
+ * Choose an {@link Analyzer}.
  */
 public interface AnalyzerChooser {
     @Nonnull
-    default LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull String text) {
-        return chooseAnalyzer(Collections.singletonList(text));
-    }
-
-    @Nonnull
-    LuceneAnalyzerWrapper chooseAnalyzer(@Nonnull List<String> texts);
+    LuceneAnalyzerWrapper chooseAnalyzer();
 }

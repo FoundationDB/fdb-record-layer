@@ -756,7 +756,10 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 Iterator<TimeWindowLeaderboard> iter = leaderboards.iterator();
                 while (iter.hasNext()) {
                     TimeWindowLeaderboard leaderboard = iter.next();
-                    if (update.getDeleteBefore() >= leaderboard.getEndTimestamp()) {
+                    // We don't want to delete the allTime leaderboard, even if the request sets `deleteBefore` to
+                    // Long.MAX_VALUE
+                    if (leaderboard.getType() != TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE &&
+                            update.getDeleteBefore() >= leaderboard.getEndTimestamp()) {
                         state.transaction.clear(indexSubspace.pack(leaderboard.getSubspaceKey()));
                         state.transaction.clear(extraSubspace.pack(leaderboard.getSubspaceKey()));
                         iter.remove();

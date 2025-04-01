@@ -148,6 +148,7 @@ public class DataTypeUtils {
         primitivesMap.put(DataType.Primitives.BYTES.type(), Type.primitiveType(Type.TypeCode.BYTES, false));
         primitivesMap.put(DataType.Primitives.STRING.type(), Type.primitiveType(Type.TypeCode.STRING, false));
         primitivesMap.put(DataType.Primitives.VERSION.type(), Type.primitiveType(Type.TypeCode.VERSION, false));
+        primitivesMap.put(DataType.Primitives.UUID.type(), Type.uuidType(false));
 
         primitivesMap.put(DataType.Primitives.NULLABLE_BOOLEAN.type(), Type.primitiveType(Type.TypeCode.BOOLEAN, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_INTEGER.type(), Type.primitiveType(Type.TypeCode.INT, true));
@@ -157,5 +158,6 @@ public class DataTypeUtils {
         primitivesMap.put(DataType.Primitives.NULLABLE_BYTES.type(), Type.primitiveType(Type.TypeCode.BYTES, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_STRING.type(), Type.primitiveType(Type.TypeCode.STRING, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_VERSION.type(), Type.primitiveType(Type.TypeCode.VERSION, true));
+        primitivesMap.put(DataType.Primitives.NULLABLE_UUID.type(), Type.uuidType(true));
     }
 }

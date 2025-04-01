@@ -66,6 +66,8 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
 import com.google.protobuf.Message;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.SoftAssertions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -78,16 +80,21 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -97,6 +104,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class LeaderboardIndexTest {
+    private static final String INDEX_NAME = "LeaderboardIndex";
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
@@ -176,42 +184,51 @@ public class LeaderboardIndexTest {
 
         protected abstract Message buildRecord(String name, String gameId);
 
+        public TimeWindowLeaderboardDirectory getDirectory() {
+            return ((TimeWindowLeaderboardDirectoryResult)
+                            (recordStore.performIndexOperation(INDEX_NAME, new TimeWindowLeaderboardDirectoryOperation())))
+                    .getDirectory();
+        }
+
         public TimeWindowLeaderboardWindowUpdateResult updateWindows(boolean highScoreFirst, long baseTimestamp) {
             return updateWindows(highScoreFirst, baseTimestamp, TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED);
         }
 
         public TimeWindowLeaderboardWindowUpdateResult updateWindows(boolean highScoreFirst, long baseTimestamp,
                                                                      TimeWindowLeaderboardWindowUpdate.Rebuild rebuild) {
+            return updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), highScoreFirst,
+                    baseTimestamp,
+                    true,
+                    Arrays.asList(
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, baseTimestamp, 5, 10, 20),
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, baseTimestamp, 1, 5, 10)
+                    ),
+                    rebuild));
+        }
+
+        public TimeWindowLeaderboardWindowUpdateResult updateWindows(final TimeWindowLeaderboardWindowUpdate operation) {
             return (TimeWindowLeaderboardWindowUpdateResult)
-                    recordStore.performIndexOperation("LeaderboardIndex",
-                            new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), highScoreFirst,
-                                    baseTimestamp,
-                                    true,
-                                    Arrays.asList(
-                                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, baseTimestamp, 5, 10, 20),
-                                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, baseTimestamp, 1, 5, 10)
-                                    ),
-                                    rebuild));
+                    recordStore.performIndexOperation(INDEX_NAME, operation);
         }
 
         public RecordCursor<Message> scanIndexByRank(TupleRange range) {
-            return recordStore.scanIndexRecords("LeaderboardIndex", IndexScanType.BY_RANK, range, null, ScanProperties.FORWARD_SCAN).map(FDBIndexedRecord::getRecord);
+            return recordStore.scanIndexRecords(INDEX_NAME, IndexScanType.BY_RANK, range, null, ScanProperties.FORWARD_SCAN).map(FDBIndexedRecord::getRecord);
         }
 
         public RecordCursor<Message> scanIndexByScore(TupleRange range, boolean reverse) {
-            return recordStore.scanIndexRecords("LeaderboardIndex", IndexScanType.BY_VALUE, range, null,
+            return recordStore.scanIndexRecords(INDEX_NAME, IndexScanType.BY_VALUE, range, null,
                             new ScanProperties(ExecuteProperties.SERIAL_EXECUTE, reverse))
                     .map(FDBIndexedRecord::getRecord);
         }
 
         public RecordCursor<Message> scanIndexByTimeWindow(TimeWindowScanRange range) {
-            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex("LeaderboardIndex"), range, null, ScanProperties.FORWARD_SCAN),
+            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex(INDEX_NAME), range, null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR)
                     .map(FDBIndexedRecord::getRecord);
         }
 
         public RecordCursor<Message> scanIndexByTimeWindowWithLimit(TimeWindowScanRange range, int limit) {
-            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex("LeaderboardIndex"), range, null,
+            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex(INDEX_NAME), range, null,
                                     new ScanProperties(ExecuteProperties.newBuilder()
                                             .setReturnedRowLimit(limit)
                                             .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -223,7 +240,7 @@ public class LeaderboardIndexTest {
         public abstract GroupingKeyExpression getKeyExpression();
 
         public String getRecordType() {
-            return metaData.recordTypesForIndex(metaData.getIndex("LeaderboardIndex")).iterator().next().getName();
+            return metaData.recordTypesForIndex(metaData.getIndex(INDEX_NAME)).iterator().next().getName();
         }
 
         public RecordQueryPlan planQuery(RecordQuery query) {
@@ -282,18 +299,18 @@ public class LeaderboardIndexTest {
         }
 
         public List<Key.Evaluated> getScores(FDBRecord<Message> record) {
-            return metaData.getIndex("LeaderboardIndex").getRootExpression().evaluate(record);
+            return metaData.getIndex(INDEX_NAME).getRootExpression().evaluate(record);
         }
 
         public Collection<Tuple> trim(Collection<Key.Evaluated> untrimmed) {
             List<Tuple> untrimmedKeys = untrimmed.stream().map(Key.Evaluated::toTuple).collect(Collectors.toList());
-            return ((TimeWindowLeaderboardScoreTrimResult)recordStore.performIndexOperation("LeaderboardIndex",
+            return ((TimeWindowLeaderboardScoreTrimResult)recordStore.performIndexOperation(INDEX_NAME,
                     new TimeWindowLeaderboardScoreTrim(untrimmedKeys, true))).getScores();
         }
 
         public TimeWindowLeaderboardSubDirectory setGroupHighScoreFirst(Tuple group, boolean highScoreFirst) {
             return ((TimeWindowLeaderboardSubDirectoryResult)
-                            recordStore.performIndexOperation("LeaderboardIndex",
+                            recordStore.performIndexOperation(INDEX_NAME,
                                     new TimeWindowLeaderboardSaveSubDirectory(new TimeWindowLeaderboardSubDirectory(group, highScoreFirst)))).getSubDirectory();
         }
     }
@@ -344,7 +361,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index(INDEX_NAME, keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
         }
     }
 
@@ -363,7 +380,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD,
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index(INDEX_NAME, keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD,
                     Collections.singletonMap(IndexOptions.RANK_HASH_FUNCTION, RankedSetHashFunctions.MURMUR3)));
         }
     }
@@ -380,7 +397,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("FlatLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("FlatLeaderboardRecord", new Index(INDEX_NAME, keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
         }
 
         @Override
@@ -420,6 +437,7 @@ public class LeaderboardIndexTest {
     }
 
     protected void addInitialScores(Leaderboards leaderboards) {
+        // Each "row" of scores is [score, timestamp, context]
         // Before the default range.
         leaderboards.addScores("patroclus", "game-1",
                 1000, 11001, 111);
@@ -658,6 +676,35 @@ public class LeaderboardIndexTest {
     }
 
     @Test
+    void specBoundaries() {
+        final Leaderboards leaderboards = new UngroupedNestedLeaderboards();
+        leaderboards.buildMetaData();
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, true);
+            final TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
+                    10100,
+                    true,
+                    Arrays.asList(
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, 10100, 5, 10, 3),
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, 10100, 1, 5, 3)
+                    ),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+            assertTrue(result.isChanged());
+
+            // add 5 on either side, they should never be found
+            addMoreScores(leaderboards, 10100, -5, 5 * 3 + 10 + 5);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            assertLeaderboardResults(leaderboards, 3, TEN_UNITS, 10100, 5, 10, 0);
+            assertLeaderboardResults(leaderboards, 3, FIVE_UNITS,  10100, 1, 5, 0);
+        }
+    }
+
+    @Test
     public void missingFromGroupNested() {
         missingFromGroup(new GroupedNestedLeaderboards());
     }
@@ -714,7 +761,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan plan1 = leaderboards.planQuery(query1);
-            assertEquals("ISCAN(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", plan1.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " [[game-1, 1],[game-1, 2]] BY_RANK)", plan1.toString());
             assertEquals(Arrays.asList("hecuba", "achilles"),
                     leaderboards.executeQuery(plan1).map(leaderboards::getName).asList().join());
 
@@ -725,7 +772,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryTimeWindowRank("l1", "l2").lessThanOrEquals(2L)))
                     .build();
             RecordQueryPlan plan2 = leaderboards.planQuery(query2);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]]@$l1,$l2 BY_TIME_WINDOW)", plan2.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, null],[game-1, 2]]@$l1,$l2 BY_TIME_WINDOW)", plan2.toString());
 
             final EvaluationContext evaluationContext1 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
@@ -759,7 +806,7 @@ public class LeaderboardIndexTest {
                         .setSort(leaderboards.getKeyExpression())
                         .build();
                 final RecordQueryPlan plan = leaderboards.planQuery(query);
-                assertEquals("ISCAN(LeaderboardIndex [[game-1],[game-1]] BY_RANK)", plan.toString());
+                assertEquals("ISCAN(" + INDEX_NAME + " [[game-1],[game-1]] BY_RANK)", plan.toString());
                 assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
                         leaderboards.executeQuery(plan).map(leaderboards::getName).asList().join());
             }
@@ -771,7 +818,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().greaterThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planGreaterEqual = leaderboards.planQuery(queryGreaterEqual);
-            assertEquals("ISCAN(LeaderboardIndex [[game-1, 2],[game-1]] BY_RANK)", planGreaterEqual.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " [[game-1, 2],[game-1]] BY_RANK)", planGreaterEqual.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterEqual).map(leaderboards::getName).asList().join());
 
@@ -782,7 +829,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().greaterThan(1L)))
                     .build();
             final RecordQueryPlan planGreaterThan = leaderboards.planQuery(queryGreaterThan);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, 1],[game-1]] BY_RANK)", planGreaterThan.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, 1],[game-1]] BY_RANK)", planGreaterThan.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterThan).map(leaderboards::getName).asList().join());
 
@@ -793,7 +840,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planLessEqual = leaderboards.planQuery(queryLessEqual);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]] BY_RANK)", planLessEqual.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, null],[game-1, 2]] BY_RANK)", planLessEqual.toString());
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles"),
                     leaderboards.executeQuery(planLessEqual).map(leaderboards::getName).asList().join());
 
@@ -804,7 +851,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThan(2L)))
                     .build();
             final RecordQueryPlan planLessThan = leaderboards.planQuery(queryLessThan);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, null],[game-1, 2]) BY_RANK)", planLessThan.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, null],[game-1, 2]) BY_RANK)", planLessThan.toString());
             assertEquals(Arrays.asList("patroclus", "hecuba"),
                     leaderboards.executeQuery(planLessThan).map(leaderboards::getName).asList().join());
 
@@ -816,7 +863,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThanOrEquals(2L)))
                     .build();
             final RecordQueryPlan planGreaterEqualAndLessEqual = leaderboards.planQuery(queryGreaterEqualAndLessEqual);
-            assertEquals("ISCAN(LeaderboardIndex [[game-1, 1],[game-1, 2]] BY_RANK)", planGreaterEqualAndLessEqual.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " [[game-1, 1],[game-1, 2]] BY_RANK)", planGreaterEqualAndLessEqual.toString());
             assertEquals(Arrays.asList("hecuba", "achilles"),
                     leaderboards.executeQuery(planGreaterEqualAndLessEqual).map(leaderboards::getName).asList().join());
 
@@ -828,7 +875,7 @@ public class LeaderboardIndexTest {
                             leaderboards.queryRank().lessThan(4L)))
                     .build();
             final RecordQueryPlan planGreaterThanAndLessThan = leaderboards.planQuery(queryGreaterThanAndLessThan);
-            assertEquals("ISCAN(LeaderboardIndex ([game-1, 1],[game-1, 4]) BY_RANK)", planGreaterThanAndLessThan.toString());
+            assertEquals("ISCAN(" + INDEX_NAME + " ([game-1, 1],[game-1, 4]) BY_RANK)", planGreaterThanAndLessThan.toString());
             assertEquals(Arrays.asList("achilles", "hector"),
                     leaderboards.executeQuery(planGreaterThanAndLessThan).map(leaderboards::getName).asList().join());
         }
@@ -1025,7 +1072,7 @@ public class LeaderboardIndexTest {
         leaderboards.buildMetaData();
         try (FDBRecordContext context = openContext()) {
             leaderboards.openRecordStore(context, true);
-            leaderboards.recordStore.performIndexOperation("LeaderboardIndex",
+            leaderboards.recordStore.performIndexOperation(INDEX_NAME,
                     new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
                             10100,
                             false, // No allTime.
@@ -1059,6 +1106,8 @@ public class LeaderboardIndexTest {
 
     @Test
     public void rebuildOverlapping() {
+        // Warning: rebuilding tries to rebuild the entire index transactionally, so if this is done on a reasonably
+        // sized record store it will always fail
         updateOverlapping(true);
     }        
 
@@ -1110,6 +1159,129 @@ public class LeaderboardIndexTest {
 
             // NOTE: no commit.
         }
+    }
+
+    @Test
+    void deleteBefore() {
+        final Leaderboards leaderboards = new UngroupedNestedLeaderboards();
+        leaderboards.buildMetaData();
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, true);
+            final TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
+                    10100,
+                    true,
+                    Arrays.asList(
+                            // We are not inserting all the data for the fourth TEN_UNITS, but have it there so that we
+                            // don't have to create any leaderboards before 10110
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, 10100, 5, 10, 5),
+                            // We need to have all leaderboards that overlap with 10125 to avoid rebuilds during the
+                            // delete step
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, 10100, 1, 5, 25)
+                    ),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+            assertTrue(result.isChanged());
+            assertTimestamps(leaderboards, TEN_UNITS,
+                    LongStream.range(0, 5).map(i -> i * 5 + 10100).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 5).map(i -> i * 5 + 10110).boxed().collect(Collectors.toList()));
+            assertTimestamps(leaderboards, FIVE_UNITS,
+                    LongStream.range(0, 25).map(i -> i + 10100).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 25).map(i -> i + 10100 + 5).boxed().collect(Collectors.toList()));
+
+            addMoreScores(leaderboards, 10100, 0, 5 * 3 + 10);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            assertLeaderboardResults(leaderboards, 3, TEN_UNITS, 10100, 5, 10, 0);
+            assertLeaderboardResults(leaderboards, 15, FIVE_UNITS,  10100, 1, 5, 0);
+        }
+
+        final int deleteBefore = 10100 + 10;
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+            final TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), true,
+                    deleteBefore, // Delete the first TEN_UNITS, and the first 10 FIVE_UNITS
+                    true,
+                    Arrays.asList(
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, 10125, 5, 10, 3),
+                            new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, 10125, 1, 5, 20)
+                    ),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+
+            assertTimestamps(leaderboards, TEN_UNITS,
+                    LongStream.range(0, 7).map(i -> i * 5 + 10105).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 7).map(i -> i * 5 + 10105 + 10).boxed().collect(Collectors.toList()));
+            assertTimestamps(leaderboards, FIVE_UNITS,
+                    LongStream.range(0, 39).map(i -> i + 10106).boxed().collect(Collectors.toList()),
+                    LongStream.range(0, 39).map(i -> i + 10106 + 5).boxed().collect(Collectors.toList()));
+            assertTrue(result.isChanged());
+            assertFalse(result.isRebuilt());
+
+
+            addMoreScores(leaderboards, 10100, 5 * 3 + 10, 2 * (5 * 3 + 10));
+            context.commit();
+        }
+
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+            final TimeWindowLeaderboardDirectory directory = leaderboards.getDirectory();
+            Assertions.assertThat(directory.getLeaderboards().get(TEN_UNITS))
+                    .hasSize(7)// 4 kept, 3 new
+                    .allSatisfy(leaderboard -> {
+                        Assertions.assertThat(leaderboard.getEndTimestamp()).isGreaterThan(deleteBefore);
+                    });
+            Assertions.assertThat(directory.getLeaderboards().get(FIVE_UNITS))
+                    .hasSize(20 /* new */ + 19 /* kept */)
+                    .allSatisfy(leaderboard -> {
+                        Assertions.assertThat(leaderboard.getEndTimestamp()).isGreaterThan(deleteBefore);
+                    });
+            assertLeaderboardResults(leaderboards, 5, TEN_UNITS, 10105, 5, 10, 5);
+            assertLeaderboardResults(leaderboards, 25, FIVE_UNITS,  10106, 1, 5, 6);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void deleteAllButAllTime(boolean requestAllTimeExist) {
+        // Note: This covers the behavior where you specify `false` for the allTime, and it keeps allTime around
+        // at the time of writing it is unclear whether that is a bug, and we want to change it, or we want a new option
+        // to drop the allTime leaderboard
+        final Leaderboards leaderboards = new GroupedNestedLeaderboards();
+        basicSetup(leaderboards, true);
+
+        final Consumer<Integer> assertAllTimeWorks = expectedLeaderboardCount -> {
+            try (FDBRecordContext context = openContext()) {
+                leaderboards.openRecordStore(context, false);
+                final FDBStoredRecord<Message> rec = leaderboards.findByName("hector");
+                assertEquals(3L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
+                final TimeWindowLeaderboardDirectory directory = leaderboards.getDirectory();
+                assertNotNull(directory.getLeaderboards().get(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE));
+                assertEquals(expectedLeaderboardCount, directory.getLeaderboards().size());
+            }
+        };
+        assertAllTimeWorks.accept(3);
+
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            metrics.reset();
+            TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(new TimeWindowLeaderboardWindowUpdate(
+                    System.currentTimeMillis(),
+                    true,
+                    Long.MAX_VALUE,
+                    requestAllTimeExist,
+                    List.of(),
+                    TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+            assertTrue(result.isChanged());
+            assertFalse(result.isRebuilt());
+            assertEquals(0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            context.commit();
+        }
+
+        assertAllTimeWorks.accept(1);
     }
 
     @Test
@@ -1308,7 +1480,7 @@ public class LeaderboardIndexTest {
                     .build();
             final RecordQueryPlan plan = leaderboards.planQuery(query);
             assertTrue(leaderboards.executeQuery(plan).map(leaderboards::getName).asList().join().contains("diomedes"), "should have player without scores");
-            assertFalse(plan.hasIndexScan("LeaderboardIndex"), "should not use leaderboard");
+            assertFalse(plan.hasIndexScan(INDEX_NAME), "should not use leaderboard");
         }
     }
 
@@ -1395,4 +1567,52 @@ public class LeaderboardIndexTest {
         };
     }
 
+    private static void assertTimestamps(final Leaderboards leaderboards, final int type,
+                                         final List<Long> startTimestamps, final List<Long> endTimestamps) {
+        final Collection<TimeWindowLeaderboard> leaderboard = leaderboards.getDirectory().getLeaderboards().get(type);
+        assertEquals(startTimestamps,
+                leaderboard.stream().map(TimeWindowLeaderboard::getStartTimestamp).collect(Collectors.toList()));
+        assertEquals(endTimestamps,
+                leaderboard.stream().map(TimeWindowLeaderboard::getEndTimestamp).collect(Collectors.toList()));
+    }
+
+    private static void addMoreScores(final Leaderboards leaderboards, final int initialTimestamp, final int start, final int end) {
+        // Each "row" of scores is [score, timestamp, context]
+        for (int i = start; i < end; i++) {
+            leaderboards.addScores("winner" + i, "game-1",
+                    1000 + i, initialTimestamp + i, 111);
+            leaderboards.addScores("loser" + i, "game-1",
+                    900 + i, initialTimestamp + i, 111);
+        }
+    }
+
+    private static void assertLeaderboardResults(final Leaderboards leaderboards,
+                                                 final int leaderboardCount, final int leaderboardType,
+                                                 final int initialValue, final int startIncrement, final int duration, final Integer initialName) {
+        SoftAssertions.assertSoftly(softly -> {
+            // The leaderboard will be the oldest that overlaps, so if we have:
+            // leaderboard0: [0, 10)
+            // leaderboard1: [5, 15)
+            // Scanning the leaderboard at 8 will scan leaderboard0, and 10 will scan leadeboard1
+            int lookup = 0;
+            for (int i = 0; i < leaderboardCount; i++) {
+                final int startTimestamp = i * startIncrement;
+                final int endTimestamp = startTimestamp + duration;
+                for (; lookup < endTimestamp; lookup++) {
+                    softly.assertThat(
+                                    leaderboards.scanIndexByTimeWindow(new TimeWindowScanRange(leaderboardType, lookup + initialValue, TupleRange.ALL))
+                                            .map(leaderboards::getName).asList().join())
+                            .as("Leaderboard timestamp: " + (lookup + initialValue) + "(i=" + i + ")")
+                            .isEqualTo(Stream.concat(
+                                            IntStream.range(startTimestamp, endTimestamp).boxed()
+                                                    .sorted(Comparator.reverseOrder())
+                                                    .map(k -> "winner" + (k + initialName)),
+                                            IntStream.range(startTimestamp, endTimestamp).boxed()
+                                                    .sorted(Comparator.reverseOrder())
+                                                    .map(k -> "loser" + (k + initialName)))
+                                    .collect(Collectors.toList()));
+                }
+            }
+        });
+    }
 }

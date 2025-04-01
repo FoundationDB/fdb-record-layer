@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
@@ -61,7 +61,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         this.splitPoint = splitPoint;
     }
 
-    public KeyWithValueExpression(@Nonnull RecordMetaDataProto.KeyWithValue proto) throws DeserializationException {
+    public KeyWithValueExpression(@Nonnull RecordKeyExpressionProto.KeyWithValue proto) throws DeserializationException {
         this(KeyExpression.fromProto(proto.getInnerKey()), proto.getSplitPoint());
     }
 
@@ -133,8 +133,8 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyWithValue toProto() throws SerializationException {
-        return RecordMetaDataProto.KeyWithValue.newBuilder()
+    public RecordKeyExpressionProto.KeyWithValue toProto() throws SerializationException {
+        return RecordKeyExpressionProto.KeyWithValue.newBuilder()
                 .setInnerKey(getInnerKey().toKeyExpression())
                 .setSplitPoint(splitPoint)
                 .build();
@@ -142,8 +142,8 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return RecordMetaDataProto.KeyExpression.newBuilder().setKeyWithValue(toProto()).build();
+    public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
+        return RecordKeyExpressionProto.KeyExpression.newBuilder().setKeyWithValue(toProto()).build();
     }
 
     @Nonnull
