@@ -335,6 +335,9 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
 
     @Override
     public String toString() {
+        // We want to preserve the last wasNull state and not let it get effected by toString() since this too uses
+        // the getObject() call to fetch values.
+        final var preservedWasNullValue = wasNull();
         final var builder = new StringBuilder();
         try {
             final var colCount = metaData.getColumnCount();
@@ -351,8 +354,10 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             builder.append("} ");
         } catch (SQLException e) {
             throw new UncheckedRelationalException(new RelationalException(e));
+        } finally {
+            // restore wasNull
+            wasNull = preservedWasNullValue;
         }
-
         return builder.toString();
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.sql.Wrapper;
@@ -80,6 +81,9 @@ public interface RelationalStruct extends Struct, Wrapper {
 
     UUID getUUID(String fieldName) throws SQLException;
 
+    /**
+     * Reports whether the last column read had a value of SQL NULL. See {@link ResultSet#wasNull()}
+     */
     boolean wasNull() throws SQLException;
 
     @Override
