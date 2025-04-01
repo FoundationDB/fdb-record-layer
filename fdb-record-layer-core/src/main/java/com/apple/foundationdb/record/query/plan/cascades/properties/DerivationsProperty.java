@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -340,9 +341,9 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Nonnull
         @Override
         public Derivations visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan tableFunctionPlan) {
-            final var collectionValue = tableFunctionPlan.getValue();
-            final var elementType = collectionValue.getResultType();
-            final var values = ImmutableList.<Value>of(new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType)));
+            final var streamingValue = tableFunctionPlan.getValue();
+            final var elementType = streamingValue.getResultType();
+            final var values = ImmutableList.<Value>of(new FirstOrDefaultStreamingValue(streamingValue, new ThrowsValue(elementType)));
             return new Derivations(values, values);
         }
 
@@ -796,6 +797,10 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
     public static Derivations evaluateDerivations(@Nonnull RecordQueryPlan recordQueryPlan) {
         return DERIVATIONS.createVisitor().visit(recordQueryPlan);
     }
+
+    /**
+     * RCV(T.a, T.b).0 ---> T.a
+     */
 
     /**
      * Cases class to capture the derivations that are being collected by the visitor.

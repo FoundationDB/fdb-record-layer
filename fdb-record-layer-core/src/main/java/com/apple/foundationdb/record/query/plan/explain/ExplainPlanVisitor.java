@@ -418,7 +418,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Nonnull
     @Override
     public ExplainTokens visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan tableFunctionPlan) {
-        return addKeyword("TFunc").addWhitespace()
+        return addKeyword("TF").addWhitespace()
                 .addNested(tableFunctionPlan.getValue().explain().getExplainTokens());
     }
 

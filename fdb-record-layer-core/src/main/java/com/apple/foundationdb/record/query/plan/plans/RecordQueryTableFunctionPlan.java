@@ -1,5 +1,5 @@
 /*
- * RecordQueryTableValuedPlan.java
+ * RecordQueryTableFunctionPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *

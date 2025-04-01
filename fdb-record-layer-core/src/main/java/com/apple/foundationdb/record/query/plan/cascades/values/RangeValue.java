@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -116,13 +117,27 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                 return LiteralValue.ofScalar(rangeValueAsLong);
             }
             return v;
-        })).eval(store, context), continuation);
+        })).eval(store, context), continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("range")); // todo improve
+        final var endExplainTokens = Iterables.get(explainSuppliers, 0).get().getExplainTokens();
+        final var beginExplainTokens =
+                beginInclusive.isEmpty()
+                ? new ExplainTokens().addKeyword("0")
+                : Iterables.get(explainSuppliers, 1).get().getExplainTokens();
+        final var stepExplainTokens =
+                step.isEmpty()
+                ? new ExplainTokens().addKeyword("1")
+                : Iterables.get(explainSuppliers, 2).get().getExplainTokens();
+
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("range",
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
+                        beginExplainTokens,
+                        endExplainTokens,
+                        new ExplainTokens().addKeyword("STEP").addWhitespace().addNested(stepExplainTokens))));
     }
 
     @Nullable
@@ -210,6 +225,25 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                                      ? Optional.of(Value.fromValueProto(serializationContext, rangeValueProto.getStepChild()))
                                      : Optional.empty();
         return new RangeValue(endExclusive, beginInclusive, step);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRangeValue, RangeValue> {
+        @Nonnull
+        @Override
+        public Class<PRangeValue> getProtoMessageClass() {
+            return PRangeValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public RangeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PRangeValue rangeValueProto) {
+            return RangeValue.fromProto(serializationContext, rangeValueProto);
+        }
     }
 
     public static class Cursor implements RecordCursor<QueryResult> {

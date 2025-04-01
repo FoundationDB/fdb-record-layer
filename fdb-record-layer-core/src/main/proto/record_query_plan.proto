@@ -461,6 +461,11 @@ message PFirstOrDefaultValue {
   optional PValue on_empty_result_value = 2;
 }
 
+message PFirstOrDefaultStreamingValue {
+  optional PValue child_value = 1;
+  optional PValue on_empty_result_value = 2;
+}
+
 message PFromOrderedBytesValue {
   optional PValue child = 1;
   optional PDirection direction = 2;

@@ -94,19 +94,19 @@ test_block:
       - result: [{ID: 0}, {ID: 5}, {ID: 10}]
     -
       - query: select * from range(0, 11, 5)
-      - explain: "TFunc range()"
+      - explain: "TF range(promote(@c6 AS LONG), promote(@c8 AS LONG), STEP promote(@c10 AS LONG))"
       - result: [{ID: 0}, {ID: 5}, {ID: 10}]
     -
       - query: select * from range(6 - 6, 14 + 6 + 1, 20 - 10)
-      - explain: "TFunc range()"
+      - explain: "TF range(promote(@c6 - @c6 AS LONG), promote(@c10 + @c6 + @c14 AS LONG), STEP promote(@c16 - @c18 AS LONG))"
       - result: [{ID: 0}, {ID: 10}, {ID: 20}]
     -
       - query: select ID as X from range(3) as Y
-      - explain: "TFunc range() | MAP (_.ID AS X)"
+      - explain: "TF range(0, promote(@c8 AS LONG), STEP 1) | MAP (_.ID AS X)"
       - result: [{X: 0}, {X: 1}, {X: 2}]
     -
       - query: select X.ID as A, Y.ID as B from range(3) as X, range(4) as Y
-      - explain: "TFunc range() | FLATMAP q0 -> { TFunc range() AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
+      - explain: "TF range(0, promote(@c16 AS LONG), STEP 1) | FLATMAP q0 -> { TF range(0, promote(@c23 AS LONG), STEP 1) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
       - result: [{A: 0, B: 0},
                  {A: 0, B: 1},
                  {A: 0, B: 2},
@@ -121,7 +121,7 @@ test_block:
                  {A: 2, B: 3}]
     -
       - query: select a.id as x, a.col1 as y, b.id as z from t1 as a, range(a.id) as b
-      - explain: "SCAN(<,>) | FLATMAP q0 -> { TFunc range() AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
+      - explain: "SCAN(<,>) | FLATMAP q0 -> { TF range(0, q0.ID, STEP 1) AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
       - result: [{X: 1, Y: 'a', Z: 0},
                  {X: 2, Y: 'b', Z: 0},
                  {X: 2, Y: 'b', Z: 1},
