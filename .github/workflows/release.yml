@@ -125,11 +125,6 @@ jobs:
   
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
-      - name: Get old version
-        id: get_old_version
-        shell: bash
-        run: |
-          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
       # Push a version bump back to main. There are failure scenarios that can result
       # in published artifacts but an erroneous build, so it's safer to bump the version
       # at the beginning
