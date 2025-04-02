@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -30,11 +29,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -43,6 +37,11 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
@@ -56,10 +55,8 @@ import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.Ex
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.util.Supplier;
-
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
@@ -150,7 +147,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return new EmbeddedRelationalPreparedStatement(sql, this);
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
         // Do nothing. Swallow rather than return useless complaint about not being implemented
@@ -365,7 +361,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return transactionIsolation;
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Override
     public SQLWarning getWarnings() throws SQLException {
         // Return null for now until we implement Warnings. Returning an exception breaks processing.

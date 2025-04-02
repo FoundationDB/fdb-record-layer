@@ -20,8 +20,11 @@
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
-import com.apple.foundationdb.relational.yamltests.MultiServerConnectionFactory;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -37,85 +40,91 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MultiServerConnectionFactoryTest {
+    private static final SemanticVersion PRIMARY_VERSION = SemanticVersion.parse("2.2.2.0");
+    private static final SemanticVersion ALTERNATE_VERSION = SemanticVersion.parse("1.1.1.0");
+
     @ParameterizedTest
     @CsvSource({"0", "1"})
     void testDefaultPolicy(int initialConnection) throws SQLException {
         MultiServerConnectionFactory classUnderTest = new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.DEFAULT,
                 initialConnection,
-                dummyConnectionFactory("Primary"),
-                List.of(dummyConnectionFactory("Alternate")));
+                dummyConnectionFactory(PRIMARY_VERSION),
+                List.of(dummyConnectionFactory(ALTERNATE_VERSION)));
 
-        MultiServerConnectionFactory.MultiServerRelationalConnection connection =
-                (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
-        assertConnection(connection, "Primary");
-        assertStatement(connection.prepareStatement("SQL"), "Primary");
-        assertStatement(connection.prepareStatement("SQL"), "Primary");
+        // It might make sense to just remove ConnectionSelectionPolicy.DEFAULT since it never uses any of the other
+        // connections, you don't need the MultiServerConnectionFactory, or it might make sense to have it return
+        // just the default for the set of versions
+        assertEquals(Set.of(PRIMARY_VERSION, ALTERNATE_VERSION), classUnderTest.getVersionsUnderTest());
 
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
-        assertConnection(connection, "Primary");
-        assertStatement(connection.prepareStatement("SQL"), "Primary");
-        assertStatement(connection.prepareStatement("SQL"), "Primary");
+        var connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        assertConnection(connection, PRIMARY_VERSION, List.of(PRIMARY_VERSION));
+        assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
+        assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
 
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
-        assertConnection(connection, "Primary");
-        assertStatement(connection.prepareStatement("SQL"), "Primary");
-        assertStatement(connection.prepareStatement("SQL"), "Primary");
+        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        assertConnection(connection, PRIMARY_VERSION, List.of(PRIMARY_VERSION));
+        assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
+        assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
+
+        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        assertConnection(connection, PRIMARY_VERSION, List.of(PRIMARY_VERSION));
+        assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
+        assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
     }
 
     @ParameterizedTest
     @CsvSource({"0", "1"})
     void testAlternatePolicy(int initialConnection) throws SQLException {
-        final String[] path = new String[] { "Primary", "Alternate" };
-        final String initialConnectionName = path[initialConnection];
-        final String otherConnectionName = path[(initialConnection + 1) % 2];
+        final SemanticVersion[] versions = new SemanticVersion[] { PRIMARY_VERSION, ALTERNATE_VERSION };
+        final SemanticVersion initialConnectionVersion = versions[initialConnection];
+        final SemanticVersion otherConnectionVersion = versions[(initialConnection + 1) % 2];
 
         MultiServerConnectionFactory classUnderTest = new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                dummyConnectionFactory("Primary"),
-                List.of(dummyConnectionFactory("Alternate")));
+                dummyConnectionFactory(PRIMARY_VERSION),
+                List.of(dummyConnectionFactory(ALTERNATE_VERSION)));
 
         // First run:
         // - Factory current connection: initial connection
         // - connection current connection: initial connection
         // - statement: initial connection (2 statements)
-        MultiServerConnectionFactory.MultiServerRelationalConnection connection =
-                (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
-        assertConnection(connection, initialConnectionName);
-        assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
+        var connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        assertConnection(connection, initialConnectionVersion, List.of(initialConnectionVersion, otherConnectionVersion));
+        assertStatement(connection.prepareStatement("SQL"), initialConnectionVersion);
         // next statement
-        assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
+        assertStatement(connection.prepareStatement("SQL"), otherConnectionVersion);
 
         // Second run:
         // - Factory current connection: alternate connection
         // - connection current connection: alternate connection
         // - statement: alternate connection (2 statements)
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
-        assertConnection(connection, otherConnectionName);
-        assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
+        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        assertConnection(connection, otherConnectionVersion, List.of(otherConnectionVersion, initialConnectionVersion));
+        assertStatement(connection.prepareStatement("SQL"), otherConnectionVersion);
         // next statement
-        assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
+        assertStatement(connection.prepareStatement("SQL"), initialConnectionVersion);
 
         // Third run:
         // - Factory current connection: initial connection
         // - connection current connection: initial connection
         // - statement: initial connection (1 statement)
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
-        assertConnection(connection, initialConnectionName);
+        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        assertConnection(connection, initialConnectionVersion, List.of(initialConnectionVersion, otherConnectionVersion));
         // just one statement for this connection
-        assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
+        assertStatement(connection.prepareStatement("SQL"), initialConnectionVersion);
 
         // Fourth run:
         // - Factory current connection: alternate connection
         // - connection current connection: alternate connection
         // - statement: alternate connection (3 statements)
-        connection = (MultiServerConnectionFactory.MultiServerRelationalConnection)classUnderTest.getNewConnection(URI.create("Blah"));
-        assertConnection(connection, otherConnectionName);
-        assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
+        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        assertConnection(connection, otherConnectionVersion, List.of(otherConnectionVersion, initialConnectionVersion));
+        assertStatement(connection.prepareStatement("SQL"), otherConnectionVersion);
         // next statements
-        assertStatement(connection.prepareStatement("SQL"), initialConnectionName);
-        assertStatement(connection.prepareStatement("SQL"), otherConnectionName);
+        assertStatement(connection.prepareStatement("SQL"), initialConnectionVersion);
+        assertStatement(connection.prepareStatement("SQL"), otherConnectionVersion);
     }
 
     @Test
@@ -123,35 +132,36 @@ public class MultiServerConnectionFactoryTest {
         assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 -1,
-                dummyConnectionFactory("A"),
-                List.of(dummyConnectionFactory("B"))));
+                dummyConnectionFactory(PRIMARY_VERSION),
+                List.of(dummyConnectionFactory(ALTERNATE_VERSION))));
         assertThrows(AssertionError.class, () -> new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 7,
-                dummyConnectionFactory("A"),
-                List.of(dummyConnectionFactory("B"))));
+                dummyConnectionFactory(PRIMARY_VERSION),
+                List.of(dummyConnectionFactory(ALTERNATE_VERSION))));
     }
 
-    private void assertStatement(final RelationalPreparedStatement statement, final String query) throws SQLException {
-        assertEquals("name=" + query, ((RelationalConnection)statement.getConnection()).getPath().getQuery());
+    private void assertStatement(final RelationalPreparedStatement statement, final SemanticVersion version) throws SQLException {
+        assertEquals("version=" + version, ((RelationalConnection)statement.getConnection()).getPath().getQuery());
     }
 
-    private static void assertConnection(final MultiServerConnectionFactory.MultiServerRelationalConnection connection, final String query) {
-        assertEquals("name=" + query, connection.getPath().getQuery());
+    private static void assertConnection(final YamlConnection connection, final SemanticVersion initialVersion, final List<SemanticVersion> expectedVersions) {
+        assertEquals(initialVersion, connection.getInitialVersion());
+        assertEquals(expectedVersions, connection.getVersions());
     }
 
-    YamlRunner.YamlConnectionFactory dummyConnectionFactory(@Nonnull String name) {
-        return new YamlRunner.YamlConnectionFactory() {
+    YamlConnectionFactory dummyConnectionFactory(@Nonnull SemanticVersion version) {
+        return new YamlConnectionFactory() {
             @Override
-            public RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
                 // Add query string to connection so we can tell where it came from
-                URI newPath = URI.create(connectPath + "?name=" + name);
-                return dummyConnection(newPath);
+                URI newPath = URI.create(connectPath + "?version=" + version);
+                return new SimpleYamlConnection(dummyConnection(newPath), version);
             }
 
             @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of("0.0.0.0");
+            public Set<SemanticVersion> getVersionsUnderTest() {
+                return Set.of(version);
             }
         };
     }

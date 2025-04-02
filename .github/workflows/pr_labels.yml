@@ -2,7 +2,9 @@ name: Pull Request Labels
 
 on:
   pull_request:
-    types: [opened, labeled, unlabeled]
+    # Run whenever the labels change or the PR HEAD changes. In theory, the latter is a bit redundant,
+    # but it's necessary to make sure that the check is applied to the final commit for a PR
+    types: [opened, reopened, labeled, unlabeled, synchronize]
 
 jobs:
   labels:

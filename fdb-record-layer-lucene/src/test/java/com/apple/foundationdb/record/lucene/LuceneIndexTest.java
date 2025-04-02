@@ -147,7 +147,6 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PART
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED;
-import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMBINED_SYNONYM_SETS;
@@ -310,10 +309,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         joined.addJoin("map", field("group"), "complex", field("group"));
         metaDataBuilder.addIndex(joined, index);
     }
-
-    private static final Index ANALYZER_CHOOSER_TEST_LUCENE_INDEX = new Index("analyzer_chooser_test_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(
-                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, LuceneIndexTestUtils.TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
 
     private static final Index JOINED_INDEX_NOGROUP = getJoinedIndexNoGroup(Map.of(
             INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
@@ -5667,35 +5662,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(1L, 1623L)),
                         recordStore.scanIndex(index, autoCompleteBounds(index, "record layer", ImmutableSet.of("text")), null, ScanProperties.FORWARD_SCAN));
             }
-        }
-    }
-
-    @ParameterizedTest
-    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
-    void analyzerChooserTest(IndexedType indexedType) {
-        final Index index = indexedType.getIndex(ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY);
-        try (FDBRecordContext context = openContext()) {
-            if (indexedType.isSynthetic()) {
-                openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
-                // Synonym analyzer is chosen due to the keyword "synonym" from the text
-                createComplexRecordJoinedToSimple(1, 1623L, 1623L, "synonym food", "", false, System.currentTimeMillis(), 0);
-                // Ngram analyzer is chosen due to no keyword "synonym" from the text
-                createComplexRecordJoinedToSimple(2, 1624L, 1624L, "ngram motivation", "", false, System.currentTimeMillis(), 1);
-            } else {
-                rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                // Synonym analyzer is chosen due to the keyword "synonym" from the text
-                recordStore.saveRecord(createSimpleDocument(1623L, "synonym food", 1));
-                // Ngram analyzer is chosen due to no keyword "synonym" from the text
-                recordStore.saveRecord(createSimpleDocument(1624L, "ngram motivation", 1));
-            }
-            assertEquals(1, recordStore.scanIndex(index, fullTextSearch(index, "nutrient"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(0, recordStore.scanIndex(index, fullTextSearch(index, "foo"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(0, recordStore.scanIndex(index, fullTextSearch(index, "need"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
-            assertEquals(1, recordStore.scanIndex(index, fullTextSearch(index, "motivatio"), null, ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
         }
     }
 

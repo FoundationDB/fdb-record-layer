@@ -45,6 +45,7 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
+import java.util.UUID;
 
 /**
  * Extension of {@link java.sql.PreparedStatement} to allow for Relational specific Prepared Statements.
@@ -159,6 +160,29 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
      * this method is called on a closed <code>PreparedStatement</code>
      */
     void setObject(String parameterName, Object x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>UUID</code> value.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x the parameter value
+     * @exception SQLException if parameterIndex does not correspond to a parameter
+     * marker in the SQL statement;
+     * if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setUUID(int parameterIndex, UUID x) throws SQLException;
+
+    /**
+     * Sets the designated parameter to the given Java <code>UUID</code> value.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setUUID(String parameterName, UUID x) throws SQLException;
 
     /**
      * Sets the designated parameter to SQL <code>NULL</code>.
@@ -357,91 +381,78 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setCharacterStream(int parameterIndex, Reader reader, long length) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setClob(int parameterIndex, Reader reader) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setNClob(int parameterIndex, Reader reader) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -466,14 +477,12 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setMaxFieldSize(int max) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setEscapeProcessing(boolean enable) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -486,19 +495,16 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setQueryTimeout(int seconds) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void cancel() throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     default SQLWarning getWarnings() throws SQLException {
         // For now, return null until warnings are implemented.
         // Throwing an exception stops all processing. See TODO (Implement JDBC Warnings in Relational embedded Driver)
@@ -508,14 +514,12 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void clearWarnings() throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setCursorName(String name) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -540,7 +544,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setFetchDirection(int direction) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -553,7 +556,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setFetchSize(int rows) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -578,14 +580,12 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void addBatch(String sql) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void clearBatch() throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -658,7 +658,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setPoolable(boolean poolable) throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
@@ -671,7 +670,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void closeOnCompletion() throws SQLException {
-
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

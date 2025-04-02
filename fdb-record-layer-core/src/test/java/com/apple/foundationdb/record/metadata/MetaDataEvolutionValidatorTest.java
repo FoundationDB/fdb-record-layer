@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
@@ -1020,7 +1021,7 @@ public class MetaDataEvolutionValidatorTest {
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData1.toProto().toBuilder()
                 .setVersion(metaData1.getVersion() + 1);
         protoBuilder.getRecordTypesBuilder(0)
-                .setExplicitKey(RecordMetaDataProto.Value.newBuilder()
+                .setExplicitKey(RecordKeyExpressionProto.Value.newBuilder()
                     .setStringValue("new_key"));
         RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
         assertInvalid("record type key changed", metaData1, metaData2);

@@ -1,6 +1,3 @@
-import java.util.jar.JarFile
-import java.util.regex.Matcher
-
 /*
  * yaml-tests.gradle
  *
@@ -20,6 +17,10 @@ import java.util.regex.Matcher
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import java.util.concurrent.ThreadLocalRandom
+import java.util.jar.JarFile
+import java.util.regex.Matcher
 
 apply from: rootProject.file('gradle/proto.gradle')
 
@@ -62,6 +63,7 @@ dependencies {
     implementation(libs.junit.api)
     implementation(libs.junit.params)
     implementation(libs.log4j.api)
+    implementation(libs.guava)
     implementation(libs.protobuf)
     implementation(libs.protobuf.util)
     implementation(libs.snakeyaml)
@@ -182,29 +184,28 @@ mixedModeTest {
     ignoreFailures = true
 }
 
+singleVersionTest {
+    dependsOn("downloadManyExternalServers")
+    systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
+}
+
 test {
     dependsOn "serverJars"
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
-    // These are the system properties that are looked at by the YamlTesting framework to initialize the execution context
-    var isNightly = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY")
-    if (isNightly != null) {
-        systemProperty("yaml_testing_nightly", isNightly);
-    }
-    var seed = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_SEED")
-    if (seed != null) {
-        systemProperty("yaml_testing_seed", Long.parseLong(seed))
-    }
-    var maxThreads = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_MAX_THREADS")
-    if (maxThreads != null) {
-        systemProperty("yaml_testing_max_threads", Integer.parseInt(maxThreads))
+    def seed
+    if (project.hasProperty('tests.yaml.seed')) {
+        seed = Long.parseLong(project.getProperty('tests.yaml.seed'))
     } else {
-        systemProperty("yaml_testing_max_threads", (int) (Runtime.runtime.availableProcessors() / 2))
+        seed = ThreadLocalRandom.current().nextLong();
     }
-    var nightlyRepetitions = System.getenv("COM_APPLE_FOUNDATIONDB_RELATIONAL_YAMLTESTS_NIGHTLY_REPETITION")
-    if (nightlyRepetitions != null) {
-        systemProperty("yaml_testing_nightly_repetition", Integer.parseInt(nightlyRepetitions))
-    } else {
-        systemProperty("yaml_testing_nightly_repetition", 100)
+    println("Using seed for yaml-tests: ${seed}")
+    systemProperty('tests.yaml.seed', seed)
+    if (project.hasProperty('tests.yaml.iterations')) {
+        systemProperties['tests.yaml.iterations'] = project.getProperty('tests.yaml.iterations')
+    } else if (project.hasProperty('tests.iterations')) {
+        // The yaml tests are quite fast now, lets put a lot more repetition on the queries, if it gets larger
+        // we may want to decrease this multiplying factor.
+        systemProperties['tests.yaml.iterations'] = Integer.parseInt(project.getProperty('tests.iterations')) * 20
     }
 }
 

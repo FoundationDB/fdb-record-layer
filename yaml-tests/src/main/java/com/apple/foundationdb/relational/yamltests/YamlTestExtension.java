@@ -24,9 +24,10 @@ import com.apple.foundationdb.relational.yamltests.configs.CorrectExplains;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplainsAndMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
+import com.apple.foundationdb.relational.yamltests.configs.ExternalMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ForceContinuations;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
-import com.apple.foundationdb.relational.yamltests.configs.MultiServerConfig;
+import com.apple.foundationdb.relational.yamltests.configs.JDBCMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
@@ -63,11 +64,31 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
     private List<ExternalServer> servers;
+    @Nullable
+    private final String clusterFile;
+    private final boolean includeMethodInDescriptions;
+
+    public YamlTestExtension() {
+        this(null, false);
+    }
+
+    /**
+     * Create a new extension with some configuration.
+     * @param clusterFile a custom cluster file to use, or {@code null} to inherit it from the environment, namely
+     * {@code FDB_CLUSTER_FILE}.
+     * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
+     * handle complex test hierarchies. In the record layer we maintain the full hierarchy in the output, so this is not
+     * necessary, but if integrating some other tools this might be necessary.
+     */
+    public YamlTestExtension(@Nullable final String clusterFile, final boolean includeMethodInDescriptions) {
+        this.clusterFile = clusterFile;
+        this.includeMethodInDescriptions = includeMethodInDescriptions;
+    }
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
-            testConfigs = List.of(new EmbeddedConfig());
+            testConfigs = List.of(new EmbeddedConfig(clusterFile));
             maintainConfigs = List.of();
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);
@@ -77,34 +98,58 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
             // not a likely scenario.
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
-            servers = jars.stream().map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement())).collect(Collectors.toList());
+            servers = jars.stream()
+                    .map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement(), clusterFile))
+                    .collect(Collectors.toList());
             for (ExternalServer server : servers) {
                 server.start();
             }
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
-            final Stream<YamlTestConfig> localTestingConfigs = mixedModeOnly ?
-                                                               Stream.of() :
-                                                               Stream.of(new EmbeddedConfig(), new JDBCInProcessConfig());
+            final boolean singleExternalVersionOnly = Boolean.parseBoolean(System.getProperty("tests.singleVersion", "false"));
+            Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
+            Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
+
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)
                     localTestingConfigs,
-                    // The configs for multi-server testing (4 configs for each server available)
-                    servers.stream().flatMap(server ->
-                            Stream.of(new MultiServerConfig(0, server),
-                                    new ForceContinuations(new MultiServerConfig(0, server)),
-                                    new MultiServerConfig(1, server),
-                                    new ForceContinuations(new MultiServerConfig(1, server)))
-                    )).collect(Collectors.toList());
+                    // The configs for multi-server testing
+                    externalServerConfigs).collect(Collectors.toList());
 
             maintainConfigs = List.of(
-                    new CorrectExplains(new EmbeddedConfig()),
-                    new CorrectMetrics(new EmbeddedConfig()),
-                    new CorrectExplainsAndMetrics(new EmbeddedConfig()),
-                    new ShowPlanOnDiff(new EmbeddedConfig())
+                    new CorrectExplains(new EmbeddedConfig(clusterFile)),
+                    new CorrectMetrics(new EmbeddedConfig(clusterFile)),
+                    new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
+                    new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
             );
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();
+        }
+    }
+
+    private Stream<YamlTestConfig> localConfigs(final boolean mixedModeOnly, final boolean singleExternalVersionOnly) {
+        if (mixedModeOnly || singleExternalVersionOnly) {
+            return Stream.of();
+        } else {
+            return Stream.of(new EmbeddedConfig(clusterFile), new JDBCInProcessConfig(clusterFile));
+        }
+    }
+
+    private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
+        if (singleExternalVersionOnly) {
+            return servers.stream()
+                    // Create an ExternalServer config with two servers of the same version for each server
+                    // (with and without forced continuations)
+                    .flatMap(server ->
+                            Stream.of(new ExternalMultiServerConfig(0, server, server),
+                                    new ForceContinuations(new ExternalMultiServerConfig(0, server, server))));
+        } else {
+            return servers.stream().flatMap(server ->
+                    // (4 configs for each server available)
+                    Stream.of(new JDBCMultiServerConfig(0, server, clusterFile),
+                            new ForceContinuations(new JDBCMultiServerConfig(0, server, clusterFile)),
+                            new JDBCMultiServerConfig(1, server, clusterFile),
+                            new ForceContinuations(new JDBCMultiServerConfig(1, server, clusterFile))));
         }
     }
 
@@ -149,11 +194,11 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(final ExtensionContext context) {
         final var testClass = context.getRequiredTestClass();
+        final var testMethod = context.getRequiredTestMethod();
         if (testClass.getAnnotation(MaintainYamlTestConfig.class) != null) {
             final var annotation = testClass.getAnnotation(MaintainYamlTestConfig.class);
-            return provideInvocationContextsForMaintenance(annotation);
+            return provideInvocationContextsForMaintenance(annotation, testMethod.getName());
         }
-        final var testMethod = context.getRequiredTestMethod();
         if (testMethod.getAnnotation(ExcludeYamlTestConfig.class) != null) {
             // excluded tests are still included as configs so that they show up in the test run as skipped, rather than
             // just not being there. This may waste some resources if all the tests being run exclude a config that has
@@ -161,22 +206,24 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             final var annotation = testMethod.getAnnotation(ExcludeYamlTestConfig.class);
             return testConfigs
                     .stream()
-                    .map(config -> new Context(config, annotation.reason(), annotation.value()));
+                    .map(config -> new Context(config, annotation.reason(), annotation.value(),
+                            includeMethodInDescriptions, testMethod.getName()));
         } else if (testMethod.getAnnotation(MaintainYamlTestConfig.class) != null) {
             final var annotation =
                     testMethod.getAnnotation(MaintainYamlTestConfig.class);
-            return provideInvocationContextsForMaintenance(annotation);
+            return provideInvocationContextsForMaintenance(annotation, testMethod.getName());
         }
         return testConfigs
                 .stream()
-                .map(config -> new Context(config, "", null));
+                .map(config -> new Context(config, "", null, includeMethodInDescriptions, testMethod.getName()));
     }
 
-    private Stream<TestTemplateInvocationContext> provideInvocationContextsForMaintenance(@Nonnull final MaintainYamlTestConfig annotation) {
+    private Stream<TestTemplateInvocationContext> provideInvocationContextsForMaintenance(
+            @Nonnull final MaintainYamlTestConfig annotation, @Nonnull final String methodName) {
         return maintainConfigs
                 .stream()
                 .map(config -> new Context(config, "maintenance not needed",
-                        Objects.requireNonNull(annotation.value())));
+                        Objects.requireNonNull(annotation.value()), includeMethodInDescriptions, methodName));
     }
 
     /**
@@ -190,17 +237,27 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         private final String excludedReason;
         @Nullable
         private final YamlTestConfigFilters configFilters;
+        private final boolean includeMethodInDescriptions;
+        @Nonnull
+        private final String methodName;
 
         public Context(@Nonnull final YamlTestConfig config, @Nonnull final String excludedReason,
-                       @Nullable final YamlTestConfigFilters configFilters) {
+                       @Nullable final YamlTestConfigFilters configFilters,
+                       final boolean includeMethodInDescriptions, @Nonnull final String methodName) {
             this.config = config;
             this.excludedReason = excludedReason;
             this.configFilters = configFilters;
+            this.includeMethodInDescriptions = includeMethodInDescriptions;
+            this.methodName = methodName;
         }
 
         @Override
         public String getDisplayName(int invocationIndex) {
-            return config.toString();
+            if (includeMethodInDescriptions) {
+                return methodName + "(" + config + ")";
+            } else {
+                return config.toString();
+            }
         }
 
         @Override

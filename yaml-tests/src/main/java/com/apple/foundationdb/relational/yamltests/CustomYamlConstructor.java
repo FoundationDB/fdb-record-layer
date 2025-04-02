@@ -52,6 +52,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!ignore"), new ConstructIgnore());
         yamlConstructors.put(new Tag("!l"), new ConstructLong());
         yamlConstructors.put(new Tag("!sc"), new ConstructStringContains());
+        yamlConstructors.put(new Tag("!uuid"), new ConstructUuidField());
         yamlConstructors.put(new Tag("!null"), new ConstructNullPlaceholder());
         yamlConstructors.put(new Tag("!not_null"), new ConstructNotNull());
         yamlConstructors.put(new Tag("!current_version"), new ConstructCurrentVersion());
@@ -75,6 +76,8 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_PLAN_HASH);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_MAX_ROWS);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST);
     }
 
     @Override
@@ -130,6 +133,11 @@ public class CustomYamlConstructor extends SafeConstructor {
             Assert.thatUnchecked(obj instanceof LinedObject, ErrorCode.INTERNAL_ERROR, msg);
             return (LinedObject) obj;
         }
+
+        @Override
+        public String toString() {
+            return object + "@line:" + lineNumber;
+        }
     }
 
     private static class ConstructIgnore extends AbstractConstruct {
@@ -156,6 +164,16 @@ public class CustomYamlConstructor extends SafeConstructor {
                 Assert.failUnchecked(String.format(Locale.ROOT, "The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
             }
             return new CustomTag.StringContains(((ScalarNode) node).getValue());
+        }
+    }
+
+    private static class ConstructUuidField extends AbstractConstruct {
+        @Override
+        public Object construct(Node node) {
+            if (!(node instanceof ScalarNode)) {
+                Assert.failUnchecked(String.format("The value of uuid (!sc) tag must be a scalar, however '%s' is found!", node));
+            }
+            return new CustomTag.UuidField(((ScalarNode) node).getValue());
         }
     }
 

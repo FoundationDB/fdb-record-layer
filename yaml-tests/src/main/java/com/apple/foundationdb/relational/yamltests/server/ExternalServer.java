@@ -20,10 +20,12 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
+import com.apple.foundationdb.relational.util.BuildVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -42,18 +44,22 @@ public class ExternalServer {
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     private static final boolean SAVE_SERVER_OUTPUT = false;
 
+    @Nullable
     private final File serverJar;
     private final int grpcPort;
     private final int httpPort;
-    private String version;
+    private SemanticVersion version;
     private Process serverProcess;
+    @Nullable
+    private final String clusterFile;
 
     /**
-     * Create a new instance that will run latest released version of the server, as downloaded by gradle.
-     * This assumes only one server exists in the download directory.
+     * Create a new instance that will run a specific jar.
+     *
+     * @param serverJar the path to the jar to run
      */
-    public ExternalServer(final int grpcPort, final int httpPort) {
-        this(null, grpcPort, httpPort);
+    public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort) {
+        this(serverJar, grpcPort, httpPort, null);
     }
 
     /**
@@ -61,10 +67,12 @@ public class ExternalServer {
      *
      * @param serverJar the path to the jar to run
      */
-    public ExternalServer(File serverJar, final int grpcPort, final int httpPort) {
+    public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort,
+                          @Nullable final String clusterFile) {
         this.serverJar = serverJar;
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
+        this.clusterFile = clusterFile;
     }
 
     static {
@@ -100,7 +108,7 @@ public class ExternalServer {
      *
      * @return the version of the server being run.
      */
-    public String getVersion() {
+    public SemanticVersion getVersion() {
         return version;
     }
 
@@ -128,6 +136,9 @@ public class ExternalServer {
                                       ProcessBuilder.Redirect.DISCARD;
         processBuilder.redirectOutput(out);
         processBuilder.redirectError(err);
+        if (clusterFile != null) {
+            processBuilder.environment().put("FDB_CLUSTER_FILE", clusterFile);
+        }
 
         if (!startServer(processBuilder)) {
             Assertions.fail("Failed to start the external server");
@@ -147,13 +158,24 @@ public class ExternalServer {
         return List.of(externalServers);
     }
 
-    private static String getVersion(File jar) throws IOException {
+    private static SemanticVersion getVersion(File jar) throws IOException {
         try (JarFile jarFile = new JarFile(jar)) {
             final Manifest manifest = jarFile.getManifest();
             final Attributes mainAttributes = manifest.getMainAttributes();
             String version = mainAttributes.getValue("Specification-Version");
             if (version != null) {
-                return version;
+                if (version.equals(BuildVersion.getInstance().getVersion())) {
+                    // One of the external servers is locally built. In order for conditional execution
+                    // in the test assertions to be executed correctly, it needs to be registered
+                    // as such.
+                    //
+                    // Ideally, it would be nice if the two versions aligned, potentially by having
+                    // SemanticVersion.current() return a version based on the BuildVersion.
+                    // See: https://github.com/FoundationDB/fdb-record-layer/issues/3208 for more details
+                    return SemanticVersion.current();
+                } else {
+                    return SemanticVersion.parse(version);
+                }
             } else {
                 return Assertions.fail("Server does not specify a version in the manifest: " + jar.getAbsolutePath());
             }

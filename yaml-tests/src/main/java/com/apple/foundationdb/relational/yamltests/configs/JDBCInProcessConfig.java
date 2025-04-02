@@ -20,34 +20,35 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
-import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Set;
 
 /**
  * Run against an embedded JDBC server.
  */
 public class JDBCInProcessConfig implements YamlTestConfig {
-    private static final Logger LOG = LogManager.getLogger(JDBCInProcessConfig.class);
-
     @Nullable
     private InProcessRelationalServer server;
+    @Nullable
+    private final String clusterFile;
+
+    public JDBCInProcessConfig() {
+        this(null);
+    }
+
+    public JDBCInProcessConfig(@Nullable final String clusterFile) {
+        this.clusterFile = clusterFile;
+    }
 
     @Override
     public void beforeAll() throws Exception {
         try {
-            server = new InProcessRelationalServer().start();
+            server = new InProcessRelationalServer(clusterFile).start();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -62,22 +63,8 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     }
 
     @Override
-    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return new YamlRunner.YamlConnectionFactory() {
-            @Override
-            public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                // Add name of the in-process running server to the connectPath.
-                URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
-                String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
-                LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                return DriverManager.getConnection(uriStr);
-            }
-
-            @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of();
-            }
-        };
+    public YamlConnectionFactory createConnectionFactory() {
+        return new JDBCInProcessYamlConnectionFactory(server);
     }
 
     @Override

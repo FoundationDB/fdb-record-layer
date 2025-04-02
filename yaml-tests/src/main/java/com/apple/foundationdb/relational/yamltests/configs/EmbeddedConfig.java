@@ -22,21 +22,28 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Run directly against an instance of {@link FRL}.
  */
 public class EmbeddedConfig implements YamlTestConfig {
     private FRL frl;
+    @Nullable
+    private final String clusterFile;
+
+    public EmbeddedConfig() {
+        this(null);
+    }
+
+    public EmbeddedConfig(@Nullable final String clusterFile) {
+        this.clusterFile = clusterFile;
+    }
 
     @Override
     public void beforeAll() throws Exception {
@@ -46,7 +53,7 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
                 .build();
-        frl = new FRL(options);
+        frl = new FRL(options, clusterFile);
     }
 
     @Override
@@ -58,18 +65,8 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
-    public YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return new YamlRunner.YamlConnectionFactory() {
-            @Override
-            public Connection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return DriverManager.getConnection(connectPath.toString());
-            }
-
-            @Override
-            public Set<String> getVersionsUnderTest() {
-                return Set.of();
-            }
-        };
+    public YamlConnectionFactory createConnectionFactory() {
+        return new EmbeddedYamlConnectionFactory();
     }
 
     @Override

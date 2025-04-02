@@ -21,13 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalListener;
@@ -462,7 +459,6 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
         };
     }
 
-    @ExcludeFromJacocoGeneratedReport
     public abstract static class Builder<K, S, T, V, B extends Builder<K, S, T, V, B>> {
 
         private static final int DEFAULT_SIZE = 256;
@@ -628,7 +624,6 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
         }
     }
 
-    @ExcludeFromJacocoGeneratedReport
     public static class MultiStageCacheBuilder<K, S, T, V> extends Builder<K, S, T, V, MultiStageCacheBuilder<K, S, T, V>> {
         @Nonnull
         @Override

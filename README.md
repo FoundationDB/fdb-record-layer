@@ -1,4 +1,4 @@
-<img alt="FoundationDB logo" src="docs/FDB_logo.png?raw=true" width="400">
+<img alt="FoundationDB logo" src="docs/sphinx/source/FDB_logo.png?raw=true" width="400">
 
 FoundationDB is a distributed database designed to handle large volumes of structured data across clusters of commodity servers. It organizes data as an ordered key-value store and employs ACID transactions for all operations. It is especially well-suited for read/write workloads but also has excellent performance for write-intensive workloads. Users interact with the database using API language binding.
 
@@ -39,7 +39,7 @@ layer on which more complex systems can be constructed.
 
 ## Documentation
 
-* [Documentation Home](docs/sphinx/source/index.md)
+* [Documentation Home](https://foundationdb.github.io/fdb-record-layer/)
 * [Contributing](CONTRIBUTING.md)
 * [Code of Conduct](CODE_OF_CONDUCT.md)
 * [License](LICENSE)
