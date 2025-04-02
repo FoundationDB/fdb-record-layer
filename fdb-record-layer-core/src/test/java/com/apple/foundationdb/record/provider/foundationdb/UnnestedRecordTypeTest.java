@@ -1112,23 +1112,26 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-
             for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
                 Message outerMessage = convertOuterRecord(metaData, outerRecord);
-                FDBStoredRecord<Message> stored = recordStore.saveRecord(outerMessage);
-
-                // A Primary Key for a record that does not exist
-                final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), Tuple.from(100), Tuple.from(1));
-                // Default policy is ERROR
-                final Throwable cause = assertThrows(CompletionException.class, () -> recordStore.loadSyntheticRecord(syntheticPrimaryKey).join()).getCause();
-                assertEquals(RecordDoesNotExistException.class, cause.getClass());
-                // return no constituents for RETURN
-                FDBSyntheticRecord result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.RETURN).join();
-                assertEquals(0, result.getConstituents().size());
-                // return null on SKIP
-                result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.SKIP).join();
-                assertEquals(null, result);
+                recordStore.saveRecord(outerMessage);
             }
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            // A Primary Key for a record that does not exist
+            final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), Tuple.from(100), Tuple.from(1));
+            // Default policy is ERROR
+            final Throwable cause = assertThrows(CompletionException.class, () -> recordStore.loadSyntheticRecord(syntheticPrimaryKey).join()).getCause();
+            assertEquals(RecordDoesNotExistException.class, cause.getClass());
+            // return no constituents for RETURN
+            FDBSyntheticRecord result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.RETURN).join();
+            assertEquals(0, result.getConstituents().size());
+            // return null on SKIP
+            result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.SKIP).join();
+            assertEquals(null, result);
 
             commit(context);
         }
