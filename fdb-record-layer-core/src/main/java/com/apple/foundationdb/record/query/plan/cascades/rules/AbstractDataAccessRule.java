@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
@@ -59,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -82,6 +84,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
 
@@ -282,19 +285,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             addToIntersectionInfoMap(intersectionInfoMap, bestMatchWithIndex, compensatedSingleAccessExpressionOptional);
         }
 
-        final var bestMatchToDistinctPlanMap =
-                distinctMatchToScanMap(call, bestMatchToPlanMap);
-
-        final var commonPrimaryKeyValuesOptional =
-                commonRecordKeyValuesMaybe(
-                        bestMaximumCoverageMatches.stream()
-                                .map(singleMatchedAccessVectored ->
-                                        singleMatchedAccessVectored.getElement().getPartialMatch())
-                                .collect(ImmutableList.toImmutableList()));
-        if (commonPrimaryKeyValuesOptional.isEmpty() || bestMaximumCoverageMatches.size() == 1) {
+        if (bestMaximumCoverageMatches.size() == 1) {
             return intersectionInfoMapToExpressions(intersectionInfoMap);
         }
-        final var commonPrimaryKeyValues = commonPrimaryKeyValuesOptional.get();
+
+        final var bestMatchToDistinctPlanMap =
+                distinctMatchToScanMap(call, bestMatchToPlanMap);
 
         //
         // Create all combinations of scans for all best matches and intersect them.
@@ -338,7 +334,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     createIntersectionAndCompensation(
                             call,
                             intersectionInfoMap,
-                            commonPrimaryKeyValues,
                             bestMatchToDistinctPlanMap,
                             binaryPartition,
                             requestedOrderings);
@@ -396,7 +391,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             createIntersectionAndCompensation(
                                     call,
                                     intersectionInfoMap,
-                                    commonPrimaryKeyValues,
                                     bestMatchToDistinctPlanMap,
                                     kPartition,
                                     requestedOrderings);
@@ -422,7 +416,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     @Nonnull
-    private static Optional<List<Value>> commonRecordKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
+    protected static Optional<List<Value>> commonRecordKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
         List<Value> common = null;
         var first = true;
         for (final var partialMatch : partialMatches) {
@@ -438,22 +432,22 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 }
                 key = keyMaybe.get();
             } else if (matchCandidate instanceof AggregateIndexMatchCandidate) {
-                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
-                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
-                if (rollUpToGroupingValues == null) {
-                    key = aggregateIndexMatchCandidate.getGroupByValues();
-                } else {
-                    key = aggregateIndexMatchCandidate.getGroupByValues().subList(0, rollUpToGroupingValues.size());
-                }
-
 //                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
 //                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
 //                if (rollUpToGroupingValues == null) {
-//                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(Quantifier.current()).getLeft();
+//                    key = aggregateIndexMatchCandidate.getGroupByValues();
 //                } else {
-//                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(rollUpToGroupingValues.size(),
-//                            Quantifier.current()).getLeft();
+//                    key = aggregateIndexMatchCandidate.getGroupByValues().subList(0, rollUpToGroupingValues.size());
 //                }
+
+                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
+                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
+                if (rollUpToGroupingValues == null) {
+                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(Quantifier.current()).getLeft();
+                } else {
+                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(rollUpToGroupingValues.size(),
+                            Quantifier.current()).getLeft();
+                }
             } else {
                 return Optional.empty();
             }
@@ -588,7 +582,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                             final @Nonnull Set<RequestedOrdering> requestedOrderings) {
         final var partialMatchesWithCompensation = new ArrayList<SingleMatchedAccess>();
         for (final var partialMatch: partialMatches) {
-            final var satisfyingOrderingsPairOptional = satisfiesAnyRequestedOrderings(partialMatch, requestedOrderings);
+            final var satisfyingOrderingsPairOptional =
+                    satisfiesAnyRequestedOrderings(partialMatch, requestedOrderings);
             if (satisfyingOrderingsPairOptional.isEmpty()) {
                 continue;
             }
@@ -644,14 +639,25 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @SuppressWarnings("java:S135")
     private static Optional<NonnullPair<ScanDirection, Set<RequestedOrdering>>> satisfiesAnyRequestedOrderings(@Nonnull final PartialMatch partialMatch,
                                                                                                                @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+        final var maxMatchMap = partialMatch.getMatchInfo().getMaxMatchMap();
+        final var translationMapOptional =
+                maxMatchMap.pullUpMaybe(Quantifier.current(), Quantifier.current());
+        if (translationMapOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        final var translationMap = translationMapOptional.get();
+
         boolean seenForward = false;
         boolean seenReverse = false;
         final var satisfyingRequestedOrderings = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {
+            final var translatedRequestedOrdering =
+                    requestedOrdering.translateCorrelations(translationMap, true);
+
             final var scanDirectionForRequestedOrderingOptional =
-                    satisfiesRequestedOrdering(partialMatch, requestedOrdering);
+                    satisfiesRequestedOrdering(partialMatch, translatedRequestedOrdering);
             if (scanDirectionForRequestedOrderingOptional.isPresent()) {
-                satisfyingRequestedOrderings.add(requestedOrdering);
+                satisfyingRequestedOrderings.add(translatedRequestedOrdering);
                 // Note, that a match may satisfy one requested ordering using a forward scan and another requested
                 // ordering using a reverse scan.
                 final var scanDirectionForRequestedOrdering = scanDirectionForRequestedOrderingOptional.get();
@@ -847,7 +853,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection.
      * @param memoizer the memoizer
-     * @param commonPrimaryKeyValues normalized common primary key
      * @param matchToPlanMap a map from match to single data access expression
      * @param partition a partition (i.e. a list of {@link SingleMatchedAccess}es that the caller would like to compute
      *        and intersected data access for
@@ -858,7 +863,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     protected abstract IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
                                                                             @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                            @Nonnull final List<Value> commonPrimaryKeyValues,
                                                                             @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
                                                                             @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                                             @Nonnull final Set<RequestedOrdering> requestedOrderings);
@@ -947,7 +951,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     private static Optional<Set<CorrelationIdentifier>> unmatchedIdsMaybe(@Nonnull final IntersectionInfo intersectionInfo) {
         final var compensationOptional = compensationMaybe(intersectionInfo);
         return compensationOptional.map(compensation ->
-                compensation.getAggregateMappings().getUnmatchedAggregateMap().keySet());
+                compensation.getGroupByMappings().getUnmatchedAggregatesMap().keySet());
     }
 
     @Nonnull
@@ -1133,6 +1137,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         private final boolean reverseScanOrder;
         @Nonnull
         private final Set<RequestedOrdering> satisfyingRequestedOrderings;
+        @Nonnull
+        private final Supplier<GroupByMappings> pulledUpGroupByMappingsSupplier;
 
         public SingleMatchedAccess(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Compensation compensation,
@@ -1144,6 +1150,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             this.candidateTopAlias = candidateTopAlias;
             this.reverseScanOrder = reverseScanOrder;
             this.satisfyingRequestedOrderings = ImmutableSet.copyOf(satisfyingRequestedOrderings);
+            this.pulledUpGroupByMappingsSupplier =
+                    Suppliers.memoize(() -> partialMatch.getMatchInfo()
+                            .adjustGroupByMappings(Quantifier.current(), partialMatch.getCandidateRef().get()));
         }
 
         @Nonnull
@@ -1168,6 +1177,19 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         @Nonnull
         public Set<RequestedOrdering> getSatisfyingRequestedOrderings() {
             return satisfyingRequestedOrderings;
+        }
+
+        @Nonnull
+        public GroupByMappings getPulledUpGroupByMappingsForOrdering() {
+            return pulledUpGroupByMappingsSupplier.get();
+        }
+
+        @Override
+        public String toString() {
+            return "[" + partialMatch + ", " + compensation +
+                    ", " + candidateTopAlias +
+                    ", " + (reverseScanOrder ? "forward" : "reverse") +
+                    ", " + satisfyingRequestedOrderings + ']';
         }
     }
 

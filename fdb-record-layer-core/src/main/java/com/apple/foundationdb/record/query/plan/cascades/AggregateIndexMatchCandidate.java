@@ -216,9 +216,9 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var candidateParameterIds = getOrderingAliases();
         final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
-        final var selectHavingResultValue = selectHavingExpression.getResultValue();
-        final var deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
-        final var aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
+        final var selectHavingResultType = selectHavingExpression.getResultValue().getResultType();
+        final var deconstructedValues =
+                Values.deconstructRecord(QuantifiedObjectValue.of(Quantifier.current(), selectHavingResultType));
 
         // Compute the ordering for this index by collecting the result values of the selectHaving statement
         // associated with each sortParameterId. Note that for most aggregate indexes, the aggregate value is
@@ -249,7 +249,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             }
 
             // Grab the value for this sortParameterID from the selectHaving result columns
-            final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
+            final var value = deconstructedValues.get(permutedIndex);
 
             if (normalizedValues.add(value)) {
                 final var matchedOrderingPart =
@@ -301,7 +301,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final int groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
 
         if (!isPermuted() && groupingCount == 0) {
-            // TODO this should be something like anything-order.
             return Ordering.empty();
         }
 

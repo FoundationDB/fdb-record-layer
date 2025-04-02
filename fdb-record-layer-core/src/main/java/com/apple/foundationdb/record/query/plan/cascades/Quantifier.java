@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap.TranslationFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -241,13 +240,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         @Nonnull
         public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
-                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
-            final var translatedQueryValueOptional = maxMatchMap.translateQueryValueMaybe(candidateAlias);
-            return translatedQueryValueOptional
-                    .map(translatedQueryValue ->
-                            TranslationMap.regularBuilder()
-                                    .when(getAlias()).then(TranslationFunction.adjustValueType(translatedQueryValue))
-                                    .build());
+                                                               @Nonnull final CorrelationIdentifier candidateAlias) {
+            return maxMatchMap.pullUpMaybe(getAlias(), candidateAlias);
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")

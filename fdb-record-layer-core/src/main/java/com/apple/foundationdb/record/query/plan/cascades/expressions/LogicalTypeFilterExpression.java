@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
-import com.apple.foundationdb.record.query.plan.cascades.AggregateMappings;
+import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
@@ -206,10 +206,10 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
         boolean isCompensationImpossible = false;
         final ResultCompensationFunction resultCompensationFunction;
-        final AggregateMappings aggregateMappings;
+        final GroupByMappings groupByMappings;
         if (rootOfMatchPullUp == null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
-            aggregateMappings = AggregateMappings.empty();
+            groupByMappings = GroupByMappings.empty();
         } else {
             final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpTranslatedResultValueOptional =
@@ -229,7 +229,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             }
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
-            aggregateMappings =
+            groupByMappings =
                     RegularMatchInfo.pullUpAggregateCandidateMappings(partialMatch, rootOfMatchPullUp);
         }
 
@@ -246,7 +246,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
                 resultCompensationFunction,
-                aggregateMappings);
+                groupByMappings);
     }
 
     @Nonnull
