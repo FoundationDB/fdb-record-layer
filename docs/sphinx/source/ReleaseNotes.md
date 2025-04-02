@@ -7,6 +7,44 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.2
 
+### 4.2.4.0
+
+<h4> Bug Fixes </h4>
+
+* Fix wasNull state across toString() calls in RowStruct - [PR #3276](https://github.com/FoundationDB/fdb-record-layer/pull/3276)
+<h4> Dependency Updates </h4>
+
+* Downgrade protobuf version back to 3.25.5 and grpc common proto to 2.37.0 - [PR #3287](https://github.com/FoundationDB/fdb-record-layer/pull/3287)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Decrease the number of builds compared during mixed mode to the most recent 10 - [PR #3289](https://github.com/FoundationDB/fdb-record-layer/pull/3289)
+* Added workflow for creating branches for patch releases - [PR #3192](https://github.com/FoundationDB/fdb-record-layer/pull/3192)
+* Rework SqlLineTest so that it actually interacts with the database - [PR #3273](https://github.com/FoundationDB/fdb-record-layer/pull/3273)
+* Fix warning from sphinxDocs about missing _static directory. - [PR #3283](https://github.com/FoundationDB/fdb-record-layer/pull/3283)
+* Remove get_old_version step from release build - [PR #3277](https://github.com/FoundationDB/fdb-record-layer/pull/3277)
+* Remove a bunch of blank lines in unsupported methods - [PR #3267](https://github.com/FoundationDB/fdb-record-layer/pull/3267)
+
+</details>
+
+
+**[Full Changelog (4.2.3.0...4.2.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.3.0...4.2.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14230097202)
+
+
+
 ### 4.2.3.0
 
 <h4> New Features </h4>
