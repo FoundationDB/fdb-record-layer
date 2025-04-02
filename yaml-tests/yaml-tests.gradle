@@ -142,7 +142,7 @@ static def getAttributesFromJar(File file) {
 ext.resolveManyServers = { ->
     Set<File> selectedServers = new HashSet<>();
     Set<String> rejectedVersions = new HashSet<>();
-    while (selectedServers.size() < 50) {
+    while (selectedServers.size() < 10) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
         // 4.0.559.0 is the first version that introduced the server, so we won't be able to find anything
