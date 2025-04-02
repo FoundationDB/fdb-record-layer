@@ -224,7 +224,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
                         childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
                                 .setMatchedOrderingParts(forPartialMatch(partialMatch))
-                                .setAggregateMappings(childMatchInfo.adjustAggregateMappings(partialMatch, candidateQuantifier))
+                                .setGroupByMappings(childMatchInfo.adjustGroupByMappings(candidateQuantifier))
                                 .build());
     }
 
