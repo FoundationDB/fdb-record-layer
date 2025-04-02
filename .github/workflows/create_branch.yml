@@ -30,4 +30,4 @@ jobs:
       - name: Create Branch
         run: git checkout -b ${{ inputs.version }}-release
       - name: Push
-        run: git push origin --set-upstream ${{ inputs.version }}-release
+        run: git push -u origin ${{ inputs.version }}-release
