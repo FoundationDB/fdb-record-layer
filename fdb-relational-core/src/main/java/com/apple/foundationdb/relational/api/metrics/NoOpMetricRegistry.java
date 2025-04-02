@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
  * <p>
  * NOTE(stack): Consider NOT using codahale but prometheus metrics. If server is exporting metrics
  * on an prometheus endpoint, codahale will require translation (there are translators but better not
- * to translate at all). What is the story for clients? RL is codahale?
+ * to translateCorrelations at all). What is the story for clients? RL is codahale?
  */
 @ExcludeFromJacocoGeneratedReport //it doesn't do anything to be tested
 @API(API.Status.EXPERIMENTAL)
