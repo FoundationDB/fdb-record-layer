@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
-import com.apple.foundationdb.record.query.plan.cascades.AggregateMappings;
+import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
@@ -465,7 +465,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         MaxMatchMap.compute(translatedResultValue, candidateExpression.getResultValue(),
                                 Quantifiers.aliases(candidateExpression.getQuantifiers()), bindingValueEquivalence);
                 return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
-                                PredicateMap.empty(), maxMatchMap, AggregateMappings.empty(), null,
+                                PredicateMap.empty(), maxMatchMap, GroupByMappings.empty(), null,
                                 maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
@@ -585,7 +585,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                                             bindingValueEquivalence);
                                             return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
                                                     allParameterBindingMap, predicateMap,
-                                                    maxMatchMap, AggregateMappings.empty(), null,
+                                                    maxMatchMap, GroupByMappings.empty(), null,
                                                     maxMatchMap.getQueryPlanConstraint());
                                         })
                                         .map(ImmutableList::of)
@@ -622,7 +622,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .map(adjustedMaxMatchMap ->
                         childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
-                                .setAggregateMappings(childMatchInfo.adjustAggregateMappings(partialMatch, candidateQuantifier))
+                                .setGroupByMappings(childMatchInfo.adjustGroupByMappings(candidateQuantifier))
                                 .build());
     }
 
@@ -865,10 +865,10 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         }
 
         final ResultCompensationFunction resultCompensationFunction;
-        final AggregateMappings aggregateMappings;
+        final GroupByMappings groupByMappings;
         if (rootOfMatchPullUp == null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
-            aggregateMappings = AggregateMappings.empty();
+            groupByMappings = GroupByMappings.empty();
         } else {
             final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var pulledUpTranslatedResultValueOptional =
@@ -882,7 +882,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             resultCompensationFunction = ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             isAnyCompensationFunctionImpossible |= resultCompensationFunction.isImpossible();
 
-            aggregateMappings =
+            groupByMappings =
                     RegularMatchInfo.pullUpAggregateCandidateMappings(partialMatch, rootOfMatchPullUp);
         }
 
@@ -915,6 +915,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 partialMatch.getUnmatchedQuantifiers(),
                 partialMatch.getCompensatedAliases(),
                 resultCompensationFunction,
-                aggregateMappings);
+                groupByMappings);
     }
 }

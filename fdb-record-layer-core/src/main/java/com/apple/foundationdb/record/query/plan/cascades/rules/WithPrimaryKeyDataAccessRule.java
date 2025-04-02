@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -39,13 +38,13 @@ import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -138,16 +137,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
 
         // loop through all compensated alias sets and their associated match partitions
         for (final var matchPartitionByMatchAliasEntry : matchPartitionByMatchAliasMap.entrySet()) {
-            final var matchedAlias = matchPartitionByMatchAliasEntry.getKey();
             final var matchPartitionForMatchedAlias = matchPartitionByMatchAliasEntry.getValue();
-
-            //
-            // Pull down the requested orderings along the matchedAlias
-            //
-            final var pushedRequestedOrderings =
-                    requestedOrderings.stream()
-                            .map(requestedOrdering -> requestedOrdering.pushDown(expression.getResultValue(), matchedAlias, AliasMap.emptyMap(), correlatedTo))
-                            .collect(ImmutableSet.toImmutableSet());
 
             //
             // We do know that local predicates (which includes predicates only using the matchedAlias quantifier)
@@ -182,7 +172,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
                 //
                 final var dataAccessExpressions =
                         dataAccessForMatchPartition(call,
-                                pushedRequestedOrderings,
+                                requestedOrderings,
                                 matchPartition);
                 call.yieldExpression(dataAccessExpressions);
             }
@@ -193,10 +183,22 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
     @Override
     protected IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
                                                                    @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                   @Nonnull final List<Value> commonPrimaryKeyValues,
                                                                    @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
                                                                    @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                                    @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+        Verify.verify(partition.size() > 1);
+        final var commonRecordKeyValuesOptional =
+                commonRecordKeyValuesMaybe(
+                        partition.stream()
+                                .map(singleMatchedAccessVectored ->
+                                        singleMatchedAccessVectored.getElement().getPartialMatch())
+                                .collect(ImmutableList.toImmutableList()));
+        if (commonRecordKeyValuesOptional.isEmpty()) {
+            return IntersectionResult.noCommonOrdering();
+        }
+
+        final var commonPrimaryKeyValues = commonRecordKeyValuesOptional.get();
+
         final var partitionOrderings =
                 partition.stream()
                         .map(Vectored::getElement)
