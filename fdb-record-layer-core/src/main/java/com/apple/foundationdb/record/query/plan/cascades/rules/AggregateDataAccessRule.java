@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -38,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -105,7 +105,6 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         }
 
         final var expression = bindings.get(getExpressionMatcher());
-        final var correlatedTo = expression.getCorrelatedTo();
 
         //
         // return if there is no pre-determined interesting ordering
@@ -144,19 +143,8 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
 
         // loop through all compensated alias sets and their associated match partitions
         for (final var matchPartitionByMatchAliasEntry : matchPartitionByMatchAliasMap.entrySet()) {
-            final var matchedAlias = matchPartitionByMatchAliasEntry.getKey();
             final var matchPartitionForMatchedAlias =
                     matchPartitionByMatchAliasEntry.getValue();
-
-            //
-            // Pull down the requested orderings along the matchedAlias
-            //
-            final var pushedRequestedOrderings =
-                    requestedOrderings.stream()
-                            .map(requestedOrdering ->
-                                    requestedOrdering.pushDown(expression.getResultValue(), matchedAlias,
-                                            call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo))
-                            .collect(ImmutableSet.toImmutableSet());
 
             //
             // We do know that local predicates (which includes predicates only using the matchedAlias quantifier)
@@ -191,7 +179,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                 //
                 final var dataAccessExpressions =
                         dataAccessForMatchPartition(call,
-                                pushedRequestedOrderings,
+                                requestedOrderings,
                                 matchPartition);
                 call.yieldMixedUnknownExpressions(dataAccessExpressions);
             }
@@ -202,10 +190,21 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
     @Override
     protected IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
                                                                    @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                   @Nonnull final List<Value> commonPrimaryKeyValues,
                                                                    @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
                                                                    @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                                    @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+        Verify.verify(partition.size() > 1);
+        final var commonRecordKeyValuesOptional =
+                commonRecordKeyValuesMaybe(
+                        partition.stream()
+                                .map(singleMatchedAccessVectored ->
+                                        singleMatchedAccessVectored.getElement().getPartialMatch())
+                                .collect(ImmutableList.toImmutableList()));
+        if (commonRecordKeyValuesOptional.isEmpty()) {
+            return IntersectionResult.noCommonOrdering();
+        }
+        final var commonRecordKeyValues = commonRecordKeyValuesOptional.get();
+
         final var partitionOrderings =
                 partition.stream()
                         .map(Vectored::getElement)
@@ -243,8 +242,12 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                     intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
             for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
                 if (!isCompatibleComparisonKey(comparisonKeyValues,
-                        commonPrimaryKeyValues,
+                        commonRecordKeyValues,
                         equalityBoundKeyValues)) {
+                    continue;
+                }
+
+                if (!isCompatibleDerivationAcrossMatches(partition, comparisonKeyValues)) {
                     continue;
                 }
 
@@ -270,7 +273,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
 
                     final var newQuantifiers = newQuantifiersBuilder.build();
                     final var commonAndPickUpValues =
-                            computeCommonAndPickUpValues(partition, commonPrimaryKeyValues.size());
+                            computeCommonAndPickUpValues(partition, commonRecordKeyValues.size());
                     final var intersectionResultValue =
                             computeIntersectionResultValue(newQuantifiers, commonAndPickUpValues.getLeft(), commonAndPickUpValues.getRight());
                     final var intersectionPlan =
@@ -281,7 +284,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                                     baseAlias -> computeTranslationMap(baseAlias,
                                             newQuantifiers, candidateTopAliasesBuilder.build(),
                                             (Type.Record)intersectionResultValue.getResultType(),
-                                            commonPrimaryKeyValues.size()));
+                                            commonRecordKeyValues.size()));
                     expressionsBuilder.add(compensatedIntersection);
                 }
             }
@@ -289,6 +292,37 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
 
         return IntersectionResult.of(hasCommonOrdering ? intersectionOrdering : null, compensation,
                 expressionsBuilder.build());
+    }
+
+    private static boolean isCompatibleDerivationAcrossMatches(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                               @Nonnull final List<Value> comparisonKeyValues) {
+        for (final var comparisonKeyValue : comparisonKeyValues) {
+            Value queryComparisonKeyValue = null;
+            for (final var singleMatchedAccessWithIndex : partition) {
+                final var singledMatchedAccess = singleMatchedAccessWithIndex.getElement();
+                final var groupByMappings = singledMatchedAccess.getPulledUpGroupByMappingsForOrdering();
+                final var inverseMatchedGroupingsMap =
+                        groupByMappings.getMatchedGroupingsMap().inverse();
+                final var currentQueryComparisonKeyValue = inverseMatchedGroupingsMap.get(comparisonKeyValue);
+                if (currentQueryComparisonKeyValue == null) {
+                    return false;
+                }
+                if (queryComparisonKeyValue == null) {
+                    queryComparisonKeyValue = currentQueryComparisonKeyValue;
+                } else {
+                    final var semanticEquals =
+                            queryComparisonKeyValue.semanticEquals(currentQueryComparisonKeyValue,
+                                    ValueEquivalence.empty());
+                    if (semanticEquals.isFalse()) {
+                        return false;
+                    }
+                    if (!semanticEquals.getConstraint().isTautology()) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     @Nonnull

@@ -293,6 +293,17 @@ public class MaxMatchMap {
                 rangedOverAliases));
     }
 
+    @Nonnull
+    public Optional<TranslationMap> pullUpMaybe(@Nonnull final CorrelationIdentifier queryAlias,
+                                                @Nonnull final CorrelationIdentifier candidateAlias) {
+        final var translatedQueryValueOptional = translateQueryValueMaybe(candidateAlias);
+        return translatedQueryValueOptional
+                .map(translatedQueryValue ->
+                        TranslationMap.builder()
+                                .when(queryAlias).then(TranslationMap.TranslationFunction.adjustValueType(translatedQueryValue))
+                                .build());
+    }
+
     @Override
     public String toString() {
         return "M³(" +

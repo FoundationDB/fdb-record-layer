@@ -26,7 +26,7 @@ import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import java.text.NumberFormat;
 
 /**
- * A subclass of PointsConfig to allow the Parser the ability to translate boolean terms to binary ones.
+ * A subclass of PointsConfig to allow the Parser the ability to translateCorrelations boolean terms to binary ones.
  */
 public class BooleanPointsConfig extends PointsConfig {
 

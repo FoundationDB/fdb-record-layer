@@ -32,7 +32,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * Interface for all kinds of compensation. A compensation is the byproduct of expression DAG matching.
@@ -415,7 +413,7 @@ public interface Compensation {
                              @Nonnull final Set<? extends Quantifier> unmatchedQuantifiers,
                              @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
                              @Nonnull final ResultCompensationFunction resultCompensationFunction,
-                             @Nonnull final AggregateMappings aggregateMappings) {
+                             @Nonnull final GroupByMappings groupByMappings) {
         //
         // At least one of these conditions must be true:
         // - it is an impossible compensation (in which case the predicate compensation map may be empty)
@@ -428,7 +426,7 @@ public interface Compensation {
                 !predicateCompensationMap.isEmpty() || resultCompensationFunction.isNeeded() || isNeededForFiltering());
 
         return new ForMatch(isImpossible, this, predicateCompensationMap, matchedQuantifiers,
-                unmatchedQuantifiers, compensatedAliases, resultCompensationFunction, aggregateMappings);
+                unmatchedQuantifiers, compensatedAliases, resultCompensationFunction, groupByMappings);
     }
 
     /**
@@ -479,7 +477,7 @@ public interface Compensation {
         ResultCompensationFunction getResultCompensationFunction();
 
         @Nonnull
-        AggregateMappings getAggregateMappings();
+        GroupByMappings getGroupByMappings();
 
         /**
          * Specific implementation of union-ing two compensations both of type {@link WithSelectCompensation}.
@@ -575,7 +573,7 @@ public interface Compensation {
                     ImmutableSet.of(),
                     Sets.union(getCompensatedAliases(), otherWithSelectCompensation.getCompensatedAliases()),
                     newResultResultCompensationFunction,
-                    AggregateMappings.empty());
+                    GroupByMappings.empty());
         }
 
         /**
@@ -606,26 +604,40 @@ public interface Compensation {
                 return Compensation.impossibleCompensation();
             }
 
-            final var newMatchedAggregateMap =
-                    Stream.concat(getAggregateMappings().getMatchedAggregateMap().entrySet().stream(),
-                                    otherWithSelectCompensation.getAggregateMappings().getMatchedAggregateMap().entrySet().stream())
-                            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey,
-                                    Map.Entry::getValue,
-                                    (l, r) -> l));
-            final var newUnmatchedAggregateMapBuilder =
+            final var newMatchedGroupingsMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            final var matchedGroupingsMap = getGroupByMappings().getMatchedGroupingsMap();
+            newMatchedGroupingsMapBuilder.putAll(matchedGroupingsMap);
+            for (final var entry : otherWithSelectCompensation.getGroupByMappings().getMatchedGroupingsMap().entrySet()) {
+                if (!matchedGroupingsMap.containsKey(entry.getKey())) {
+                    newMatchedGroupingsMapBuilder.put(entry);
+                }
+            }
+
+            final var newMatchedAggregatesMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            final var matchedAggregatesMap = getGroupByMappings().getMatchedAggregatesMap();
+            newMatchedAggregatesMapBuilder.putAll(matchedAggregatesMap);
+            for (final var entry : otherWithSelectCompensation.getGroupByMappings().getMatchedAggregatesMap().entrySet()) {
+                if (!matchedAggregatesMap.containsKey(entry.getKey())) {
+                    newMatchedAggregatesMapBuilder.put(entry);
+                }
+            }
+            final var newMatchedAggregatesMap = newMatchedAggregatesMapBuilder.build();
+            final var newUnmatchedAggregatesMapBuilder =
                     ImmutableBiMap.<CorrelationIdentifier, Value>builder();
-            final var unmatchedAggregateMap = getAggregateMappings().getUnmatchedAggregateMap();
+            final var unmatchedAggregateMap = getGroupByMappings().getUnmatchedAggregatesMap();
             for (final var entry : unmatchedAggregateMap.entrySet()) {
-                if (!newMatchedAggregateMap.containsKey(entry.getValue())) {
-                    newUnmatchedAggregateMapBuilder.put(entry);
+                if (!newMatchedAggregatesMap.containsKey(entry.getValue())) {
+                    newUnmatchedAggregatesMapBuilder.put(entry);
                 }
             }
-            for (final var entry : otherWithSelectCompensation.getAggregateMappings().getUnmatchedAggregateMap().entrySet()) {
-                if (!newMatchedAggregateMap.containsKey(entry.getValue())) {
-                    newUnmatchedAggregateMapBuilder.put(entry);
+            for (final var entry : otherWithSelectCompensation.getGroupByMappings().getUnmatchedAggregatesMap().entrySet()) {
+                if (!newMatchedAggregatesMap.containsKey(entry.getValue()) &&
+                        !unmatchedAggregateMap.inverse().containsKey(entry.getValue())) {
+                    newUnmatchedAggregatesMapBuilder.put(entry);
                 }
             }
-            final var newAggregateMappings = AggregateMappings.of(newMatchedAggregateMap, newUnmatchedAggregateMapBuilder.build());
+            final var newGroupByMappings = GroupByMappings.of(newMatchedGroupingsMapBuilder.build(),
+                    newMatchedAggregatesMap, newUnmatchedAggregatesMapBuilder.build());
 
             final ResultCompensationFunction newResultResultCompensationFunction;
             final var resultCompensationFunction = getResultCompensationFunction();
@@ -638,7 +650,7 @@ public interface Compensation {
                 Verify.verify(otherResultCompensationFunction.isNeeded());
                 // pick the one from this side -- it does not matter as both candidates have the same shape
                 newResultResultCompensationFunction =
-                        resultCompensationFunction.amend(unmatchedAggregateMap, newMatchedAggregateMap);
+                        resultCompensationFunction.amend(unmatchedAggregateMap, newMatchedAggregatesMap);
             }
 
             final var otherCompensationMap =
@@ -656,7 +668,7 @@ public interface Compensation {
                     //    either compensation and let the planner figure out which one wins. We just pick one side here.
                     // 2. TODO.
                     combinedPredicateMap.put(entry.getKey(),
-                            entry.getValue().amend(unmatchedAggregateMap, newMatchedAggregateMap));
+                            entry.getValue().amend(unmatchedAggregateMap, newMatchedAggregatesMap));
                 }
             }
 
@@ -690,7 +702,7 @@ public interface Compensation {
                     intersectedUnmatchedQuantifiers,
                     getCompensatedAliases(), // both compensated aliases must be identical, but too expensive to check
                     newResultResultCompensationFunction,
-                    newAggregateMappings);
+                    newGroupByMappings);
         }
     }
 
@@ -720,7 +732,7 @@ public interface Compensation {
         @Nonnull
         private final ResultCompensationFunction resultCompensationFunction;
         @Nonnull
-        private final AggregateMappings aggregateMappings;
+        private final GroupByMappings groupByMappings;
 
         @Nonnull
         private final Supplier<Set<Quantifier>> unmatchedForEachQuantifiersSupplier;
@@ -732,7 +744,7 @@ public interface Compensation {
                          @Nonnull final Collection<? extends Quantifier> unmatchedQuantifiers,
                          @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
                          @Nonnull final ResultCompensationFunction resultCompensationFunction,
-                         @Nonnull final AggregateMappings aggregateMappings) {
+                         @Nonnull final GroupByMappings groupByMappings) {
             this.isImpossible = isImpossible;
             this.childCompensation = childCompensation;
             this.predicateCompensationMap = new LinkedIdentityMap<>();
@@ -743,7 +755,7 @@ public interface Compensation {
             this.unmatchedQuantifiers.addAll(unmatchedQuantifiers);
             this.compensatedAliases = ImmutableSet.copyOf(compensatedAliases);
             this.resultCompensationFunction = resultCompensationFunction;
-            this.aggregateMappings = aggregateMappings;
+            this.groupByMappings = groupByMappings;
             this.unmatchedForEachQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedForEachQuantifiers);
         }
 
@@ -803,8 +815,8 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public AggregateMappings getAggregateMappings() {
-            return aggregateMappings;
+        public GroupByMappings getGroupByMappings() {
+            return groupByMappings;
         }
 
         /**

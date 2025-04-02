@@ -723,7 +723,7 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedL1TranslatedQueryNValue, l1m3ForNValue.getQueryValue());
         Assertions.assertEquals(n_v, l1m3ForNValue.getCandidateValue());
 
-        // translate a complex join condition, each quantifier in the join condition is assumed to match a corresponding
+        // translateCorrelations a complex join condition, each quantifier in the join condition is assumed to match a corresponding
         // quantifier in a non-joined index candidate.
 
         /*
@@ -961,7 +961,7 @@ public class ValueTranslationTest {
         final var l1m3ForMValue = calculate(l1TranslatedQueryMValue, m_v);
         final var l1m3ForNValue = calculate(l1TranslatedQueryNValue, n_v);
 
-        // translate a complex join condition, each quantifier in the join condition is assumed to match a corresponding
+        // translateCorrelations a complex join condition, each quantifier in the join condition is assumed to match a corresponding
         // quantifier in a non-joined index candidate.
 
         /*

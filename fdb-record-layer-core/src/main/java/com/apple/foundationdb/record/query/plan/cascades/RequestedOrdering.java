@@ -225,14 +225,14 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public RequestedOrdering translate(@Nonnull TranslationMap translationMap) {
+    public RequestedOrdering translateCorrelations(@Nonnull TranslationMap translationMap, final boolean shouldSimplify) {
         //
         // Need to push every participating value of this requested ordering through the value.
         //
         final var pushedDownOrderingPartsBuilder = ImmutableList.<RequestedOrderingPart>builder();
         for (final var orderingPart : orderingParts) {
             final var orderingValue = orderingPart.getValue();
-            final var translatedOrderingValue = orderingValue.translateCorrelations(translationMap);
+            final var translatedOrderingValue = orderingValue.translateCorrelations(translationMap, shouldSimplify);
             pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(translatedOrderingValue, orderingPart.getSortOrder()));
         }
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS, isExhaustive());
