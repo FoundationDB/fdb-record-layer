@@ -41,8 +41,13 @@ test_block:
   connect: "jdbc:embed:/FRL/UUID_PROTO_YAML?schema=UUID_PROTO_SCHEMA"
   tests:
     -
+      # test select *
       - query: SELECT * from T1 where ID = 1;
       - result: [{1, 2, {11, 12}}]
+    -
+      # test select fields
+      - query: SELECT COL1 from T1 where ID = 1;
+      - result: [{2}]
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
