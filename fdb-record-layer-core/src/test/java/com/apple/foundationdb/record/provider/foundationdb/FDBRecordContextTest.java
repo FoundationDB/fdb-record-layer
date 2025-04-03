@@ -69,6 +69,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -674,6 +675,33 @@ public class FDBRecordContextTest {
         } finally {
             factory.setContextExecutor(Function.identity());
         }
+    }
+
+    @Test
+    void clearAndRead() {
+        final FDBDatabase database = dbExtension.getDatabase();
+
+        final Subspace subspace = new Subspace(Tuple.from("A", 1, "boo"));
+        final byte[] value = Tuple.from("here").pack();
+        try (FDBRecordContext context = database.openContext()) {
+            context.ensureActive().set(subspace.pack(), value);
+            context.commit();
+        }
+
+
+        try (FDBRecordContext context = database.openContext()) {
+            assertArrayEquals(value, context.ensureActive().get(subspace.pack()).join());
+
+            assertArrayEquals(new byte[] { 0x02, 'A', 0x0, 21, 0x01, 0x02, 'b', 'o', 'o', 0x0}, subspace.pack());
+            assertArrayEquals(new byte[] { 0x02, 'A', 0x0, 21, 0x01, 0x02, 'b', 'o', 'o', 0x0, 0x0}, subspace.range().begin);
+            assertArrayEquals(new byte[] { 0x02, 'A', 0x0, 21, 0x01, 0x02, 'b', 'o', 'o', 0x0, -1}, subspace.range().end);
+
+            context.clear(subspace.range());
+
+            assertNotNull(context.ensureActive().get(subspace.pack()).join()); // <== should this fail
+            context.commit();
+        }
+
     }
 
     static class ThreadIdRestoringExecutor extends TaskNotifyingExecutor {
