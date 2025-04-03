@@ -157,7 +157,5 @@ public class DataTypeUtils {
         primitivesMap.put(DataType.Primitives.NULLABLE_FLOAT.type(), Type.primitiveType(Type.TypeCode.FLOAT, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_BYTES.type(), Type.primitiveType(Type.TypeCode.BYTES, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_STRING.type(), Type.primitiveType(Type.TypeCode.STRING, true));
-        primitivesMap.put(DataType.Primitives.NULLABLE_VERSION.type(), Type.primitiveType(Type.TypeCode.VERSION, true));
-        primitivesMap.put(DataType.Primitives.NULLABLE_UUID.type(), Type.uuidType(true));
     }
 }

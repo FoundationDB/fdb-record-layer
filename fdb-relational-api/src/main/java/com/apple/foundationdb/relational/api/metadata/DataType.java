@@ -24,14 +24,12 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.base.Suppliers;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.sql.Types;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,10 +52,10 @@ import java.util.stream.Collectors;
  */
 public abstract class DataType {
     @Nonnull
-    private static final BiMap<Code, Integer> typeCodeJdbcTypeMap;
+    private static final Map<Code, Integer> typeCodeJdbcTypeMap;
 
     static {
-        typeCodeJdbcTypeMap = HashBiMap.create();
+        typeCodeJdbcTypeMap = new HashMap<>();
 
         typeCodeJdbcTypeMap.put(Code.BOOLEAN, Types.BOOLEAN);
         typeCodeJdbcTypeMap.put(Code.LONG, Types.BIGINT);
@@ -65,8 +63,8 @@ public abstract class DataType {
         typeCodeJdbcTypeMap.put(Code.FLOAT, Types.FLOAT);
         typeCodeJdbcTypeMap.put(Code.DOUBLE, Types.DOUBLE);
         typeCodeJdbcTypeMap.put(Code.STRING, Types.VARCHAR);
-        typeCodeJdbcTypeMap.put(Code.ENUM, Types.JAVA_OBJECT); // TODO (Rethink Relational Enum mapping to SQL type)
-        typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER); // TODO (Rethink Relational Enum mapping to SQL type)
+        typeCodeJdbcTypeMap.put(Code.ENUM, Types.OTHER); // TODO (Rethink Relational Enum mapping to SQL type)
+        typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER); // TODO (Rethink Relational UUID mapping to SQL type)
         typeCodeJdbcTypeMap.put(Code.BYTES, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.STRUCT, Types.STRUCT);
         typeCodeJdbcTypeMap.put(Code.ARRAY, Types.ARRAY);
@@ -696,11 +694,8 @@ public abstract class DataType {
         @Override
         @Nonnull
         public DataType withNullable(boolean isNullable) {
-            if (isNullable) {
-                return Primitives.NULLABLE_VERSION.type();
-            } else {
-                return Primitives.VERSION.type();
-            }
+            Assert.thatUnchecked(!isNullable, ErrorCode.UNSUPPORTED_OPERATION, "Nullable VersionType not supported");
+            return Primitives.VERSION.type();
         }
 
         @Override
@@ -769,11 +764,8 @@ public abstract class DataType {
         @Override
         @Nonnull
         public DataType withNullable(boolean isNullable) {
-            if (isNullable) {
-                return Primitives.NULLABLE_UUID.type();
-            } else {
-                return Primitives.UUID.type();
-            }
+            Assert.thatUnchecked(!isNullable, ErrorCode.UNSUPPORTED_OPERATION, "Nullable UUID not supported");
+            return Primitives.UUID.type();
         }
 
         @Override
@@ -1355,9 +1347,7 @@ public abstract class DataType {
         NULLABLE_FLOAT(FloatType.nullable()),
         NULLABLE_DOUBLE(DoubleType.nullable()),
         NULLABLE_STRING(StringType.nullable()),
-        NULLABLE_BYTES(BytesType.nullable()),
-        NULLABLE_VERSION(VersionType.nullable()),
-        NULLABLE_UUID(UuidType.nullable())
+        NULLABLE_BYTES(BytesType.nullable())
         ;
 
         @Nonnull
