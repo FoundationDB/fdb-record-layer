@@ -181,8 +181,7 @@ public class RecordQueryTableFunctionPlan implements RecordQueryPlanWithNoChildr
         }
         final var otherTableFunctionPlan =  (RecordQueryTableFunctionPlan)otherExpression;
 
-        return value.semanticEquals(otherTableFunctionPlan.value, equivalencesMap) &&
-                semanticEqualsForResults(otherExpression, equivalencesMap);
+        return value.semanticEquals(otherTableFunctionPlan.value, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

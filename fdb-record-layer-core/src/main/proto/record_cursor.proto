@@ -134,5 +134,5 @@ message RecursiveCursorContinuation {
 }
 
 message RangeCursorContinuation {
-    optional int64 nextPosition = 2;
+    optional int64 nextPosition = 1;
 }

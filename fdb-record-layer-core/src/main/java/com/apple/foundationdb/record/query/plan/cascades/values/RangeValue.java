@@ -73,7 +73,6 @@ import java.util.function.Supplier;
  * </ul>
  * For more information, see relational SQL {@code range} table-valued function.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RangeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Range-Value");
 
@@ -81,16 +80,16 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     private final Value endExclusive;
 
     @Nonnull
-    private final Optional<Value> beginInclusive;
+    private final Value beginInclusive;
 
     @Nonnull
-    private final Optional<Value> step;
+    private final Value step;
 
     @Nonnull
     private final Value currentRangeValue;
 
-    public RangeValue(@Nonnull final Value endExclusive, @Nonnull final Optional<Value> beginInclusive,
-                      @Nonnull final Optional<Value> step) {
+    public RangeValue(@Nonnull final Value endExclusive, @Nonnull final Value beginInclusive,
+                      @Nonnull final Value step) {
         this.endExclusive = endExclusive;
         this.beginInclusive = beginInclusive;
         this.step = step;
@@ -110,9 +109,9 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                                                                       @Nullable final byte[] continuation,
                                                                       @Nonnull final ExecuteProperties executeProperties) {
         final long endExclusiveValue = (Long)Verify.verifyNotNull(endExclusive.eval(store, context));
-        final var beginInclusiveMaybe = beginInclusive.map(b -> (Long)Verify.verifyNotNull(b.eval(store, context)));
-        final var stepMaybe = step.map(s -> (Long)Verify.verifyNotNull(s.eval(store, context)));
-        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveMaybe, stepMaybe, rangeValueAsLong -> Objects.requireNonNull(currentRangeValue.replace(v -> {
+        final var beginInclusiveValue = (Long)Verify.verifyNotNull(this.beginInclusive.eval(store, context));
+        final var stepValue = (Long)Verify.verifyNotNull(step.eval(store, context));
+        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveValue, stepValue, rangeValueAsLong -> Objects.requireNonNull(currentRangeValue.replace(v -> {
             if (v instanceof LiteralValue) {
                 return LiteralValue.ofScalar(rangeValueAsLong);
             }
@@ -124,14 +123,8 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var endExplainTokens = Iterables.get(explainSuppliers, 0).get().getExplainTokens();
-        final var beginExplainTokens =
-                beginInclusive.isEmpty()
-                ? new ExplainTokens().addKeyword("0")
-                : Iterables.get(explainSuppliers, 1).get().getExplainTokens();
-        final var stepExplainTokens =
-                step.isEmpty()
-                ? new ExplainTokens().addKeyword("1")
-                : Iterables.get(explainSuppliers, 2).get().getExplainTokens();
+        final var beginExplainTokens = Iterables.get(explainSuppliers, 1).get().getExplainTokens();
+        final var stepExplainTokens = Iterables.get(explainSuppliers, 2).get().getExplainTokens();
 
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("range",
                 new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
@@ -167,8 +160,8 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     public PRangeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PRangeValue.Builder builder = PRangeValue.newBuilder();
         builder.setEndExclusiveChild(endExclusive.toValueProto(serializationContext));
-        beginInclusive.ifPresent(b -> builder.setBeginInclusiveChild(b.toValueProto(serializationContext)));
-        step.ifPresent(s -> builder.setStepChild(s.toValueProto(serializationContext)));
+        builder.setBeginInclusiveChild(beginInclusive.toValueProto(serializationContext));
+        builder.setStepChild(step.toValueProto(serializationContext));
         return builder.build();
     }
 
@@ -177,8 +170,8 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     protected Iterable<? extends Value> computeChildren() {
         final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
         childrenBuilder.add(endExclusive);
-        beginInclusive.ifPresent(childrenBuilder::add);
-        step.ifPresent(childrenBuilder::add);
+        childrenBuilder.add(beginInclusive);
+        childrenBuilder.add(step);
         return childrenBuilder.build();
     }
 
@@ -187,30 +180,15 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional.
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var newChildrenSize = Iterables.size(newChildren);
-        Verify.verify(newChildrenSize <= 3 && newChildrenSize > 0);
+        Verify.verify(newChildrenSize == 3);
         final var newEndExclusive = Iterables.get(newChildren, 0);
+        final var newBeginInclusive = Iterables.get(newChildren, 1);
+        final var newStep = Iterables.get(newChildren, 2);
 
-        if (newChildrenSize == 1 && newEndExclusive == this.endExclusive) {
+        if (newEndExclusive == endExclusive && newBeginInclusive == beginInclusive && newStep == step) {
             return this;
         }
 
-        Optional<Value> newBeginInclusive = Optional.empty();
-        if (newChildrenSize > 1) {
-            Verify.verify(beginInclusive.isPresent());
-            newBeginInclusive = Optional.of(Iterables.get(newChildren, 1));
-            if (newChildrenSize == 2 && newEndExclusive == this.endExclusive && newBeginInclusive.get() == beginInclusive.get()) {
-                return this;
-            }
-        }
-
-        Optional<Value> newStep = Optional.empty();
-        if (newChildrenSize > 2) {
-            Verify.verify(step.isPresent());
-            newStep = Optional.of(Iterables.get(newChildren, 2));
-            if (newEndExclusive == this.endExclusive && newBeginInclusive.get() == beginInclusive.get() && newStep.get() == step.get()) {
-                return this;
-            }
-        }
         return new RangeValue(newEndExclusive, newBeginInclusive, newStep);
     }
 
@@ -218,12 +196,8 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     public static RangeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                        @Nonnull final PRangeValue rangeValueProto) {
         final var endExclusive = Value.fromValueProto(serializationContext, rangeValueProto.getEndExclusiveChild());
-        final Optional<Value> beginInclusive = rangeValueProto.hasBeginInclusiveChild()
-                                               ? Optional.of(Value.fromValueProto(serializationContext, rangeValueProto.getBeginInclusiveChild()))
-                                               : Optional.empty();
-        final Optional<Value> step = rangeValueProto.hasStepChild()
-                                     ? Optional.of(Value.fromValueProto(serializationContext, rangeValueProto.getStepChild()))
-                                     : Optional.empty();
+        final var beginInclusive = Value.fromValueProto(serializationContext, rangeValueProto.getBeginInclusiveChild());
+        final var step = Value.fromValueProto(serializationContext, rangeValueProto.getStepChild());
         return new RangeValue(endExclusive, beginInclusive, step);
     }
 
@@ -253,8 +227,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
 
         private final long endExclusive;
 
-        @Nonnull
-        private final Optional<Long> step;
+        private final long step;
 
         private long nextPosition; // position of the next value to return
 
@@ -263,13 +236,13 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         @Nonnull
         private final Function<Long, Object> rangeValueCreator;
 
-        Cursor(@Nonnull final Executor executor, final long endExclusive, @Nonnull final Optional<Long> beginInclusive,
-                @Nonnull final Optional<Long> step, @Nonnull final Function<Long, Object> rangeValueCreator, @Nullable final byte[] continuation) {
+        Cursor(@Nonnull final Executor executor, final long endExclusive, final long beginInclusive,
+                final long step, @Nonnull final Function<Long, Object> rangeValueCreator, @Nullable final byte[] continuation) {
             this(executor, endExclusive, step, rangeValueCreator,
-                    continuation == null ? beginInclusive.orElse(0L) : Continuation.from(continuation, endExclusive, step).getNextPosition());
+                    continuation == null ? beginInclusive : Continuation.from(continuation, endExclusive, step).getNextPosition());
         }
 
-        private Cursor(@Nonnull final Executor executor, final long endExclusive, @Nonnull final Optional<Long> step,
+        private Cursor(@Nonnull final Executor executor, final long endExclusive, final long step,
                        @Nonnull final Function<Long, Object> rangeValueCreator, final long nextPosition) {
             checkValidRange(nextPosition, endExclusive, step);
             this.executor = executor;
@@ -290,9 +263,9 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         public RecordCursorResult<QueryResult> getNext() {
             RecordCursorResult<QueryResult> nextResult;
             if (nextPosition < endExclusive) {
-                final var continuation = new Continuation(endExclusive, nextPosition + step.orElse(1L), step);
+                final var continuation = new Continuation(endExclusive, nextPosition + step, step);
                 nextResult = RecordCursorResult.withNextValue(QueryResult.ofComputed(rangeValueCreator.apply(nextPosition)), continuation);
-                nextPosition += step.orElse(1L);
+                nextPosition += step;
             } else {
                 nextResult = RecordCursorResult.exhausted();
             }
@@ -321,14 +294,14 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
             return executor;
         }
 
-        private static void checkValidRange(long position, long endExclusive, @Nonnull final Optional<Long> step) {
-            if (position < 0) {
+        private static void checkValidRange(final long position, final long endExclusive, final long step) {
+            if (position < 0L) {
                 throw new RecordCoreException("only non-negative position is allowed in range");
             }
-            if (endExclusive < 0) {
+            if (endExclusive < 0L) {
                 throw new RecordCoreException("only non-negative exclusive end is allowed in range");
             }
-            if (step.isPresent() && step.get() <= 0) {
+            if (step <= 0L) {
                 throw new RecordCoreException("only positive step is allowed in range");
             }
         }
@@ -336,10 +309,9 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         private static class Continuation implements RecordCursorContinuation {
             private final long endExclusive;
             private final long nextPosition;
-            @Nonnull
-            private final Optional<Long> step;
+            private final long step;
 
-            public Continuation(long endExclusive, long nextPosition, @Nonnull final Optional<Long> step) {
+            public Continuation(final long endExclusive, final long nextPosition, final long step) {
                 this.nextPosition = nextPosition;
                 this.endExclusive = endExclusive;
                 this.step = step;
@@ -350,7 +322,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                 // If a next value is returned as part of a cursor result, the continuation must not be an end continuation
                 // (i.e., isEnd() must be false), per the contract of RecordCursorResult. This is the case even if the
                 // cursor knows for certain that there is no more after that result, as in the ListCursor.
-                return nextPosition >= endExclusive + step.orElse(1L);
+                return nextPosition >= endExclusive + step;
             }
 
             public long getNextPosition() {
@@ -374,13 +346,15 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
             }
 
             @Nonnull
-            public static Continuation from(@Nonnull final RecordCursorProto.RangeCursorContinuation message, long endExclusive, @Nonnull final Optional<Long> step) {
+            public static Continuation from(@Nonnull final RecordCursorProto.RangeCursorContinuation message,
+                                            final long endExclusive, final long step) {
                 final var nextPosition = message.getNextPosition();
                 return new Continuation(endExclusive, nextPosition, step);
             }
 
             @Nonnull
-            public static Continuation from(@Nonnull final byte[] unparsedContinuationBytes, long endExclusive, @Nonnull final Optional<Long> step) {
+            public static Continuation from(@Nonnull final byte[] unparsedContinuationBytes, final long endExclusive,
+                                            final long step) {
                 try {
                     final var parsed = RecordCursorProto.RangeCursorContinuation.parseFrom(unparsedContinuationBytes);
                     return from(parsed, endExclusive, step);
@@ -402,23 +376,23 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         private static StreamingValue encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             Verify.verify(!arguments.isEmpty());
             final Value endExclusive;
-            final Optional<Value> beginInclusiveMaybe;
-            final Optional<Value> stepMaybe;
+            final Value beginInclusiveMaybe;
+            final Value stepMaybe;
             if (arguments.size() == 1) {
                 endExclusive = PromoteValue.inject((Value)arguments.get(0), Type.primitiveType(Type.TypeCode.LONG));
                 checkValidBoundaryType(endExclusive);
-                beginInclusiveMaybe = Optional.empty();
-                stepMaybe = Optional.empty();
+                beginInclusiveMaybe = LiteralValue.ofScalar(0L);
+                stepMaybe = LiteralValue.ofScalar(1L);
             } else {
                 checkValidBoundaryType((Value)arguments.get(0));
-                beginInclusiveMaybe = Optional.of(PromoteValue.inject((Value)arguments.get(0), Type.primitiveType(Type.TypeCode.LONG)));
+                beginInclusiveMaybe = PromoteValue.inject((Value)arguments.get(0), Type.primitiveType(Type.TypeCode.LONG));
                 checkValidBoundaryType((Value)arguments.get(1));
                 endExclusive = PromoteValue.inject((Value)arguments.get(1), Type.primitiveType(Type.TypeCode.LONG));
                 if (arguments.size() > 2) {
                     checkValidBoundaryType((Value)arguments.get(2));
-                    stepMaybe = Optional.of(PromoteValue.inject((Value)arguments.get(2), Type.primitiveType(Type.TypeCode.LONG)));
+                    stepMaybe = PromoteValue.inject((Value)arguments.get(2), Type.primitiveType(Type.TypeCode.LONG));
                 } else {
-                    stepMaybe = Optional.empty();
+                    stepMaybe = LiteralValue.ofScalar(1L);
                 }
             }
             return new RangeValue(endExclusive, beginInclusiveMaybe, stepMaybe);

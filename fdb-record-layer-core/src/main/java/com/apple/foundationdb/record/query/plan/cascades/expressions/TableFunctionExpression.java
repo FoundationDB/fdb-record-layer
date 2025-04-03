@@ -104,8 +104,7 @@ public class TableFunctionExpression implements RelationalExpression, InternalPl
 
         final var otherTableFunctionExpression = (TableFunctionExpression)otherExpression;
 
-        return value.semanticEquals(otherTableFunctionExpression.getValue(), equivalencesMap) &&
-                semanticEqualsForResults(otherExpression, equivalencesMap);
+        return value.semanticEquals(otherTableFunctionExpression.getValue(), equivalencesMap);
     }
 
     @Override

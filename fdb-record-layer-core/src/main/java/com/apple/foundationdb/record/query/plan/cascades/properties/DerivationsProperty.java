@@ -799,10 +799,6 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
     }
 
     /**
-     * RCV(T.a, T.b).0 ---> T.a
-     */
-
-    /**
      * Cases class to capture the derivations that are being collected by the visitor.
      */
     @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "False positive as this is not a singleton class")

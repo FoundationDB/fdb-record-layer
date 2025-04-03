@@ -102,11 +102,11 @@ test_block:
       - result: [{ID: 0}, {ID: 10}, {ID: 20}]
     -
       - query: select ID as X from range(3) as Y
-      - explain: "TF range(0, promote(@c8 AS LONG), STEP 1) | MAP (_.ID AS X)"
+      - explain: "TF range(0l, promote(@c8 AS LONG), STEP 1l) | MAP (_.ID AS X)"
       - result: [{X: 0}, {X: 1}, {X: 2}]
     -
       - query: select X.ID as A, Y.ID as B from range(3) as X, range(4) as Y
-      - explain: "TF range(0, promote(@c16 AS LONG), STEP 1) | FLATMAP q0 -> { TF range(0, promote(@c23 AS LONG), STEP 1) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
+      - explain: "TF range(0l, promote(@c16 AS LONG), STEP 1l) | FLATMAP q0 -> { TF range(0l, promote(@c23 AS LONG), STEP 1l) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
       - result: [{A: 0, B: 0},
                  {A: 0, B: 1},
                  {A: 0, B: 2},
@@ -121,7 +121,7 @@ test_block:
                  {A: 2, B: 3}]
     -
       - query: select a.id as x, a.col1 as y, b.id as z from t1 as a, range(a.id) as b
-      - explain: "SCAN(<,>) | FLATMAP q0 -> { TF range(0, q0.ID, STEP 1) AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
+      - explain: "SCAN(<,>) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
       - result: [{X: 1, Y: 'a', Z: 0},
                  {X: 2, Y: 'b', Z: 0},
                  {X: 2, Y: 'b', Z: 1},

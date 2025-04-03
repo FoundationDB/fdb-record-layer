@@ -35,6 +35,15 @@ import javax.annotation.Nullable;
  */
 public interface StreamingValue extends Value {
 
+    /**
+     * Returns a {@link RecordCursor} over the result stream returned upon evaluation.
+     * @param store The record store used to fetch and evaluate the results.
+     * @param context The evaluation context, containing a set of contextual parameters for evaluating the results.
+     * @param continuation The continuation bytes used to resume the evaluation of the result stream.
+     * @param executeProperties The execution properties.
+     * @param <M> The type of the returned results when fetched from a record store.
+     * @return A cursor over the result stream returned upon evaluation.
+     */
     @Nonnull
     <M extends Message> RecordCursor<QueryResult> evalAsStream(@Nonnull FDBRecordStoreBase<M> store,
                                                                @Nonnull EvaluationContext context,

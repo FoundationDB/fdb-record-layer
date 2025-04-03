@@ -32,10 +32,9 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableFunctionExpression;
 
 /**
- * A rule that implements an table function expression into a {@link RecordQueryTableFunctionPlan}.
+ * A rule that implements a table function expression into a {@link RecordQueryTableFunctionPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementTableFunctionRule extends CascadesRule<TableFunctionExpression> {
     private static final BindingMatcher<TableFunctionExpression> root =
             tableFunctionExpression();
@@ -46,7 +45,7 @@ public class ImplementTableFunctionRule extends CascadesRule<TableFunctionExpres
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var explodeExpression = call.get(root);
-        call.yieldExpression(new RecordQueryTableFunctionPlan(explodeExpression.getValue()));
+        final var tableFunctionExpression = call.get(root);
+        call.yieldExpression(new RecordQueryTableFunctionPlan(tableFunctionExpression.getValue()));
     }
 }
