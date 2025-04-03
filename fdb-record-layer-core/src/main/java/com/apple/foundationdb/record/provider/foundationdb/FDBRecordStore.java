@@ -817,12 +817,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     @Override
-    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey, final IndexOrphanBehavior orphanBehavior) {
         SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
         if (syntheticRecordType.getConstituents().size() != primaryKey.size() - 1) {
             throw recordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
         }
-        return syntheticRecordType.loadByPrimaryKeyAsync(this, primaryKey);
+        return syntheticRecordType.loadByPrimaryKeyAsync(this, primaryKey, orphanBehavior);
     }
 
     @Nonnull

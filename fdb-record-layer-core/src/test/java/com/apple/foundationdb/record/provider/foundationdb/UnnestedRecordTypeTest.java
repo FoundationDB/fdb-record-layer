@@ -87,6 +87,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -1091,6 +1092,75 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                         assertEquals(outerInnerRecord, synthetic.getConstituent("outer_inner").getRecord());
                     }
                 }
+            }
+
+            commit(context);
+        }
+    }
+
+    //
+    // Loading failure tests
+    //
+    // Tests that assert on what happens when loadSyntheticRecord fails
+    //
+
+    @ParameterizedTest(name = "loadMapType[{index}]")
+    @MethodSource("mapMetaDataSuppliers")
+    void loadRecordNotFound(Function<RecordMetaDataHook, RecordMetaData> metaDataSource) {
+        final RecordMetaData metaData = metaDataSource.apply(addMapType());
+        final RecordType unnestedType = metaData.getSyntheticRecordType(UNNESTED_MAP);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                Message outerMessage = convertOuterRecord(metaData, outerRecord);
+                recordStore.saveRecord(outerMessage);
+            }
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            // A Primary Key for a record that does not exist
+            final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), Tuple.from(100), Tuple.from(1));
+            // Default policy is ERROR
+            final Throwable cause = assertThrows(CompletionException.class, () -> recordStore.loadSyntheticRecord(syntheticPrimaryKey).join()).getCause();
+            assertEquals(RecordDoesNotExistException.class, cause.getClass());
+            // return no constituents for RETURN
+            FDBSyntheticRecord result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.RETURN).join();
+            assertEquals(0, result.getConstituents().size());
+            // return null on SKIP
+            result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.SKIP).join();
+            assertEquals(null, result);
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest(name = "loadMapType[{index}]")
+    @MethodSource("mapMetaDataSuppliers")
+    void loadRecordConstituentNotFound(Function<RecordMetaDataHook, RecordMetaData> metaDataSource) {
+        final RecordMetaData metaData = metaDataSource.apply(addMapType());
+        final RecordType unnestedType = metaData.getSyntheticRecordType(UNNESTED_MAP);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                Message outerMessage = convertOuterRecord(metaData, outerRecord);
+                FDBStoredRecord<Message> stored = recordStore.saveRecord(outerMessage);
+
+                // A Primary Key for a constituent beyond the scope of what's stored in the nested repeated map
+                final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), stored.getPrimaryKey(), Tuple.from(100));
+                // Default policy is ERROR
+                final Throwable cause = assertThrows(CompletionException.class, () -> recordStore.loadSyntheticRecord(syntheticPrimaryKey).join()).getCause();
+                assertEquals(RecordCoreException.class, cause.getClass());
+                // return no constituents for RETURN
+                FDBSyntheticRecord result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.RETURN).join();
+                assertEquals(0, result.getConstituents().size());
+                // return null on SKIP
+                result = recordStore.loadSyntheticRecord(syntheticPrimaryKey, IndexOrphanBehavior.SKIP).join();
+                assertEquals(null, result);
             }
 
             commit(context);

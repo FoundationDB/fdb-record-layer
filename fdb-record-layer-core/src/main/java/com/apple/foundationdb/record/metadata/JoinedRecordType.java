@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
@@ -39,9 +40,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A <i>synthetic</i> record type representing the indexable result of <em>joining</em> stored records.
+ * <p>
+ * Joined record represents a collection of <i>joined constituents</i>, each represented by another record in the database.
+ * The constituents are joined together by a <i>join condition</i>: in this case, a set of fields that are tested for
+ * equality across all constituents.
+ * The joined record primary key is represented by a Tuple as follows:
+ * <pre>
+ *     [{record type}, {elements of constituent 1 PK}, ... {elements of constituent n PK}]
+ * </pre>
+ * When loading a joined record, the joined record primary key is used to iterate and load each constituent, eventually
+ * combining the collection of constituents into the completed record.
+ * <p>
+ * There is nothing special needed to be done to save a joined record. Once the constituent records are saved
+ * a joined record instance is implicitly assumed to exist. A subsequent {@link #loadByPrimaryKeyAsync(FDBRecordStore, Tuple, IndexOrphanBehavior)}
+ * or a query for the record or a scan of a joined index will create the joined record. similarly, a deletion
+ * of any or all of the constituents will implicitly render the joined record type deleted.
+ * <p>
+ * When loading a joined record (and similarly when scanning an index) an {@link IndexOrphanBehavior} can be used
+ * to determine the behavior in case one or more of the constituents are missing:
+ * <ul>
+ *     <li>{@link IndexOrphanBehavior#ERROR} (the default) will throw an exception</li>
+ *     <li>{@link IndexOrphanBehavior#RETURN} will return an instance of the records with no constituents</li>
+ *     <li>{@link IndexOrphanBehavior#SKIP} will return null</li>
+ * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
 public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinConstituent> {
@@ -124,10 +149,11 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
     @Nonnull
     @Override
     @API(API.Status.INTERNAL)
-    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey) {
+    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey, IndexOrphanBehavior orphanBehavior) {
         int nconstituents = getConstituents().size();
         final Map<String, FDBStoredRecord<? extends Message>> constituentValues = new ConcurrentHashMap<>(nconstituents);
         final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
+        AtomicBoolean isMissingConstituent = new AtomicBoolean(false);
         for (int i = 0; i < nconstituents; i++) {
             final SyntheticRecordType.Constituent constituent = getConstituents().get(i);
             final Tuple constituentKey = primaryKey.getNestedTuple(i + 1);
@@ -136,16 +162,36 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
             } else {
                 futures[i] = store.loadRecordAsync(constituentKey).thenApply(rec -> {
                     if (rec == null) {
-                        throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
+                        if (orphanBehavior.equals(IndexOrphanBehavior.ERROR)) {
+                            throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
+                        } else {
+                            // For SKIP and RETURN
+                            isMissingConstituent.set(true);
+                            // ideally, we should be able to stop the iteration to fetch all other constituents
+                            // but because of the async nature of the loop this seems to be not worth it
+                        }
+                    } else {
+                        constituentValues.put(constituent.getName(), rec);
                     }
-                    constituentValues.put(constituent.getName(), rec);
                     return null;
                 });
             }
         }
-        return CompletableFuture.allOf(futures).thenApply(vignore -> FDBSyntheticRecord.of(this, constituentValues));
+        return CompletableFuture.allOf(futures).thenApply(vignore -> {
+            if ( ! isMissingConstituent.get()) {
+                // all constituents have been found
+                return FDBSyntheticRecord.of(this, constituentValues);
+            } else {
+                // some constituents are missing
+                if (orphanBehavior.equals(IndexOrphanBehavior.SKIP)) {
+                    return null;
+                } else {
+                    // This is for RETURN - return the shell of the record with no constituents
+                    return FDBSyntheticRecord.of(this, Map.of());
+                }
+            }
+        });
     }
-
 
     @Nonnull
     public RecordMetaDataProto.JoinedRecordType toProto() {
