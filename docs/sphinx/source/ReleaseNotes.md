@@ -74,6 +74,35 @@ Mixed mode testing run against the following previous versions:
 
 [See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14134843186)
 
+### 4.2.2.1
+
+<h4> Dependency Updates </h4>
+
+* Downgrade protobuf version back to 3.25.5 and grpc common proto to 2.37.0  - [PR #3288](https://github.com/FoundationDB/fdb-record-layer/pull/3288)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Decrease the number of builds compared during mixed mode to the most recent 10 - [PR #3290](https://github.com/FoundationDB/fdb-record-layer/pull/3290)
+
+</details>
+
+
+**[Full Changelog (4.2.2.0...4.2.2.1)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.2.0...4.2.2.1)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14239522793)
+
+
 
 
 ### 4.2.2.0
