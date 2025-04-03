@@ -204,7 +204,7 @@ class TypeTest {
                 DescriptorProtos.FileDescriptorProto.newBuilder()
                         .addAllMessageType(typeRepository.getMessageTypes().stream().map(typeRepository::getMessageDescriptor).filter(Objects::nonNull).map(Descriptors.Descriptor::toProto).collect(Collectors.toUnmodifiableList()))
                         .build(),
-                new Descriptors.FileDescriptor[] {});
+                TypeRepository.DEPENDENCIES.toArray(new Descriptors.FileDescriptor[0]));
         final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName(typeName.get());
         final Message actual = DynamicMessage.parseFrom(messageDescriptor, message.toByteArray());
         areEqual(message, actual, messageDescriptor);

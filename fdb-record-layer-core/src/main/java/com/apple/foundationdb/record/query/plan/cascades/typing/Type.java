@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.planprotos.PType.PPrimitiveType;
 import com.apple.foundationdb.record.planprotos.PType.PRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PRelationType;
 import com.apple.foundationdb.record.planprotos.PType.PTypeCode;
+import com.apple.foundationdb.record.planprotos.PType.PUuidType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -3012,8 +3013,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public PType.PUuidType toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PType.PUuidType.newBuilder()
+        public PUuidType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PUuidType.newBuilder()
                     .setIsNullable(isNullable)
                     .build();
         }
@@ -3025,7 +3026,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public static Uuid fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PType.PUuidType uuidTypeProto) {
+                                          @Nonnull final PUuidType uuidTypeProto) {
             Verify.verify(uuidTypeProto.hasIsNullable());
             return Type.uuidType(uuidTypeProto.getIsNullable());
         }
@@ -3035,17 +3036,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * Deserializer.
          */
         @AutoService(PlanDeserializer.class)
-        public static class Deserializer implements PlanDeserializer<PType.PUuidType, Uuid> {
+        public static class Deserializer implements PlanDeserializer<PUuidType, Uuid> {
             @Nonnull
             @Override
-            public Class<PType.PUuidType> getProtoMessageClass() {
-                return PType.PUuidType.class;
+            public Class<PUuidType> getProtoMessageClass() {
+                return PUuidType.class;
             }
 
             @Nonnull
             @Override
             public Uuid fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PType.PUuidType uuidTypeProto) {
+                                   @Nonnull final PUuidType uuidTypeProto) {
                 return Uuid.fromProto(serializationContext, uuidTypeProto);
             }
         }
