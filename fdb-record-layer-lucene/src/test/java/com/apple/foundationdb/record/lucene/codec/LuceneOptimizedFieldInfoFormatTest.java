@@ -81,4 +81,13 @@ public class LuceneOptimizedFieldInfoFormatTest extends BaseFieldInfoFormatTestC
     public void testExceptionOnOpenInput() throws Exception {
         super.testExceptionOnOpenInput();
     }
+
+    @Override
+    public void testRandom() throws Exception {
+        // https://github.com/FoundationDB/fdb-record-layer/issues/3005
+        // It may write a value that is too large, and will fail when trying to read it back out.
+        // Note that because we don't commit, it won't fail on the write, it will fail on the read.
+        TestFDBDirectory.disableFieldInfosCountCheck();
+        super.testRandom();
+    }
 }
