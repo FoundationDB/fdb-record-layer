@@ -132,3 +132,7 @@ message RecursiveCursorContinuation {
     optional planprotos.PTempTable tempTable = 2;
     optional bytes activeStateContinuation = 3;
 }
+
+message RangeCursorContinuation {
+    optional int64 nextPosition = 1;
+}

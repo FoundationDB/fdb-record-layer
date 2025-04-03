@@ -258,4 +258,9 @@ public class YamlIntegrationTests {
     public void uuidTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("uuid.yamsql");
     }
+
+    @TestTemplate
+    public void tableFunctionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("table-functions.yamsql");
+    }
 }

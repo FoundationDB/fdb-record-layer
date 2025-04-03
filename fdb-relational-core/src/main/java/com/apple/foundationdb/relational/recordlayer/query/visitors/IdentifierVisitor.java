@@ -117,4 +117,9 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting collation is not supported");
         return null;
     }
+
+    @Override
+    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+        return visitFullId(ctx.fullId());
+    }
 }

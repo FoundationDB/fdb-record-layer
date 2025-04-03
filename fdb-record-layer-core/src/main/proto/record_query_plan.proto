@@ -251,6 +251,8 @@ message PValue {
     PNumericAggregationValue.PBitmapConstructAgg numeric_aggregation_value_bitmap_construct_agg = 45;
     PQuantifiedRecordValue quantified_record_value = 46;
     PMacroFunctionValue macro_function_value = 47;
+    PRangeValue range_value = 48;
+    PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
   }
 }
 
@@ -456,6 +458,11 @@ message PFieldPath {
 }
 
 message PFirstOrDefaultValue {
+  optional PValue child_value = 1;
+  optional PValue on_empty_result_value = 2;
+}
+
+message PFirstOrDefaultStreamingValue {
   optional PValue child_value = 1;
   optional PValue on_empty_result_value = 2;
 }
@@ -1005,6 +1012,12 @@ message PCollateValue {
   optional PValue strength_child = 4;
 }
 
+message PRangeValue {
+  optional PValue end_exclusive_child = 1;
+  optional PValue begin_inclusive_child = 2;
+  optional PValue step_child = 3;
+}
+
 //
 // Comparisons
 //
@@ -1260,6 +1273,7 @@ message PRecordQueryPlan {
     PTempTableScanPlan temp_table_scan_plan = 34;
     PTempTableInsertPlan temp_table_insert_plan = 35;
     PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
+    PRecordQueryTableFunctionPlan table_function_plan = 37;
   }
 }
 
@@ -1851,4 +1865,11 @@ message PRecursiveUnionQueryPlan {
   optional PPhysicalQuantifier recursiveStateQuantifier = 2;
   optional string initialTempTableAlias = 3;
   optional string recursiveTempTableAlias = 4;
+}
+
+//
+// PRecordQueryTableFunctionPlan
+//
+message PRecordQueryTableFunctionPlan {
+  optional PValue value = 1;
 }
