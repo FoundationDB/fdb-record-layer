@@ -165,7 +165,7 @@ task cleanExternalServerDirectory(type: Delete) {
 task serverJars(type: Copy) {
     dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
-    from resolveOtherServer(new HashSet<String>())
+    from resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet())
     from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
         include("*-SNAPSHOT-all.jar")
     }
