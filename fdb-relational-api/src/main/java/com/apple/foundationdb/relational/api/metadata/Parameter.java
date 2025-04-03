@@ -1,9 +1,9 @@
 /*
- * FunctionCatalog.java
+ * Parameter.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,30 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query.functions;
-
-import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+package com.apple.foundationdb.relational.api.metadata;
 
 import javax.annotation.Nonnull;
 
-public interface SqlFunctionCatalog {
+public interface Parameter {
 
-    // remove this.
+    enum Mode {
+        IN,
+        OUT,
+        INOUT
+    }
+
+    boolean isNamed();
+
     @Nonnull
-    CatalogedFunction<? extends Typed> lookupFunction(@Nonnull String name, @Nonnull Expressions expressions);
+    Mode getMode();
 
-    boolean containsFunction(@Nonnull String name);
+    @Nonnull
+    DataType getDataType();
 
-    boolean isUdfFunction(@Nonnull String name);
+    boolean hasDefaultValue();
+
+    Object getDefaultValue();
+
+    @Nonnull
+    String getName();
 }

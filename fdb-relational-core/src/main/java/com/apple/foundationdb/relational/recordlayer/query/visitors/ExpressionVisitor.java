@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -46,6 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
@@ -88,11 +88,26 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Expression visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
+    public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         final var functionName = visitTableFunctionName(ctx.tableFunctionName()).toString();
-        return ctx.functionArgs() == null
-                ? getDelegate().resolveTableValuedFunction(functionName)
-                : getDelegate().resolveTableValuedFunction(functionName, visitFunctionArgs(ctx.functionArgs()).asList().toArray(new Expression[0]));
+        return ctx.tableFunctionArgs() == null
+                ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
+                : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));
+    }
+
+    @Override
+    public Expressions visitTableFunctionArgs(@Nonnull final RelationalParser.TableFunctionArgsContext ctx) {
+        if (!ctx.namedFunctionArg().isEmpty()) {
+            return Expressions.of(ctx.namedFunctionArg().stream().map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
+        }
+        return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Override
+    public Expression visitNamedFunctionArg(@Nonnull final RelationalParser.NamedFunctionArgContext ctx) {
+        final var name = visitUid(ctx.key);
+        final var expression = Assert.castUnchecked(visit(ctx.value), Expression.class);
+        return expression.withName(name);
     }
 
     @Nonnull

@@ -24,10 +24,12 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
@@ -82,6 +84,16 @@ public class RecordMetadataDeserializer {
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
+        if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
+            final var cachedMetadata = schemaTemplateBuilder.build();
+            // TODO: topsort deps of functions.
+            for (final var function : recordMetaData.getUserDefinedFunctionMap().entrySet()) {
+                if (function.getValue() instanceof RawSqlFunction) {
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(cachedMetadata, function.getKey(),
+                            Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDescription()).build());
+                }
+            }
+        }
         return schemaTemplateBuilder;
     }
 
@@ -118,5 +130,16 @@ public class RecordMetadataDeserializer {
                 .from(recordLayerType)
                 .setPrimaryKey(recordType.getPrimaryKey())
                 .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
+    }
+
+    @Nonnull
+    private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final RecordLayerSchemaTemplate metadata,
+                                                                            @Nonnull final String name,
+                                                                            @Nonnull final String body) {
+        final var functionCompiler = RoutineParser.sqlFunctionParser(metadata);
+        return RecordLayerInvokedRoutine.newBuilder()
+                .setName(name)
+                .setDescription(body)
+                .withCompilableRoutine(() -> functionCompiler.parse(body));
     }
 }

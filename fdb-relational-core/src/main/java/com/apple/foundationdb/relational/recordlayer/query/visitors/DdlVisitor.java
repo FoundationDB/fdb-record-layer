@@ -21,24 +21,30 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.CompilableRoutine;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.query.Expression;
+import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -82,6 +88,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                 @Nonnull MetadataOperationsFactory metadataOperationsFactory,
                                 @Nonnull URI dbUri) {
         return new DdlVisitor(delegate, metadataOperationsFactory, dbUri);
+    }
+
+    @Nonnull
+    @Override
+    public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+        if (ctx.customType != null) {
+            final var columnType = visitUid(ctx.customType);
+            return semanticAnalyzer.lookupType(columnType, false, false, metadataBuilder::findType);
+        }
+        return visitPrimitiveType(ctx.primitiveType());
     }
 
     // TODO: remove
@@ -214,6 +231,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.StructDefinitionContext> structClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.TableDefinitionContext> tableClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.SqlInvokedFunctionContext> functionClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -221,6 +239,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 structClauses.add(templateClause.structDefinition());
             } else if (templateClause.tableDefinition() != null) {
                 tableClauses.add(templateClause.tableDefinition());
+            } else if (templateClause.sqlInvokedFunction() != null) {
+                functionClauses.add(templateClause.sqlInvokedFunction());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -229,6 +249,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
         tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
         final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
+        final var functions = functionClauses.build().stream().map(this::getInvokedRoutineMetadata).collect(ImmutableList.toImmutableList());
+        functions.forEach(metadataBuilder::addInvokedRoutine);
         for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
@@ -280,6 +302,126 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         boolean throwIfDoesNotExist = ctx.ifExists() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropSchemaTemplateConstantAction(schemaTemplateId.getName(),
                 throwIfDoesNotExist, Options.NONE));
+    }
+
+    @Nonnull
+    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final RelationalParser.SqlInvokedFunctionContext ctx) {
+        final var ddlCatalog = metadataBuilder.build();
+        // parse the index SQL query using the newly constructed metadata.
+        getDelegate().replaceCatalog(ddlCatalog);
+
+
+        // 1. get the function name.
+        final var functionName = visitFullId(ctx.functionSpecification().schemaQualifiedRoutineName).toString();
+
+        // 2. get the function SQL definition string.
+        final var queryString = getDelegate().getPlanGenerationContext().getQuery();
+        final var start = ctx.start.getStartIndex();
+        final var stop = ctx.stop.getStopIndex() + 1; // inclusive.
+        final var functionDefinition = queryString.substring(start, stop);
+
+        // 3. finally, get the compiled SQL function.
+        final var function = visitSqlInvokedFunction(ctx);
+        return RecordLayerInvokedRoutine.newBuilder()
+                .setName(functionName)
+                .setDescription(functionDefinition)
+                .withCompilableRoutine(() -> function)
+                .build();
+    }
+
+    @Override
+    public SqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
+        return visitSqlInvokedFunction(ctx.sqlInvokedFunction());
+    }
+
+    @Override
+    public SqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+        // 1. get the function name.
+        final var functionName = visitFullId(ctx.functionSpecification().schemaQualifiedRoutineName).toString();
+
+        // 2. run implementation-specific validations.
+        final var props = ctx.functionSpecification().routineCharacteristics();
+        final var language = (props.languageClause() != null && props.languageClause().languageName().JAVA() != null)
+                ? CompilableRoutine.Language.JAVA
+                : CompilableRoutine.Language.SQL;
+        boolean isDeterministic = props.deterministicCharacteristic() != null && props.deterministicCharacteristic().NOT() == null;
+        boolean isNullReturnOnNull = props.nullCallClause() == null || props.nullCallClause().RETURNS() != null;
+        boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
+        boolean isScalar = ctx.functionSpecification().returnsClause().returnsType().returnsTableType() == null;
+        Assert.thatUnchecked(!isScalar, "only table functions are supported");
+
+        Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
+        // todo: rework Java UDFs to go through this code path as well.
+        Assert.thatUnchecked(language == CompilableRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
+                "only sql-language functions are supported");
+        // 3. create SQL function logical plan by visiting the function body.
+        final var parameters = visitSqlParameterDeclarationList(ctx.functionSpecification().sqlParameterDeclarationList());
+        Assert.thatUnchecked(parameters.allNamed() || parameters.allUnnamed(), ErrorCode.UNSUPPORTED_OPERATION,
+                "mixing named and unnamed arguments is not supported");
+        final var parameterTypes = parameters.underlyingTypes();
+        //final var returnType = visitReturnsType(ctx.functionSpecification().returnsClause().returnsType());
+        final var sqlFunctionBuilder = SqlFunction.newBuilder()
+                .setName(functionName)
+                .addAllParameters(parameters)
+                // .setReturnType(returnType)
+                .setDeterministic(isDeterministic)
+                .seal();
+        final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
+        final LogicalOperator body;
+        if (parametersCorrelation.isPresent()) {
+            getDelegate().pushPlanFragment().addOperator(LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(parametersCorrelation.get()),
+                    parametersCorrelation.get()));
+            body = visitRoutineBody(ctx.routineBody());
+            getDelegate().popPlanFragment();
+        } else {
+            body = visitRoutineBody(ctx.routineBody());
+        }
+        sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get());
+        return sqlFunctionBuilder.build();
+    }
+
+    @Override
+    public LogicalOperator visitRoutineBody(final RelationalParser.RoutineBodyContext ctx) {
+        return visitSqlReturnStatement(ctx.sqlReturnStatement());
+    }
+
+    @Override
+    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
+        return visitReturnValue(ctx.returnValue());
+    }
+
+    @Override
+    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
+        Assert.thatUnchecked(ctx.expression() == null);
+        return Assert.castUnchecked(visit(ctx.queryTerm()), LogicalOperator.class);
+    }
+
+    @Override
+    public Expressions visitSqlParameterDeclarationList(@Nonnull RelationalParser.SqlParameterDeclarationListContext ctx) {
+        return Expressions.of(ctx.sqlParameterDeclaration().stream().map(this::visitSqlParameterDeclaration).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Override
+    public Expression visitSqlParameterDeclaration(@Nonnull RelationalParser.SqlParameterDeclarationContext ctx) {
+        Assert.thatUnchecked(ctx.sqlParameterName != null, "unnamed parameters not supported");
+        final var parameterName = visitUid(ctx.sqlParameterName);
+        final var parameterType = visitFunctionColumnType(ctx.parameterType);
+        Assert.thatUnchecked(parameterType.isResolved());
+        Assert.thatUnchecked(ctx.parameterMode() == null || ctx.parameterMode().IN() != null, "only IN parameters are supported");
+        if (ctx.DEFAULT() != null) {
+            final var defaultValue = Assert.castUnchecked(visit(ctx.parameterDefault), Value.class);
+            return Expression.of(defaultValue, parameterName);
+        } else {
+            return Expression.of(new ThrowsValue(DataTypeUtils.toRecordLayerType(parameterType)), parameterName);
+        }
+    }
+
+    @Override
+    public DataType visitReturnsType(@Nonnull RelationalParser.ReturnsTypeContext ctx) {
+        if (ctx.returnsDataType != null) {
+            return visitColumnType(ctx.returnsDataType);
+        }
+        throw new UnsupportedOperationException("table type is not supported");
     }
 
     // TODO: remove

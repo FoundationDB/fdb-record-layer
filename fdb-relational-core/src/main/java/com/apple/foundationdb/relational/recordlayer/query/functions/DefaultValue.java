@@ -1,9 +1,9 @@
 /*
- * FunctionCatalog.java
+ * DefaultValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,19 +20,17 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
-import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 
 import javax.annotation.Nonnull;
 
-public interface SqlFunctionCatalog {
-
-    // remove this.
-    @Nonnull
-    CatalogedFunction<? extends Typed> lookupFunction(@Nonnull String name, @Nonnull Expressions expressions);
-
-    boolean containsFunction(@Nonnull String name);
-
-    boolean isUdfFunction(@Nonnull String name);
+/**
+ * Sentinel {@link com.apple.foundationdb.record.query.plan.cascades.values.Value} used to represent SQL {@code DEFAULT}
+ * argument.
+ */
+public class DefaultValue extends ThrowsValue  {
+    public DefaultValue(@Nonnull final Type resultType) {
+        super(resultType);
+    }
 }

@@ -118,7 +118,7 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                 for (var table : schemaTemplate.getTables()) {
                     final var columnStructs = new ArrayList<>();
                     for (var col : table.getColumns()) {
-                        columnStructs.add(new ImmutableRowStruct(new ArrayRow(col.getName(), col.getDatatype().getJdbcSqlCode()), columnStructMetadata));
+                        columnStructs.add(new ImmutableRowStruct(new ArrayRow(col.getName(), col.getDataType().getJdbcSqlCode()), columnStructMetadata));
                     }
                     tableStructs.add(new ImmutableRowStruct(new ArrayRow(table.getName(), columnStructs), tableStructMetadata));
                 }

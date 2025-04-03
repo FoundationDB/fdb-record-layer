@@ -85,7 +85,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
+    private final Map<String, UserDefinedFunction<?>> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -136,7 +136,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
+                             @Nonnull Map<String, UserDefinedFunction<?>> userDefinedFunctionMap,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -719,6 +719,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromNames(@Nonnull final Collection<String> recordTypeNames) {
         return getFieldDescriptorMap(recordTypeNames.stream().map(this::getRecordType));
+    }
+
+    @Nonnull
+    public Map<String, UserDefinedFunction<?>> getUserDefinedFunctionMap() {
+        return userDefinedFunctionMap;
     }
 
     @Nonnull

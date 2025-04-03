@@ -21,14 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -42,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -70,7 +74,6 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -723,7 +726,7 @@ public class SemanticAnalyzer {
     }
 
     /**
-     * Resolves a function given its name and a list of arguments by looking it up in the {@link SqlFunctionCatalog}.
+     * Resolves a scalar function given its name and a list of arguments by looking it up in the {@link SqlFunctionCatalog}.
      * <br>
      * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
      * whether the single-item records should be flattened or not.
@@ -733,31 +736,65 @@ public class SemanticAnalyzer {
      * @param functionName The function name.
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      *                                 content, otherwise {@code false}.
-     * @param isTableValued {@code true} if the function is expected to be a table-valued function, otherwise {@code false}.
      * @param arguments The function arguments.
      * @return A resolved SQL function {@code Expression}.
      */
     @Nonnull
-    public Expression resolveFunction(@Nonnull final String functionName,
-                                      boolean flattenSingleItemRecords,
-                                      boolean isTableValued,
-                                      @Nonnull final Expression... arguments) {
+    public Expression resolveScalarFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expressions arguments) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
-        final var builtInFunction = functionCatalog.lookUpFunction(functionName, arguments);
-        if (isTableValued) {
-            Assert.thatUnchecked(builtInFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
-        }
-        List<Expression> argumentList = new ArrayList<>();
-        argumentList.addAll(List.of(arguments));
+        final var builtInFunction = functionCatalog.lookupFunction(functionName, arguments);
+        final var argumentList = ImmutableList.<Expression>builderWithExpectedSize(arguments.size() + 1).addAll(arguments);
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
         }
-        final List<? extends Typed> valueArgs = argumentList.stream().map(Expression::getUnderlying)
+        final List<? extends Typed> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalogImpl.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
+    }
+
+    /**
+     * Resolves a table function given its name and a list of arguments by looking it up in the {@link SqlFunctionCatalog}.
+     * <br>
+     * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
+     * whether the single-item records should be flattened or not.
+     * Currently almost all supported SQL functions do not expect {@code Record} objects,
+     * so this is probably ok, however, this does not necessarily hold for the future.
+     * See {@link SqlFunctionCatalogImpl#flattenRecordWithOneField(Typed)} for more information.
+     * @param functionName The function name.
+     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
+     *                                 content, otherwise {@code false}.
+     * @param arguments The function arguments.
+     * @return A resolved SQL function {@code Expression}.
+     */
+    @Nonnull
+    public LogicalOperator resolveTableFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expressions arguments) {
+        Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
+                () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
+        final var tableFunction = functionCatalog.lookupFunction(functionName, arguments);
+        if (tableFunction instanceof BuiltInFunction) {
+            Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
+        }
+        final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalogImpl.flattenRecordWithOneField(v) : v)
+                .collect(ImmutableList.toImmutableList());
+        Assert.thatUnchecked(arguments.allNamed() || arguments.allUnnamed(), ErrorCode.UNSUPPORTED_OPERATION,
+                "mixing named and unnamed arguments is not supported");
+
+        final var resultingValue = arguments.allNamed()
+                ? tableFunction.encapsulate(arguments.toNamedArgumentInvocation())
+                : tableFunction.encapsulate(valueArgs);
+        if (resultingValue instanceof StreamingValue) {
+            final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
+            final var resultingQuantifier = Quantifier.forEach(Reference.of(tableFunctionExpression));
+            final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
+            return LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
+        }
+        final var relationalExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
+        final var topQun = Quantifier.forEach(Reference.of(relationalExpression));
+        return LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(topQun), topQun);
     }
 
     public boolean isUdfFunction(@Nonnull final String functionName) {

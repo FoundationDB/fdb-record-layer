@@ -125,6 +125,31 @@ public class QueryParser {
         return ParseTreeInfoImpl.from(rootContext);
     }
 
+    @Nonnull
+    public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString) throws RelationalException {
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(functionString));
+        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
+        setInterpreterMode(parser);
+        parser.removeErrorListeners();
+        final var listener = new QueryParser.ErrorStringifier();
+        parser.addErrorListener(listener);
+        var result = parser.sqlInvokedFunction();
+
+        if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
+            var errorMessage = String.join(", ", listener.getAmbiguityErrors());
+            if (!listener.getSyntaxErrors().isEmpty()) {
+                errorMessage = errorMessage.concat(listener.getAmbiguityErrors().get(0));
+            }
+            throw new RelationalException(errorMessage, ErrorCode.INTERNAL_ERROR);
+        }
+
+        if (!listener.getSyntaxErrors().isEmpty()) {
+            throw new RelationalException("syntax error:\n" + listener.getSyntaxErrors().get(0), ErrorCode.SYNTAX_ERROR);
+        }
+
+        return result;
+    }
+
     private static void setInterpreterMode(@Nonnull final RelationalParser parser) {
         if (Environment.isDebug()) {
             parser.getInterpreter().setPredictionMode(PredictionMode.LL_EXACT_AMBIG_DETECTION);

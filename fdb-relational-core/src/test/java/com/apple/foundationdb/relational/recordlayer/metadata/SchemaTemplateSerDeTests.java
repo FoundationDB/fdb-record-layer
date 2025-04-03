@@ -292,7 +292,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertTrue(deserializedTableType.isPresent());
         final var column = deserializedTableType.get().getColumns().stream().findFirst();
         Assertions.assertTrue(column.isPresent());
-        final var type = column.get().getDatatype();
+        final var type = column.get().getDataType();
         Assertions.assertInstanceOf(DataType.StructType.class, type);
         final var typeName = ((DataType.StructType) type).getName();
         Assertions.assertEquals("Subtype", typeName);

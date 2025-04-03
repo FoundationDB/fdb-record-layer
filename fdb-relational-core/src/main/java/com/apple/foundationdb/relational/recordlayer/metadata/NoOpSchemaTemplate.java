@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -104,6 +105,18 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
     @Override
     public BitSet getIndexEntriesAsBitset(@Nonnull final Optional<Set<String>> readableIndexNames) throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have indexes!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Set<InvokedRoutine> getInvokedRoutines() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have invoked routines!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have invoked routines!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull
