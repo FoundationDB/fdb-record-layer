@@ -81,14 +81,7 @@ message Column {
     float float = 10;
     // Represents a null value. These can be typed, so the value is the java.sql.Types of the parameter
     int32 nullType = 11;
-    Uuid uuid = 12;
   }
-}
-
-// This mimics the java.UUID type
-message Uuid {
-  int64 most_significant_bits = 1;
-  int64 least_significant_bits = 2;
 }
 
 // Deprecated

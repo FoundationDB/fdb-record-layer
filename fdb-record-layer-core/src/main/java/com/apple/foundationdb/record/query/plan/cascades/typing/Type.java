@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.planprotos.PType.PPrimitiveType;
 import com.apple.foundationdb.record.planprotos.PType.PRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PRelationType;
 import com.apple.foundationdb.record.planprotos.PType.PTypeCode;
-import com.apple.foundationdb.record.planprotos.PType.PUuidType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -421,8 +420,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
                 final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
                 return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
-            } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
-                return Type.uuidType(isNullable);
             } else {
                 return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
             }
@@ -3015,8 +3012,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public PUuidType toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PUuidType.newBuilder()
+        public PType.PUuidType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.PUuidType.newBuilder()
                     .setIsNullable(isNullable)
                     .build();
         }
@@ -3028,7 +3025,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public static Uuid fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PUuidType uuidTypeProto) {
+                                          @Nonnull final PType.PUuidType uuidTypeProto) {
             Verify.verify(uuidTypeProto.hasIsNullable());
             return Type.uuidType(uuidTypeProto.getIsNullable());
         }
@@ -3038,17 +3035,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * Deserializer.
          */
         @AutoService(PlanDeserializer.class)
-        public static class Deserializer implements PlanDeserializer<PUuidType, Uuid> {
+        public static class Deserializer implements PlanDeserializer<PType.PUuidType, Uuid> {
             @Nonnull
             @Override
-            public Class<PUuidType> getProtoMessageClass() {
-                return PUuidType.class;
+            public Class<PType.PUuidType> getProtoMessageClass() {
+                return PType.PUuidType.class;
             }
 
             @Nonnull
             @Override
             public Uuid fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PUuidType uuidTypeProto) {
+                                   @Nonnull final PType.PUuidType uuidTypeProto) {
                 return Uuid.fromProto(serializationContext, uuidTypeProto);
             }
         }

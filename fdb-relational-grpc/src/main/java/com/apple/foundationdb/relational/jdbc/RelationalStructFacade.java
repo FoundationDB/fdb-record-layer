@@ -45,7 +45,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalStruct} view.
@@ -302,16 +301,6 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public RelationalArray getArray(String fieldName) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    public UUID getUUID(final int oneBasedPosition) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    public UUID getUUID(final String fieldName) throws SQLException {
         throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

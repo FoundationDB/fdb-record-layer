@@ -28,7 +28,6 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.sql.Wrapper;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * A {@link Struct} but with metadata describing the instance.
@@ -76,10 +75,6 @@ public interface RelationalStruct extends Struct, Wrapper {
     RelationalArray getArray(int oneBasedPosition) throws SQLException;
 
     RelationalArray getArray(String fieldName) throws SQLException;
-
-    UUID getUUID(int oneBasedPosition) throws SQLException;
-
-    UUID getUUID(String fieldName) throws SQLException;
 
     /**
      * Reports whether the last column read had a value of SQL NULL. See {@link ResultSet#wasNull()}
