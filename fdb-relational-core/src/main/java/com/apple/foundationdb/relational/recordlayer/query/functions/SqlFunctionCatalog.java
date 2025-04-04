@@ -20,17 +20,19 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 
 import javax.annotation.Nonnull;
 
 public interface SqlFunctionCatalog {
     @Nonnull
-    BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull String name, @Nonnull Expression... expressions);
+    CatalogedFunction lookUpFunction(@Nonnull String name, @Nonnull Expression... expressions);
 
     boolean containsFunction(@Nonnull String name);
 
     boolean isUdfFunction(@Nonnull String name);
+
+    void addUdfFunction(@Nonnull UserDefinedFunction function);
 }
