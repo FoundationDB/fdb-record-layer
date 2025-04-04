@@ -24,7 +24,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.util.Random;
-import java.util.UUID;
 
 /**
  * {@link PrimitiveParameter} holds value of a primitive type and hence is bound.
@@ -42,7 +41,7 @@ public class PrimitiveParameter implements Parameter {
     public String getSqlText() {
         if (object == null) {
             return "null";
-        } else if (object instanceof String || object instanceof UUID) {
+        } else if (object instanceof String) {
             return "'" + object + "'";
         } else {
             return object.toString();

@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
-import com.apple.foundationdb.record.TestRecordsUuidProto;
-import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -128,15 +126,16 @@ class TypeTest {
                                             .setStartDate(random.nextLong())
                                             .setSchoolName("randomString" + random.nextInt()).build()
                                     ).build()
-                    ),
-                    Arguments.of(
-                            "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
-                                    .setPkey(TupleFieldsProto.UUID.newBuilder()
-                                            .setMostSignificantBits(98452560)
-                                            .setLeastSignificantBits(30900234)
-                                            .build())
-                                    .build()
                     )
+            // This does not work currently owing to https://github.com/FoundationDB/fdb-record-layer/issues/3295
+            //      Arguments.of(
+            //              "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
+            //                      .setPkey(TupleFieldsProto.UUID.newBuilder()
+            //                              .setMostSignificantBits(98452560)
+            //                              .setLeastSignificantBits(30900234)
+            //                              .build())
+            //                      .build()
+            //          )
             );
         }
     }

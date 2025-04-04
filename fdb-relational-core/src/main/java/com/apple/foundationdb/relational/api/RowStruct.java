@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceEx
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
-import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -37,7 +36,6 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Locale;
-import java.util.UUID;
 
 /**
  * Implementation of {@link RelationalStruct} that is backed by a {@link Row}.
@@ -295,24 +293,6 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
         } else {
             throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
-    }
-
-    @Override
-    public UUID getUUID(String columnLabel) throws SQLException {
-        return getUUID(getOneBasedPosition(columnLabel));
-    }
-
-    @Override
-    public UUID getUUID(int oneBasedColumn) throws SQLException {
-        if (metaData.getColumnType(oneBasedColumn) != Types.OTHER) {
-            throw new SQLException("Expected UUID should have type OTHER", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
-        }
-        Object obj = getObjectInternal(getZeroBasedPosition(oneBasedColumn));
-        if (obj == null) {
-            return null;
-        }
-        Assert.thatUnchecked(obj instanceof UUID, ErrorCode.CANNOT_CONVERT_TYPE, "Expected UUID, got {}", obj.getClass().getName());
-        return (UUID) obj;
     }
 
     @Override

@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.sql.SQLException;
-import java.util.UUID;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
 
@@ -207,22 +206,6 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
         return currentRow.getArray(columnLabel);
-    }
-
-    @Override
-    public UUID getUUID(int oneBasedPosition) throws SQLException {
-        if (!currentRow.hasRow()) {
-            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
-        }
-        return currentRow.getUUID(oneBasedPosition);
-    }
-
-    @Override
-    public UUID getUUID(String columnLabel) throws SQLException {
-        if (!currentRow.hasRow()) {
-            throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
-        }
-        return currentRow.getUUID(columnLabel);
     }
 
     @Override

@@ -25,14 +25,15 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 
 import javax.annotation.Nonnull;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 
 public class JDBCDatabaseMetaData implements RelationalDatabaseMetaData {
-    private final RelationalDatabaseMetaData metaData;
+    private final DatabaseMetaData metaData;
 
-    public JDBCDatabaseMetaData(JDBCDatabaseMetaData metaData) {
+    public JDBCDatabaseMetaData(DatabaseMetaData metaData) {
         this.metaData = metaData;
     }
 

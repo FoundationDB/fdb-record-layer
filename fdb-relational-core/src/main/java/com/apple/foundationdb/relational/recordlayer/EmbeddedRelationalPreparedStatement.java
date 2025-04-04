@@ -38,7 +38,6 @@ import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.UUID;
 
 @API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStatement implements RelationalPreparedStatement {
@@ -186,18 +185,6 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
 
     @Override
     public void setObject(String parameterName, Object x) throws SQLException {
-        checkOpen();
-        namedParameters.put(parameterName, x);
-    }
-
-    @Override
-    public void setUUID(final int parameterIndex, final UUID x) throws SQLException {
-        checkOpen();
-        parameters.put(parameterIndex, x);
-    }
-
-    @Override
-    public void setUUID(final String parameterName, final UUID x) throws SQLException {
         checkOpen();
         namedParameters.put(parameterName, x);
     }
