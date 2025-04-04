@@ -127,15 +127,15 @@ class TypeTest {
                                             .setSchoolName("randomString" + random.nextInt()).build()
                                     ).build()
                     )
-// This does not work currently owing to https://github.com/FoundationDB/fdb-record-layer/issues/3295
-//                    , Arguments.of(
-//                            "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
-//                                    .setPkey(TupleFieldsProto.UUID.newBuilder()
-//                                            .setMostSignificantBits(98452560)
-//                                            .setLeastSignificantBits(30900234)
-//                                            .build())
-//                                    .build()
-//                    )
+            // This does not work currently owing to https://github.com/FoundationDB/fdb-record-layer/issues/3295
+            //      Arguments.of(
+            //              "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
+            //                      .setPkey(TupleFieldsProto.UUID.newBuilder()
+            //                              .setMostSignificantBits(98452560)
+            //                              .setLeastSignificantBits(30900234)
+            //                              .build())
+            //                      .build()
+            //          )
             );
         }
     }
