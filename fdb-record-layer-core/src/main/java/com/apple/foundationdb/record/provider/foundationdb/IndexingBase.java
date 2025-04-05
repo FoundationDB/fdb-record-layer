@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -121,8 +120,7 @@ public abstract class IndexingBase {
 
 
     IndexingBase(@Nonnull IndexingCommon common,
-                 @Nonnull OnlineIndexer.IndexingPolicy policy,
-                 boolean isScrubber) {
+                 @Nonnull OnlineIndexer.IndexingPolicy policy, boolean isScrubber) {
         this.common = common;
         this.policy = policy;
         this.isScrubber = isScrubber;
@@ -157,15 +155,17 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
         // This subspace holds the scrubbed ranges of the index itself (when looking for dangling entries)
-        return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
+        final Subspace subspace = indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
+        return rangeId == 0 ? subspace : subspace.subspace(Tuple.from(rangeId));
     }
 
     @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
         // This subspace hods the scrubbed ranges of the records (when looking for missing index entries)
-        return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
+        final Subspace subspace = indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
+        return rangeId == 0 ? subspace : subspace.subspace(Tuple.from(rangeId));
     }
 
     @SuppressWarnings("squid:S1452")
@@ -576,44 +576,10 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
-        // HERE: The index must be readable, checked by the caller
-        //   if scrubber had already run and still have missing ranges, do nothing
-        //   else: clear ranges and overwrite type-stamp
-        IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
-        validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
-                "Not a scrubber type-stamp");
-
-        final Index index = common.getIndex(); // Note: the scrubbers do not support multi target (yet)
-        IndexingRangeSet indexRangeSet = IndexingRangeSet.forScrubbingIndex(store, index);
-        IndexingRangeSet recordsRangeSet = IndexingRangeSet.forScrubbingRecords(store, index);
-        final CompletableFuture<Range> indexRangeFuture = indexRangeSet.firstMissingRangeAsync();
-        final CompletableFuture<Range> recordRangeFuture = recordsRangeSet.firstMissingRangeAsync();
-        return indexRangeFuture.thenCompose(indexRange -> {
-            if (indexRange == null) {
-                // Here: no un-scrubbed index range was left for this call. We will
-                // erase the 'ranges' data to allow a fresh index re-scrubbing.
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug(KeyValueLogMessage.build("Reset scrubber's index range")
-                            .addKeysAndValues(common.indexLogMessageKeyValues())
-                            .toString());
-                }
-                indexRangeSet.clear();
-            }
-            return recordRangeFuture.thenAccept(recordRange -> {
-                if (recordRange == null) {
-                    // Here: no un-scrubbed records range was left for this call. We will
-                    // erase the 'ranges' data to allow a fresh records re-scrubbing.
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(KeyValueLogMessage.build("Reset scrubber's records range")
-                                .addKeysAndValues(common.indexLogMessageKeyValues())
-                                .toString());
-                    }
-                    recordsRangeSet.clear();
-                }
-            });
-        });
+    protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
+        // This path should never be reached
+        throw new ValidationException("Called in a non-scrubbing path",
+                "isScrubber", isScrubber);
     }
 
     @Nonnull
