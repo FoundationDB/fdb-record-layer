@@ -225,8 +225,8 @@ public class IndexingRangeSet {
      * @return a {@code WrappedRangeSet} for scrubbing the index's entries
      */
     @Nonnull
-    public static IndexingRangeSet forScrubbingIndex(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubIndexRangeSubspace(store, index));
+    public static IndexingRangeSet forScrubbingIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
+        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubIndexRangeSubspace(store, index, rangeId));
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
 
@@ -241,8 +241,8 @@ public class IndexingRangeSet {
      * @return a {@code WrappedRangeSet} for scrubbing the index's records
      */
     @Nonnull
-    public static IndexingRangeSet forScrubbingRecords(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubRecordsRangeSubspace(store, index));
+    public static IndexingRangeSet forScrubbingRecords(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
+        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubRecordsRangeSubspace(store, index, rangeId));
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
 }

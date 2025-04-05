@@ -88,6 +88,8 @@ public class IndexingScrubDangling extends IndexingBase {
         return Arrays.asList(
                 LogMessageKeys.INDEXING_METHOD, "scrub dangling index entries",
                 LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
+                LogMessageKeys.RANGE_ID, scrubbingPolicy.getRangeId(),
+                LogMessageKeys.RANGE_RESET, scrubbingPolicy.isRangeReset(),
                 LogMessageKeys.SCAN_LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
@@ -147,7 +149,7 @@ public class IndexingScrubDangling extends IndexingBase {
         validateOrThrowEx(store.getIndexState(index).isScannable(), "scrubbed index is not readable");
 
         final ScanProperties scanProperties = scanPropertiesWithLimits(true);
-        final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbingIndex(store, index);
+        final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getRangeId());
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
             if (range == null) {
                 // Here: no more missing ranges - all done
@@ -237,6 +239,44 @@ public class IndexingScrubDangling extends IndexingBase {
             }
             store.getContext().ensureActive().clear(keyBytes);
         }
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    @Override
+    protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
+        // Note: this duplicated function should be eliminated with this obsolete module (for legacy mode) is deleted
+        // HERE: The index must be readable, checked by the caller
+        //   if scrubber had already run and still have missing ranges, do nothing
+        //   else: clear ranges and overwrite type-stamp
+        IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
+        validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
+                "Not a scrubber type-stamp");
+
+        final Index index = common.getIndex(); // Note: the scrubbers do not support multi target (yet)
+        IndexingRangeSet indexRangeSet = IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getRangeId());
+        if (scrubbingPolicy.isRangeReset()) {
+            indexRangeSet.clear();
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("Reset scrubber's index range - force reset")
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
+            return AsyncUtil.DONE;
+        }
+        return indexRangeSet.firstMissingRangeAsync()
+                .thenAccept(indexRange -> {
+                    if (indexRange == null) {
+                        // Here: no un-scrubbed records range was left for this call. We will
+                        // erase the 'ranges' data to allow a fresh records re-scrubbing.
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info(KeyValueLogMessage.build("Reset scrubber's index range - range exhausted")
+                                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                                    .toString());
+                        }
+                        indexRangeSet.clear();
+                    }
+                });
     }
 
     @Override
