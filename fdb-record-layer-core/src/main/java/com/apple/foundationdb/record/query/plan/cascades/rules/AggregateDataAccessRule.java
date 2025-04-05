@@ -64,6 +64,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -201,7 +202,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                                         singleMatchedAccessVectored.getElement().getPartialMatch())
                                 .collect(ImmutableList.toImmutableList()));
         if (commonRecordKeyValuesOptional.isEmpty()) {
-            return IntersectionResult.noCommonOrdering();
+            return IntersectionResult.noViableIntersection();
         }
         final var commonRecordKeyValues = commonRecordKeyValuesOptional.get();
 
@@ -226,7 +227,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         final var isPartitionRedundant =
                 isPartitionRedundant(intersectionInfoMap, partition, equalityBoundKeyValues);
         if (isPartitionRedundant) {
-            return IntersectionResult.noCommonOrdering();
+            return IntersectionResult.noViableIntersection();
         }
 
         final var compensation =
@@ -235,26 +236,37 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                         .map(pair -> pair.getElement().getCompensation())
                         .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
 
+        //
+        // Grab the first matched access from the partition in order to translate to the required ordering
+        // to the candidate's top.
+        //
+        final var firstMatchedAccess = partition.get(0).getElement();
+        final var topToTopTranslationMap = firstMatchedAccess.getTopToTopTranslationMap();
+
         boolean hasCommonOrdering = false;
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
         for (final var requestedOrdering : requestedOrderings) {
+            final var translatedRequestedOrdering =
+                    requestedOrdering.translateCorrelations(topToTopTranslationMap, true);
+            if (!areRequestedOrderingsDerivationsCompatibleAcrossMatches(partition, translatedRequestedOrdering)) {
+                continue;
+            }
+
             final var comparisonKeyValuesIterable =
-                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
+                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(translatedRequestedOrdering);
             for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
-                if (!isCompatibleComparisonKey(comparisonKeyValues,
-                        commonRecordKeyValues,
-                        equalityBoundKeyValues)) {
+                if (!isCompatibleComparisonKey(comparisonKeyValues, commonRecordKeyValues, equalityBoundKeyValues)) {
                     continue;
                 }
 
-                if (!isCompatibleDerivationAcrossMatches(partition, comparisonKeyValues)) {
+                if (!areComparisonKeyDerivationsCompatibleAcrossMatches(partition, comparisonKeyValues)) {
                     continue;
                 }
 
                 hasCommonOrdering = true;
                 if (!compensation.isImpossible()) {
                     var comparisonOrderingParts =
-                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
+                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, translatedRequestedOrdering,
                                     OrderingPart.ProvidedSortOrder.FIXED);
                     final var comparisonIsReverse =
                             RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
@@ -294,35 +306,73 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                 expressionsBuilder.build());
     }
 
-    private static boolean isCompatibleDerivationAcrossMatches(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                               @Nonnull final List<Value> comparisonKeyValues) {
+    private static boolean areRequestedOrderingsDerivationsCompatibleAcrossMatches(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                                   @Nonnull final RequestedOrdering requestedOrdering) {
+        for (final var orderingPart : requestedOrdering.getOrderingParts()) {
+            if (isAggregateQueryValue(partition, orderingPart.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean areComparisonKeyDerivationsCompatibleAcrossMatches(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                              @Nonnull final List<Value> comparisonKeyValues) {
         for (final var comparisonKeyValue : comparisonKeyValues) {
-            Value queryComparisonKeyValue = null;
-            for (final var singleMatchedAccessWithIndex : partition) {
-                final var singledMatchedAccess = singleMatchedAccessWithIndex.getElement();
-                final var groupByMappings = singledMatchedAccess.getPulledUpGroupByMappingsForOrdering();
-                final var inverseMatchedGroupingsMap =
-                        groupByMappings.getMatchedGroupingsMap().inverse();
-                final var currentQueryComparisonKeyValue = inverseMatchedGroupingsMap.get(comparisonKeyValue);
-                if (currentQueryComparisonKeyValue == null) {
+            if (consistentQueryValueForGroupingValueMaybe(partition, comparisonKeyValue).isEmpty()) {
+                if (!isAggregateQueryValue(partition, comparisonKeyValue)) {
                     return false;
-                }
-                if (queryComparisonKeyValue == null) {
-                    queryComparisonKeyValue = currentQueryComparisonKeyValue;
-                } else {
-                    final var semanticEquals =
-                            queryComparisonKeyValue.semanticEquals(currentQueryComparisonKeyValue,
-                                    ValueEquivalence.empty());
-                    if (semanticEquals.isFalse()) {
-                        return false;
-                    }
-                    if (!semanticEquals.getConstraint().isTautology()) {
-                        return false;
-                    }
                 }
             }
         }
         return true;
+    }
+
+    @Nonnull
+    private static Optional<Value> consistentQueryValueForGroupingValueMaybe(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                             @Nonnull final Value comparisonKeyValue) {
+        Value queryComparisonKeyValue = null;
+        for (final var singleMatchedAccessWithIndex : partition) {
+            final var singledMatchedAccess = singleMatchedAccessWithIndex.getElement();
+            final var groupByMappings = singledMatchedAccess.getPulledUpGroupByMappingsForOrdering();
+            final var inverseMatchedGroupingsMap =
+                    groupByMappings.getMatchedGroupingsMap().inverse();
+            final var currentQueryComparisonKeyValue = inverseMatchedGroupingsMap.get(comparisonKeyValue);
+            if (currentQueryComparisonKeyValue == null) {
+                return Optional.empty();
+            }
+            if (queryComparisonKeyValue == null) {
+                queryComparisonKeyValue = currentQueryComparisonKeyValue;
+            } else {
+                final var semanticEquals =
+                        queryComparisonKeyValue.semanticEquals(currentQueryComparisonKeyValue,
+                                ValueEquivalence.empty());
+                if (semanticEquals.isFalse()) {
+                    return Optional.empty();
+                }
+                if (!semanticEquals.getConstraint().isTautology()) {
+                    return Optional.empty();
+                }
+            }
+        }
+
+        return Optional.of(Objects.requireNonNull(queryComparisonKeyValue));
+    }
+
+    private static boolean isAggregateQueryValue(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                 @Nonnull final Value comparisonKeyValue) {
+        for (final var singleMatchedAccessWithIndex : partition) {
+            final var singledMatchedAccess = singleMatchedAccessWithIndex.getElement();
+            final var groupByMappings = singledMatchedAccess.getPulledUpGroupByMappingsForOrdering();
+            final var inverseMatchedGroupingsMap =
+                    groupByMappings.getMatchedAggregatesMap().inverse();
+            final var currentQueryComparisonKeyValue = inverseMatchedGroupingsMap.get(comparisonKeyValue);
+            if (currentQueryComparisonKeyValue != null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Nonnull

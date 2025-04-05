@@ -1,12 +1,14 @@
 agg-empty-table-tests:
--   query: EXPLAIN select col1, min(col2) from T3 group by col1, col3;
+-   query: EXPLAIN select col1, min(col2), max(col2) from T3 group by col1, col3;
     explain: 'AISCAN(T3_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
-        | MAP (_._0 AS COL1, _._2 AS _1)'
-    task_count: 418
-    task_total_time_ms: 105
-    transform_count: 145
-    transform_time_ms: 82
-    transform_yield_count: 50
+        ∩ AISCAN(T3_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) COMPARE
+        BY (_._0, _._2, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2
+        AS _2, q1._2 AS _3) | MAP (_._0 AS COL1, _._2 AS _1, _._3 AS _2)'
+    task_count: 468
+    task_total_time_ms: 118
+    transform_count: 154
+    transform_time_ms: 96
+    transform_yield_count: 55
     insert_time_ms: 3
-    insert_new_count: 50
+    insert_new_count: 54
     insert_reused_count: 4

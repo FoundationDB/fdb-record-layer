@@ -639,6 +639,8 @@ public interface Compensation {
             final var newGroupByMappings = GroupByMappings.of(newMatchedGroupingsMapBuilder.build(),
                     newMatchedAggregatesMap, newUnmatchedAggregatesMapBuilder.build());
 
+            boolean isImpossible = false;
+
             final ResultCompensationFunction newResultResultCompensationFunction;
             final var resultCompensationFunction = getResultCompensationFunction();
             final var otherResultCompensationFunction = otherWithSelectCompensation.getResultCompensationFunction();
@@ -651,6 +653,7 @@ public interface Compensation {
                 // pick the one from this side -- it does not matter as both candidates have the same shape
                 newResultResultCompensationFunction =
                         resultCompensationFunction.amend(unmatchedAggregateMap, newMatchedAggregatesMap);
+                isImpossible |= newResultResultCompensationFunction.isImpossible();
             }
 
             final var otherCompensationMap =
@@ -661,14 +664,17 @@ public interface Compensation {
                 final var otherPredicateCompensationFunction = otherCompensationMap.get(entry.getKey());
                 if (otherPredicateCompensationFunction != null) {
                     // Both compensations have a compensation for this particular predicate which is essentially
-                    // reapplying the predicate. Three cases arise:
+                    // reapplying the predicate. Two cases arise:
                     // 1. Both predicate compensation functions are needed and possible. At this point it doesn't
                     //    matter which side we take as both create the same compensating filter. If at any point in the
                     //    future one data access has a better reapplication we need to generate plan variants with
                     //    either compensation and let the planner figure out which one wins. We just pick one side here.
-                    // 2. TODO.
-                    combinedPredicateMap.put(entry.getKey(),
-                            entry.getValue().amend(unmatchedAggregateMap, newMatchedAggregatesMap));
+                    // 2. Either one or both compensation functions are impossible, but thee intersection is possible.
+                    //    We take the compensation function from this side and amend it with the compensation function
+                    //    from the other side.
+                    final var newPredicateCompensationFunction = entry.getValue().amend(unmatchedAggregateMap, newMatchedAggregatesMap);
+                    combinedPredicateMap.put(entry.getKey(), newPredicateCompensationFunction);
+                    isImpossible |= newPredicateCompensationFunction.isImpossible();
                 }
             }
 
@@ -691,10 +697,12 @@ public interface Compensation {
 
             final var unmatchedQuantifiers = Sets.intersection(this.getUnmatchedQuantifiers(), otherWithSelectCompensation.getUnmatchedQuantifiers());
             final var unmatchedQuantifierAliases = unmatchedQuantifiers.stream().map(Quantifier::getAlias).collect(ImmutableList.toImmutableList());
-            final var isImpossible = combinedPredicateMap.keySet()
-                    .stream()
-                    .flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream())
-                    .anyMatch(unmatchedQuantifierAliases::contains);
+            if (!isImpossible) {
+                isImpossible = combinedPredicateMap.keySet()
+                        .stream()
+                        .flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream())
+                        .anyMatch(unmatchedQuantifierAliases::contains);
+            }
 
             return intersectedChildCompensation.derived(isImpossible,
                     combinedPredicateMap,

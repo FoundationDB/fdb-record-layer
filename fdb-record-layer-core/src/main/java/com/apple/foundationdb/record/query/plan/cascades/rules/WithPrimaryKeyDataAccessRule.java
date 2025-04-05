@@ -194,7 +194,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
                                         singleMatchedAccessVectored.getElement().getPartialMatch())
                                 .collect(ImmutableList.toImmutableList()));
         if (commonRecordKeyValuesOptional.isEmpty()) {
-            return IntersectionResult.noCommonOrdering();
+            return IntersectionResult.noViableIntersection();
         }
 
         final var commonPrimaryKeyValues = commonRecordKeyValuesOptional.get();
@@ -220,7 +220,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
         final var isPartitionRedundant =
                 isPartitionRedundant(intersectionInfoMap, partition, equalityBoundKeyValues);
         if (isPartitionRedundant) {
-            return IntersectionResult.noCommonOrdering();
+            return IntersectionResult.noViableIntersection();
         }
 
         final var compensation =
@@ -231,11 +231,20 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
         final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction =
                 realizedAlias -> matchedToRealizedTranslationMap(partition, realizedAlias);
 
+        //
+        // Grab the first matched access from the partition in order to translate to the required ordering
+        // to the candidate's top.
+        //
+        final var firstMatchedAccess = partition.get(0).getElement();
+        final var topToTopTranslationMap = firstMatchedAccess.getTopToTopTranslationMap();
+
         boolean hasCommonOrdering = false;
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
         for (final var requestedOrdering : requestedOrderings) {
+            final var translatedRequestedOrdering =
+                    requestedOrdering.translateCorrelations(topToTopTranslationMap, true);
             final var comparisonKeyValuesIterable =
-                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
+                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(translatedRequestedOrdering);
             for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
                 if (!isCompatibleComparisonKey(comparisonKeyValues,
                         commonPrimaryKeyValues,
@@ -246,7 +255,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
                 hasCommonOrdering = true;
                 if (!compensation.isImpossible()) {
                     var comparisonOrderingParts =
-                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
+                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, translatedRequestedOrdering,
                                     OrderingPart.ProvidedSortOrder.FIXED);
                     final var comparisonIsReverse =
                             RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
