@@ -126,21 +126,25 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false, 0, true);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
         private final boolean ignoreIndexTypeCheck;
         private final boolean useLegacy;
+        private final int rangeId;
+        private final boolean rangeReset;
 
         public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
-                               boolean ignoreIndexTypeCheck, boolean useLgacy) {
+                               boolean ignoreIndexTypeCheck, boolean useLgacy, int rangeId, boolean rangeReset) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
             this.ignoreIndexTypeCheck = ignoreIndexTypeCheck;
             this.useLegacy = useLgacy;
+            this.rangeId = rangeId;
+            this.rangeReset = rangeReset;
         }
 
         boolean allowRepair() {
@@ -161,6 +165,14 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         public int getLogWarningsLimit() {
             return logWarningsLimit;
+        }
+
+        public int getRangeId() {
+            return rangeId;
+        }
+
+        public boolean isRangeReset() {
+            return rangeReset;
         }
 
         /**
@@ -187,6 +199,8 @@ public class OnlineIndexScrubber implements AutoCloseable {
             long entriesScanLimit = 0;
             boolean ignoreIndexTypeCheck = false;
             boolean useLegacy = false;
+            int rangeId = 0;
+            boolean rangeReset = false;
 
             protected Builder() {
             }
@@ -263,8 +277,32 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Choose a specific "Already Scrubbed" rangeSet prefix. This may be useful for
+             * multiple scrubbing jobs that should not affect each other.
+             * 0 is the backward compatible default, which means no prefix.
+             * @param rangeId a rangeSet prefix
+             * @return this builder
+             */
+            public Builder setRangeId(final int rangeId) {
+                this.rangeId = rangeId;
+                return this;
+            }
+
+            /**
+             * If set to true, clear any previous "Already Scrubbed" range set - which means that the index scrubbing
+             * will begin from scratch.
+             * @param rangeReset reset if true
+             * @return this builder
+             */
+            public Builder setRangeReset(final boolean rangeReset) {
+                this.rangeReset = rangeReset;
+                return this;
+            }
+
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck, useLegacy);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck,
+                        useLegacy, rangeId, rangeReset);
             }
         }
     }

@@ -367,8 +367,8 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
 
     private ScrubbersMissingRanges getScrubbersMissingRange(Index index) {
         try (FDBRecordContext context = openContext()) {
-            Range indexes = IndexingRangeSet.forScrubbingIndex(recordStore, index).firstMissingRangeAsync().thenApply(Function.identity()).join();
-            Range records = IndexingRangeSet.forScrubbingRecords(recordStore, index).firstMissingRangeAsync().thenApply(Function.identity()).join();
+            Range indexes = IndexingRangeSet.forScrubbingIndex(recordStore, index, 0).firstMissingRangeAsync().thenApply(Function.identity()).join();
+            Range records = IndexingRangeSet.forScrubbingRecords(recordStore, index, 0).firstMissingRangeAsync().thenApply(Function.identity()).join();
             context.commit();
             return new ScrubbersMissingRanges(indexes, records);
         }
