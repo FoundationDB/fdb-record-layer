@@ -495,8 +495,10 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
         @Nonnull
         @Override
-        public Ordering visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan element) {
-            return Ordering.empty(); // TODO
+        public Ordering visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+            final var orderings = orderingsFromChildren(multiIntersectionOnValuesPlan);
+            return deriveForDistinctSetOperationFromOrderings(orderings,
+                    multiIntersectionOnValuesPlan.getComparisonKeyOrderingParts(), Ordering.INTERSECTION);
         }
 
         @Nonnull
