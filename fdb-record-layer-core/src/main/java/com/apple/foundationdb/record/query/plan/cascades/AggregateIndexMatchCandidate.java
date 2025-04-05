@@ -207,8 +207,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo,
                                                                  @Nonnull final List<CorrelationIdentifier> sortParameterIds,
                                                                  final boolean isReverse) {
-        final var parameterBindingMap =
-                matchInfo.getRegularMatchInfo().getParameterBindingMap();
+        final var regularMatchInfo = matchInfo.getRegularMatchInfo();
+        final var parameterBindingMap = regularMatchInfo.getParameterBindingMap();
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
@@ -220,13 +220,17 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var deconstructedValues =
                 Values.deconstructRecord(QuantifiedObjectValue.of(Quantifier.current(), selectHavingResultType));
 
+        final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
+        final int orderSize = rollUpToGroupingValues != null ? rollUpToGroupingValues.size() : sortParameterIds.size();
+
         // Compute the ordering for this index by collecting the result values of the selectHaving statement
         // associated with each sortParameterId. Note that for most aggregate indexes, the aggregate value is
         // in the FDB value, and so it does not contribute to the ordering of the index, so there is no sortParameterId
         // corresponding to it. For the PERMUTED_MIN and PERMUTED_MAX indexes, the aggregate _does_ have a corresponding
         // sortParameterId. Its position is determined by the permutedSize option, handled below by adjusting the
         // sortParameterId's index before looking it up in the original key expression
-        for (final var parameterId : sortParameterIds) {
+        for (int i = 0; i < orderSize; i++) {
+            final var parameterId = sortParameterIds.get(i);
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
             int permutedIndex = indexWithPermutation(ordinalInCandidate);
@@ -440,6 +444,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 selectHavingResultValue,
                 groupByResultValue,
                 constraintMaybe);
+
         if (regularMatchInfo.getRollUpToGroupingValues() != null) {
             //
             // We need to perform a roll up.
@@ -449,14 +454,13 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
             //final var recordValues = Values.deconstructRecord(recordValue);
             final var groupingAndAggregateAccessors =
-                    getGroupingAndAggregateAccessors(regularMatchInfo.getRollUpToGroupingValues().size(),
-                            aggregateIndexScanAlias);
+                    getGroupingAndAggregateAccessors(getGroupingCount(), aggregateIndexScanAlias);
             final var groupingAccessorValues = groupingAndAggregateAccessors.getLeft();
             final var aggregateAccessorValue = groupingAndAggregateAccessors.getRight();
             final var allFields = resultType.getFields();
             final var rollUpGroupingColumnsBuilder =
                     ImmutableList.<Column<? extends Value>>builder();
-            for (int i = 0; i < groupingAccessorValues.size(); i++) {
+            for (int i = 0; i < regularMatchInfo.getRollUpToGroupingValues().size(); i++) {
                 final var field = allFields.get(i);
                 rollUpGroupingColumnsBuilder.add(Column.of(field, groupingAccessorValues.get(i)));
             }
