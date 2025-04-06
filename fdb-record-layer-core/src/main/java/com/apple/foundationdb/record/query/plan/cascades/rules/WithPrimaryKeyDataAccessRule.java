@@ -98,7 +98,6 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
         }
 
         final var expression = bindings.get(getExpressionMatcher());
-        final var correlatedTo = expression.getCorrelatedTo();
 
         //
         // return if there is no pre-determined interesting ordering
