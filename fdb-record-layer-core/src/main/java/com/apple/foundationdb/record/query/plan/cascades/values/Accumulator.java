@@ -37,6 +37,4 @@ public interface Accumulator {
 
     @Nullable
     RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey);
-
-    void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates);
 }

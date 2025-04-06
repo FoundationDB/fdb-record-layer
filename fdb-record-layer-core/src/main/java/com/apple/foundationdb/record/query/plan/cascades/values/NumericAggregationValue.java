@@ -126,6 +126,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
     @Nonnull
     @Override
+    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, @Nonnull List<RecordCursorProto.AccumulatorState> initialState) {
+        Verify.verify(initialState.size() == 1);
+        return new NumericAccumulator(operator, initialState.get(0));
+    }
+
+    @Nonnull
+    @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens()
                 .addFunctionCall(operator.name().toLowerCase(Locale.ROOT),
@@ -854,8 +861,53 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             this.physicalOperator = physicalOperator;
         }
 
+        public NumericAccumulator(@Nonnull final PhysicalOperator physicalOperator, @Nonnull final RecordCursorProto.AccumulatorState initialState) {
+            this.physicalOperator = physicalOperator;
+            System.out.println("NumericAccumulator initialState:" + initialState);
+            switch (physicalOperator) {
+                case SUM_I:
+                case MAX_I:
+                case MIN_I:
+                    state = Integer.parseInt(initialState.getState(0));
+                    break;
+                case SUM_L:
+                case MAX_L:
+                case MIN_L:
+                    state = Long.parseLong(initialState.getState(0));
+                    break;
+                case SUM_D:
+                case MAX_D:
+                case MIN_D:
+                    state = Double.parseDouble(initialState.getState(0));
+                    break;
+                case SUM_F:
+                case MAX_F:
+                case MIN_F:
+                    state = Float.parseFloat(initialState.getState(0));
+                    break;
+                case AVG_I:
+                    state = Pair.of(Integer.parseInt(initialState.getState(0)), Long.parseLong(initialState.getState(1)));
+                    break;
+                case AVG_L:
+                    state = Pair.of(Long.parseLong(initialState.getState(0)), Long.parseLong(initialState.getState(1)));
+                    break;
+                case AVG_D:
+                    state = Pair.of(Double.parseDouble(initialState.getState(0)), Long.parseLong(initialState.getState(1)));
+                    break;
+                case AVG_F:
+                    state = Pair.of(Float.parseFloat(initialState.getState(0)), Long.parseLong(initialState.getState(1)));
+                    break;
+                case BITMAP_CONSTRUCT_AGG_I:
+                case BITMAP_CONSTRUCT_AGG_L:
+                    state = BitSet.valueOf(initialState.getState(0).getBytes(StandardCharsets.UTF_8));
+                    break;
+                default:
+                    break;
+            }
+        }
+
         @Override
-        public void accumulate(@Nullable final Object currentObject) {
+        public synchronized void accumulate(@Nullable final Object currentObject) {
             this.state = physicalOperator.evalPartialToPartial(state, currentObject);
         }
 
@@ -906,54 +958,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                     .setGroupKey(groupingKey.toByteString())
                     .addAccumulatorStates(builder)
                     .build();
-        }
-
-        @Override
-        public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
-            Verify.verify(state == null);
-            Verify.verify(accumulatorStates.size() == 1);
-            Verify.verify(physicalOperator.name().equals(accumulatorStates.get(0).getPhysicalOperatorName()));
-
-            switch (physicalOperator) {
-                case SUM_I:
-                case MAX_I:
-                case MIN_I:
-                    state = Integer.parseInt(accumulatorStates.get(0).getState(0));
-                    break;
-                case SUM_L:
-                case MAX_L:
-                case MIN_L:
-                    state = Long.parseLong(accumulatorStates.get(0).getState(0));
-                    break;
-                case SUM_D:
-                case MAX_D:
-                case MIN_D:
-                    state = Double.parseDouble(accumulatorStates.get(0).getState(0));
-                    break;
-                case SUM_F:
-                case MAX_F:
-                case MIN_F:
-                    state = Float.parseFloat(accumulatorStates.get(0).getState(0));
-                    break;
-                case AVG_I:
-                    state = Pair.of(Integer.parseInt(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
-                    break;
-                case AVG_L:
-                    state = Pair.of(Long.parseLong(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
-                    break;
-                case AVG_D:
-                    state = Pair.of(Double.parseDouble(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
-                    break;
-                case AVG_F:
-                    state = Pair.of(Float.parseFloat(accumulatorStates.get(0).getState(0)), Long.parseLong(accumulatorStates.get(0).getState(1)));
-                    break;
-                case BITMAP_CONSTRUCT_AGG_I:
-                case BITMAP_CONSTRUCT_AGG_L:
-                    state = BitSet.valueOf(accumulatorStates.get(0).getState(0).getBytes(StandardCharsets.UTF_8));
-                    break;
-                default:
-                    break;
-            }
         }
     }
 }

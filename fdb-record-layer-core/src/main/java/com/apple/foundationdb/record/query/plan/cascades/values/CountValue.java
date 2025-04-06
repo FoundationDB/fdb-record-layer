@@ -120,6 +120,13 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nonnull
     @Override
+    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, @Nonnull List<RecordCursorProto.AccumulatorState> initialState) {
+        Verify.verify(initialState.size() == 1);
+        return new SumAccumulator(operator, initialState.get(0));
+    }
+
+    @Nonnull
+    @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         if (operator == PhysicalOperator.COUNT_STAR) {
             return ExplainTokensWithPrecedence.of(
@@ -336,8 +343,14 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
             this.physicalOperator = physicalOperator;
         }
 
+        public SumAccumulator(@Nonnull final PhysicalOperator physicalOperator, @Nonnull RecordCursorProto.AccumulatorState initialState) {
+            this.physicalOperator = physicalOperator;
+            System.out.println("SumAccumulator initialState:" + initialState);
+            this.state = Long.parseLong(initialState.getState(0));
+        }
+
         @Override
-        public void accumulate(@Nullable final Object currentObject) {
+        public synchronized void accumulate(@Nullable final Object currentObject) {
             this.state = physicalOperator.evalPartialToPartial(state, currentObject);
         }
 
@@ -359,14 +372,6 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
                             .setPhysicalOperatorName(physicalOperator.name())
                             .addState(String.valueOf(state)))
                     .build();
-        }
-
-        @Override
-        public void setInitialState(@Nonnull List<RecordCursorProto.AccumulatorState> accumulatorStates) {
-            Verify.verify(this.state == null);
-            Verify.verify(accumulatorStates.size() == 1);
-            Verify.verify(physicalOperator.name().equals(accumulatorStates.get(0).getPhysicalOperatorName()));
-            this.state = Long.parseLong(accumulatorStates.get(0).getState(0));
         }
     }
 

@@ -163,9 +163,10 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
                                                                            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
         final List<KeyedMergeCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
         final UnionCursorContinuation continuation = UnionCursorContinuation.from(byteContinuation, cursorFunctions.size());
-        int i = 0;
-        for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
-            cursorStates.add(KeyedMergeCursorState.from(cursorFunction, continuation.getContinuations().get(i), comparisonKeyFunction));
+        //int i = 0;
+        for (int i = 0; i < cursorFunctions.size(); i++) {
+        //for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
+            cursorStates.add(KeyedMergeCursorState.from(cursorFunctions.get(i), continuation.getContinuations().get(i), comparisonKeyFunction));
             i++;
         }
         return cursorStates;

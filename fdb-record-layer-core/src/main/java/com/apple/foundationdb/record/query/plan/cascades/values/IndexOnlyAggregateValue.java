@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PIndexOnlyAggregateValue;
 import com.apple.foundationdb.record.planprotos.PIndexOnlyAggregateValue.PPhysicalOperator;
@@ -140,6 +141,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @Nonnull
     @Override
     public Accumulator createAccumulator(@Nonnull final TypeRepository typeRepository) {
+        throw new IllegalStateException("unable to create accumulator in a compile-time aggregation function");
+    }
+
+    @Nonnull
+    @Override
+    public Accumulator createAccumulatorWithInitialState(@Nonnull final TypeRepository typeRepository, @Nonnull final List<RecordCursorProto.AccumulatorState> initialState) {
         throw new IllegalStateException("unable to create accumulator in a compile-time aggregation function");
     }
 

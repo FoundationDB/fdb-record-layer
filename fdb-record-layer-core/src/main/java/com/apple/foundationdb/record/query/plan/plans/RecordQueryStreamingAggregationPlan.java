@@ -440,7 +440,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final CorrelationIdentifier groupingKeyAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getGroupingKeyAlias()));
         final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
         final Value completeResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getCompleteResultValue()));
-        final boolean isCreateDefaultOnEmpty = recordQueryStreamingAggregationPlanProto.hasIsCreateDefaultOnEmpty() ? recordQueryStreamingAggregationPlanProto.getIsCreateDefaultOnEmpty() : true;
+        final boolean isCreateDefaultOnEmpty = !recordQueryStreamingAggregationPlanProto.hasIsCreateDefaultOnEmpty() || recordQueryStreamingAggregationPlanProto.getIsCreateDefaultOnEmpty();
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, isCreateDefaultOnEmpty, SerializationMode.TO_OLD);
     }
 

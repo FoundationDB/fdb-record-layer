@@ -111,9 +111,12 @@ public class StreamGrouping<M extends Message> {
                           @Nullable final RecordCursorProto.PartialAggregationResult partialAggregationResult) {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
-        this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+        if (partialAggregationResult == null) {
+            this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+        }
         if (partialAggregationResult != null) {
-            this.accumulator.setInitialState(partialAggregationResult.getAccumulatorStatesList());
+            System.out.println("StreamGrouping:partialAggregationResult:" + partialAggregationResult);
+            this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), partialAggregationResult.getAccumulatorStatesList());
             try {
                 this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), partialAggregationResult.getGroupKey().toByteArray());
             } catch (InvalidProtocolBufferException e) {
