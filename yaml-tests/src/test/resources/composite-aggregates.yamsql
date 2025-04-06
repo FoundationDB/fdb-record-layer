@@ -69,34 +69,34 @@ test_block:
   name: agg-empty-table-tests
   preset: single_repetition_ordered
   tests:
-    #-
-    #  - query: select sum(col2) / count(col2) from T2 group by col1;
-    #  - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)"
-    #  - result: [{!l 4}, {!l 32}]
-    #-
-    #  - query: select sum(col2), count(col2) from T2 where col1 < 2 group by col1;
-    #  - explain: "AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 AS _0, _._2 AS _1)"
-    #  - result: [{!l 17, !l 4}]
-    #-
-    #  - query: select sum(col2), count(col2) from T2 group by col1 having sum(col2) = 17;
-    #  - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c22 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)"
-    #  - result: [{!l 17, !l 4}]
-    #-
-    #  - query: select sum(col2), count(col2) from T2 where col1 < 2 group by col1 having sum(col2) = 17;
-    #  - explain: "AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c26 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)"
-    #  - result: [{!l 17, !l 4}]
-    #-
-    #  - query: select sum(col1) / count(col1), col2 from T1 group by col2;
-    #  - explain: "AISCAN(T1_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)"
-    #  - result: [{!l 10, !l 1}, {!l 20, !l 6}, {!l 20, !l 7}, {!l 20, !l 8}, {!l 20, !l 10}]
-    #-
-    #  - query: select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2 having sum(col1) = 17 order by col2;
-    #  - explain: "AISCAN(T1_I2 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c28 AS LONG) | MAP (_._0 AS COL2, _._1 / _._2 AS _1)"
-    #  - result: []
-    #-
-    #  - query: select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2, col3 having sum(col1) = 17;
-    #  - explain: "AISCAN(T1_I4 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) COMPARE BY (_._0, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) | FILTER _._2 EQUALS promote(@c30 AS LONG) | MAP (_._0 AS COL2, _._2 / _._3 AS _1)"
-    #  - result: []
+    -
+      - query: select sum(col2) / count(col2) from T2 group by col1;
+      - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)"
+      - result: [{!l 4}, {!l 32}]
+    -
+      - query: select sum(col2), count(col2) from T2 where col1 < 2 group by col1;
+      - explain: "AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 AS _0, _._2 AS _1)"
+      - result: [{!l 17, !l 4}]
+    -
+      - query: select sum(col2), count(col2) from T2 group by col1 having sum(col2) = 17;
+      - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c22 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)"
+      - result: [{!l 17, !l 4}]
+    -
+      - query: select sum(col2), count(col2) from T2 where col1 < 2 group by col1 having sum(col2) = 17;
+      - explain: "AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c26 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)"
+      - result: [{!l 17, !l 4}]
+    -
+      - query: select sum(col1) / count(col1), col2 from T1 group by col2;
+      - explain: "AISCAN(T1_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)"
+      - result: [{!l 10, !l 1}, {!l 20, !l 6}, {!l 20, !l 7}, {!l 20, !l 8}, {!l 20, !l 10}]
+    -
+      - query: select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2 having sum(col1) = 17 order by col2;
+      - explain: "AISCAN(T1_I2 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c28 AS LONG) | MAP (_._0 AS COL2, _._1 / _._2 AS _1)"
+      - result: []
+    -
+      - query: select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2, col3 having sum(col1) = 17;
+      - explain: "AISCAN(T1_I4 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) COMPARE BY (_._0, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) | FILTER _._2 EQUALS promote(@c30 AS LONG) | MAP (_._0 AS COL2, _._2 / _._3 AS _1)"
+      - result: []
     -
       - query: select col1, min(col2), max(col2) from T3 group by col1, col3;
       - explain: "AISCAN(T3_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) ∩ AISCAN(T3_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) COMPARE BY (_._0, _._2, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) | MAP (_._0 AS COL1, _._2 AS _1, _._3 AS _2)"
