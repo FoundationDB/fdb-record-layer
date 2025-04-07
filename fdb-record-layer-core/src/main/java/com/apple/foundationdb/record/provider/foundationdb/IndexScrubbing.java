@@ -162,6 +162,7 @@ public class IndexScrubbing extends IndexingBase {
                 // Here: no more missing ranges - all done
                 // This scrubbing is done. Clear the rangeSet - the next time scrubbing is called it will start from scratch
                 rangeSet.clear();
+                logScrubberRangeReset("range exhausted");
                 return AsyncUtil.READY_FALSE;
             }
             final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
@@ -263,7 +264,7 @@ public class IndexScrubbing extends IndexingBase {
                     if (recordRange == null) {
                         // Here: no un-scrubbed range was left for this call. We will
                         // erase the 'ranges' data to allow a fresh records re-scrubbing.
-                        logScrubberRangeReset("range exhausted");
+                        logScrubberRangeReset("range exhausted detected");
                         rangeSet.clear();
                     }
                 });

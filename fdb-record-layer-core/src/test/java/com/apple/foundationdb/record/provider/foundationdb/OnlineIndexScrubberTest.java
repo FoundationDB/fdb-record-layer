@@ -42,13 +42,16 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -366,9 +369,13 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     }
 
     private ScrubbersMissingRanges getScrubbersMissingRange(Index index) {
+        return getScrubbersMissingRange(index, 0);
+    }
+
+    private ScrubbersMissingRanges getScrubbersMissingRange(Index index, int rangeId) {
         try (FDBRecordContext context = openContext()) {
-            Range indexes = IndexingRangeSet.forScrubbingIndex(recordStore, index, 0).firstMissingRangeAsync().thenApply(Function.identity()).join();
-            Range records = IndexingRangeSet.forScrubbingRecords(recordStore, index, 0).firstMissingRangeAsync().thenApply(Function.identity()).join();
+            Range indexes = IndexingRangeSet.forScrubbingIndex(recordStore, index, rangeId).firstMissingRangeAsync().thenApply(Function.identity()).join();
+            Range records = IndexingRangeSet.forScrubbingRecords(recordStore, index, rangeId).firstMissingRangeAsync().thenApply(Function.identity()).join();
             context.commit();
             return new ScrubbersMissingRanges(indexes, records);
         }
@@ -820,5 +827,549 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
             }
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleMissingMixedRanges(boolean legacy) throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 50;
+        long res;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .setRangeId(10)
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, res);
+
+        // manually delete a few index entries
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            List<IndexEntry> indexEntries = recordStore.scanIndex(tgtIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            for (int i = 3; i < numRecords; i *= 2) {
+                final IndexEntry indexEntry = indexEntries.get(i);
+                final Tuple valueKey = indexEntry.getKey();
+                final byte[] keyBytes = recordStore.indexSubspace(tgtIndex).pack(valueKey);
+                recordStore.getContext().ensureActive().clear(keyBytes);
+            }
+            context.commit();
+        }
+
+        // Run/fix few of the records on range-id 0, make sure it is a partial scan
+        timer.reset();
+        ScrubbersMissingRanges lastRanges = getScrubbersMissingRange(tgtIndex);
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setEntriesScanLimit(10)
+                        .setAllowRepair(true)
+                        .build())
+                .setLimit(10)
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        final ScrubbersMissingRanges midRange = getScrubbersMissingRange(tgtIndex);
+        assertFalse(Arrays.equals(midRange.records.begin, lastRanges.records.begin));
+
+        // Run/Detect all range-id 2. Make sure it scans the all range
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setRangeId(2)
+                        .setAllowRepair(false)
+                        .build())
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+
+        // Make sure range-id 0 was not affected
+        final ScrubbersMissingRanges range = getScrubbersMissingRange(tgtIndex);
+        assertArrayEquals(range.records.begin, midRange.records.begin);
+
+        // finish fixing in range-id 0
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        // now verify it's fixed
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, res);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleMissingMixedRangesInterleaved(boolean legacy) throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 50;
+        long res;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .setRangeId(10)
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, res);
+
+        // manually delete a few index entries
+        openSimpleMetaData(hook);
+        int missingCount = 0;
+        try (FDBRecordContext context = openContext()) {
+            List<IndexEntry> indexEntries = recordStore.scanIndex(tgtIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            for (int i = 3; i < numRecords; i *= 2) {
+                final IndexEntry indexEntry = indexEntries.get(i);
+                final Tuple valueKey = indexEntry.getKey();
+                final byte[] keyBytes = recordStore.indexSubspace(tgtIndex).pack(valueKey);
+                recordStore.getContext().ensureActive().clear(keyBytes);
+                missingCount ++;
+            }
+            context.commit();
+        }
+
+        // Run/fix few of the records on range-id 0, make sure it is a partial scan, preserve timer
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setEntriesScanLimit(10)
+                        .setAllowRepair(true)
+                        .build())
+                .setLimit(10)
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+
+        // Run/Detect few records in range-id 1, no timer
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setRangeId(1)
+                        .setAllowRepair(false)
+                        .setEntriesScanLimit(21)
+                        .build())
+                .setLimit(20)
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        final ScrubbersMissingRanges midRange = getScrubbersMissingRange(tgtIndex);
+        assertFalse(midRange.records.begin == null || RangeSet.isFinalKey(midRange.records.begin));
+
+        // finish fixing in range-id 0, with preserved timer. Check timer's values
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+
+
+        // now verify it's fixed
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0, res);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleMissingMixedRangesWithReset(boolean legacy) throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 32;
+        long res;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+        populateData(numRecords);
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        // manually delete a few index entries
+        openSimpleMetaData(hook);
+        int missingCount = 0;
+        try (FDBRecordContext context = openContext()) {
+            List<IndexEntry> indexEntries = recordStore.scanIndex(tgtIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            for (int i = 3; i < numRecords; i *= 2) {
+                final IndexEntry indexEntry = indexEntries.get(i);
+                final Tuple valueKey = indexEntry.getKey();
+                final byte[] keyBytes = recordStore.indexSubspace(tgtIndex).pack(valueKey);
+                recordStore.getContext().ensureActive().clear(keyBytes);
+                missingCount ++;
+            }
+            context.commit();
+        }
+
+        // Run/Detect few of the records on range-id 2, make sure it is a partial scan
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setEntriesScanLimit(20)
+                        .setAllowRepair(false)
+                        .setRangeId(2)
+                        .build())
+                .setLimit(7)
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertTrue(numRecords > timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        final byte[] begin = getScrubbersMissingRange(tgtIndex).records.begin;
+        assertFalse(begin == null || RangeSet.isFinalKey(begin));
+
+        // Run/Detect all range-id 2, with a reset, assert full scan
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setAllowRepair(false)
+                        .setRangeId(2)
+                        .setRangeReset(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleDanglingMixedRanges(boolean legacy) throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long numRecords = 53;
+        long res;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+        populateData(numRecords);
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .setRangeId(10)
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
+
+        // manually delete a few records w/o updating the indexes
+        openSimpleMetaData(hook);
+        int danglingCount = 0;
+        try (FDBRecordContext context = openContext(false)) {
+            List<FDBIndexedRecord<Message>> indexRecordEntries = recordStore.scanIndexRecords(tgtIndex.getName(), IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            for (int i = 3; i < numRecords; i *= 2) {
+                final FDBIndexedRecord<Message> indexRecord = indexRecordEntries.get(i);
+                final FDBStoredRecord<Message> rec = indexRecord.getStoredRecord();
+                final Subspace subspace = recordStore.recordsSubspace().subspace(rec.getPrimaryKey());
+                recordStore.getContext().ensureActive().clear(subspace.range());
+                danglingCount ++;
+            }
+            context.commit();
+        }
+        numRecords -= danglingCount; // if the dangling indexes were removed, this should be reflected later
+
+
+        // Run/fix few of the missing entries on range-id 0, make sure it is a partial scan
+        timer.reset();
+        ScrubbersMissingRanges lastRanges = getScrubbersMissingRange(tgtIndex);
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setEntriesScanLimit(10)
+                        .setAllowRepair(true)
+                        .build())
+                .setLimit(10)
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        final ScrubbersMissingRanges midRange = getScrubbersMissingRange(tgtIndex);
+        assertFalse(Arrays.equals(midRange.indexes.begin, lastRanges.indexes.begin));
+
+        // Run/Detect all range-id 2. Make sure it scans the all range
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setRangeId(2)
+                        .setAllowRepair(false)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+
+        // Make sure range-id 0 was not affected
+        final ScrubbersMissingRanges range = getScrubbersMissingRange(tgtIndex);
+        assertArrayEquals(range.indexes.begin, midRange.indexes.begin);
+
+        // finish fixing in range-id 0
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+
+        // now verify it's fixed
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleDangingMixedRangesInterleaved(boolean legacy) throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long numRecords = 55;
+        long res;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+        populateData(numRecords);
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .setRangeId(10)
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
+
+        // manually delete a few records w/o updating the indexes
+        openSimpleMetaData(hook);
+        int danglingCount = 0;
+        try (FDBRecordContext context = openContext(false)) {
+            List<FDBIndexedRecord<Message>> indexRecordEntries = recordStore.scanIndexRecords(tgtIndex.getName(), IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            for (int i = 3; i < numRecords; i *= 2) {
+                final FDBIndexedRecord<Message> indexRecord = indexRecordEntries.get(i);
+                final FDBStoredRecord<Message> rec = indexRecord.getStoredRecord();
+                final Subspace subspace = recordStore.recordsSubspace().subspace(rec.getPrimaryKey());
+                recordStore.getContext().ensureActive().clear(subspace.range());
+                danglingCount ++;
+            }
+            context.commit();
+        }
+
+        // Run/fix few of the records on range-id 0, make sure it is a partial scan, preserve timer
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setEntriesScanLimit(10)
+                        .setAllowRepair(true)
+                        .build())
+                .setLimit(10)
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+
+        // Run/Detect few records in range-id 1, no timer
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setRangeId(1)
+                        .setAllowRepair(false)
+                        .setEntriesScanLimit(21)
+                        .build())
+                .setLimit(20)
+                .build()) {
+            indexScrubber.scrubMissingIndexEntries();
+        }
+        final ScrubbersMissingRanges midRange = getScrubbersMissingRange(tgtIndex);
+        assertFalse(midRange.indexes.begin == null || RangeSet.isFinalKey(midRange.indexes.begin));
+
+        // finish fixing in range-id 0, with preserved timer. Check timer's values
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+
+        numRecords -= danglingCount; // if the dangling indexes were removed, this should be reflected later
+
+        // now verify it's fixed
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberSimpleDanglingMixedRangesWithReset(boolean legacy) throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long numRecords = 32;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+        populateData(numRecords);
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        // manually delete a few records w/o updating the indexes
+        openSimpleMetaData(hook);
+        int danglingCount = 0;
+        try (FDBRecordContext context = openContext(false)) {
+            List<FDBIndexedRecord<Message>> indexRecordEntries = recordStore.scanIndexRecords(tgtIndex.getName(), IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            for (int i = 3; i < numRecords; i *= 2) {
+                final FDBIndexedRecord<Message> indexRecord = indexRecordEntries.get(i);
+                final FDBStoredRecord<Message> rec = indexRecord.getStoredRecord();
+                final Subspace subspace = recordStore.recordsSubspace().subspace(rec.getPrimaryKey());
+                recordStore.getContext().ensureActive().clear(subspace.range());
+                danglingCount ++;
+            }
+            context.commit();
+        }
+
+        // Run/Detect few of the index entries on range-id 2, make sure it is a partial scan
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setEntriesScanLimit(20)
+                        .setAllowRepair(false)
+                        .setRangeId(2)
+                        .build())
+                .setLimit(7)
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertTrue(numRecords > timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        final byte[] begin = getScrubbersMissingRange(tgtIndex).indexes.begin;
+        assertFalse(begin == null || RangeSet.isFinalKey(begin));
+
+        // Run/Detect all range-id 2, with a reset, assert full scan
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setAllowRepair(false)
+                        .setRangeId(2)
+                        .setRangeReset(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
     }
 }

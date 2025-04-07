@@ -93,8 +93,10 @@ public abstract class IndexingBase {
     private static final Object INDEX_BUILD_LOCK_KEY = 0L;
     private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;
     private static final Object INDEX_BUILD_TYPE_VERSION = 2L;
-    private static final Object INDEX_SCRUBBED_INDEX_RANGES = 3L;
-    private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 4L;
+    private static final Object INDEX_SCRUBBED_INDEX_RANGES_ZERO = 3L;
+    private static final Object INDEX_SCRUBBED_RECORDS_RANGES_ZERO = 4L;
+    private static final Object INDEX_SCRUBBED_INDEX_RANGES = 4L;
+    private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 5L;
 
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingBase.class);
@@ -157,15 +159,21 @@ public abstract class IndexingBase {
     @Nonnull
     public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
         // This subspace holds the scrubbed ranges of the index itself (when looking for dangling entries)
-        final Subspace subspace = indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
-        return rangeId == 0 ? subspace : subspace.subspace(Tuple.from(rangeId));
+        if (rangeId == 0) {
+            // Backward compatible
+            return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES_ZERO);
+        }
+        return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES).subspace(Tuple.from(rangeId));
     }
 
     @Nonnull
     public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
         // This subspace hods the scrubbed ranges of the records (when looking for missing index entries)
-        final Subspace subspace = indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
-        return rangeId == 0 ? subspace : subspace.subspace(Tuple.from(rangeId));
+        if (rangeId == 0) {
+            // backward compatible
+            return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES_ZERO);
+        }
+        return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES).subspace(Tuple.from(rangeId));
     }
 
     @SuppressWarnings("squid:S1452")
