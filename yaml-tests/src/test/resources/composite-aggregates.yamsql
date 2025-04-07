@@ -99,6 +99,6 @@ test_block:
       - result: []
     -
       - query: select col1, min(col2), max(col2) from T3 group by col1, col3;
-      - explain: "AISCAN(T3_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) ∩ AISCAN(T3_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) COMPARE BY (_._0, _._2, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) | MAP (_._0 AS COL1, _._2 AS _1, _._3 AS _2)"
+      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2) AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1, _._1._0 AS _1, _._1._1 AS _2)"
       - result: []
 ...
