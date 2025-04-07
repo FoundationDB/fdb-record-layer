@@ -31,13 +31,11 @@ import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,12 +106,8 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    static Stream<Arguments> twoBooleans() {
-        return Stream.of(Arguments.of(true, false), Arguments.of(false, true), Arguments.of(true, true));
-    }
-
     @ParameterizedTest
-    @MethodSource("twoBooleans")
+    @CsvSource({"true,true", "true,false", "false,true"})
     void loadSyntheticRecordFailsMissingConstituent(boolean missingSimple, boolean missingOther) throws ExecutionException, InterruptedException {
         final Tuple joinedPrimaryKey;
         final FDBStoredRecord<Message> simpleRecord;
@@ -149,7 +143,9 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, baseMetaData(addJoinedType()));
             // Default policy (ERROR) should fail
-            final ExecutionException exception = assertThrows(ExecutionException.class, () -> recordStore.loadSyntheticRecord(joinedPrimaryKey, IndexOrphanBehavior.ERROR).get());
+            ExecutionException exception = assertThrows(ExecutionException.class, () -> recordStore.loadSyntheticRecord(joinedPrimaryKey).get());
+            assertEquals(RecordDoesNotExistException.class, exception.getCause().getClass());
+            exception = assertThrows(ExecutionException.class, () -> recordStore.loadSyntheticRecord(joinedPrimaryKey, IndexOrphanBehavior.ERROR).get());
             assertEquals(RecordDoesNotExistException.class, exception.getCause().getClass());
             // RETURN policy returns the shell of the synthetic record with no constituents
             final FDBSyntheticRecord syntheticRecord = recordStore.loadSyntheticRecord(joinedPrimaryKey, IndexOrphanBehavior.RETURN).get();
